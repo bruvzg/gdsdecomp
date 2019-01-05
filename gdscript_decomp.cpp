@@ -2,12 +2,12 @@
 /*  gdscript_decomp.cpp                                                  */
 /*************************************************************************/
 
-#include"gdscript_decomp.h"
+#include "gdscript_decomp.h"
 
-#include"core/engine.h"
+#include "core/engine.h"
 
-#include"core/os/file_access.h"
-#include"core/io/file_access_encrypted.h"
+#include "core/os/file_access.h"
+#include "core/io/file_access_encrypted.h"
 
 void GDScriptDeComp::_bind_methods() {
 

@@ -22,6 +22,10 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<GDScriptDeComp>();
 
 #ifdef TOOLS_ENABLED
+	ClassDB::register_class<PackDialog>();
+	ClassDB::register_class<ScriptCompDialog>();
+	ClassDB::register_class<ScriptDecompDialog>();
+
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);
 #endif
 }
