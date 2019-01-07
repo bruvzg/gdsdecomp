@@ -6,8 +6,10 @@
 #include "gdscript_decomp.h"
 
 #include "core/io/file_access_encrypted.h"
+#include "core/io/resource_format_binary.h"
 #include "icons/icons.gen.h"
 #include "modules/svg/image_loader_svg.h"
+#include "scene/resources/scene_format_text.h"
 
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
@@ -102,13 +104,15 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	bin_res_file_selection = memnew(EditorFileDialog);
 	bin_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	bin_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
-	bin_res_file_selection->add_filter("*.scn,*.res,project.binary;Binary resource files");
+	bin_res_file_selection->add_filter("*.scn,*.res;Binary resource files");
+	bin_res_file_selection->connect("files_selected", this, "_res_bin_2_txt_request");
 	editor->get_gui_base()->add_child(bin_res_file_selection);
 
 	txt_res_file_selection = memnew(EditorFileDialog);
 	txt_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	txt_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
-	txt_res_file_selection->add_filter("*.tscn,*.tres,project.godot;Text resource files");
+	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
+	txt_res_file_selection->connect("files_selected", this, "_res_txt_2_bin_request");
 	editor->get_gui_base()->add_child(txt_res_file_selection);
 
 	//Init menu
@@ -160,10 +164,9 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 		about_dialog_checkbox->connect("toggled", this, "_toggle_about_dialog_on_start");
 	}
 
-	menu_popup->add_separator(); //1
+	//menu_popup->add_separator(); //1
 
-	menu_popup->add_icon_item(gui_icons["Logo"], TTR("Convert PCK to project..."), MENU_ONE_CLICK_UNEXPORT); //2
-	menu_popup->set_item_disabled(2, true); //TODO remove when implemented
+	//menu_popup->add_icon_item(gui_icons["Logo"], TTR("Convert PCK to project..."), MENU_ONE_CLICK_UNEXPORT); //2
 
 	menu_popup->add_separator(); //3
 
@@ -177,9 +180,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	menu_popup->add_separator(); //8
 
 	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resource to text..."), MENU_CONV_TO_TXT); //9
-	menu_popup->set_item_disabled(9, true); //TODO remove when implemented
 	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resource to binary..."), MENU_CONV_TO_BIN); //10
-	menu_popup->set_item_disabled(10, true); //TODO remove when implemented
 
 	menu_popup->connect("id_pressed", this, "_menu_option_pressed");
 
@@ -611,6 +612,165 @@ void GodotREEditor::_pck_extract_files_process() {
 	}
 }
 
+void GodotREEditor::_res_bin_2_txt_request(const PoolVector<String> &p_files) {
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String overwrite_list = String();
+	for (int i = 0; i < p_files.size(); i++) {
+
+		String ext = p_files[i].get_extension().to_lower();
+		String new_ext = ".txt";
+		if (ext == "scn") {
+			new_ext = ".tscn";
+		} else if (ext == "res") {
+			new_ext = ".tres";
+		}
+
+		if (da->file_exists(p_files[i].get_basename() + new_ext)) {
+			overwrite_list += p_files[i].get_basename() + new_ext + "\n";
+		}
+	}
+
+	res_files = p_files;
+
+	if (overwrite_list.length() == 0) {
+		_res_bin_2_txt_process();
+	} else {
+		ovd->set_message(overwrite_list);
+		ovd->connect("confirmed", this, "_res_bin_2_txt_process", Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->popup_centered();
+	}
+}
+
+void GodotREEditor::_res_bin_2_txt_process() {
+
+	EditorProgress *pr = memnew(EditorProgress("re_b2t_res", TTR("Converting files..."), res_files.size(), true));
+
+	String failed_files;
+	for (int i = 0; i < res_files.size(); i++) {
+
+		bool cancel = pr->step(res_files[i], i, true);
+		if (cancel) {
+			break;
+		}
+
+		String ext = res_files[i].get_extension().to_lower();
+		String new_ext = ".txt";
+		if (ext == "scn") {
+			new_ext = ".tscn";
+		} else if (ext == "res") {
+			new_ext = ".tres";
+		}
+
+		Error err = convert_file_to_text(res_files[i], res_files[i].get_basename() + new_ext);
+		if (err != OK) {
+			failed_files += res_files[i] + " (ResourceFormatLoaderText error)\n";
+		}
+	}
+
+	memdelete(pr);
+	res_files = PoolVector<String>();
+
+	if (failed_files.length() > 0) {
+		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+	} else {
+		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+	}
+}
+
+Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
+
+	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
+	Ref<ResourceInteractiveLoaderBinary> ria = rl->load_interactive(p_src_path);
+	Error err = ria->poll();
+	while (err == OK) {
+		err = ria->poll();
+	}
+	if (ria->get_resource().is_null()) {
+		return ERR_CANT_OPEN;
+	}
+	return ResourceFormatSaverText::singleton->save(p_dst_path, ria->get_resource());
+}
+
+void GodotREEditor::_res_txt_2_bin_request(const PoolVector<String> &p_files) {
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String overwrite_list = String();
+	for (int i = 0; i < p_files.size(); i++) {
+		String ext = p_files[i].get_extension().to_lower();
+		String new_ext = ".bin";
+		if (ext == "tscn") {
+			new_ext = ".scn";
+		} else if (ext == "tres") {
+			new_ext = ".res";
+		}
+
+		if (da->file_exists(p_files[i].get_basename() + new_ext)) {
+			overwrite_list += p_files[i].get_basename() + new_ext + "\n";
+		}
+	}
+
+	res_files = p_files;
+
+	if (overwrite_list.length() == 0) {
+		_res_txt_2_bin_process();
+	} else {
+		ovd->set_message(overwrite_list);
+		ovd->connect("confirmed", this, "_res_txt_2_bin_process", Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->popup_centered();
+	}
+}
+
+void GodotREEditor::_res_txt_2_bin_process() {
+
+	EditorProgress *pr = memnew(EditorProgress("re_t2b_res", TTR("Converting files..."), res_files.size(), true));
+
+	String failed_files;
+	for (int i = 0; i < res_files.size(); i++) {
+
+		bool cancel = pr->step(res_files[i], i, true);
+		if (cancel) {
+			break;
+		}
+
+		String ext = res_files[i].get_extension().to_lower();
+		String new_ext = ".bin";
+		if (ext == "tscn") {
+			new_ext = ".scn";
+		} else if (ext == "tres") {
+			new_ext = ".res";
+		}
+
+		Error err = convert_file_to_binary(res_files[i], res_files[i].get_basename() + new_ext);
+		if (err != OK) {
+			failed_files += res_files[i] + " (ResourceFormatLoaderText error)\n";
+		}
+	}
+
+	memdelete(pr);
+	res_files = PoolVector<String>();
+
+	if (failed_files.length() > 0) {
+		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+	} else {
+		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+	}
+}
+
+Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const String &p_dst_path) {
+
+	Ref<ResourceFormatLoaderText> rl = memnew(ResourceFormatLoaderText);
+	Ref<ResourceInteractiveLoaderText> ria = rl->load_interactive(p_src_path);
+	Error err = ria->poll();
+	while (err == OK) {
+		err = ria->poll();
+	}
+	if (ria->get_resource().is_null()) {
+		return ERR_CANT_OPEN;
+	}
+	return ResourceFormatSaverBinary::singleton->save(p_dst_path, ria->get_resource());
+}
+
 void GodotREEditor::_notification(int p_notification) {
 
 	switch (p_notification) {
@@ -641,4 +801,13 @@ void GodotREEditor::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_menu_option_pressed", "id"), &GodotREEditor::_menu_option_pressed);
 	ClassDB::bind_method(D_METHOD("_toggle_about_dialog_on_start"), &GodotREEditor::_toggle_about_dialog_on_start);
+
+	ClassDB::bind_method(D_METHOD("_res_bin_2_txt_request", "files"), &GodotREEditor::_res_bin_2_txt_request);
+	ClassDB::bind_method(D_METHOD("_res_bin_2_txt_process"), &GodotREEditor::_res_bin_2_txt_process);
+
+	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_request", "files"), &GodotREEditor::_res_txt_2_bin_request);
+	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_process"), &GodotREEditor::_res_txt_2_bin_process);
+
+	ClassDB::bind_method(D_METHOD("convert_file_to_binary", "src_path", "dst_path"), &GodotREEditor::convert_file_to_binary);
+	ClassDB::bind_method(D_METHOD("convert_file_to_text", "src_path", "dst_path"), &GodotREEditor::convert_file_to_text);
 };

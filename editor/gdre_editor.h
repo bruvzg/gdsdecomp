@@ -89,6 +89,16 @@ private:
 	void _pck_extract_files();
 	void _pck_extract_files_process();
 
+	PoolVector<String> res_files;
+
+	void _res_bin_2_txt_request(const PoolVector<String> &p_files);
+	void _res_bin_2_txt_process();
+	void _res_txt_2_bin_request(const PoolVector<String> &p_files);
+	void _res_txt_2_bin_process();
+
+	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
+	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
+
 	static GodotREEditor *singleton;
 
 protected:

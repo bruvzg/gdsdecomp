@@ -4,11 +4,15 @@ This software in a pre-alpha stage and is not suitable for use in production.
 
 #### Introduction
 
-TODO
+This module includes following tools:
+
+- PCK archive explorer/tester/extractor.
+- GDScript batch "compiler"/"decompiler".
+- Resource text <-> binary batch converter.
 
 #### Requirements
 
-TODO
+Godot 3.1
 
 #### Downloading and compiling
 
