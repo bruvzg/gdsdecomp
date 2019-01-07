@@ -104,11 +104,20 @@ void PackDialog::_dir_select_pressed() {
 void PackDialog::_dir_select_request(const String &p_path) {
 
 	target_dir->set_text(p_path);
+	_validate_selection();
 }
 
 void PackDialog::_validate_selection() {
 
-	//TODO disable OK button if no files or target selected
+	bool nothing_selected = true;
+	TreeItem *it = root->get_children();
+	while (it) {
+		if (it->is_checked(0)) {
+			nothing_selected = false;
+		}
+		it = it->get_next();
+	}
+	get_ok()->set_disabled(nothing_selected || target_dir->get_text().empty());
 }
 
 void PackDialog::_select_all_toggle(int p_col) {
@@ -120,6 +129,7 @@ void PackDialog::_select_all_toggle(int p_col) {
 			it = it->get_next();
 		}
 	}
+	_validate_selection();
 }
 
 Vector<String> PackDialog::get_selected_files() const {
