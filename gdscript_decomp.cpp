@@ -52,6 +52,13 @@ String GDScriptDeComp::load_byte_code(const String &p_path) {
 	return _parse(bytecode);
 }
 
+_FORCE_INLINE_ void GDScriptDeComp::_ensure_space(String &p_code) {
+
+	if (!p_code.ends_with(" ")) {
+		p_code += String(" ");
+	}
+}
+
 String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 
 	GDScriptTokenizerBuffer *tokenizer = memnew(GDScriptTokenizerBuffer);
@@ -74,7 +81,7 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 				line += tokenizer->get_token_constant().get_construct_string();
 			} break;
 			case GDScriptTokenizer::TK_SELF: {
-				line += "self ";
+				line += "self";
 			} break;
 			case GDScriptTokenizer::TK_BUILT_IN_TYPE: {
 				line += Variant::get_type_name(tokenizer->get_token_type());
@@ -83,100 +90,133 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 				line += GDScriptFunctions::get_func_name(tokenizer->get_token_built_in_func());
 			} break;
 			case GDScriptTokenizer::TK_OP_IN: {
-				line += " in ";
+				_ensure_space(line);
+				line += "in ";
 			} break;
 			case GDScriptTokenizer::TK_OP_EQUAL: {
-				line += " == ";
+				_ensure_space(line);
+				line += "== ";
 			} break;
 			case GDScriptTokenizer::TK_OP_NOT_EQUAL: {
-				line += " != ";
+				_ensure_space(line);
+				line += "!= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_LESS: {
-				line += " < ";
+				_ensure_space(line);
+				line += "< ";
 			} break;
 			case GDScriptTokenizer::TK_OP_LESS_EQUAL: {
-				line += " <= ";
+				_ensure_space(line);
+				line += "<= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_GREATER: {
-				line += " > ";
+				_ensure_space(line);
+				line += "> ";
 			} break;
 			case GDScriptTokenizer::TK_OP_GREATER_EQUAL: {
-				line += " <= ";
+				_ensure_space(line);
+				line += ">= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_AND: {
-				line += " and ";
+				_ensure_space(line);
+				line += "and ";
 			} break;
 			case GDScriptTokenizer::TK_OP_OR: {
-				line += " or ";
+				_ensure_space(line);
+				line += "or ";
 			} break;
 			case GDScriptTokenizer::TK_OP_NOT: {
-				line += " not ";
+				_ensure_space(line);
+				line += "not ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ADD: {
-				line += " + ";
+				_ensure_space(line);
+				line += "+ ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SUB: {
-				line += " - ";
+				_ensure_space(line);
+				line += "- ";
+				//TODO: do not add space after unary "-"
 			} break;
 			case GDScriptTokenizer::TK_OP_MUL: {
-				line += " * ";
+				_ensure_space(line);
+				line += "* ";
 			} break;
 			case GDScriptTokenizer::TK_OP_DIV: {
-				line += " / ";
+				_ensure_space(line);
+				line += "/ ";
 			} break;
 			case GDScriptTokenizer::TK_OP_MOD: {
-				line += " % ";
+				_ensure_space(line);
+				line += "% ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SHIFT_LEFT: {
-				line += " << ";
+				_ensure_space(line);
+				line += "<< ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SHIFT_RIGHT: {
-				line += " >> ";
+				_ensure_space(line);
+				line += ">> ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN: {
-				line += " = ";
+				_ensure_space(line);
+				line += "= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_ADD: {
-				line += " += ";
+				_ensure_space(line);
+				line += "+= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SUB: {
-				line += " -= ";
+				_ensure_space(line);
+				line += "-= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_MUL: {
-				line += " *= ";
+				_ensure_space(line);
+				line += "*= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_DIV: {
-				line += " /= ";
+				_ensure_space(line);
+				line += "/= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_MOD: {
-				line += " %= ";
+				_ensure_space(line);
+				line += "%= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SHIFT_LEFT: {
-				line += " <<= ";
+				_ensure_space(line);
+				line += "<<= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SHIFT_RIGHT: {
-				line += " >>= ";
+				_ensure_space(line);
+				line += ">>= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_AND: {
+				_ensure_space(line);
 				line += "&= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_OR: {
-				line += " |= ";
+				_ensure_space(line);
+				line += "|= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_XOR: {
-				line += "^=";
+				_ensure_space(line);
+				line += "^= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_AND: {
-				line += " & ";
+				_ensure_space(line);
+				line += "& ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_OR: {
-				line += " | ";
+				_ensure_space(line);
+				line += "| ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_XOR: {
-				line += " ^ ";
+				_ensure_space(line);
+				line += "^ ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_INVERT: {
-				line += "!";
+				_ensure_space(line);
+				line += "! ";
 			} break;
 			//case GDScriptTokenizer::TK_OP_PLUS_PLUS: {
 			//	line += "++";
