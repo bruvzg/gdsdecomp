@@ -14,6 +14,23 @@
 #include "gdre_dec_dlg.h"
 #include "gdre_pck_dlg.h"
 
+class ResultDialog : public AcceptDialog {
+	GDCLASS(ResultDialog, AcceptDialog)
+
+	Label *lbl;
+	TextEdit *message;
+
+protected:
+	void _notification(int p_notification);
+	static void _bind_methods();
+
+public:
+	void set_message(const String &p_text, const String &p_title);
+
+	ResultDialog();
+	~ResultDialog();
+};
+
 class OverwriteDialog : public AcceptDialog {
 	GDCLASS(OverwriteDialog, AcceptDialog)
 
@@ -57,6 +74,7 @@ private:
 	Map<String, Ref<ImageTexture> > gui_icons;
 
 	OverwriteDialog *ovd;
+	ResultDialog *rdl;
 
 	ScriptDecompDialog *script_dialog_d;
 	ScriptCompDialog *script_dialog_c;

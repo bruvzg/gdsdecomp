@@ -45,11 +45,7 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	//Encryption key
 	script_key = memnew(LineEdit);
 	script_key->connect("text_changed", this, "_script_encryption_key_changed");
-	script_vb->add_margin_child(TTR("Script Encryption Key (256-bits as hex, optional):"), script_key);
-
-	script_key_error = memnew(Label);
-	script_key_error->set_text(TTR(""));
-	script_vb->add_child(script_key_error);
+	script_vb->add_margin_child(TTR("Script encryption key (256-bits as hex, optional):"), script_key);
 
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
@@ -59,11 +55,14 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	dir_hbc->add_child(target_dir);
 
 	select_dir = memnew(Button);
-	select_dir->set_text(TTR("Select folder..."));
+	select_dir->set_text("...");
 	select_dir->connect("pressed", this, "_dir_select_pressed");
 	dir_hbc->add_child(select_dir);
 
-	script_vb->add_margin_child(TTR("Target directory:"), dir_hbc);
+	script_vb->add_margin_child(TTR("Destination folder:"), dir_hbc);
+
+	script_key_error = memnew(Label);
+	script_vb->add_child(script_key_error);
 
 	add_child(script_vb);
 
@@ -87,7 +86,7 @@ Vector<String> ScriptDecompDialog::get_file_list() const {
 }
 
 String ScriptDecompDialog::get_target_dir() const {
-	
+
 	return target_dir->get_text();
 }
 
@@ -148,7 +147,6 @@ void ScriptDecompDialog::_remove_file_pressed() {
 
 void ScriptDecompDialog::_validate_input() {
 
-	bool key_ok = false;
 	bool need_key = false;
 
 	for (int i = 0; i < file_list->get_item_count(); i++) {
@@ -157,25 +155,34 @@ void ScriptDecompDialog::_validate_input() {
 		}
 	}
 
+	bool ok = true;
+	String error_message;
+
 	if (script_key->get_text().empty()) {
-		script_key_error->set_text(TTR("No Encryption Key"));
 		if (need_key) {
+			error_message += TTR("No encryption key") + "\n";
 			script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
-			key_ok = false;
-		} else {
-			script_key_error->set_text(TTR(""));
-			key_ok = true;
+			ok = false;
 		}
 	} else if (script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
-		script_key_error->set_text(TTR("Invalid Encryption Key (must be 64 characters long)"));
+		error_message += TTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
 		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
-		key_ok = false;
-	} else {
-		script_key_error->set_text(TTR(""));
-		key_ok = true;
+		ok = false;
+	}
+	if (target_dir->get_text().empty()) {
+		error_message += TTR("No destination folder selected") + "\n";
+		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		ok = false;
+	}
+	if (file_list->get_item_count() == 0) {
+		error_message += TTR("No files selected") + "\n";
+		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		ok = false;
 	}
 
-	get_ok()->set_disabled(!(!target_dir->get_text().empty() && (file_list->get_item_count() > 0) && key_ok));
+	script_key_error->set_text(error_message);
+
+	get_ok()->set_disabled(!ok);
 }
 
 void ScriptDecompDialog::_script_encryption_key_changed(const String &p_key) {

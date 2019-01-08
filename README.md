@@ -10,6 +10,8 @@ This module includes following tools:
 - GDScript batch "compiler"/"decompiler".
 - Resource text <-> binary batch converter.
 
+![Screenshot](screenshot.png)
+
 #### Requirements
 
 Godot 3.1

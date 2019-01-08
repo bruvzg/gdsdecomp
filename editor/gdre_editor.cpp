@@ -15,6 +15,43 @@
 #include "thirdparty/misc/sha256.h"
 
 GodotREEditor *GodotREEditor::singleton = NULL;
+/*************************************************************************/
+
+ResultDialog::ResultDialog() {
+
+	set_title(TTR("OK"));
+	set_resizable(false);
+
+	VBoxContainer *script_vb = memnew(VBoxContainer);
+
+	lbl = memnew(Label);
+	script_vb->add_child(lbl);
+
+	message = memnew(TextEdit);
+	message->set_readonly(true);
+	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
+	script_vb->add_child(message);
+
+	add_child(script_vb);
+};
+
+ResultDialog::~ResultDialog() {
+	//NOP
+}
+
+void ResultDialog::_notification(int p_notification) {
+	//NOP
+}
+
+void ResultDialog::_bind_methods() {
+	//NOP
+}
+
+void ResultDialog::set_message(const String &p_text, const String &p_title) {
+
+	lbl->set_text(p_title);
+	message->set_text(p_text);
+}
 
 /*************************************************************************/
 
@@ -81,6 +118,9 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	ovd = memnew(OverwriteDialog);
 	editor->get_gui_base()->add_child(ovd);
 
+	rdl = memnew(ResultDialog);
+	editor->get_gui_base()->add_child(rdl);
+
 	script_dialog_d = memnew(ScriptDecompDialog);
 	script_dialog_d->connect("confirmed", this, "_decompile_files");
 	editor->get_gui_base()->add_child(script_dialog_d);
@@ -97,7 +137,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	pck_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILE);
 	pck_file_selection->add_filter("*.pck;PCK archive files");
-	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained exeutable files");
+	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->connect("file_selected", this, "_pck_select_request");
 	editor->get_gui_base()->add_child(pck_file_selection);
 
@@ -179,8 +219,8 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 	menu_popup->add_separator(); //8
 
-	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resource to text..."), MENU_CONV_TO_TXT); //9
-	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resource to binary..."), MENU_CONV_TO_BIN); //10
+	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //9
+	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //10
 
 	menu_popup->connect("id_pressed", this, "_menu_option_pressed");
 
@@ -305,10 +345,13 @@ void GodotREEditor::_decompile_process() {
 	memdelete(pr);
 	memdelete(dce);
 
+	rdl->set_title(TTR("Decompile"));
 	if (failed_files.length() > 0) {
-		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
 	} else {
-		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
 	}
 }
 
@@ -389,10 +432,13 @@ void GodotREEditor::_compile_process() {
 
 	memdelete(pr);
 
+	rdl->set_title(TTR("Compile"));
 	if (failed_files.length() > 0) {
-		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
 	} else {
-		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
 	}
 }
 
@@ -457,6 +503,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	EditorProgress *pr = memnew(EditorProgress("re_read_pck_md5", TTR("Reading PCK archive, click cancel to skip MD5 checking..."), file_count, true));
 
 	bool p_check_md5 = true;
+	int files_checked = 0;
+	int files_broken = 0;
 
 	for (int i = 0; i < file_count; i++) {
 
@@ -494,6 +542,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			size_t oldpos = pck->get_position();
 			pck->seek(ofs);
 
+			files_checked++;
+
 			MD5_CTX md5;
 			MD5Init(&md5);
 
@@ -519,6 +569,9 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			for (int j = 0; j < 16; j++) {
 				md5_match &= (md5.digest[j] == md5_saved[j]);
 			}
+			if (!md5_match) {
+				files_broken++;
+			}
 			pck_dialog->add_file(path, size, (md5_match) ? gui_icons["FileOk"] : gui_icons["FileBroken"]);
 		} else {
 			pck_dialog->add_file(path, size, gui_icons["File"]);
@@ -526,6 +579,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 		pck_files[path] = PackedFile(ofs, size);
 	};
+
+	pck_dialog->set_info(String("    ") + TTR("Total files: ") + itos(file_count) + TTR(" Checked: ") + itos(files_checked) + TTR(" Broken: ") + itos(files_broken));
 
 	memdelete(pr);
 	memdelete(pck);
@@ -605,10 +660,13 @@ void GodotREEditor::_pck_extract_files_process() {
 	memdelete(pr);
 	memdelete(pck);
 
+	rdl->set_title(TTR("Extract files"));
 	if (failed_files.length() > 0) {
-		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
 	} else {
-		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
 	}
 }
 
@@ -671,10 +729,13 @@ void GodotREEditor::_res_bin_2_txt_process() {
 	memdelete(pr);
 	res_files = PoolVector<String>();
 
+	rdl->set_title(TTR("Convert resources"));
 	if (failed_files.length() > 0) {
-		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
 	} else {
-		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
 	}
 }
 
@@ -750,10 +811,13 @@ void GodotREEditor::_res_txt_2_bin_process() {
 	memdelete(pr);
 	res_files = PoolVector<String>();
 
+	rdl->set_title(TTR("Convert resources"));
 	if (failed_files.length() > 0) {
-		EditorNode::get_singleton()->show_warning(TTR("At least one error was detected!") + "\n\n" + failed_files, TTR("OK"));
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
 	} else {
-		EditorNode::get_singleton()->show_accept(TTR("No errors detected."), TTR("OK"));
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
 	}
 }
 

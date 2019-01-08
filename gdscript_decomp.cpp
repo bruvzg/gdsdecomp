@@ -6,8 +6,8 @@
 
 #include "core/engine.h"
 
-#include "core/os/file_access.h"
 #include "core/io/file_access_encrypted.h"
+#include "core/os/file_access.h"
 
 void GDScriptDeComp::_bind_methods() {
 
@@ -68,40 +68,40 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 				//skip
 			} break;
 			case GDScriptTokenizer::TK_IDENTIFIER: {
-				line += String(tokenizer->get_token_identifier()) + String("");
+				line += String(tokenizer->get_token_identifier());
 			} break;
 			case GDScriptTokenizer::TK_CONSTANT: {
-				line += tokenizer->get_token_constant().get_construct_string() + String("");
+				line += tokenizer->get_token_constant().get_construct_string();
 			} break;
 			case GDScriptTokenizer::TK_SELF: {
 				line += "self ";
 			} break;
 			case GDScriptTokenizer::TK_BUILT_IN_TYPE: {
-				line += Variant::get_type_name(tokenizer->get_token_type()) + String("");
+				line += Variant::get_type_name(tokenizer->get_token_type());
 			} break;
 			case GDScriptTokenizer::TK_BUILT_IN_FUNC: {
-				line += GDScriptFunctions::get_func_name(tokenizer->get_token_built_in_func()) + String("");
+				line += GDScriptFunctions::get_func_name(tokenizer->get_token_built_in_func());
 			} break;
 			case GDScriptTokenizer::TK_OP_IN: {
 				line += " in ";
 			} break;
 			case GDScriptTokenizer::TK_OP_EQUAL: {
-				line += "==";
+				line += " == ";
 			} break;
 			case GDScriptTokenizer::TK_OP_NOT_EQUAL: {
-				line += "!=";
+				line += " != ";
 			} break;
 			case GDScriptTokenizer::TK_OP_LESS: {
-				line += "<";
+				line += " < ";
 			} break;
 			case GDScriptTokenizer::TK_OP_LESS_EQUAL: {
-				line += "<=";
+				line += " <= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_GREATER: {
-				line += ">";
+				line += " > ";
 			} break;
 			case GDScriptTokenizer::TK_OP_GREATER_EQUAL: {
-				line += "<=";
+				line += " <= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_AND: {
 				line += " and ";
@@ -113,67 +113,67 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 				line += " not ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ADD: {
-				line += "+";
+				line += " + ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SUB: {
-				line += "-";
+				line += " - ";
 			} break;
 			case GDScriptTokenizer::TK_OP_MUL: {
-				line += "*";
+				line += " * ";
 			} break;
 			case GDScriptTokenizer::TK_OP_DIV: {
-				line += "/";
+				line += " / ";
 			} break;
 			case GDScriptTokenizer::TK_OP_MOD: {
-				line += "%";
+				line += " % ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SHIFT_LEFT: {
-				line += "<<";
+				line += " << ";
 			} break;
 			case GDScriptTokenizer::TK_OP_SHIFT_RIGHT: {
-				line += ">>";
+				line += " >> ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN: {
-				line += "=";
+				line += " = ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_ADD: {
-				line += "+= ";
+				line += " += ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SUB: {
-				line += "-=";
+				line += " -= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_MUL: {
-				line += "*=";
+				line += " *= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_DIV: {
-				line += "/=";
+				line += " /= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_MOD: {
-				line += "%=";
+				line += " %= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SHIFT_LEFT: {
-				line += "<<=";
+				line += " <<= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_SHIFT_RIGHT: {
-				line += ">>=";
+				line += " >>= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_AND: {
-				line += "&=";
+				line += "&= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_OR: {
-				line += "|=";
+				line += " |= ";
 			} break;
 			case GDScriptTokenizer::TK_OP_ASSIGN_BIT_XOR: {
 				line += "^=";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_AND: {
-				line += "&";
+				line += " & ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_OR: {
-				line += "|";
+				line += " | ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_XOR: {
-				line += "^";
+				line += " ^ ";
 			} break;
 			case GDScriptTokenizer::TK_OP_BIT_INVERT: {
 				line += "!";
@@ -326,7 +326,7 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 				line += ")";
 			} break;
 			case GDScriptTokenizer::TK_COMMA: {
-				line += ",";
+				line += ", ";
 			} break;
 			case GDScriptTokenizer::TK_SEMICOLON: {
 				line += ";";
@@ -348,7 +348,7 @@ String GDScriptDeComp::_parse(Vector<uint8_t> p_bytecode) {
 			} break;
 			case GDScriptTokenizer::TK_NEWLINE: {
 				for (int i = 0; i < indent; i++) {
-					ret += "    ";
+					ret += "\t";
 				}
 				ret += line + "\n";
 				line = String();

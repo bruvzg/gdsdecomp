@@ -21,6 +21,10 @@ PackDialog::PackDialog() {
 	vernfo = memnew(Label);
 	script_vb->add_margin_child(TTR("Version:"), vernfo);
 
+	//PCK stats
+	gennfo = memnew(Label);
+	script_vb->add_margin_child(TTR("Information:"), gennfo);
+
 	//File list
 	file_list = memnew(Tree);
 	file_list->set_custom_minimum_size(Size2(1000, 600) * EDSCALE);
@@ -58,11 +62,14 @@ PackDialog::PackDialog() {
 	dir_hbc->add_child(target_dir);
 
 	select_dir = memnew(Button);
-	select_dir->set_text(TTR("Select folder..."));
+	select_dir->set_text("...");
 	select_dir->connect("pressed", this, "_dir_select_pressed");
 	dir_hbc->add_child(select_dir);
 
-	script_vb->add_margin_child(TTR("Target directory:"), dir_hbc);
+	script_vb->add_margin_child(TTR("Destination folder:"), dir_hbc);
+
+	script_key_error = memnew(Label);
+	script_vb->add_child(script_key_error);
 
 	add_child(script_vb);
 
@@ -80,6 +87,8 @@ void PackDialog::clear() {
 
 	file_list->clear();
 	root = file_list->create_item();
+
+	_validate_selection();
 }
 
 void PackDialog::add_file(const String &p_name, int64_t p_size, Ref<Texture> p_icon) {
@@ -94,6 +103,8 @@ void PackDialog::add_file(const String &p_name, int64_t p_size, Ref<Texture> p_i
 	item->set_icon(1, p_icon);
 	item->set_text(2, p_name);
 	item->set_text(3, String::num_int64(p_size));
+
+	_validate_selection();
 }
 
 void PackDialog::_dir_select_pressed() {
@@ -117,7 +128,24 @@ void PackDialog::_validate_selection() {
 		}
 		it = it->get_next();
 	}
-	get_ok()->set_disabled(nothing_selected || target_dir->get_text().empty());
+
+	bool ok = true;
+	String error_message;
+
+	if (target_dir->get_text().empty()) {
+		error_message += TTR("No destination folder selected") + "\n";
+		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		ok = false;
+	}
+	if (nothing_selected) {
+		error_message += TTR("No files selected") + "\n";
+		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		ok = false;
+	}
+
+	script_key_error->set_text(error_message);
+
+	get_ok()->set_disabled(!ok);
 }
 
 void PackDialog::_select_all_toggle(int p_col) {
@@ -155,6 +183,11 @@ void PackDialog::set_version(const String &p_version) {
 	vernfo->set_text(p_version);
 }
 
+void PackDialog::set_info(const String &p_info) {
+
+	gennfo->set_text(p_info);
+}
+
 void PackDialog::_notification(int p_notification) {
 	//NOP
 }
@@ -164,6 +197,7 @@ void PackDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_selected_files"), &PackDialog::get_selected_files);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &PackDialog::get_target_dir);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &PackDialog::set_version);
+	ClassDB::bind_method(D_METHOD("set_info", "info"), &PackDialog::set_info);
 
 	ClassDB::bind_method(D_METHOD("_dir_select_pressed"), &PackDialog::_dir_select_pressed);
 	ClassDB::bind_method(D_METHOD("_dir_select_request", "path"), &PackDialog::_dir_select_request);

@@ -16,9 +16,12 @@ class PackDialog : public AcceptDialog {
 	EditorFileDialog *target_folder_selection;
 
 	Label *vernfo;
+	Label *gennfo;
 
 	Tree *file_list;
 	TreeItem *root;
+
+	Label *script_key_error;
 
 	LineEdit *target_dir;
 	Button *select_dir;
@@ -37,6 +40,7 @@ public:
 	void clear();
 	void add_file(const String &p_name, int64_t p_size, Ref<Texture> p_icon);
 	void set_version(const String &p_version);
+	void set_info(const String &p_info);
 
 	Vector<String> get_selected_files() const;
 	String get_target_dir() const;
