@@ -23,6 +23,7 @@ void register_gdsdecomp_types() {
 
 #ifdef TOOLS_ENABLED
 	ClassDB::register_class<PackDialog>();
+	ClassDB::register_class<NewPackDialog>();
 	ClassDB::register_class<ScriptCompDialog>();
 	ClassDB::register_class<ScriptDecompDialog>();
 

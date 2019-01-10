@@ -14,8 +14,6 @@
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
 
-#include "core/version.h"
-
 GodotREEditor *GodotREEditor::singleton = NULL;
 /*************************************************************************/
 
@@ -151,6 +149,10 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_source_folder->set_mode(EditorFileDialog::MODE_OPEN_DIR);
 	pck_source_folder->connect("dir_selected", this, "_pck_create_request");
 	editor->get_gui_base()->add_child(pck_source_folder);
+
+	pck_save_dialog = memnew(NewPackDialog);
+	pck_save_dialog->connect("confirmed", this, "_pck_save_prep");
+	editor->get_gui_base()->add_child(pck_save_dialog);
 
 	pck_save_file_selection = memnew(EditorFileDialog);
 	pck_save_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
@@ -523,7 +525,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint32_t ver_minor = pck->get_32();
 	uint32_t ver_rev = pck->get_32();
 
-	pck_dialog->set_version(String("    ") + TTR("PCK version: ") + itos(version) + TTR(" created by Godot ") + itos(ver_major) + "." + itos(ver_minor) + TTR(" rev ") + itos(ver_rev) + ((is_emb) ? TTR(" self contained exe") : TTR(" standalone")));
+	pck_dialog->set_version(String("    ") + TTR("PCK version: ") + itos(version) + "; " + TTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + TTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? TTR("self contained exe") : TTR("standalone")));
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
@@ -610,7 +612,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		pck_files[path] = PackedFile(ofs, size);
 	};
 
-	pck_dialog->set_info(String("    ") + TTR("Total files: ") + itos(file_count) + TTR(" Checked: ") + itos(files_checked) + TTR(" Broken: ") + itos(files_broken));
+	pck_dialog->set_info(String("    ") + TTR("Total files: ") + itos(file_count) + "; " + TTR("Checked: ") + itos(files_checked) + "; " + TTR("Broken: ") + itos(files_broken));
 
 	memdelete(pr);
 	memdelete(pck);
@@ -887,6 +889,17 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 		return;
 	}
 
+	String file_list;
+	for (int i = 0; i < pck_save_files.size(); i++) {
+		file_list += pck_save_files[i].name + " (" + itos(pck_save_files[i].size) + " bytes)\n";
+	}
+	pck_save_dialog->set_message(file_list);
+
+	pck_save_dialog->popup_centered(Size2(800, 600));
+}
+
+void GodotREEditor::_pck_save_prep() {
+
 	pck_save_file_selection->popup_centered(Size2(800, 600));
 }
 
@@ -966,10 +979,10 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	EditorProgress *pr = memnew(EditorProgress("re_write_pck", TTR("Writing PCK archive..."), pck_save_files.size() + 2, true));
 
 	f->store_32(0x43504447); //GDPK
-	f->store_32(1); //pack version
-	f->store_32(VERSION_MAJOR);
-	f->store_32(VERSION_MINOR);
-	f->store_32(0); //hmph
+	f->store_32(pck_save_dialog->get_version_pack());
+	f->store_32(pck_save_dialog->get_version_major());
+	f->store_32(pck_save_dialog->get_version_minor());
+	f->store_32(pck_save_dialog->get_version_rev());
 	for (int i = 0; i < 16; i++) {
 		//reserved
 		f->store_32(0);
@@ -1041,7 +1054,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	f->store_32(0);
 	f->store_32(0);
-	f->store_string(String("<- Created with Godot RE tools, v0.0.1-poc ->"));
+	f->store_string(pck_save_dialog->get_watermark());
 	f->store_32(0);
 	f->store_32(0);
 
@@ -1091,6 +1104,7 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_pck_extract_files_process"), &GodotREEditor::_pck_extract_files_process);
 
 	ClassDB::bind_method(D_METHOD("_pck_create_request", "path"), &GodotREEditor::_pck_create_request);
+	ClassDB::bind_method(D_METHOD("_pck_save_prep"), &GodotREEditor::_pck_save_prep);
 	ClassDB::bind_method(D_METHOD("_pck_save_request", "path"), &GodotREEditor::_pck_save_request);
 
 	ClassDB::bind_method(D_METHOD("_menu_option_pressed", "id"), &GodotREEditor::_menu_option_pressed);

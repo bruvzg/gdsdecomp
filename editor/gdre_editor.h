@@ -12,6 +12,7 @@
 
 #include "gdre_cmp_dlg.h"
 #include "gdre_dec_dlg.h"
+#include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
 
 class ResultDialog : public AcceptDialog {
@@ -86,7 +87,9 @@ private:
 	Map<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
 
+	NewPackDialog *pck_save_dialog;
 	EditorFileDialog *pck_source_folder;
+
 	EditorFileDialog *pck_save_file_selection;
 
 	EditorFileDialog *bin_res_file_selection;
@@ -113,6 +116,7 @@ private:
 	void _pck_extract_files_process();
 
 	void _pck_create_request(const String &p_path);
+	void _pck_save_prep();
 	uint64_t _pck_create_process_folder(EditorProgress *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel);
 	void _pck_save_request(const String &p_path);
 
