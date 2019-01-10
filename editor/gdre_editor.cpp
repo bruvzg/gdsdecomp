@@ -14,6 +14,8 @@
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
 
+#include "core/version.h"
+
 GodotREEditor *GodotREEditor::singleton = NULL;
 /*************************************************************************/
 
@@ -96,6 +98,17 @@ void OverwriteDialog::set_message(const String &p_text) {
 
 /*************************************************************************/
 
+static int _get_pad(int p_alignment, int p_n) {
+
+	int rest = p_n % p_alignment;
+	int pad = 0;
+	if (rest > 0) {
+		pad = p_alignment - rest;
+	};
+
+	return pad;
+}
+
 GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 	singleton = this;
@@ -132,6 +145,19 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_dialog = memnew(PackDialog);
 	pck_dialog->connect("confirmed", this, "_pck_extract_files");
 	editor->get_gui_base()->add_child(pck_dialog);
+
+	pck_source_folder = memnew(EditorFileDialog);
+	pck_source_folder->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
+	pck_source_folder->set_mode(EditorFileDialog::MODE_OPEN_DIR);
+	pck_source_folder->connect("dir_selected", this, "_pck_create_request");
+	editor->get_gui_base()->add_child(pck_source_folder);
+
+	pck_save_file_selection = memnew(EditorFileDialog);
+	pck_save_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
+	pck_save_file_selection->set_mode(EditorFileDialog::MODE_SAVE_FILE);
+	pck_save_file_selection->add_filter("*.pck;PCK archive files");
+	pck_save_file_selection->connect("file_selected", this, "_pck_save_request");
+	editor->get_gui_base()->add_child(pck_save_file_selection);
 
 	pck_file_selection = memnew(EditorFileDialog);
 	pck_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
@@ -210,17 +236,18 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 	menu_popup->add_separator(); //3
 
-	menu_popup->add_icon_item(gui_icons["Pack"], TTR("Explore PCK archive..."), MENU_EXT_PCK); //4
+	menu_popup->add_icon_item(gui_icons["Pack"], TTR("Create PCK archive from folder..."), MENU_CREATE_PCK); //4
+	menu_popup->add_icon_item(gui_icons["Pack"], TTR("Explore PCK archive..."), MENU_EXT_PCK); //5
 
-	menu_popup->add_separator(); //5
+	menu_popup->add_separator(); //6
 
-	menu_popup->add_icon_item(gui_icons["Script"], TTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS); //6
-	menu_popup->add_icon_item(gui_icons["Script"], TTR("Compile .GD script files..."), MENU_COMP_GDS); //7
+	menu_popup->add_icon_item(gui_icons["Script"], TTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS); //7
+	menu_popup->add_icon_item(gui_icons["Script"], TTR("Compile .GD script files..."), MENU_COMP_GDS); //8
 
-	menu_popup->add_separator(); //8
+	menu_popup->add_separator(); //9
 
-	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //9
-	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //10
+	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //10
+	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //11
 
 	menu_popup->connect("id_pressed", this, "_menu_option_pressed");
 
@@ -255,6 +282,9 @@ void GodotREEditor::_menu_option_pressed(int p_id) {
 	switch (p_id) {
 		case MENU_ONE_CLICK_UNEXPORT: {
 
+		} break;
+		case MENU_CREATE_PCK: {
+			pck_source_folder->popup_centered(Size2(800, 600));
 		} break;
 		case MENU_EXT_PCK: {
 			pck_file_selection->popup_centered(Size2(800, 600));
@@ -660,6 +690,9 @@ void GodotREEditor::_pck_extract_files_process() {
 	memdelete(pr);
 	memdelete(pck);
 
+	pck_files.clear();
+	pck_file = String();
+
 	rdl->set_title(TTR("Extract files"));
 	if (failed_files.length() > 0) {
 		rdl->set_message(failed_files, TTR("At least one error was detected!"));
@@ -835,6 +868,200 @@ Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const Stri
 	return ResourceFormatSaverBinary::singleton->save(p_dst_path, ria->get_resource());
 }
 
+void GodotREEditor::_pck_create_request(const String &p_path) {
+
+	pck_save_files.clear();
+	pck_file = p_path;
+
+	EditorProgress *pr = memnew(EditorProgress("re_read_folder", TTR("Reading folder structure..."), 1, true));
+	bool cancel = false;
+	uint64_t size = _pck_create_process_folder(pr, p_path, String(), 0, cancel);
+	memdelete(pr);
+
+	if (cancel) {
+		return;
+	}
+
+	if (size == 0) {
+		EditorNode::get_singleton()->show_warning(TTR("Error opening folder (or empty folder): ") + p_path, TTR("OK"));
+		return;
+	}
+
+	pck_save_file_selection->popup_centered(Size2(800, 600));
+}
+
+#define PCK_PADDING 16
+
+uint64_t GodotREEditor::_pck_create_process_folder(EditorProgress *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel) {
+
+	uint64_t offset = p_offset;
+
+	DirAccess *da = DirAccess::open(p_path.plus_file(p_rel));
+	if (!da) {
+		EditorNode::get_singleton()->show_warning(TTR("Error opening folder: ") + p_path.plus_file(p_rel), TTR("OK"));
+		return offset;
+	}
+	da->list_dir_begin();
+	String f;
+	while ((f = da->get_next()) != "") {
+		if (f == "." || f == "..")
+			continue;
+		if (p_pr->step(p_rel.plus_file(f), 0, true)) {
+			p_cancel = true;
+			return offset;
+		}
+		if (da->current_is_dir()) {
+			offset = _pck_create_process_folder(p_pr, p_path, p_rel.plus_file(f), offset, p_cancel);
+			if (p_cancel) {
+				return offset;
+			}
+
+		} else {
+			FileAccess *file = FileAccess::open(p_path.plus_file(p_rel).plus_file(f), FileAccess::READ);
+
+			MD5_CTX md5;
+			MD5Init(&md5);
+
+			int64_t rq_size = file->get_len();
+			int64_t bufsize = 32768;
+			uint8_t buf[bufsize];
+
+			while (rq_size > 0) {
+
+				int got = file->get_buffer(buf, MIN(bufsize, rq_size));
+				if (got > 0) {
+					MD5Update(&md5, buf, got);
+				}
+				if (got < 4096)
+					break;
+				rq_size -= bufsize;
+			}
+
+			MD5Final(&md5);
+			PackedFile finfo = PackedFile(offset, file->get_len());
+			finfo.name = p_rel.plus_file(f);
+			for (int j = 0; j < 16; j++) {
+				finfo.md5[j] = md5.digest[j];
+			}
+			pck_save_files.push_back(finfo);
+
+			offset += file->get_len();
+
+			memdelete(file);
+		}
+	}
+	memdelete(da);
+
+	return offset;
+}
+
+void GodotREEditor::_pck_save_request(const String &p_path) {
+
+	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
+	if (!f) {
+		EditorNode::get_singleton()->show_warning(TTR("Error opening PCK file: ") + p_path, TTR("OK"));
+		return;
+	}
+
+	EditorProgress *pr = memnew(EditorProgress("re_write_pck", TTR("Writing PCK archive..."), pck_save_files.size() + 2, true));
+
+	f->store_32(0x43504447); //GDPK
+	f->store_32(1); //pack version
+	f->store_32(VERSION_MAJOR);
+	f->store_32(VERSION_MINOR);
+	f->store_32(0); //hmph
+	for (int i = 0; i < 16; i++) {
+		//reserved
+		f->store_32(0);
+	}
+
+	pr->step("Header...", 0, true);
+
+	f->store_32(pck_save_files.size()); //amount of files
+
+	size_t header_size = f->get_position();
+
+	for (int i = 0; i < pck_save_files.size(); i++) {
+		header_size += 4; // size of path string (32 bits is enough)
+		uint32_t string_len = pck_save_files[i].name.utf8().length();
+		header_size += string_len + _get_pad(4, string_len); ///size of path string
+		header_size += 8; // offset to file _with_ header size included
+		header_size += 8; // size of file
+		header_size += 16; // md5
+	}
+
+	size_t header_padding = _get_pad(PCK_PADDING, header_size);
+
+	pr->step("Directory...", 0, true);
+
+	for (int i = 0; i < pck_save_files.size(); i++) {
+
+		uint32_t string_len = pck_save_files[i].name.utf8().length();
+		uint32_t pad = _get_pad(4, string_len);
+
+		f->store_32(string_len + pad);
+		f->store_buffer((const uint8_t *)pck_save_files[i].name.utf8().get_data(), string_len);
+		for (uint32_t j = 0; j < pad; j++) {
+			f->store_8(0);
+		}
+
+		f->store_64(pck_save_files[i].offset + header_padding + header_size);
+		f->store_64(pck_save_files[i].size); // pay attention here, this is where file is
+		f->store_buffer((const uint8_t *)&pck_save_files[i].md5, 16); //also save md5 for file
+	}
+
+	for (uint32_t j = 0; j < header_padding; j++) {
+		f->store_8(0);
+	}
+
+	String failed_files;
+
+	for (int i = 0; i < pck_save_files.size(); i++) {
+		if (pr->step(pck_save_files[i].name, i + 2, true)) {
+			break;
+		}
+
+		FileAccess *fa = FileAccess::open(pck_file.plus_file(pck_save_files[i].name), FileAccess::READ);
+		if (fa) {
+			int64_t rq_size = pck_save_files[i].size;
+			int64_t bufsize = 16384;
+			uint8_t buf[bufsize];
+
+			while (rq_size > 0) {
+
+				int got = fa->get_buffer(buf, MIN(bufsize, rq_size));
+				f->store_buffer(buf, got);
+				rq_size -= bufsize;
+			}
+			memdelete(fa);
+		} else {
+			failed_files += pck_save_files[i].name + " (FileAccess error)\n";
+		}
+	}
+
+	f->store_32(0);
+	f->store_32(0);
+	f->store_string(String("<- Created with Godot RE tools, v0.0.1-poc ->"));
+	f->store_32(0);
+	f->store_32(0);
+
+	f->store_32(0x43504447); //GDPK
+
+	pck_save_files.clear();
+	pck_file = String();
+	memdelete(f);
+	memdelete(pr);
+
+	rdl->set_title(TTR("Create PCK archive..."));
+	if (failed_files.length() > 0) {
+		rdl->set_message(failed_files, TTR("At least one error was detected!"));
+		rdl->popup_centered();
+	} else {
+		rdl->set_message(TTR("No errors detected."), TTR("The operation completed successfully!"));
+		rdl->popup_centered();
+	}
+}
+
 void GodotREEditor::_notification(int p_notification) {
 
 	switch (p_notification) {
@@ -862,6 +1089,9 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_pck_select_request", "path"), &GodotREEditor::_pck_select_request);
 	ClassDB::bind_method(D_METHOD("_pck_extract_files"), &GodotREEditor::_pck_extract_files);
 	ClassDB::bind_method(D_METHOD("_pck_extract_files_process"), &GodotREEditor::_pck_extract_files_process);
+
+	ClassDB::bind_method(D_METHOD("_pck_create_request", "path"), &GodotREEditor::_pck_create_request);
+	ClassDB::bind_method(D_METHOD("_pck_save_request", "path"), &GodotREEditor::_pck_save_request);
 
 	ClassDB::bind_method(D_METHOD("_menu_option_pressed", "id"), &GodotREEditor::_menu_option_pressed);
 	ClassDB::bind_method(D_METHOD("_toggle_about_dialog_on_start"), &GodotREEditor::_toggle_about_dialog_on_start);

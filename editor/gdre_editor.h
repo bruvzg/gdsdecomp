@@ -54,6 +54,7 @@ class GodotREEditor : public Node {
 private:
 	struct PackedFile {
 
+		String name;
 		uint64_t offset;
 		uint64_t size;
 		uint8_t md5[16];
@@ -83,6 +84,10 @@ private:
 	EditorFileDialog *pck_file_selection;
 	String pck_file;
 	Map<String, PackedFile> pck_files;
+	Vector<PackedFile> pck_save_files;
+
+	EditorFileDialog *pck_source_folder;
+	EditorFileDialog *pck_save_file_selection;
 
 	EditorFileDialog *bin_res_file_selection;
 	EditorFileDialog *txt_res_file_selection;
@@ -107,6 +112,10 @@ private:
 	void _pck_extract_files();
 	void _pck_extract_files_process();
 
+	void _pck_create_request(const String &p_path);
+	uint64_t _pck_create_process_folder(EditorProgress *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel);
+	void _pck_save_request(const String &p_path);
+
 	PoolVector<String> res_files;
 
 	void _res_bin_2_txt_request(const PoolVector<String> &p_files);
@@ -126,6 +135,7 @@ protected:
 public:
 	enum MenuOptions {
 		MENU_ONE_CLICK_UNEXPORT,
+		MENU_CREATE_PCK,
 		MENU_EXT_PCK,
 		MENU_DECOMP_GDS,
 		MENU_COMP_GDS,
