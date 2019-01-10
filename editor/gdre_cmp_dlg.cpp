@@ -153,7 +153,7 @@ void ScriptCompDialog::_validate_input() {
 	if (script_key->get_text().empty()) {
 		error_message += TTR("No encryption key") + "\n";
 		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("warning_color", "Editor"));
-	} else if (script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
+	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
 		error_message += TTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
 		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
 		ok = false;
