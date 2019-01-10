@@ -6,7 +6,7 @@ This software in a pre-alpha stage and is not suitable for use in production.
 
 This module includes following tools:
 
-- PCK archive explorer/tester/extractor.
+- PCK archive explorer/tester/extractor/creator.
 - GDScript batch "compiler"/"decompiler".
 - Resource text <-> binary batch converter.
 
