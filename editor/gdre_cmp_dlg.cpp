@@ -94,7 +94,7 @@ Vector<uint8_t> ScriptCompDialog::get_key() const {
 
 	Vector<uint8_t> key;
 
-	if (script_key->get_text().empty() || script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
+	if (script_key->get_text().empty() || !script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
 		return key;
 	}
 

@@ -385,7 +385,7 @@ void GodotREEditor::_compile_process() {
 	Vector<String> files = script_dialog_c->get_file_list();
 	Vector<uint8_t> key = script_dialog_c->get_key();
 	String dir = script_dialog_c->get_target_dir();
-	String ext = (key.size() == 32) ? ".gde" : ".gds";
+	String ext = (key.size() == 32) ? ".gde" : ".gdc";
 
 	String failed_files;
 
