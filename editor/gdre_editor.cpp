@@ -580,18 +580,17 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			MD5Init(&md5);
 
 			int64_t rq_size = size;
-			int64_t bufsize = 32768;
-			uint8_t buf[bufsize];
+			uint8_t buf[32768];
 
 			while (rq_size > 0) {
 
-				int got = pck->get_buffer(buf, MIN(bufsize, rq_size));
+				int got = pck->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
 					MD5Update(&md5, buf, got);
 				}
 				if (got < 4096)
 					break;
-				rq_size -= bufsize;
+				rq_size -= 32768;
 			}
 
 			MD5Final(&md5);
@@ -675,14 +674,13 @@ void GodotREEditor::_pck_extract_files_process() {
 		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (fa) {
 			int64_t rq_size = pck_files[files[i]].size;
-			int64_t bufsize = 16384;
-			uint8_t buf[bufsize];
+			uint8_t buf[16384];
 
 			while (rq_size > 0) {
 
-				int got = pck->get_buffer(buf, MIN(bufsize, rq_size));
+				int got = pck->get_buffer(buf, MIN(16384, rq_size));
 				fa->store_buffer(buf, got);
-				rq_size -= bufsize;
+				rq_size -= 16384;
 			}
 			memdelete(fa);
 		} else {
@@ -936,18 +934,17 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgress *p_pr, const S
 			MD5Init(&md5);
 
 			int64_t rq_size = file->get_len();
-			int64_t bufsize = 32768;
-			uint8_t buf[bufsize];
+			uint8_t buf[32768];
 
 			while (rq_size > 0) {
 
-				int got = file->get_buffer(buf, MIN(bufsize, rq_size));
+				int got = file->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
 					MD5Update(&md5, buf, got);
 				}
 				if (got < 4096)
 					break;
-				rq_size -= bufsize;
+				rq_size -= 32768;
 			}
 
 			MD5Final(&md5);
@@ -1037,14 +1034,13 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 		FileAccess *fa = FileAccess::open(pck_file.plus_file(pck_save_files[i].name), FileAccess::READ);
 		if (fa) {
 			int64_t rq_size = pck_save_files[i].size;
-			int64_t bufsize = 16384;
-			uint8_t buf[bufsize];
+			uint8_t buf[16384];
 
 			while (rq_size > 0) {
 
-				int got = fa->get_buffer(buf, MIN(bufsize, rq_size));
+				int got = fa->get_buffer(buf, MIN(16384, rq_size));
 				f->store_buffer(buf, got);
-				rq_size -= bufsize;
+				rq_size -= 16384;
 			}
 			memdelete(fa);
 		} else {
