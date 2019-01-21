@@ -16,6 +16,10 @@ This module includes following tools:
 
 Godot 3.1
 
+#### GDScript compatibility
+
+Different GDScript byte-code versions are incompatible and there's no reliable way to distinguish them. To successfuly decompile `.gdc`/`.gde` files compiled with specific version of Godot engine use this module with exactly same version of the engine.
+
 #### Downloading and compiling
 
 Clone this repository into Godots `modules` subfolder as `gdsdecomp`.
