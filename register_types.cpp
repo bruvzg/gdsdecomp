@@ -5,12 +5,14 @@
 #include "register_types.h"
 #include "core/class_db.h"
 
+#include "bytecode/bytecode_1_0_0.h"
+#include "bytecode/bytecode_1_1_0.h"
 #include "bytecode/bytecode_2_0_4.h"
 #include "bytecode/bytecode_2_1_1.h"
 #include "bytecode/bytecode_2_1_2.h"
 #include "bytecode/bytecode_2_1_5.h"
 #include "bytecode/bytecode_3_0_6.h"
-#include "bytecode/bytecode_3_1_b.h"
+#include "bytecode/bytecode_3_1_0.h"
 #include "bytecode/bytecode_base.h"
 
 #ifdef TOOLS_ENABLED
@@ -26,12 +28,14 @@ void gdsdecomp_init_callback() {
 void register_gdsdecomp_types() {
 
 	ClassDB::register_virtual_class<GDScriptDecomp>();
-	ClassDB::register_class<GDScriptDecomp_3_1_Beta>();
+	ClassDB::register_class<GDScriptDecomp_3_1_0>();
 	ClassDB::register_class<GDScriptDecomp_3_0_6>();
 	ClassDB::register_class<GDScriptDecomp_2_1_5>();
 	ClassDB::register_class<GDScriptDecomp_2_1_2>();
 	ClassDB::register_class<GDScriptDecomp_2_1_1>();
 	ClassDB::register_class<GDScriptDecomp_2_0_4>();
+	ClassDB::register_class<GDScriptDecomp_1_1_0>();
+	ClassDB::register_class<GDScriptDecomp_1_0_0>();
 
 #ifdef TOOLS_ENABLED
 	ClassDB::register_class<PackDialog>();

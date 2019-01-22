@@ -8,12 +8,14 @@
 #include "modules/gdscript/gdscript_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
 
+#include "bytecode/bytecode_1_0_0.h"
+#include "bytecode/bytecode_1_1_0.h"
 #include "bytecode/bytecode_2_0_4.h"
 #include "bytecode/bytecode_2_1_1.h"
 #include "bytecode/bytecode_2_1_2.h"
 #include "bytecode/bytecode_2_1_5.h"
 #include "bytecode/bytecode_3_0_6.h"
-#include "bytecode/bytecode_3_1_b.h"
+#include "bytecode/bytecode_3_1_0.h"
 #include "bytecode/bytecode_base.h"
 
 #include "core/io/file_access_encrypted.h"
@@ -356,7 +358,7 @@ void GodotREEditor::_decompile_process() {
 
 	switch (script_dialog_d->get_bytecode_version()) {
 		case 3100: {
-			dce = memnew(GDScriptDecomp_3_1_Beta);
+			dce = memnew(GDScriptDecomp_3_1_0);
 		} break;
 		case 3060: {
 			dce = memnew(GDScriptDecomp_3_0_6);
@@ -372,6 +374,12 @@ void GodotREEditor::_decompile_process() {
 		} break;
 		case 2040: {
 			dce = memnew(GDScriptDecomp_2_0_4);
+		} break;
+		case 1100: {
+			dce = memnew(GDScriptDecomp_1_1_0);
+		} break;
+		case 1000: {
+			dce = memnew(GDScriptDecomp_1_0_0);
 		} break;
 		default: {
 			rdl->set_message(failed_files, TTR("Invalid bytecode version!"));

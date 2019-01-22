@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  bytecode_3_1_b.cpp                                                   */
+/*  bytecode_3_1_0.cpp                                                   */
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
 #include "core/map.h"
 #include "core/print_string.h"
 
-#include "bytecode_3_1_b.h"
+#include "bytecode_3_1_0.h"
 
 static const char *func_names[] = {
 
@@ -202,7 +202,7 @@ enum Token {
 	TK_MAX
 };
 
-Error GDScriptDecomp_3_1_Beta::decompile_buffer(Vector<uint8_t> p_buffer) {
+Error GDScriptDecomp_3_1_0::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	//Cleanup
 	script_text = String();
