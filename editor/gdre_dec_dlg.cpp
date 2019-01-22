@@ -42,6 +42,17 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	script_vb->add_margin_child(TTR("Script files:"), file_list);
 	script_vb->add_child(file_list_hbc);
 
+	//Script version
+	scrver = memnew(OptionButton);
+	scrver->add_item("Bytecode version: 13, Godot 3.1.0 beta", 3100);
+	scrver->add_item("Bytecode version: 12, Godot 3.0.0 - 3.0.6", 3060);
+	scrver->add_item("Bytecode version: 10, Godot 2.1.3 - 2.1.5", 2150);
+	scrver->add_item("Bytecode version: 10, Godot 2.1.2 - 2.1.5", 2120);
+	scrver->add_item("Bytecode version: 10, Godot 2.1.0 - 2.1.1", 2110);
+	scrver->add_item("Bytecode version: 10, Godot 2.0.4 - 2.0.4-1", 2040);
+
+	script_vb->add_margin_child(TTR("Script bytecode version:"), scrver);
+
 	//Encryption key
 	script_key = memnew(LineEdit);
 	script_key->connect("text_changed", this, "_script_encryption_key_changed");
@@ -74,6 +85,11 @@ ScriptDecompDialog::ScriptDecompDialog() {
 
 ScriptDecompDialog::~ScriptDecompDialog() {
 	//NOP
+}
+
+int ScriptDecompDialog::get_bytecode_version() const {
+
+	return scrver->get_selected_id();
 }
 
 Vector<String> ScriptDecompDialog::get_file_list() const {

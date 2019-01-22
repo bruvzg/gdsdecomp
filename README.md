@@ -2,7 +2,7 @@
 
 This software in a pre-alpha stage and is not suitable for use in production.
 
-#### Introduction
+### Introduction
 
 This module includes following tools:
 
@@ -12,15 +12,24 @@ This module includes following tools:
 
 ![Screenshot](screenshot.png)
 
-#### Requirements
+### Requirements
 
 Godot 3.1
 
-#### GDScript compatibility
+### GDScript decompiler compatibility
 
-Different GDScript byte-code versions are incompatible and there's no reliable way to distinguish them. To successfuly decompile `.gdc`/`.gde` files compiled with specific version of Godot engine use this module with exactly same version of the engine.
+#### Supported version
 
-#### Downloading and compiling
+- Bytecode version: 13, Godot 3.1.0 beta
+- Bytecode version: 12, Godot 3.0.0 - 3.0.6
+- Bytecode version: 10, Godot 2.1.3 - 2.1.5
+- Bytecode version: 10, Godot 2.1.2 - 2.1.5
+- Bytecode version: 10, Godot 2.1.0 - 2.1.1
+- Bytecode version: 10, Godot 2.0.4 - 2.0.4-1
+
+Only versions for official releases are included. To decompile scripts from development version of Godot engine look for changes of `_names[]` array in `modules/gdscript/gdscript_functions.cpp` and `GDScriptTokenizer::Token` enum in `modules/gdscript/gdscript_tokenizer.h` and modify `func_names[]` array and `Token` enum in `modules/gdsdecomp/bytecode/bytecode_xxxx.cpp` to match these changes.
+
+### Downloading and compiling
 
 Clone this repository into Godots `modules` subfolder as `gdsdecomp`.
 Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/development/compiling/index.html.

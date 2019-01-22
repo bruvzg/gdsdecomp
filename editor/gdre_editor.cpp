@@ -3,7 +3,18 @@
 /*************************************************************************/
 
 #include "gdre_editor.h"
-#include "gdscript_decomp.h"
+
+#include "modules/gdscript/gdscript.h"
+#include "modules/gdscript/gdscript_functions.h"
+#include "modules/gdscript/gdscript_tokenizer.h"
+
+#include "bytecode/bytecode_2_0_4.h"
+#include "bytecode/bytecode_2_1_1.h"
+#include "bytecode/bytecode_2_1_2.h"
+#include "bytecode/bytecode_2_1_5.h"
+#include "bytecode/bytecode_3_0_6.h"
+#include "bytecode/bytecode_3_1_b.h"
+#include "bytecode/bytecode_base.h"
 
 #include "core/io/file_access_encrypted.h"
 #include "core/io/resource_format_binary.h"
@@ -341,10 +352,35 @@ void GodotREEditor::_decompile_process() {
 	String dir = script_dialog_d->get_target_dir();
 
 	String failed_files;
+	GDScriptDecomp *dce = NULL;
+
+	switch (script_dialog_d->get_bytecode_version()) {
+		case 3100: {
+			dce = memnew(GDScriptDecomp_3_1_Beta);
+		} break;
+		case 3060: {
+			dce = memnew(GDScriptDecomp_3_0_6);
+		} break;
+		case 2150: {
+			dce = memnew(GDScriptDecomp_2_1_5);
+		} break;
+		case 2120: {
+			dce = memnew(GDScriptDecomp_2_1_2);
+		} break;
+		case 2110: {
+			dce = memnew(GDScriptDecomp_2_1_1);
+		} break;
+		case 2040: {
+			dce = memnew(GDScriptDecomp_2_0_4);
+		} break;
+		default: {
+			rdl->set_message(failed_files, TTR("Invalid bytecode version!"));
+			rdl->popup_centered();
+			return;
+		}
+	}
 
 	EditorProgress *pr = memnew(EditorProgress("re_decompile", TTR("Decompiling files..."), files.size(), true));
-
-	GDScriptDeComp *dce = memnew(GDScriptDeComp);
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
 
@@ -353,15 +389,15 @@ void GodotREEditor::_decompile_process() {
 			break;
 		}
 
-		String scr;
+		Error err;
 		if (files[i].ends_with(".gde")) {
-			scr = dce->load_byte_code_encrypted(files[i], key);
+			err = dce->decompile_byte_code_encrypted(files[i], key);
 		} else {
-			scr = dce->load_byte_code(files[i]);
+			err = dce->decompile_byte_code(files[i]);
 		}
 
-		if (scr != String()) {
-			Error err;
+		if (err == OK) {
+			String scr = dce->get_script_text();
 			FileAccess *file = FileAccess::open(target_name, FileAccess::WRITE, &err);
 			if (err) {
 				failed_files += files[i] + " (FileAccess error)\n";

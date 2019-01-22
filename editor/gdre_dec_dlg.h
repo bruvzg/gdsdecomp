@@ -5,10 +5,10 @@
 #ifndef GODOT_RE_DEC_DLG_H
 #define GODOT_RE_DEC_DLG_H
 
-#include "core/resource.h"
 #include "core/map.h"
-#include "editor/editor_node.h"
+#include "core/resource.h"
 #include "editor/editor_export.h"
+#include "editor/editor_node.h"
 
 class ScriptDecompDialog : public AcceptDialog {
 	GDCLASS(ScriptDecompDialog, AcceptDialog)
@@ -20,6 +20,8 @@ class ScriptDecompDialog : public AcceptDialog {
 
 	Button *add_file;
 	Button *remove_file;
+
+	OptionButton *scrver;
 
 	LineEdit *script_key;
 	Label *script_key_error;
@@ -43,6 +45,7 @@ public:
 	Vector<String> get_file_list() const;
 	String get_target_dir() const;
 	Vector<uint8_t> get_key() const;
+	int get_bytecode_version() const;
 
 	ScriptDecompDialog();
 	~ScriptDecompDialog();
