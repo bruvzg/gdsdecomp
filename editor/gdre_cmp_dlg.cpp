@@ -12,12 +12,14 @@ ScriptCompDialog::ScriptCompDialog() {
 	target_folder_selection = memnew(EditorFileDialog);
 	target_folder_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	target_folder_selection->set_mode(EditorFileDialog::MODE_OPEN_DIR);
+	target_folder_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
 	add_child(target_folder_selection);
 
 	file_selection = memnew(EditorFileDialog);
 	file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
+	file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	file_selection->add_filter("*.gd;GDScript text files");
 	file_selection->connect("files_selected", this, "_add_files_request");
 	add_child(file_selection);

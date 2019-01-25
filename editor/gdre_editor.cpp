@@ -8,6 +8,7 @@
 #include "modules/gdscript/gdscript_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
 
+#include "bytecode/bytecode_0_0_0.h"
 #include "bytecode/bytecode_1_0_0.h"
 #include "bytecode/bytecode_1_1_0.h"
 #include "bytecode/bytecode_2_0_4.h"
@@ -160,6 +161,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_source_folder = memnew(EditorFileDialog);
 	pck_source_folder->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	pck_source_folder->set_mode(EditorFileDialog::MODE_OPEN_DIR);
+	pck_source_folder->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	pck_source_folder->connect("dir_selected", this, "_pck_create_request");
 	editor->get_gui_base()->add_child(pck_source_folder);
 
@@ -170,6 +172,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_save_file_selection = memnew(EditorFileDialog);
 	pck_save_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	pck_save_file_selection->set_mode(EditorFileDialog::MODE_SAVE_FILE);
+	pck_save_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	pck_save_file_selection->add_filter("*.pck;PCK archive files");
 	pck_save_file_selection->connect("file_selected", this, "_pck_save_request");
 	editor->get_gui_base()->add_child(pck_save_file_selection);
@@ -177,6 +180,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	pck_file_selection = memnew(EditorFileDialog);
 	pck_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	pck_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILE);
+	pck_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->connect("file_selected", this, "_pck_select_request");
@@ -185,6 +189,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	bin_res_file_selection = memnew(EditorFileDialog);
 	bin_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	bin_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
+	bin_res_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	bin_res_file_selection->add_filter("*.scn,*.res;Binary resource files");
 	bin_res_file_selection->connect("files_selected", this, "_res_bin_2_txt_request");
 	editor->get_gui_base()->add_child(bin_res_file_selection);
@@ -192,6 +197,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	txt_res_file_selection = memnew(EditorFileDialog);
 	txt_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	txt_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
+	txt_res_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
 	txt_res_file_selection->connect("files_selected", this, "_res_txt_2_bin_request");
 	editor->get_gui_base()->add_child(txt_res_file_selection);
@@ -380,6 +386,9 @@ void GodotREEditor::_decompile_process() {
 		} break;
 		case 1000: {
 			dce = memnew(GDScriptDecomp_1_0_0);
+		} break;
+		case 0000: {
+			dce = memnew(GDScriptDecomp_0_0_0);
 		} break;
 		default: {
 			rdl->set_message(failed_files, TTR("Invalid bytecode version!"));

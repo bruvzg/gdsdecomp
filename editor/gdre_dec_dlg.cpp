@@ -12,12 +12,14 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	target_folder_selection = memnew(EditorFileDialog);
 	target_folder_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	target_folder_selection->set_mode(EditorFileDialog::MODE_OPEN_DIR);
+	target_folder_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
 	add_child(target_folder_selection);
 
 	file_selection = memnew(EditorFileDialog);
 	file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
+	file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	file_selection->connect("files_selected", this, "_add_files_request");
 	file_selection->add_filter("*.gdc,*.gde;GDScript binary files");
 	add_child(file_selection);
@@ -47,11 +49,12 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	scrver->add_item("Bytecode version: 13, Godot 3.1.0 (beta 2)", 3100);
 	scrver->add_item("Bytecode version: 12, Godot 3.0.0 - 3.0.6", 3060);
 	scrver->add_item("Bytecode version: 10, Godot 2.1.3 - 2.1.5", 2150);
-	scrver->add_item("Bytecode version: 10, Godot 2.1.2 - 2.1.5", 2120);
+	scrver->add_item("Bytecode version: 10, Godot 2.1.2", 2120);
 	scrver->add_item("Bytecode version: 10, Godot 2.1.0 - 2.1.1", 2110);
 	scrver->add_item("Bytecode version: 10, Godot 2.0.0 - 2.0.4-1", 2040);
 	scrver->add_item("Bytecode version: 4, Godot 1.1.0", 1100);
 	scrver->add_item("Bytecode version: 3, Godot 1.0.0", 1100);
+	scrver->add_item("Bytecode version: 1, Initial version", 0000);
 
 	script_vb->add_margin_child(TTR("Script bytecode version:"), scrver);
 

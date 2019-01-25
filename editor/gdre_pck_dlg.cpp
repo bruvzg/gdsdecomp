@@ -12,6 +12,7 @@ PackDialog::PackDialog() {
 	target_folder_selection = memnew(EditorFileDialog);
 	target_folder_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
 	target_folder_selection->set_mode(EditorFileDialog::MODE_OPEN_DIR);
+	target_folder_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
 	add_child(target_folder_selection);
 

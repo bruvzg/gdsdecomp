@@ -5,6 +5,7 @@
 #include "register_types.h"
 #include "core/class_db.h"
 
+#include "bytecode/bytecode_0_0_0.h"
 #include "bytecode/bytecode_1_0_0.h"
 #include "bytecode/bytecode_1_1_0.h"
 #include "bytecode/bytecode_2_0_4.h"
@@ -36,6 +37,7 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<GDScriptDecomp_2_0_4>();
 	ClassDB::register_class<GDScriptDecomp_1_1_0>();
 	ClassDB::register_class<GDScriptDecomp_1_0_0>();
+	ClassDB::register_class<GDScriptDecomp_0_0_0>();
 
 #ifdef TOOLS_ENABLED
 	ClassDB::register_class<PackDialog>();
