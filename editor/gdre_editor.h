@@ -49,8 +49,43 @@ public:
 	~OverwriteDialog();
 };
 
+struct EditorProgressGDDC {
+
+	String task;
+	ProgressDialog *progress_dialog;
+	bool step(const String &p_state, int p_step = -1, bool p_force_refresh = true) {
+		if (EditorNode::get_singleton()) {
+			return EditorNode::progress_task_step(task, p_state, p_step, p_force_refresh);
+		} else {
+			return progress_dialog->task_step(task, p_state, p_step, p_force_refresh);
+		}
+	}
+
+	EditorProgressGDDC(Control *p_parent, const String &p_task, const String &p_label, int p_amount, bool p_can_cancel = false) {
+		if (EditorNode::get_singleton()) {
+			EditorNode::progress_add_task(p_task, p_label, p_amount, p_can_cancel);
+		} else {
+			if (!ProgressDialog::get_singleton()) {
+				progress_dialog = memnew(ProgressDialog);
+				p_parent->add_child(progress_dialog);
+			} else {
+				progress_dialog = ProgressDialog::get_singleton();
+			}
+			progress_dialog->add_task(p_task, p_label, p_amount, p_can_cancel);
+		}
+		task = p_task;
+	}
+	~EditorProgressGDDC() {
+		if (EditorNode::get_singleton()) {
+			EditorNode::progress_end_task(task);
+		} else {
+			progress_dialog->end_task(task);
+		}
+	}
+};
+
 class GodotREEditor : public Node {
-	GDCLASS(GodotREEditor, Object)
+	GDCLASS(GodotREEditor, Node)
 
 private:
 	struct PackedFile {
@@ -72,6 +107,7 @@ private:
 	};
 
 	EditorNode *editor;
+	Control *ne_parent;
 
 	Map<String, Ref<ImageTexture> > gui_icons;
 
@@ -82,18 +118,18 @@ private:
 	ScriptCompDialog *script_dialog_c;
 
 	PackDialog *pck_dialog;
-	EditorFileDialog *pck_file_selection;
+	FileDialog *pck_file_selection;
 	String pck_file;
 	Map<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
 
 	NewPackDialog *pck_save_dialog;
-	EditorFileDialog *pck_source_folder;
+	FileDialog *pck_source_folder;
 
-	EditorFileDialog *pck_save_file_selection;
+	FileDialog *pck_save_file_selection;
 
-	EditorFileDialog *bin_res_file_selection;
-	EditorFileDialog *txt_res_file_selection;
+	FileDialog *bin_res_file_selection;
+	FileDialog *txt_res_file_selection;
 
 	MenuButton *menu_button;
 	PopupMenu *menu_popup;
@@ -101,9 +137,12 @@ private:
 	AcceptDialog *about_dialog;
 	CheckBox *about_dialog_checkbox;
 
-	void _show_about_dialog();
+	Ref<ImageTexture> get_gui_icon(const String &p_name);
+
 	void _toggle_about_dialog_on_start(bool p_enabled);
-	void _menu_option_pressed(int p_id);
+
+	void show_about_dialog();
+	void menu_option_pressed(int p_id);
 
 	void _decompile_files();
 	void _decompile_process();
@@ -117,7 +156,7 @@ private:
 
 	void _pck_create_request(const String &p_path);
 	void _pck_save_prep();
-	uint64_t _pck_create_process_folder(EditorProgress *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel);
+	uint64_t _pck_create_process_folder(EditorProgressGDDC *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel);
 	void _pck_save_request(const String &p_path);
 
 	PoolVector<String> res_files;
@@ -129,6 +168,8 @@ private:
 
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
 	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
+
+	void show_warning(const String &p_text, const String &p_title = "Warning!");
 
 	static GodotREEditor *singleton;
 
@@ -150,8 +191,25 @@ public:
 
 	_FORCE_INLINE_ static GodotREEditor *get_singleton() { return singleton; }
 
+	void init_gui(Control *p_control, HBoxContainer *p_menu);
+
+	GodotREEditor(Control *p_control, HBoxContainer *p_menu);
 	GodotREEditor(EditorNode *p_editor);
 	~GodotREEditor();
+};
+
+class GodotREEditorSt : public Control {
+	GDCLASS(GodotREEditorSt, Control)
+
+	HBoxContainer *menu_hb;
+
+protected:
+	void _notification(int p_notification);
+	static void _bind_methods();
+
+public:
+	GodotREEditorSt();
+	~GodotREEditorSt();
 };
 
 #endif // GODOT_RE_EDITOR_H

@@ -579,7 +579,7 @@ Error GDScriptDecomp_3_1_0::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "mastersync ";
 			} break;
 			case TK_PR_PUPPETSYNC: {
-				line += "puppetsync";
+				line += "puppetsync ";
 			} break;
 			case TK_BRACKET_OPEN: {
 				line += "[";

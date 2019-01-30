@@ -5,16 +5,16 @@
 #ifndef GODOT_RE_CMP_DLG_H
 #define GODOT_RE_CMP_DLG_H
 
-#include "core/resource.h"
 #include "core/map.h"
-#include "editor/editor_node.h"
+#include "core/resource.h"
 #include "editor/editor_export.h"
+#include "editor/editor_node.h"
 
 class ScriptCompDialog : public AcceptDialog {
 	GDCLASS(ScriptCompDialog, AcceptDialog)
 
-	EditorFileDialog *target_folder_selection;
-	EditorFileDialog *file_selection;
+	FileDialog *target_folder_selection;
+	FileDialog *file_selection;
 
 	ItemList *file_list;
 

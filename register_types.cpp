@@ -40,6 +40,8 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<GDScriptDecomp_0_0_0>();
 
 #ifdef TOOLS_ENABLED
+	ClassDB::register_class<GodotREEditorSt>();
+
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();
 	ClassDB::register_class<ScriptCompDialog>();

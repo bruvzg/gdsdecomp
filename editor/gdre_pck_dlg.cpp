@@ -9,10 +9,9 @@ PackDialog::PackDialog() {
 	set_title(TTR("PCK explorer"));
 	set_resizable(true);
 
-	target_folder_selection = memnew(EditorFileDialog);
-	target_folder_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	target_folder_selection->set_mode(EditorFileDialog::MODE_OPEN_DIR);
-	target_folder_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	target_folder_selection = memnew(FileDialog);
+	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	target_folder_selection->set_mode(FileDialog::MODE_OPEN_DIR);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
 	add_child(target_folder_selection);
 
@@ -133,14 +132,16 @@ void PackDialog::_validate_selection() {
 	bool ok = true;
 	String error_message;
 
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+
 	if (target_dir->get_text().empty()) {
 		error_message += TTR("No destination folder selected") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (nothing_selected) {
 		error_message += TTR("No files selected") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 

@@ -13,8 +13,8 @@
 class ScriptDecompDialog : public AcceptDialog {
 	GDCLASS(ScriptDecompDialog, AcceptDialog)
 
-	EditorFileDialog *target_folder_selection;
-	EditorFileDialog *file_selection;
+	FileDialog *target_folder_selection;
+	FileDialog *file_selection;
 
 	ItemList *file_list;
 

@@ -13,7 +13,7 @@
 class PackDialog : public AcceptDialog {
 	GDCLASS(PackDialog, AcceptDialog)
 
-	EditorFileDialog *target_folder_selection;
+	FileDialog *target_folder_selection;
 
 	Label *vernfo;
 	Label *gennfo;

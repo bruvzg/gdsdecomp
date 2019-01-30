@@ -124,8 +124,21 @@ static int _get_pad(int p_alignment, int p_n) {
 GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 	singleton = this;
-
 	editor = p_editor;
+	ne_parent = NULL;
+
+	init_gui(editor->get_gui_base(), editor->get_menu_hb());
+}
+
+GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
+
+	editor = NULL;
+	ne_parent = p_control;
+
+	init_gui(p_control, p_menu);
+}
+
+void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu) {
 
 	//Init editor icons
 
@@ -141,66 +154,61 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	//Init dialogs
 
 	ovd = memnew(OverwriteDialog);
-	editor->get_gui_base()->add_child(ovd);
+	p_control->add_child(ovd);
 
 	rdl = memnew(ResultDialog);
-	editor->get_gui_base()->add_child(rdl);
+	p_control->add_child(rdl);
 
 	script_dialog_d = memnew(ScriptDecompDialog);
 	script_dialog_d->connect("confirmed", this, "_decompile_files");
-	editor->get_gui_base()->add_child(script_dialog_d);
+	p_control->add_child(script_dialog_d);
 
 	script_dialog_c = memnew(ScriptCompDialog);
 	script_dialog_c->connect("confirmed", this, "_compile_files");
-	editor->get_gui_base()->add_child(script_dialog_c);
+	p_control->add_child(script_dialog_c);
 
 	pck_dialog = memnew(PackDialog);
 	pck_dialog->connect("confirmed", this, "_pck_extract_files");
-	editor->get_gui_base()->add_child(pck_dialog);
+	p_control->add_child(pck_dialog);
 
-	pck_source_folder = memnew(EditorFileDialog);
-	pck_source_folder->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	pck_source_folder->set_mode(EditorFileDialog::MODE_OPEN_DIR);
-	pck_source_folder->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	pck_source_folder = memnew(FileDialog);
+	pck_source_folder->set_access(FileDialog::ACCESS_FILESYSTEM);
+	pck_source_folder->set_mode(FileDialog::MODE_OPEN_DIR);
 	pck_source_folder->connect("dir_selected", this, "_pck_create_request");
-	editor->get_gui_base()->add_child(pck_source_folder);
+	p_control->add_child(pck_source_folder);
 
 	pck_save_dialog = memnew(NewPackDialog);
 	pck_save_dialog->connect("confirmed", this, "_pck_save_prep");
-	editor->get_gui_base()->add_child(pck_save_dialog);
+	p_control->add_child(pck_save_dialog);
 
-	pck_save_file_selection = memnew(EditorFileDialog);
-	pck_save_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	pck_save_file_selection->set_mode(EditorFileDialog::MODE_SAVE_FILE);
-	pck_save_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	pck_save_file_selection = memnew(FileDialog);
+	pck_save_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	pck_save_file_selection->set_mode(FileDialog::MODE_SAVE_FILE);
 	pck_save_file_selection->add_filter("*.pck;PCK archive files");
 	pck_save_file_selection->connect("file_selected", this, "_pck_save_request");
-	editor->get_gui_base()->add_child(pck_save_file_selection);
+	p_control->add_child(pck_save_file_selection);
 
-	pck_file_selection = memnew(EditorFileDialog);
-	pck_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	pck_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILE);
-	pck_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	pck_file_selection = memnew(FileDialog);
+	pck_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	pck_file_selection->set_mode(FileDialog::MODE_OPEN_FILE);
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->connect("file_selected", this, "_pck_select_request");
-	editor->get_gui_base()->add_child(pck_file_selection);
+	p_control->add_child(pck_file_selection);
 
-	bin_res_file_selection = memnew(EditorFileDialog);
-	bin_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	bin_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
-	bin_res_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	bin_res_file_selection = memnew(FileDialog);
+	bin_res_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	bin_res_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	bin_res_file_selection->add_filter("*.scn,*.res;Binary resource files");
 	bin_res_file_selection->connect("files_selected", this, "_res_bin_2_txt_request");
-	editor->get_gui_base()->add_child(bin_res_file_selection);
+	p_control->add_child(bin_res_file_selection);
 
-	txt_res_file_selection = memnew(EditorFileDialog);
-	txt_res_file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	txt_res_file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
-	txt_res_file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	txt_res_file_selection = memnew(FileDialog);
+	txt_res_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	txt_res_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
 	txt_res_file_selection->connect("files_selected", this, "_res_txt_2_bin_request");
-	editor->get_gui_base()->add_child(txt_res_file_selection);
+	p_control->add_child(txt_res_file_selection);
 
 	//Init menu
 	menu_button = memnew(MenuButton);
@@ -213,7 +221,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	//Init about/warning dialog
 	{
 		about_dialog = memnew(AcceptDialog);
-		editor->get_gui_base()->add_child(about_dialog);
+		p_control->add_child(about_dialog);
 		about_dialog->set_title(TTR("Important: Legal Notice"));
 
 		VBoxContainer *about_vbc = memnew(VBoxContainer);
@@ -232,7 +240,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 		about_label->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 		about_label->set_autowrap(true);
 		String about_text =
-				String("Godot RE Tools, v0.0.1-poc \n\n") +
+				String("Godot RE Tools, v0.0.2-poc \n\n") +
 				TTR(String("Resources, binary code and source code might be protected by copyright and trademark\n") +
 						"laws. Before using this software make sure that decompilation is not prohibited by the\n" +
 						"applicable license agreement, permitted under applicable law or you obtained explicit\n" +
@@ -243,7 +251,9 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 						"This software in a pre-alpha stage and is not suitable for use in production.\n\n");
 		about_label->set_text(about_text);
 
-		EDITOR_DEF("re/editor/show_info_on_start", true);
+		if (EditorSettings::get_singleton()) {
+			EDITOR_DEF("re/editor/show_info_on_start", true);
+		}
 
 		about_dialog_checkbox = memnew(CheckBox);
 		about_vbc->add_child(about_dialog_checkbox);
@@ -270,11 +280,11 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //10
 	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //11
 
-	menu_popup->connect("id_pressed", this, "_menu_option_pressed");
+	menu_popup->connect("id_pressed", this, "menu_option_pressed");
 
-	editor->get_menu_hb()->add_child(menu_button);
-	if (editor->get_menu_hb()->get_child_count() >= 2) {
-		editor->get_menu_hb()->move_child(menu_button, editor->get_menu_hb()->get_child_count() - 2);
+	p_menu->add_child(menu_button);
+	if (p_menu->get_child_count() >= 2) {
+		p_menu->move_child(menu_button, p_menu->get_child_count() - 2);
 	}
 }
 
@@ -283,22 +293,33 @@ GodotREEditor::~GodotREEditor() {
 	singleton = NULL;
 }
 
-void GodotREEditor::_show_about_dialog() {
+Ref<ImageTexture> GodotREEditor::get_gui_icon(const String &p_name) {
 
-	bool show_on_start = EDITOR_GET("re/editor/show_info_on_start");
-	about_dialog_checkbox->set_pressed(show_on_start);
+	return gui_icons[p_name];
+}
+
+void GodotREEditor::show_about_dialog() {
+
+	if (EditorSettings::get_singleton()) {
+		bool show_on_start = EDITOR_GET("re/editor/show_info_on_start");
+		about_dialog_checkbox->set_pressed(show_on_start);
+	} else {
+		about_dialog_checkbox->set_disabled(true);
+	}
 	about_dialog->popup_centered_minsize();
 }
 
 void GodotREEditor::_toggle_about_dialog_on_start(bool p_enabled) {
 
-	bool show_on_start = EDITOR_GET("re/editor/show_info_on_start");
-	if (show_on_start != p_enabled) {
-		EditorSettings::get_singleton()->set_setting("re/editor/show_info_on_start", p_enabled);
+	if (EditorSettings::get_singleton()) {
+		bool show_on_start = EDITOR_GET("re/editor/show_info_on_start");
+		if (show_on_start != p_enabled) {
+			EditorSettings::get_singleton()->set_setting("re/editor/show_info_on_start", p_enabled);
+		}
 	}
 }
 
-void GodotREEditor::_menu_option_pressed(int p_id) {
+void GodotREEditor::menu_option_pressed(int p_id) {
 
 	switch (p_id) {
 		case MENU_ONE_CLICK_UNEXPORT: {
@@ -323,11 +344,18 @@ void GodotREEditor::_menu_option_pressed(int p_id) {
 			txt_res_file_selection->popup_centered(Size2(800, 600));
 		} break;
 		case MENU_ABOUT_RE: {
-			_show_about_dialog();
+			show_about_dialog();
 		} break;
 		default:
 			ERR_FAIL();
 	}
+}
+
+void GodotREEditor::show_warning(const String &p_text, const String &p_title) {
+
+	rdl->set_title(p_title);
+	rdl->set_message(p_text, "");
+	rdl->popup_centered();
 }
 
 void GodotREEditor::_decompile_files() {
@@ -396,8 +424,7 @@ void GodotREEditor::_decompile_process() {
 			return;
 		}
 	}
-
-	EditorProgress *pr = memnew(EditorProgress("re_decompile", TTR("Decompiling files..."), files.size(), true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_decompile", TTR("Decompiling files..."), files.size(), true));
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
 
@@ -474,7 +501,7 @@ void GodotREEditor::_compile_process() {
 
 	String failed_files;
 
-	EditorProgress *pr = memnew(EditorProgress("re_compile", TTR("Compiling files..."), files.size(), true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_compile", TTR("Compiling files..."), files.size(), true));
 
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
@@ -535,7 +562,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	FileAccess *pck = FileAccess::open(p_path, FileAccess::READ);
 	if (!pck) {
-		EditorNode::get_singleton()->show_warning(TTR("Error opening PCK file: ") + p_path, TTR("OK"));
+		show_warning(TTR("Error opening PCK file: ") + p_path, TTR("OK"));
 		return;
 	}
 
@@ -548,7 +575,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		pck->seek(pck->get_position() - 4);
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
-			EditorNode::get_singleton()->show_warning(TTR("Invalid PCK file"));
+			show_warning(TTR("Invalid PCK file"));
 			memdelete(pck);
 			return;
 		}
@@ -559,7 +586,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
-			EditorNode::get_singleton()->show_warning(TTR("Invalid PCK file"));
+			show_warning(TTR("Invalid PCK file"));
 			memdelete(pck);
 			return;
 		}
@@ -569,7 +596,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint32_t version = pck->get_32();
 
 	if (version > 1) {
-		EditorNode::get_singleton()->show_warning(TTR("Pack version unsupported: ") + itos(version));
+		show_warning(TTR("Pack version unsupported: ") + itos(version));
 		memdelete(pck);
 		return;
 	}
@@ -585,7 +612,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	int file_count = pck->get_32();
 
-	EditorProgress *pr = memnew(EditorProgress("re_read_pck_md5", TTR("Reading PCK archive, click cancel to skip MD5 checking..."), file_count, true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_md5", TTR("Reading PCK archive, click cancel to skip MD5 checking..."), file_count, true));
 
 	bool p_check_md5 = true;
 	int files_checked = 0;
@@ -611,7 +638,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		if (cancel) {
 			if (p_check_md5) {
 				memdelete(pr);
-				pr = memnew(EditorProgress("re_read_pck_no_md5", TTR("Reading PCK archive, click cancel again to abort..."), file_count, true));
+				pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_no_md5", TTR("Reading PCK archive, click cancel again to abort..."), file_count, true));
 				p_check_md5 = false;
 			} else {
 				memdelete(pr);
@@ -700,7 +727,7 @@ void GodotREEditor::_pck_extract_files_process() {
 
 	FileAccess *pck = FileAccess::open(pck_file, FileAccess::READ);
 	if (!pck) {
-		EditorNode::get_singleton()->show_warning(TTR("Error opening PCK file: ") + pck_file, TTR("OK"));
+		show_warning(TTR("Error opening PCK file: ") + pck_file, TTR("OK"));
 		return;
 	}
 
@@ -709,7 +736,7 @@ void GodotREEditor::_pck_extract_files_process() {
 
 	String failed_files;
 
-	EditorProgress *pr = memnew(EditorProgress("re_ext_pck", TTR("Extracting files..."), files.size(), true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck", TTR("Extracting files..."), files.size(), true));
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	for (int i = 0; i < files.size(); i++) {
@@ -788,7 +815,7 @@ void GodotREEditor::_res_bin_2_txt_request(const PoolVector<String> &p_files) {
 
 void GodotREEditor::_res_bin_2_txt_process() {
 
-	EditorProgress *pr = memnew(EditorProgress("re_b2t_res", TTR("Converting files..."), res_files.size(), true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_b2t_res", TTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
@@ -870,7 +897,7 @@ void GodotREEditor::_res_txt_2_bin_request(const PoolVector<String> &p_files) {
 
 void GodotREEditor::_res_txt_2_bin_process() {
 
-	EditorProgress *pr = memnew(EditorProgress("re_t2b_res", TTR("Converting files..."), res_files.size(), true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_t2b_res", TTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
@@ -926,7 +953,7 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 	pck_save_files.clear();
 	pck_file = p_path;
 
-	EditorProgress *pr = memnew(EditorProgress("re_read_folder", TTR("Reading folder structure..."), 1, true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_read_folder", TTR("Reading folder structure..."), 1, true));
 	bool cancel = false;
 	uint64_t size = _pck_create_process_folder(pr, p_path, String(), 0, cancel);
 	memdelete(pr);
@@ -936,7 +963,7 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 	}
 
 	if (size == 0) {
-		EditorNode::get_singleton()->show_warning(TTR("Error opening folder (or empty folder): ") + p_path, TTR("OK"));
+		show_warning(TTR("Error opening folder (or empty folder): ") + p_path, TTR("OK"));
 		return;
 	}
 
@@ -956,13 +983,13 @@ void GodotREEditor::_pck_save_prep() {
 
 #define PCK_PADDING 16
 
-uint64_t GodotREEditor::_pck_create_process_folder(EditorProgress *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel) {
+uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel) {
 
 	uint64_t offset = p_offset;
 
 	DirAccess *da = DirAccess::open(p_path.plus_file(p_rel));
 	if (!da) {
-		EditorNode::get_singleton()->show_warning(TTR("Error opening folder: ") + p_path.plus_file(p_rel), TTR("OK"));
+		show_warning(TTR("Error opening folder: ") + p_path.plus_file(p_rel), TTR("OK"));
 		return offset;
 	}
 	da->list_dir_begin();
@@ -1022,11 +1049,11 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
 	if (!f) {
-		EditorNode::get_singleton()->show_warning(TTR("Error opening PCK file: ") + p_path, TTR("OK"));
+		show_warning(TTR("Error opening PCK file: ") + p_path, TTR("OK"));
 		return;
 	}
 
-	EditorProgress *pr = memnew(EditorProgress("re_write_pck", TTR("Writing PCK archive..."), pck_save_files.size() + 2, true));
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_write_pck", TTR("Writing PCK archive..."), pck_save_files.size() + 2, true));
 
 	f->store_32(0x43504447); //GDPK
 	f->store_32(pck_save_dialog->get_version_pack());
@@ -1130,10 +1157,16 @@ void GodotREEditor::_notification(int p_notification) {
 
 		case NOTIFICATION_READY: {
 
-			bool show_info_dialog = EDITOR_GET("re/editor/show_info_on_start");
-			if (show_info_dialog) {
+			if (EditorSettings::get_singleton()) {
+				bool show_info_dialog = EDITOR_GET("re/editor/show_info_on_start");
+				if (show_info_dialog) {
+					about_dialog->set_exclusive(true);
+					show_about_dialog();
+					about_dialog->set_exclusive(false);
+				}
+			} else {
 				about_dialog->set_exclusive(true);
-				_show_about_dialog();
+				show_about_dialog();
 				about_dialog->set_exclusive(false);
 			}
 		}
@@ -1156,7 +1189,6 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_pck_save_prep"), &GodotREEditor::_pck_save_prep);
 	ClassDB::bind_method(D_METHOD("_pck_save_request", "path"), &GodotREEditor::_pck_save_request);
 
-	ClassDB::bind_method(D_METHOD("_menu_option_pressed", "id"), &GodotREEditor::_menu_option_pressed);
 	ClassDB::bind_method(D_METHOD("_toggle_about_dialog_on_start"), &GodotREEditor::_toggle_about_dialog_on_start);
 
 	ClassDB::bind_method(D_METHOD("_res_bin_2_txt_request", "files"), &GodotREEditor::_res_bin_2_txt_request);
@@ -1165,6 +1197,28 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_request", "files"), &GodotREEditor::_res_txt_2_bin_request);
 	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_process"), &GodotREEditor::_res_txt_2_bin_process);
 
+	ClassDB::bind_method(D_METHOD("show_about_dialog"), &GodotREEditor::show_about_dialog);
+	ClassDB::bind_method(D_METHOD("get_gui_icon", "name"), &GodotREEditor::get_gui_icon);
+
+	ClassDB::bind_method(D_METHOD("menu_option_pressed", "id"), &GodotREEditor::menu_option_pressed);
 	ClassDB::bind_method(D_METHOD("convert_file_to_binary", "src_path", "dst_path"), &GodotREEditor::convert_file_to_binary);
 	ClassDB::bind_method(D_METHOD("convert_file_to_text", "src_path", "dst_path"), &GodotREEditor::convert_file_to_text);
 };
+
+/////
+
+void GodotREEditorSt::_notification(int p_notification) {
+}
+
+void GodotREEditorSt::_bind_methods() {
+}
+
+GodotREEditorSt::GodotREEditorSt() {
+
+	menu_hb = memnew(HBoxContainer);
+	add_child(menu_hb);
+	add_child(memnew(GodotREEditor(this, menu_hb)));
+}
+
+GodotREEditorSt::~GodotREEditorSt() {
+}

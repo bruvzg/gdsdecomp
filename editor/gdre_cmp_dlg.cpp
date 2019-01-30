@@ -9,17 +9,15 @@ ScriptCompDialog::ScriptCompDialog() {
 	set_title(TTR("Compile GDScript"));
 	set_resizable(true);
 
-	target_folder_selection = memnew(EditorFileDialog);
-	target_folder_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	target_folder_selection->set_mode(EditorFileDialog::MODE_OPEN_DIR);
-	target_folder_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	target_folder_selection = memnew(FileDialog);
+	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	target_folder_selection->set_mode(FileDialog::MODE_OPEN_DIR);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
 	add_child(target_folder_selection);
 
-	file_selection = memnew(EditorFileDialog);
-	file_selection->set_access(EditorFileDialog::ACCESS_FILESYSTEM);
-	file_selection->set_mode(EditorFileDialog::MODE_OPEN_FILES);
-	file_selection->set_display_mode(EditorFileDialog::DISPLAY_LIST);
+	file_selection = memnew(FileDialog);
+	file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	file_selection->add_filter("*.gd;GDScript text files");
 	file_selection->connect("files_selected", this, "_add_files_request");
 	add_child(file_selection);
@@ -152,22 +150,25 @@ void ScriptCompDialog::_validate_input() {
 	bool ok = true;
 	String error_message;
 
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+	Color warn_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("warning_color", "Editor") : Color(1, 1, 0);
+
 	if (script_key->get_text().empty()) {
 		error_message += TTR("No encryption key") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("warning_color", "Editor"));
+		script_key_error->add_color_override("font_color", warn_color);
 	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
 		error_message += TTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (target_dir->get_text().empty()) {
 		error_message += TTR("No destination folder selected") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (file_list->get_item_count() == 0) {
 		error_message += TTR("No files selected") + "\n";
-		script_key_error->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
+		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 
