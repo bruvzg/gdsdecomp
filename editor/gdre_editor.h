@@ -54,32 +54,39 @@ struct EditorProgressGDDC {
 	String task;
 	ProgressDialog *progress_dialog;
 	bool step(const String &p_state, int p_step = -1, bool p_force_refresh = true) {
+
 		if (EditorNode::get_singleton()) {
 			return EditorNode::progress_task_step(task, p_state, p_step, p_force_refresh);
 		} else {
-			return progress_dialog->task_step(task, p_state, p_step, p_force_refresh);
+			return (progress_dialog) ? progress_dialog->task_step(task, p_state, p_step, p_force_refresh) : false;
 		}
 	}
 
 	EditorProgressGDDC(Control *p_parent, const String &p_task, const String &p_label, int p_amount, bool p_can_cancel = false) {
+
 		if (EditorNode::get_singleton()) {
+			progress_dialog = NULL;
 			EditorNode::progress_add_task(p_task, p_label, p_amount, p_can_cancel);
 		} else {
 			if (!ProgressDialog::get_singleton()) {
 				progress_dialog = memnew(ProgressDialog);
-				p_parent->add_child(progress_dialog);
+				if (p_parent)
+					p_parent->add_child(progress_dialog);
 			} else {
 				progress_dialog = ProgressDialog::get_singleton();
 			}
-			progress_dialog->add_task(p_task, p_label, p_amount, p_can_cancel);
+			if (progress_dialog)
+				progress_dialog->add_task(p_task, p_label, p_amount, p_can_cancel);
 		}
 		task = p_task;
 	}
 	~EditorProgressGDDC() {
+
 		if (EditorNode::get_singleton()) {
 			EditorNode::progress_end_task(task);
 		} else {
-			progress_dialog->end_task(task);
+			if (progress_dialog)
+				progress_dialog->end_task(task);
 		}
 	}
 };
@@ -141,9 +148,6 @@ private:
 
 	void _toggle_about_dialog_on_start(bool p_enabled);
 
-	void show_about_dialog();
-	void menu_option_pressed(int p_id);
-
 	void _decompile_files();
 	void _decompile_process();
 
@@ -186,12 +190,16 @@ public:
 		MENU_COMP_GDS,
 		MENU_CONV_TO_TXT,
 		MENU_CONV_TO_BIN,
-		MENU_ABOUT_RE
+		MENU_ABOUT_RE,
+		MENU_EXIT_RE
 	};
 
 	_FORCE_INLINE_ static GodotREEditor *get_singleton() { return singleton; }
 
-	void init_gui(Control *p_control, HBoxContainer *p_menu);
+	void init_gui(Control *p_control, HBoxContainer *p_menu, bool p_long_menu);
+
+	void show_about_dialog();
+	void menu_option_pressed(int p_id);
 
 	GodotREEditor(Control *p_control, HBoxContainer *p_menu);
 	GodotREEditor(EditorNode *p_editor);
@@ -201,6 +209,7 @@ public:
 class GodotREEditorSt : public Control {
 	GDCLASS(GodotREEditorSt, Control)
 
+	GodotREEditor *editor_ctx;
 	HBoxContainer *menu_hb;
 
 protected:

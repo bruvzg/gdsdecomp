@@ -127,7 +127,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	editor = p_editor;
 	ne_parent = NULL;
 
-	init_gui(editor->get_gui_base(), editor->get_menu_hb());
+	init_gui(editor->get_gui_base(), editor->get_menu_hb(), false);
 }
 
 GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
@@ -135,10 +135,10 @@ GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
 	editor = NULL;
 	ne_parent = p_control;
 
-	init_gui(p_control, p_menu);
+	init_gui(p_control, p_menu, true);
 }
 
-void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu) {
+void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_long_menu) {
 
 	//Init editor icons
 
@@ -210,14 +210,6 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu) {
 	txt_res_file_selection->connect("files_selected", this, "_res_txt_2_bin_request");
 	p_control->add_child(txt_res_file_selection);
 
-	//Init menu
-	menu_button = memnew(MenuButton);
-	menu_button->set_text(TTR("RE Tools"));
-	menu_button->set_icon(gui_icons["Logo"]);
-	menu_popup = menu_button->get_popup();
-
-	menu_popup->add_icon_item(gui_icons["Logo"], TTR("About Godot RE Tools"), MENU_ABOUT_RE); //0
-
 	//Init about/warning dialog
 	{
 		about_dialog = memnew(AcceptDialog);
@@ -261,30 +253,63 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu) {
 		about_dialog_checkbox->connect("toggled", this, "_toggle_about_dialog_on_start");
 	}
 
-	//menu_popup->add_separator(); //1
+	//Init menu
+	if (p_long_menu) {
+		menu_button = memnew(MenuButton);
+		menu_button->set_text(TTR("RE Tools"));
+		menu_button->set_icon(gui_icons["Logo"]);
+		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(gui_icons["Logo"], TTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_icon_item(gui_icons["Logo"], TTR("Quit"), MENU_EXIT_RE);
+		menu_popup->connect("id_pressed", this, "menu_option_pressed");
+		p_menu->add_child(menu_button);
 
-	//menu_popup->add_icon_item(gui_icons["Logo"], TTR("Convert PCK to project..."), MENU_ONE_CLICK_UNEXPORT); //2
+		menu_button = memnew(MenuButton);
+		menu_button->set_text(TTR("PCK"));
+		menu_button->set_icon(gui_icons["Pack"]);
+		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(gui_icons["Pack"], TTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->add_icon_item(gui_icons["Pack"], TTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->connect("id_pressed", this, "menu_option_pressed");
+		p_menu->add_child(menu_button);
 
-	menu_popup->add_separator(); //3
+		menu_button = memnew(MenuButton);
+		menu_button->set_text(TTR("GDScript"));
+		menu_button->set_icon(gui_icons["Script"]);
+		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(gui_icons["Script"], TTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
+		menu_popup->add_icon_item(gui_icons["Script"], TTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->connect("id_pressed", this, "menu_option_pressed");
+		p_menu->add_child(menu_button);
 
-	menu_popup->add_icon_item(gui_icons["Pack"], TTR("Create PCK archive from folder..."), MENU_CREATE_PCK); //4
-	menu_popup->add_icon_item(gui_icons["Pack"], TTR("Explore PCK archive..."), MENU_EXT_PCK); //5
-
-	menu_popup->add_separator(); //6
-
-	menu_popup->add_icon_item(gui_icons["Script"], TTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS); //7
-	menu_popup->add_icon_item(gui_icons["Script"], TTR("Compile .GD script files..."), MENU_COMP_GDS); //8
-
-	menu_popup->add_separator(); //9
-
-	menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //10
-	menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //11
-
-	menu_popup->connect("id_pressed", this, "menu_option_pressed");
-
-	p_menu->add_child(menu_button);
-	if (p_menu->get_child_count() >= 2) {
-		p_menu->move_child(menu_button, p_menu->get_child_count() - 2);
+		menu_button = memnew(MenuButton);
+		menu_button->set_text(TTR("Resources"));
+		menu_button->set_icon(gui_icons["ResBT"]);
+		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
+		menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
+		menu_popup->connect("id_pressed", this, "menu_option_pressed");
+		p_menu->add_child(menu_button);
+	} else {
+		menu_button = memnew(MenuButton);
+		menu_button->set_text(TTR("RE Tools"));
+		menu_button->set_icon(gui_icons["Logo"]);
+		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(gui_icons["Logo"], TTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(gui_icons["Pack"], TTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->add_icon_item(gui_icons["Pack"], TTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(gui_icons["Script"], TTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
+		menu_popup->add_icon_item(gui_icons["Script"], TTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(gui_icons["ResBT"], TTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //10
+		menu_popup->add_icon_item(gui_icons["ResTB"], TTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //11
+		menu_popup->connect("id_pressed", this, "menu_option_pressed");
+		p_menu->add_child(menu_button);
+		if (p_menu->get_child_count() >= 2) {
+			p_menu->move_child(menu_button, p_menu->get_child_count() - 2);
+		}
 	}
 }
 
@@ -345,6 +370,9 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 		} break;
 		case MENU_ABOUT_RE: {
 			show_about_dialog();
+		} break;
+		case MENU_EXIT_RE: {
+			get_tree()->quit();
 		} break;
 		default:
 			ERR_FAIL();
@@ -1205,20 +1233,31 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("convert_file_to_text", "src_path", "dst_path"), &GodotREEditor::convert_file_to_text);
 };
 
-/////
+/*************************************************************************/
 
 void GodotREEditorSt::_notification(int p_notification) {
+
+	if (p_notification == MainLoop::NOTIFICATION_WM_ABOUT) {
+		if (editor_ctx)
+			editor_ctx->show_about_dialog();
+	}
 }
 
 void GodotREEditorSt::_bind_methods() {
+
+	//NOP
 }
 
 GodotREEditorSt::GodotREEditorSt() {
 
 	menu_hb = memnew(HBoxContainer);
 	add_child(menu_hb);
-	add_child(memnew(GodotREEditor(this, menu_hb)));
+
+	editor_ctx = memnew(GodotREEditor(this, menu_hb));
+	add_child(editor_ctx);
 }
 
 GodotREEditorSt::~GodotREEditorSt() {
+
+	editor_ctx = NULL;
 }
