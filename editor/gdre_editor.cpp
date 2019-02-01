@@ -386,6 +386,10 @@ void GodotREEditor::show_warning(const String &p_text, const String &p_title) {
 	rdl->popup_centered();
 }
 
+/*************************************************************************/
+/* Decompile                                                             */
+/*************************************************************************/
+
 void GodotREEditor::_decompile_files() {
 
 	Vector<String> files = script_dialog_d->get_file_list();
@@ -495,6 +499,10 @@ void GodotREEditor::_decompile_process() {
 	}
 }
 
+/*************************************************************************/
+/* Compile                                                               */
+/*************************************************************************/
+
 void GodotREEditor::_compile_files() {
 
 	Vector<String> files = script_dialog_c->get_file_list();
@@ -581,6 +589,10 @@ void GodotREEditor::_compile_process() {
 		rdl->popup_centered();
 	}
 }
+
+/*************************************************************************/
+/* PCK explorer                                                          */
+/*************************************************************************/
 
 void GodotREEditor::_pck_select_request(const String &p_path) {
 
@@ -811,6 +823,10 @@ void GodotREEditor::_pck_extract_files_process() {
 	}
 }
 
+/*************************************************************************/
+/* Res convert                                                           */
+/*************************************************************************/
+
 void GodotREEditor::_res_bin_2_txt_request(const PoolVector<String> &p_files) {
 
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
@@ -975,6 +991,10 @@ Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const Stri
 	}
 	return ResourceFormatSaverBinary::singleton->save(p_dst_path, ria->get_resource());
 }
+
+/*************************************************************************/
+/* PCK create                                                            */
+/*************************************************************************/
 
 void GodotREEditor::_pck_create_request(const String &p_path) {
 
@@ -1178,6 +1198,8 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 		rdl->popup_centered();
 	}
 }
+
+/*************************************************************************/
 
 void GodotREEditor::_notification(int p_notification) {
 

@@ -206,6 +206,8 @@ public:
 	~GodotREEditor();
 };
 
+/*************************************************************************/
+
 class GodotREEditorSt : public Control {
 	GDCLASS(GodotREEditorSt, Control)
 

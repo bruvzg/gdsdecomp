@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>rerools</string>
+	<key>CFBundleName</key>
+	<string>Godot RE Tools</string>
+	<key>CFBundleIconFile</key>
+	<string>retools.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.retools.godot</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.2</string>
+	<key>CFBundleSignature</key>
+	<string>retoolsgodot</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.9.0</string>
+	<key>LSMinimumSystemVersionByArchitecture</key>
+	<dict>
+		<key>x86_64</key>
+		<string>10.9.0</string>
+	</dict>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>
