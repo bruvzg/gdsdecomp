@@ -1121,7 +1121,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
 		header_size += 4; // size of path string (32 bits is enough)
-		uint32_t string_len = pck_save_files[i].name.utf8().length();
+		uint32_t string_len = pck_save_files[i].name.utf8().length() + 6;
 		header_size += string_len + _get_pad(4, string_len); ///size of path string
 		header_size += 8; // offset to file _with_ header size included
 		header_size += 8; // size of file
@@ -1134,11 +1134,12 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
 
-		uint32_t string_len = pck_save_files[i].name.utf8().length();
+		uint32_t string_len = pck_save_files[i].name.utf8().length() + 6;
 		uint32_t pad = _get_pad(4, string_len);
 
 		f->store_32(string_len + pad);
-		f->store_buffer((const uint8_t *)pck_save_files[i].name.utf8().get_data(), string_len);
+		String name = "res://" + pck_save_files[i].name;
+		f->store_buffer((const uint8_t *)name.utf8().get_data(), string_len);
 		for (uint32_t j = 0; j < pad; j++) {
 			f->store_8(0);
 		}
