@@ -23,7 +23,7 @@
 #include "core/io/resource_format_binary.h"
 #include "icons/icons.gen.h"
 #include "modules/svg/image_loader_svg.h"
-#include "scene/resources/scene_format_text.h"
+#include "scene/resources/resource_format_text.h"
 
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
