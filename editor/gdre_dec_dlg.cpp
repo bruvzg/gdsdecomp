@@ -3,6 +3,7 @@
 /*************************************************************************/
 
 #include "gdre_dec_dlg.h"
+#include "bytecode/bytecode_versions.h"
 
 ScriptDecompDialog::ScriptDecompDialog() {
 
@@ -44,16 +45,10 @@ ScriptDecompDialog::ScriptDecompDialog() {
 
 	//Script version
 	scrver = memnew(OptionButton);
-	scrver->add_item("Bytecode version: 13, Godot 3.1.0 (master)", 3101);
-	scrver->add_item("Bytecode version: 13, Godot 3.1.0 (beta 1 - beta 5)", 3100);
-	scrver->add_item("Bytecode version: 12, Godot 3.0.0 - 3.0.6", 3060);
-	scrver->add_item("Bytecode version: 10, Godot 2.1.3 - 2.1.5", 2150);
-	scrver->add_item("Bytecode version: 10, Godot 2.1.2", 2120);
-	scrver->add_item("Bytecode version: 10, Godot 2.1.0 - 2.1.1", 2110);
-	scrver->add_item("Bytecode version: 10, Godot 2.0.0 - 2.0.4-1", 2040);
-	scrver->add_item("Bytecode version: 4, Godot 1.1.0", 1100);
-	scrver->add_item("Bytecode version: 3, Godot 1.0.0", 1100);
-	scrver->add_item("Bytecode version: 1, Initial version", 0000);
+
+	for (int i = 0; decomp_versions[i].commit != 0; i++) {
+		scrver->add_item(decomp_versions[i].name, decomp_versions[i].commit);
+	}
 
 	script_vb->add_margin_child(TTR("Script bytecode version:"), scrver);
 

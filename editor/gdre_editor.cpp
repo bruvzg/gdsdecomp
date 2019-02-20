@@ -411,45 +411,14 @@ void GodotREEditor::_decompile_process() {
 	String dir = script_dialog_d->get_target_dir();
 
 	String failed_files;
-	GDScriptDecomp *dce = NULL;
+	GDScriptDecomp *dce = create_decomp_for_commit(script_dialog_d->get_bytecode_version());
 
-	switch (script_dialog_d->get_bytecode_version()) {
-		case 3101: {
-			dce = memnew(GDScriptDecomp_3_1_0);
-		} break;
-		case 3100: {
-			dce = memnew(GDScriptDecomp_3_1_0_Beta_1_5);
-		} break;
-		case 3060: {
-			dce = memnew(GDScriptDecomp_3_0_6);
-		} break;
-		case 2150: {
-			dce = memnew(GDScriptDecomp_2_1_5);
-		} break;
-		case 2120: {
-			dce = memnew(GDScriptDecomp_2_1_2);
-		} break;
-		case 2110: {
-			dce = memnew(GDScriptDecomp_2_1_1);
-		} break;
-		case 2040: {
-			dce = memnew(GDScriptDecomp_2_0_4);
-		} break;
-		case 1100: {
-			dce = memnew(GDScriptDecomp_1_1_0);
-		} break;
-		case 1000: {
-			dce = memnew(GDScriptDecomp_1_0_0);
-		} break;
-		case 0000: {
-			dce = memnew(GDScriptDecomp_0_0_0);
-		} break;
-		default: {
-			rdl->set_message(failed_files, TTR("Invalid bytecode version!"));
-			rdl->popup_centered();
-			return;
-		}
+	if (!dce) {
+		rdl->set_message(failed_files, TTR("Invalid bytecode version!"));
+		rdl->popup_centered();
+		return;
 	}
+
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_decompile", TTR("Decompiling files..."), files.size(), true));
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");

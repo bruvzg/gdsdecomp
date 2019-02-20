@@ -15,10 +15,10 @@ This module includes following tools:
 ## Usage
 
 - All module functions are accessible via `RE Tools` menu.
-- Decompilers additionaly available as `GDScriptDecomp_{VERSION}` GDScript classes.
+- Decompilers additionaly available as `GDScriptDecomp_{commit_hash}` GDScript classes.
 
 ```gdscript
-	var decomp = GDScriptDecomp_3_1_0.new()
+	var decomp = GDScriptDecomp_{commit_hash}.new()
 
 	decomp.decompile_byte_code(path)
 	# or
@@ -34,8 +34,6 @@ Godot 3.1
 ## GDScript decompiler compatibility
 
 [Supported bytecode versions](BYTECODE_HISTORY.md)
-
-> To decompile scripts from development version of Godot engine look for changes in [GDScriptFunctions::_names](https://github.com/godotengine/godot/blob/master/modules/gdscript/gdscript_tokenizer.h) and [GDScriptTokenizer::Token](https://github.com/godotengine/godot/blob/master/modules/gdscript/gdscript_tokenizer.h) and modify `func_names` array and `Token` enum in the `modules/gdsdecomp/bytecode/bytecode_{VERSION}.cpp` to match these changes.
 
 ## Downloading and compiling
 
