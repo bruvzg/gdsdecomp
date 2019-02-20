@@ -44,7 +44,8 @@ ScriptDecompDialog::ScriptDecompDialog() {
 
 	//Script version
 	scrver = memnew(OptionButton);
-	scrver->add_item("Bytecode version: 13, Godot 3.1.0", 3100);
+	scrver->add_item("Bytecode version: 13, Godot 3.1.0 (master)", 3101);
+	scrver->add_item("Bytecode version: 13, Godot 3.1.0 (beta 1 - beta 5)", 3100);
 	scrver->add_item("Bytecode version: 12, Godot 3.0.0 - 3.0.6", 3060);
 	scrver->add_item("Bytecode version: 10, Godot 2.1.3 - 2.1.5", 2150);
 	scrver->add_item("Bytecode version: 10, Godot 2.1.2", 2120);

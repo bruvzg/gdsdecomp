@@ -8,16 +8,7 @@
 #include "modules/gdscript/gdscript_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
 
-#include "bytecode/bytecode_0_0_0.h"
-#include "bytecode/bytecode_1_0_0.h"
-#include "bytecode/bytecode_1_1_0.h"
-#include "bytecode/bytecode_2_0_4.h"
-#include "bytecode/bytecode_2_1_1.h"
-#include "bytecode/bytecode_2_1_2.h"
-#include "bytecode/bytecode_2_1_5.h"
-#include "bytecode/bytecode_3_0_6.h"
-#include "bytecode/bytecode_3_1_0.h"
-#include "bytecode/bytecode_base.h"
+#include "bytecode/bytecode_versions.h"
 
 #include "core/io/file_access_encrypted.h"
 #include "core/io/resource_format_binary.h"
@@ -423,8 +414,11 @@ void GodotREEditor::_decompile_process() {
 	GDScriptDecomp *dce = NULL;
 
 	switch (script_dialog_d->get_bytecode_version()) {
-		case 3100: {
+		case 3101: {
 			dce = memnew(GDScriptDecomp_3_1_0);
+		} break;
+		case 3100: {
+			dce = memnew(GDScriptDecomp_3_1_0_Beta_1_5);
 		} break;
 		case 3060: {
 			dce = memnew(GDScriptDecomp_3_0_6);

@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  bytecode_3_1_0.cpp                                                   */
+/*  bytecode_3_1_0_b1_5.cpp                                              */
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
 #include "core/map.h"
 #include "core/print_string.h"
 
-#include "bytecode_3_1_0.h"
+#include "bytecode_3_1_0_b1_5.h"
 
 static const char *func_names[] = {
 
@@ -140,7 +140,10 @@ enum Token {
 	TK_CF_ELIF,
 	TK_CF_ELSE,
 	TK_CF_FOR,
+	TK_CF_DO,
 	TK_CF_WHILE,
+	TK_CF_SWITCH,
+	TK_CF_CASE,
 	TK_CF_BREAK,
 	TK_CF_CONTINUE,
 	TK_CF_PASS,
@@ -169,7 +172,7 @@ enum Token {
 	TK_PR_REMOTE,
 	TK_PR_SYNC,
 	TK_PR_MASTER,
-	TK_PR_SLAVE, //Deprecated by TK_PR_PUPPET, to remove in 4.0
+	TK_PR_SLAVE,
 	TK_PR_PUPPET,
 	TK_PR_REMOTESYNC,
 	TK_PR_MASTERSYNC,
@@ -199,7 +202,7 @@ enum Token {
 	TK_MAX
 };
 
-Error GDScriptDecomp_3_1_0::decompile_buffer(Vector<uint8_t> p_buffer) {
+Error GDScriptDecomp_3_1_0_Beta_1_5::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	//Cleanup
 	script_text = String();
@@ -465,8 +468,17 @@ Error GDScriptDecomp_3_1_0::decompile_buffer(Vector<uint8_t> p_buffer) {
 			case TK_CF_FOR: {
 				line += "for ";
 			} break;
+			case TK_CF_DO: {
+				line += "do ";
+			} break;
 			case TK_CF_WHILE: {
 				line += "while ";
+			} break;
+			case TK_CF_SWITCH: {
+				line += "swith ";
+			} break;
+			case TK_CF_CASE: {
+				line += "case ";
 			} break;
 			case TK_CF_BREAK: {
 				line += "break";
