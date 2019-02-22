@@ -8,7 +8,7 @@
 
 NewPackDialog::NewPackDialog() {
 
-	set_title(TTR("Create new PCK..."));
+	set_title(RTR("Create new PCK..."));
 	set_resizable(true);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
@@ -17,14 +17,14 @@ NewPackDialog::NewPackDialog() {
 	message->set_readonly(true);
 	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
 
-	script_vb->add_margin_child(TTR("Files:"), message);
+	script_vb->add_margin_child(RTR("Files:"), message);
 
 	ver_base = memnew(SpinBox);
 	ver_base->set_min(0);
 	ver_base->set_max(1);
 	ver_base->set_step(1);
 	ver_base->set_value(1);
-	script_vb->add_margin_child(TTR("PCK version (0 - Godot 2.x; 1 - Godot 3.x):"), ver_base);
+	script_vb->add_margin_child(RTR("PCK version (0 - Godot 2.x; 1 - Godot 3.x):"), ver_base);
 
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 
@@ -48,16 +48,16 @@ NewPackDialog::NewPackDialog() {
 	ver_rev->set_value(0);
 	dir_hbc->add_child(ver_rev);
 
-	script_vb->add_margin_child(TTR("Target Godot engine version:"), dir_hbc);
+	script_vb->add_margin_child(RTR("Target Godot engine version:"), dir_hbc);
 
 	wmark = memnew(LineEdit);
 	wmark->set_text(String("Created with Godot RE tools, v0.0.1-poc!"));
-	script_vb->add_margin_child(TTR("Extra tag:"), wmark);
+	script_vb->add_margin_child(RTR("Extra tag:"), wmark);
 
 	add_child(script_vb);
 
-	get_ok()->set_text(TTR("Save..."));
-	add_cancel(TTR("Cancel"));
+	get_ok()->set_text(RTR("Save..."));
+	add_cancel(RTR("Cancel"));
 }
 
 NewPackDialog::~NewPackDialog() {

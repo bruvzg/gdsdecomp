@@ -30,11 +30,11 @@ margin_left = -131.0
 margin_top = -11.0
 margin_right = -10.0
 margin_bottom = 11.0
-text = "v0.0.2-poc"
+text = "v0.0.3-poc"
 align = 2
 valign = 1
 
-[node name="GodotREEditorSt" type="GodotREEditorSt" parent="."]
+[node name="GodotREEditorStandalone" type="GodotREEditorStandalone" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
 

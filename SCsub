@@ -3,8 +3,7 @@
 Import('env')
 Import('env_modules')
 
-if env['tools']:
-	SConscript('editor/icons/SCsub')
+SConscript('editor/icons/SCsub')
 
 env_gdsdecomp = env_modules.Clone()
 
@@ -13,5 +12,4 @@ env_gdsdecomp.Append(CPPPATH=["#thirdparty/nanosvg/"])
 env_gdsdecomp.add_source_files(env.modules_sources, "*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "bytecode/*.cpp")
 
-if env['tools']:
-	env_gdsdecomp.add_source_files(env.modules_sources, "editor/*.cpp")
+env_gdsdecomp.add_source_files(env.modules_sources, "editor/*.cpp")

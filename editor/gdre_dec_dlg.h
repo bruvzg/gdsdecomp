@@ -7,8 +7,20 @@
 
 #include "core/map.h"
 #include "core/resource.h"
-#include "editor/editor_export.h"
+
+#include "scene/gui/control.h"
+#include "scene/gui/dialogs.h"
+#include "scene/gui/file_dialog.h"
+#include "scene/gui/item_list.h"
+#include "scene/gui/line_edit.h"
+#include "scene/gui/spin_box.h"
+#include "scene/gui/text_edit.h"
+
+#ifdef TOOLS_ENABLED
 #include "editor/editor_node.h"
+#else
+#define EDSCALE 1.0
+#endif
 
 class ScriptDecompDialog : public AcceptDialog {
 	GDCLASS(ScriptDecompDialog, AcceptDialog)

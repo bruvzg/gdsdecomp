@@ -6,7 +6,7 @@
 
 ScriptCompDialog::ScriptCompDialog() {
 
-	set_title(TTR("Compile GDScript"));
+	set_title(RTR("Compile GDScript"));
 	set_resizable(true);
 
 	target_folder_selection = memnew(FileDialog);
@@ -30,22 +30,22 @@ ScriptCompDialog::ScriptCompDialog() {
 
 	HBoxContainer *file_list_hbc = memnew(HBoxContainer);
 	add_file = memnew(Button);
-	add_file->set_text(TTR("Add files..."));
+	add_file->set_text(RTR("Add files..."));
 	add_file->connect("pressed", this, "_add_files_pressed");
 	file_list_hbc->add_child(add_file);
 
 	remove_file = memnew(Button);
-	remove_file->set_text(TTR("Remove files"));
+	remove_file->set_text(RTR("Remove files"));
 	remove_file->connect("pressed", this, "_remove_file_pressed");
 	file_list_hbc->add_child(remove_file);
 
-	script_vb->add_margin_child(TTR("Script files:"), file_list);
+	script_vb->add_margin_child(RTR("Script files:"), file_list);
 	script_vb->add_child(file_list_hbc);
 
 	//Encryption key
 	script_key = memnew(LineEdit);
 	script_key->connect("text_changed", this, "_script_encryption_key_changed");
-	script_vb->add_margin_child(TTR("Script encryption key (256-bits as hex):"), script_key);
+	script_vb->add_margin_child(RTR("Script encryption key (256-bits as hex):"), script_key);
 
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
@@ -59,17 +59,17 @@ ScriptCompDialog::ScriptCompDialog() {
 	select_dir->connect("pressed", this, "_dir_select_pressed");
 	dir_hbc->add_child(select_dir);
 
-	script_vb->add_margin_child(TTR("Destination folder:"), dir_hbc);
+	script_vb->add_margin_child(RTR("Destination folder:"), dir_hbc);
 
 	script_key_error = memnew(Label);
 	script_vb->add_child(script_key_error);
 
 	add_child(script_vb);
 
-	get_ok()->set_text(TTR("Compile"));
+	get_ok()->set_text(RTR("Compile"));
 	_validate_input();
 
-	add_cancel(TTR("Cancel"));
+	add_cancel(RTR("Cancel"));
 }
 
 ScriptCompDialog::~ScriptCompDialog() {
@@ -150,24 +150,29 @@ void ScriptCompDialog::_validate_input() {
 	bool ok = true;
 	String error_message;
 
+#ifdef TOOLS_ENABLED
 	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
 	Color warn_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("warning_color", "Editor") : Color(1, 1, 0);
+#else
+	Color error_color = Color(1, 0, 0);
+	Color warn_color = Color(1, 1, 0);
+#endif
 
 	if (script_key->get_text().empty()) {
-		error_message += TTR("No encryption key") + "\n";
+		error_message += RTR("No encryption key") + "\n";
 		script_key_error->add_color_override("font_color", warn_color);
 	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
-		error_message += TTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
+		error_message += RTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (target_dir->get_text().empty()) {
-		error_message += TTR("No destination folder selected") + "\n";
+		error_message += RTR("No destination folder selected") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (file_list->get_item_count() == 0) {
-		error_message += TTR("No files selected") + "\n";
+		error_message += RTR("No files selected") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}

@@ -6,7 +6,7 @@
 
 PackDialog::PackDialog() {
 
-	set_title(TTR("PCK explorer"));
+	set_title(RTR("PCK explorer"));
 	set_resizable(true);
 
 	target_folder_selection = memnew(FileDialog);
@@ -19,11 +19,11 @@ PackDialog::PackDialog() {
 
 	//Version inf label
 	vernfo = memnew(Label);
-	script_vb->add_margin_child(TTR("Version:"), vernfo);
+	script_vb->add_margin_child(RTR("Version:"), vernfo);
 
 	//PCK stats
 	gennfo = memnew(Label);
-	script_vb->add_margin_child(TTR("Information:"), gennfo);
+	script_vb->add_margin_child(RTR("Information:"), gennfo);
 
 	//File list
 	file_list = memnew(Tree);
@@ -35,8 +35,8 @@ PackDialog::PackDialog() {
 
 	file_list->set_column_title(0, String());
 	file_list->set_column_title(1, String());
-	file_list->set_column_title(2, TTR("File name"));
-	file_list->set_column_title(3, TTR("Size"));
+	file_list->set_column_title(2, RTR("File name"));
+	file_list->set_column_title(3, RTR("Size"));
 
 	file_list->set_column_expand(0, false);
 	file_list->set_column_min_width(0, 40 * EDSCALE);
@@ -52,7 +52,7 @@ PackDialog::PackDialog() {
 	file_list->connect("column_title_pressed", this, "_select_all_toggle");
 	file_list->connect("item_edited", this, "_validate_selection");
 
-	script_vb->add_margin_child(TTR("Files:"), file_list);
+	script_vb->add_margin_child(RTR("Files:"), file_list);
 
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
@@ -66,17 +66,17 @@ PackDialog::PackDialog() {
 	select_dir->connect("pressed", this, "_dir_select_pressed");
 	dir_hbc->add_child(select_dir);
 
-	script_vb->add_margin_child(TTR("Destination folder:"), dir_hbc);
+	script_vb->add_margin_child(RTR("Destination folder:"), dir_hbc);
 
 	script_key_error = memnew(Label);
 	script_vb->add_child(script_key_error);
 
 	add_child(script_vb);
 
-	get_ok()->set_text(TTR("Extract..."));
+	get_ok()->set_text(RTR("Extract..."));
 	_validate_selection();
 
-	add_cancel(TTR("Cancel"));
+	add_cancel(RTR("Cancel"));
 }
 
 PackDialog::~PackDialog() {
@@ -132,15 +132,19 @@ void PackDialog::_validate_selection() {
 	bool ok = true;
 	String error_message;
 
+#ifdef TOOLS_ENABLED
 	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+#else
+	Color error_color = Color(1, 0, 0);
+#endif
 
 	if (target_dir->get_text().empty()) {
-		error_message += TTR("No destination folder selected") + "\n";
+		error_message += RTR("No destination folder selected") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (nothing_selected) {
-		error_message += TTR("No files selected") + "\n";
+		error_message += RTR("No files selected") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
 		ok = false;
 	}
