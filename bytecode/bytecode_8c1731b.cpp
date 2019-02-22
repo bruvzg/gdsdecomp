@@ -503,7 +503,7 @@ Error GDScriptDecomp_8c1731b::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += ":";
 			} break;
 			case TK_NEWLINE: {
-				for (int i = 0; i < indent; i++) {
+				for (int j = 0; j < indent; j++) {
 					script_text += "\t";
 				}
 				script_text += line + "\n";
