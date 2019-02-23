@@ -520,10 +520,12 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 	}
 }
 
-void GodotREEditor::show_warning(const String &p_text, const String &p_title) {
+void GodotREEditor::show_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
+
+	emit_signal("write_log_message", "[" + p_title + "]: " + p_text + "\n" + p_sub_text + "\n");
 
 	rdl->set_title(p_title);
-	rdl->set_message(p_text, "");
+	rdl->set_message(p_text, p_sub_text);
 	rdl->popup_centered();
 }
 
@@ -560,17 +562,20 @@ void GodotREEditor::_decompile_process() {
 	Vector<uint8_t> key = script_dialog_d->get_key();
 	String dir = script_dialog_d->get_target_dir();
 
+	emit_signal("write_log_message", "[" + RTR("Decompile") + "]: GDScriptDecomp{" + itos(script_dialog_d->get_bytecode_version()) + "} \n");
+
 	String failed_files;
 	GDScriptDecomp *dce = create_decomp_for_commit(script_dialog_d->get_bytecode_version());
 
 	if (!dce) {
-		rdl->set_message(failed_files, RTR("Invalid bytecode version!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Decompile"), RTR("Invalid bytecode version!"));
 		return;
 	}
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_decompile", RTR("Decompiling files..."), files.size(), true));
 	for (int i = 0; i < files.size(); i++) {
+		emit_signal("write_log_message", "[" + RTR("Decompile") + "]: " + RTR("decompiling") + " " + files[i].get_file() + " \n");
+
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
 
 		bool cancel = pr->step(files[i].get_file(), i, true);
@@ -595,20 +600,17 @@ void GodotREEditor::_decompile_process() {
 			file->close();
 			memdelete(file);
 		} else {
-			failed_files += files[i] + " (GDSDecomp error)\n";
+			failed_files += files[i] + " (" + dce->get_error_message() + ")\n";
 		}
 	}
 
 	memdelete(pr);
 	memdelete(dce);
 
-	rdl->set_title(RTR("Decompile"));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Decompile"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("Decompile"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -653,6 +655,8 @@ void GodotREEditor::_compile_process() {
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_compile", RTR("Compiling files..."), files.size(), true));
 
 	for (int i = 0; i < files.size(); i++) {
+
+		emit_signal("write_log_message", "[" + RTR("Compile") + "]: " + RTR("compiling") + " " + files[i].get_file() + " \n");
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
 
 		bool cancel = pr->step(files[i].get_file(), i, true);
@@ -693,13 +697,10 @@ void GodotREEditor::_compile_process() {
 
 	memdelete(pr);
 
-	rdl->set_title(RTR("Compile"));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Compile"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("Compile"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -715,7 +716,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	FileAccess *pck = FileAccess::open(p_path, FileAccess::READ);
 	if (!pck) {
-		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("OK"));
+		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
 		return;
 	}
 
@@ -728,7 +729,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		pck->seek(pck->get_position() - 4);
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
-			show_warning(RTR("Invalid PCK file"));
+			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
 			memdelete(pck);
 			return;
 		}
@@ -739,17 +740,19 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
-			show_warning(RTR("Invalid PCK file"));
+			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
 			memdelete(pck);
 			return;
 		}
 		is_emb = true;
 	}
 
+	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("filename") + " " + p_path + " \n");
+
 	uint32_t version = pck->get_32();
 
 	if (version > 1) {
-		show_warning(RTR("Pack version unsupported: ") + itos(version));
+		show_warning(RTR("Pack version unsupported: ") + itos(version), RTR("Read PCK"));
 		memdelete(pck);
 		return;
 	}
@@ -759,6 +762,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint32_t ver_rev = pck->get_32();
 
 	pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+
+	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")) + " \n");
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
@@ -845,6 +850,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	};
 
 	pck_dialog->set_info(String("    ") + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken));
+	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken) + "\n");
 
 	memdelete(pr);
 	memdelete(pck);
@@ -880,7 +886,7 @@ void GodotREEditor::_pck_extract_files_process() {
 
 	FileAccess *pck = FileAccess::open(pck_file, FileAccess::READ);
 	if (!pck) {
-		show_warning(RTR("Error opening PCK file: ") + pck_file, RTR("OK"));
+		show_warning(RTR("Error opening PCK file: ") + pck_file, RTR("Read PCK"));
 		return;
 	}
 
@@ -926,13 +932,10 @@ void GodotREEditor::_pck_extract_files_process() {
 	pck_files.clear();
 	pck_file = String();
 
-	rdl->set_title(RTR("Extract files"));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -999,13 +1002,10 @@ void GodotREEditor::_res_bin_2_txt_process() {
 	memdelete(pr);
 	res_files = PoolVector<String>();
 
-	rdl->set_title(RTR("Convert resources"));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Convert resources"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("Convert resources"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -1081,13 +1081,10 @@ void GodotREEditor::_res_txt_2_bin_process() {
 	memdelete(pr);
 	res_files = PoolVector<String>();
 
-	rdl->set_title(RTR("Convert resources"));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("Convert resources"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("Convert resources"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -1124,7 +1121,7 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 	}
 
 	if (size == 0) {
-		show_warning(RTR("Error opening folder (or empty folder): ") + p_path, RTR("OK"));
+		show_warning(RTR("Error opening folder (or empty folder): ") + p_path, RTR("New PCK"));
 		return;
 	}
 
@@ -1150,7 +1147,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 	DirAccess *da = DirAccess::open(p_path.plus_file(p_rel));
 	if (!da) {
-		show_warning(RTR("Error opening folder: ") + p_path.plus_file(p_rel), RTR("OK"));
+		show_warning(RTR("Error opening folder: ") + p_path.plus_file(p_rel), RTR("New PCK"));
 		return offset;
 	}
 	da->list_dir_begin();
@@ -1210,7 +1207,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
 	if (!f) {
-		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("OK"));
+		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("New PCK"));
 		return;
 	}
 
@@ -1303,13 +1300,10 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	memdelete(f);
 	memdelete(pr);
 
-	rdl->set_title(RTR("Create PCK archive..."));
 	if (failed_files.length() > 0) {
-		rdl->set_message(failed_files, RTR("At least one error was detected!"));
-		rdl->popup_centered();
+		show_warning(failed_files, RTR("New PCK"), RTR("At least one error was detected!"));
 	} else {
-		rdl->set_message(RTR("No errors detected."), RTR("The operation completed successfully!"));
-		rdl->popup_centered();
+		show_warning(RTR("No errors detected."), RTR("New PCK"), RTR("The operation completed successfully!"));
 	}
 }
 
@@ -1336,6 +1330,7 @@ void GodotREEditor::_notification(int p_notification) {
 				show_about_dialog();
 				about_dialog->set_exclusive(false);
 			}
+			emit_signal("write_log_message", "****\nGodot RE Tools, v0.0.3-poc\n****\n\n");
 		}
 	}
 }
@@ -1370,6 +1365,8 @@ void GodotREEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("menu_option_pressed", "id"), &GodotREEditor::menu_option_pressed);
 	ClassDB::bind_method(D_METHOD("convert_file_to_binary", "src_path", "dst_path"), &GodotREEditor::convert_file_to_binary);
 	ClassDB::bind_method(D_METHOD("convert_file_to_text", "src_path", "dst_path"), &GodotREEditor::convert_file_to_text);
+
+	ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
 };
 
 /*************************************************************************/
@@ -1382,9 +1379,15 @@ void GodotREEditorStandalone::_notification(int p_notification) {
 	}
 }
 
+void GodotREEditorStandalone::_write_log_message(String p_message) {
+
+	emit_signal("write_log_message", p_message);
+}
+
 void GodotREEditorStandalone::_bind_methods() {
 
-	//NOP
+	ClassDB::bind_method(D_METHOD("_write_log_message"), &GodotREEditorStandalone::_write_log_message);
+	ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
 }
 
 GodotREEditorStandalone::GodotREEditorStandalone() {
@@ -1393,6 +1396,8 @@ GodotREEditorStandalone::GodotREEditorStandalone() {
 	add_child(menu_hb);
 
 	editor_ctx = memnew(GodotREEditor(this, menu_hb));
+	editor_ctx->connect("write_log_message", this, "_write_log_message");
+
 	add_child(editor_ctx);
 }
 

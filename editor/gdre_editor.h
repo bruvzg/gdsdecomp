@@ -248,7 +248,7 @@ private:
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
 	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
 
-	void show_warning(const String &p_text, const String &p_title = "Warning!");
+	void show_warning(const String &p_text, const String &p_title = "Warning!", const String &p_sub_text = "");
 
 	static GodotREEditor *singleton;
 
@@ -296,6 +296,8 @@ protected:
 	static void _bind_methods();
 
 public:
+	void _write_log_message(String p_message);
+
 	GodotREEditorStandalone();
 	~GodotREEditorStandalone();
 };

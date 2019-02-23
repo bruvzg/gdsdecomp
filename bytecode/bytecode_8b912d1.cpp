@@ -226,8 +226,10 @@ Error GDScriptDecomp_8b912d1::decompile_buffer(Vector<uint8_t> p_buffer) {
 		Variant v;
 		int len;
 		Error err = decode_variant(v, b, total_len, &len);
-		if (err)
+		if (err) {
+			error_message = RTR("Invalid constant");
 			return err;
+		}
 		b += len;
 		total_len -= len;
 		constants.write[i] = v;
@@ -588,6 +590,7 @@ Error GDScriptDecomp_8b912d1::decompile_buffer(Vector<uint8_t> p_buffer) {
 	}
 
 	if (script_text == String()) {
+		error_message = RTR("Invalid token");
 		return ERR_INVALID_DATA;
 	}
 

@@ -16,6 +16,7 @@ protected:
 	static void _ensure_space(String &p_code);
 
 	String script_text;
+	String error_message;
 
 public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) = 0;
@@ -23,6 +24,7 @@ public:
 	Error decompile_byte_code(const String &p_path);
 
 	String get_script_text();
+	String get_error_message();
 };
 
 #endif

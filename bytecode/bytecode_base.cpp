@@ -14,6 +14,7 @@ void GDScriptDecomp::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("decompile_byte_code_encrypted", "path", "key"), &GDScriptDecomp::decompile_byte_code_encrypted);
 
 	ClassDB::bind_method(D_METHOD("get_script_text"), &GDScriptDecomp::get_script_text);
+	ClassDB::bind_method(D_METHOD("get_error_message"), &GDScriptDecomp::get_error_message);
 }
 
 void GDScriptDecomp::_ensure_space(String &p_code) {
@@ -48,6 +49,8 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 	fae->close();
 	memdelete(fae);
 
+	error_message = RTR("No error");
+
 	return decompile_buffer(bytecode);
 }
 
@@ -57,10 +60,17 @@ Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
 
 	bytecode = FileAccess::get_file_as_array(p_path);
 
+	error_message = RTR("No error");
+
 	return decompile_buffer(bytecode);
 }
 
 String GDScriptDecomp::get_script_text() {
 
 	return script_text;
-};
+}
+
+String GDScriptDecomp::get_error_message() {
+
+	return error_message;
+}

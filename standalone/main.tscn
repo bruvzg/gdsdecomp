@@ -1,27 +1,37 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=4 format=2]
 
-[ext_resource path="res://background.png" type="Texture" id=1]
+[ext_resource path="res://theme.tres" type="Theme" id=1]
+[ext_resource path="res://main.gd" type="Script" id=2]
+[ext_resource path="res://background.png" type="Texture" id=3]
 
-[node name="Control" type="Control"]
+[node name="root" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
+theme = ExtResource( 1 )
+script = ExtResource( 2 )
 
-[node name="BGLogo" type="TextureRect" parent="."]
+[node name="background_logo" type="TextureRect" parent="."]
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 margin_left = -189.5
-margin_top = -271.25
+margin_top = -482.5
 margin_right = 189.5
-margin_bottom = 271.25
-texture = ExtResource( 1 )
+margin_bottom = 2.5
+texture = ExtResource( 3 )
 
-[node name="PanelMenu" type="Panel" parent="."]
+[node name="log_window" type="RichTextLabel" parent="."]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_top = -497.0
+
+[node name="menu_background" type="Panel" parent="."]
 anchor_right = 1.0
 margin_bottom = 24.0
 
-[node name="LabelVer" type="Label" parent="PanelMenu"]
+[node name="version_lbl" type="Label" parent="menu_background"]
 anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
@@ -34,7 +44,8 @@ text = "v0.0.3-poc"
 align = 2
 valign = 1
 
-[node name="GodotREEditorStandalone" type="GodotREEditorStandalone" parent="."]
+[node name="re_editor_standalone" type="GodotREEditorStandalone" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
 
+[connection signal="write_log_message" from="re_editor_standalone" to="." method="_on_re_editor_standalone_write_log_message"]
