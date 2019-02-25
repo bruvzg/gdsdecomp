@@ -125,9 +125,9 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		} else if (p_size < (1024 * 1024)) {
 			item->set_text(1, String::num((double)p_size / 1024, 2) + " KiB");
 		} else if (p_size < (1024 * 1024 * 1024)) {
-			item->set_text(1, String::num_int64((double)p_size / (1024 * 1024), 2) + " MiB");
+			item->set_text(1, String::num((double)p_size / (1024 * 1024), 2) + " MiB");
 		} else {
-			item->set_text(1, String::num_int64((double)p_size / (1024 * 1024 * 1024), 2) + " GiB");
+			item->set_text(1, String::num((double)p_size / (1024 * 1024 * 1024), 2) + " GiB");
 		}
 		item->set_tooltip(1, p_md5);
 
