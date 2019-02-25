@@ -26,4 +26,5 @@ window/size/height=1024
 
 [rendering]
 
+quality/driver/driver_name="GLES2"
 environment/default_clear_color=Color( 0.0784314, 0.0901961, 0.121569, 1 )

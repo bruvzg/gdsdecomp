@@ -867,6 +867,62 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		String path;
 		path.parse_utf8(cs.ptr());
 
+		path = path.replace("res://", "");
+
+		bool malformed = false;
+		if (path.begins_with("~")) {
+			path = "_" + path;
+			malformed = true;
+		}
+		if (path.begins_with("/")) {
+			path = "_" + path;
+			malformed = true;
+		}
+		if (path.find("..") >= 0) {
+			path = path.replace("..", "_");
+			malformed = true;
+		}
+		if (path.find("//") >= 0) {
+			path = path.replace("//", "_");
+			malformed = true;
+		}
+		if (path.find("://") >= 0) {
+			path = path.replace("://", "_");
+			malformed = true;
+		}
+		if (path.find("\\") >= 0) {
+			path = path.replace("\\", "_");
+			malformed = true;
+		}
+		if (path.find(":") >= 0) {
+			path = path.replace(":", "_");
+			malformed = true;
+		}
+		if (path.find("|") >= 0) {
+			path = path.replace("|", "_");
+			malformed = true;
+		}
+		if (path.find("?") >= 0) {
+			path = path.replace("?", "_");
+			malformed = true;
+		}
+		if (path.find(">") >= 0) {
+			path = path.replace(">", "_");
+			malformed = true;
+		}
+		if (path.find("<") >= 0) {
+			path = path.replace("<", "_");
+			malformed = true;
+		}
+		if (path.find("*") >= 0) {
+			path = path.replace("*", "_");
+			malformed = true;
+		}
+		if (path.find("\"") >= 0) {
+			path = path.replace("\"", "_");
+			malformed = true;
+		}
+
 		uint64_t ofs = pck->get_64();
 		uint64_t size = pck->get_64();
 		uint8_t md5_saved[16];
@@ -930,9 +986,9 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			if (!md5_match) {
 				files_broken++;
 			}
-			pck_dialog->add_file(path, size, (md5_match) ? gui_icons["FileOk"] : gui_icons["FileBroken"], "MD5 file: " + file_md5 + "; MD5 saved: " + saved_md5);
+			pck_dialog->add_file(path, size, (!md5_match || malformed) ? gui_icons["FileBroken"] : gui_icons["FileOk"], "MD5 file: " + file_md5 + "; MD5 saved: " + saved_md5, malformed);
 		} else {
-			pck_dialog->add_file(path, size, gui_icons["File"], RTR("MD5 check skipped"));
+			pck_dialog->add_file(path, size, (malformed) ? gui_icons["FileBroken"] : gui_icons["File"], RTR("MD5 check skipped"), malformed);
 		}
 
 		pck_files[path] = PackedFile(ofs, size);
@@ -988,7 +1044,7 @@ void GodotREEditor::_pck_extract_files_process() {
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files[i].replace("res://", ""));
+		String target_name = dir.plus_file(files[i]);
 
 		da->make_dir_recursive(target_name.get_base_dir());
 

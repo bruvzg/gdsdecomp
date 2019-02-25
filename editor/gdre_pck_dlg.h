@@ -38,6 +38,7 @@ class PackDialog : public AcceptDialog {
 	LineEdit *target_dir;
 	Button *select_dir;
 
+	bool have_malformed_names;
 	bool updating;
 	void _update_subitems(TreeItem *p_item, bool p_check, bool p_first = false);
 	void _item_edited();
@@ -56,7 +57,7 @@ protected:
 
 public:
 	void clear();
-	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5);
+	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5, bool p_malformed_name);
 	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5);
 	void set_version(const String &p_version);
 	void set_info(const String &p_info);

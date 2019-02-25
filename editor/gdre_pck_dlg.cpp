@@ -9,6 +9,7 @@ PackDialog::PackDialog() {
 	set_title(RTR("PCK explorer"));
 	set_resizable(true);
 	updating = false;
+	have_malformed_names = false;
 
 	target_folder_selection = memnew(FileDialog);
 	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
@@ -96,13 +97,19 @@ void PackDialog::clear() {
 	root->set_text(0, "res://");
 	root->set_metadata(0, String());
 
+	have_malformed_names = false;
+
 	_validate_selection();
 }
 
-void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5) {
+void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5, bool p_malformed_name) {
+
+	if (p_malformed_name) {
+		have_malformed_names = true;
+	}
 
 	updating = true;
-	add_file_to_item(root, p_name, p_name.replace("res://", ""), p_size, p_icon, p_md5);
+	add_file_to_item(root, p_name, p_name, p_size, p_icon, p_md5);
 	updating = false;
 }
 
@@ -169,7 +176,11 @@ void PackDialog::_dir_select_request(const String &p_path) {
 
 size_t PackDialog::_selected(TreeItem *p_item) {
 
-	size_t selected = (p_item->is_checked(0) ? 1 : 0);
+	size_t selected = 0;
+	String path = p_item->get_metadata(0);
+	if ((path != String()) && p_item->is_checked(0)) { //not a dir
+		selected = 1;
+	}
 
 	TreeItem *it = p_item->get_children();
 	while (it) {
@@ -234,6 +245,10 @@ void PackDialog::_validate_selection() {
 	Color error_color = Color(1, 0, 0);
 #endif
 
+	if (have_malformed_names) {
+		error_message += RTR("Some files have malformed names") + "\n";
+		script_key_error->add_color_override("font_color", error_color);
+	}
 	if (target_dir->get_text().empty()) {
 		error_message += RTR("No destination folder selected") + "\n";
 		script_key_error->add_color_override("font_color", error_color);
