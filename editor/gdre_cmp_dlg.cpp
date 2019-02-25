@@ -41,6 +41,11 @@ ScriptCompDialog::ScriptCompDialog() {
 	remove_file->connect("pressed", this, "_remove_file_pressed");
 	file_list_hbc->add_child(remove_file);
 
+	clear_files = memnew(Button);
+	clear_files->set_text(RTR("Clear files"));
+	clear_files->connect("pressed", this, "_clear_pressed");
+	file_list_hbc->add_child(clear_files);
+
 	script_vb->add_margin_child(RTR("Script files:"), file_list);
 	script_vb->add_child(file_list_hbc);
 
@@ -138,6 +143,12 @@ void ScriptCompDialog::_add_files_request(const PoolVector<String> &p_files) {
 	_validate_input();
 }
 
+void ScriptCompDialog::_clear_pressed() {
+
+	file_list->clear();
+	_validate_input();
+}
+
 void ScriptCompDialog::_remove_file_pressed() {
 
 	Vector<int> items = file_list->get_selected_items();
@@ -213,6 +224,7 @@ void ScriptCompDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_add_files_pressed"), &ScriptCompDialog::_add_files_pressed);
 	ClassDB::bind_method(D_METHOD("_add_files_request", "files"), &ScriptCompDialog::_add_files_request);
 	ClassDB::bind_method(D_METHOD("_remove_file_pressed"), &ScriptCompDialog::_remove_file_pressed);
+	ClassDB::bind_method(D_METHOD("_clear_pressed"), &ScriptCompDialog::_clear_pressed);
 	ClassDB::bind_method(D_METHOD("_script_encryption_key_changed", "key"), &ScriptCompDialog::_script_encryption_key_changed);
 	ClassDB::bind_method(D_METHOD("_dir_select_pressed"), &ScriptCompDialog::_dir_select_pressed);
 	ClassDB::bind_method(D_METHOD("_dir_select_request", "path"), &ScriptCompDialog::_dir_select_request);

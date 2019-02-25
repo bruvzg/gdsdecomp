@@ -570,9 +570,37 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 	}
 }
 
+void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
+
+	char timestamp[21];
+	OS::Date date = OS::get_singleton()->get_date();
+	OS::Time time = OS::get_singleton()->get_time();
+	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", date.year, date.month, date.day, time.hour, time.min, time.sec);
+
+	Vector<String> lines = p_text.split("\n");
+	if (lines.size() > 1) {
+		emit_signal("write_log_message", String(timestamp) + " [" + p_title + "]: " + "\n");
+		for (int i = 0; i < lines.size(); i++) {
+			emit_signal("write_log_message", String(timestamp) + "       " + lines[i] + "\n");
+		}
+	} else {
+		emit_signal("write_log_message", String(timestamp) + " [" + p_title + "]: " + p_text + "\n");
+	}
+	if (p_sub_text != String()) {
+		Vector<String> slines = p_sub_text.split("\n");
+		if (slines.size() > 1) {
+			for (int i = 0; i < slines.size(); i++) {
+				emit_signal("write_log_message", String(timestamp) + "       " + slines[i] + "\n");
+			}
+		} else {
+			emit_signal("write_log_message", String(timestamp) + " [" + p_title + "]: " + p_sub_text + "\n");
+		}
+	}
+}
+
 void GodotREEditor::show_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
 
-	emit_signal("write_log_message", "[" + p_title + "]: " + p_text + "\n" + p_sub_text + "\n");
+	print_warning(p_text, p_title, p_sub_text);
 
 	rdl->set_title(p_title);
 	rdl->set_message(p_text, p_sub_text);
@@ -612,7 +640,7 @@ void GodotREEditor::_decompile_process() {
 	Vector<uint8_t> key = script_dialog_d->get_key();
 	String dir = script_dialog_d->get_target_dir();
 
-	emit_signal("write_log_message", "[" + RTR("Decompile") + "]: GDScriptDecomp{" + itos(script_dialog_d->get_bytecode_version()) + "} \n");
+	print_warning("GDScriptDecomp{" + itos(script_dialog_d->get_bytecode_version()) + "}", RTR("Decompile"));
 
 	String failed_files;
 	GDScriptDecomp *dce = create_decomp_for_commit(script_dialog_d->get_bytecode_version());
@@ -624,7 +652,7 @@ void GodotREEditor::_decompile_process() {
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_decompile", RTR("Decompiling files..."), files.size(), true));
 	for (int i = 0; i < files.size(); i++) {
-		emit_signal("write_log_message", "[" + RTR("Decompile") + "]: " + RTR("decompiling") + " " + files[i].get_file() + " \n");
+		print_warning(RTR("decompiling") + " " + files[i].get_file(), RTR("Decompile"));
 
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
 
@@ -706,7 +734,7 @@ void GodotREEditor::_compile_process() {
 
 	for (int i = 0; i < files.size(); i++) {
 
-		emit_signal("write_log_message", "[" + RTR("Compile") + "]: " + RTR("compiling") + " " + files[i].get_file() + " \n");
+		print_warning(RTR("compiling") + " " + files[i].get_file(), RTR("Compile"));
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
 
 		bool cancel = pr->step(files[i].get_file(), i, true);
@@ -797,7 +825,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		is_emb = true;
 	}
 
-	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("filename") + " " + p_path + " \n");
+	print_warning(RTR("filename") + " " + p_path, RTR("Read PCK"));
 
 	uint32_t version = pck->get_32();
 
@@ -813,7 +841,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
 
-	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")) + " \n");
+	print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
@@ -911,7 +939,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	};
 
 	pck_dialog->set_info(String("    ") + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken));
-	emit_signal("write_log_message", "[" + RTR("Read PCK") + "]: " + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken) + "\n");
+	print_warning(RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken), RTR("Read PCK"));
 
 	memdelete(pr);
 	memdelete(pck);
@@ -964,6 +992,7 @@ void GodotREEditor::_pck_extract_files_process() {
 
 		da->make_dir_recursive(target_name.get_base_dir());
 
+		print_warning("extracting " + files[i], RTR("Read PCK"));
 		bool cancel = pr->step(files[i], i, true);
 		if (cancel) {
 			break;
@@ -1033,6 +1062,7 @@ void GodotREEditor::_res_smpl_2_wav_process() {
 	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
 	for (int i = 0; i < res_files.size(); i++) {
 
+		print_warning("converting " + res_files[i], RTR("Convert WAV samples"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
 			break;
@@ -1097,6 +1127,7 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 			break;
 		}
 
+		print_warning("converting " + res_files[i], RTR("Convert OGG samples"));
 		Ref<ResourceInteractiveLoaderBinary> ria = rl->load_interactive(res_files[i]);
 		Error err = ria->poll();
 		while (err == OK) {
@@ -1157,6 +1188,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
 
+		print_warning("converting " + res_files[i], RTR("Convert textures"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
 			break;
@@ -1229,6 +1261,7 @@ void GodotREEditor::_res_bin_2_txt_process() {
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
 
+		print_warning("converting " + res_files[i], RTR("Convert resources"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
 			break;
@@ -1308,6 +1341,7 @@ void GodotREEditor::_res_txt_2_bin_process() {
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
 
+		print_warning("converting " + res_files[i], RTR("Convert resources"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
 			break;
@@ -1515,6 +1549,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	String failed_files;
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
+		print_warning("saving " + pck_save_files[i].name, RTR("New PCK"));
 		if (pr->step(pck_save_files[i].name, i + 2, true)) {
 			break;
 		}

@@ -32,6 +32,7 @@ class ScriptDecompDialog : public AcceptDialog {
 
 	Button *add_file;
 	Button *remove_file;
+	Button *clear_files;
 
 	OptionButton *scrver;
 
@@ -45,6 +46,7 @@ class ScriptDecompDialog : public AcceptDialog {
 	void _add_files_pressed();
 	void _add_files_request(const PoolVector<String> &p_files);
 	void _remove_file_pressed();
+	void _clear_pressed();
 	void _script_encryption_key_changed(const String &p_key);
 	void _dir_select_pressed();
 	void _dir_select_request(const String &p_path);

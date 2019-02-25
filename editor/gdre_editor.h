@@ -261,6 +261,7 @@ private:
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
 	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
 
+	void print_warning(const String &p_text, const String &p_title, const String &p_sub_text = "");
 	void show_warning(const String &p_text, const String &p_title = "Warning!", const String &p_sub_text = "");
 
 	static GodotREEditor *singleton;
