@@ -13,6 +13,7 @@ ScriptCompDialog::ScriptCompDialog() {
 	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	target_folder_selection->set_mode(FileDialog::MODE_OPEN_DIR);
 	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
+	target_folder_selection->set_show_hidden_files(true);
 	add_child(target_folder_selection);
 
 	file_selection = memnew(FileDialog);
@@ -20,6 +21,7 @@ ScriptCompDialog::ScriptCompDialog() {
 	file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	file_selection->add_filter("*.gd;GDScript text files");
 	file_selection->connect("files_selected", this, "_add_files_request");
+	file_selection->set_show_hidden_files(true);
 	add_child(file_selection);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);

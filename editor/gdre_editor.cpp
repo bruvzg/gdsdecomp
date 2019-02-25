@@ -16,6 +16,9 @@
 #include "modules/svg/image_loader_svg.h"
 #include "scene/resources/resource_format_text.h"
 
+#include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
+#include "scene/resources/audio_stream_sample.h"
+
 #include "thirdparty/misc/md5.h"
 #include "thirdparty/misc/sha256.h"
 
@@ -310,6 +313,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_source_folder->set_access(FileDialog::ACCESS_FILESYSTEM);
 	pck_source_folder->set_mode(FileDialog::MODE_OPEN_DIR);
 	pck_source_folder->connect("dir_selected", this, "_pck_create_request");
+	pck_source_folder->set_show_hidden_files(true);
 	p_control->add_child(pck_source_folder);
 
 	pck_save_dialog = memnew(NewPackDialog);
@@ -321,6 +325,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_save_file_selection->set_mode(FileDialog::MODE_SAVE_FILE);
 	pck_save_file_selection->add_filter("*.pck;PCK archive files");
 	pck_save_file_selection->connect("file_selected", this, "_pck_save_request");
+	pck_save_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_save_file_selection);
 
 	pck_file_selection = memnew(FileDialog);
@@ -329,6 +334,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->connect("file_selected", this, "_pck_select_request");
+	pck_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_file_selection);
 
 	bin_res_file_selection = memnew(FileDialog);
@@ -336,6 +342,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	bin_res_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	bin_res_file_selection->add_filter("*.scn,*.res;Binary resource files");
 	bin_res_file_selection->connect("files_selected", this, "_res_bin_2_txt_request");
+	bin_res_file_selection->set_show_hidden_files(true);
 	p_control->add_child(bin_res_file_selection);
 
 	txt_res_file_selection = memnew(FileDialog);
@@ -343,7 +350,32 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	txt_res_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
 	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
 	txt_res_file_selection->connect("files_selected", this, "_res_txt_2_bin_request");
+	txt_res_file_selection->set_show_hidden_files(true);
 	p_control->add_child(txt_res_file_selection);
+
+	stex_file_selection = memnew(FileDialog);
+	stex_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	stex_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
+	stex_file_selection->add_filter("*.stex;Stream texture files");
+	stex_file_selection->connect("files_selected", this, "_res_stex_2_png_request");
+	stex_file_selection->set_show_hidden_files(true);
+	p_control->add_child(stex_file_selection);
+
+	ostr_file_selection = memnew(FileDialog);
+	ostr_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	ostr_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
+	ostr_file_selection->add_filter("*.oggstr;OGG Sample files");
+	ostr_file_selection->connect("files_selected", this, "_res_ostr_2_ogg_request");
+	ostr_file_selection->set_show_hidden_files(true);
+	p_control->add_child(ostr_file_selection);
+
+	smpl_file_selection = memnew(FileDialog);
+	smpl_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	smpl_file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
+	smpl_file_selection->add_filter("*.sample;WAV Sample files");
+	smpl_file_selection->connect("files_selected", this, "_res_smpl_2_wav_request");
+	smpl_file_selection->set_show_hidden_files(true);
+	p_control->add_child(smpl_file_selection);
 
 	//Init about/warning dialog
 	{
@@ -424,6 +456,10 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup = menu_button->get_popup();
 		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
 		menu_popup->add_icon_item(gui_icons["ResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", this, "menu_option_pressed");
 		p_menu->add_child(menu_button);
 	} else {
@@ -439,8 +475,12 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(gui_icons["Script"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(gui_icons["Script"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT); //10
-		menu_popup->add_icon_item(gui_icons["ResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN); //11
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
+		menu_popup->add_icon_item(gui_icons["ResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", this, "menu_option_pressed");
 		p_menu->add_child(menu_button);
 		if (p_menu->get_child_count() >= 2) {
@@ -509,6 +549,16 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 		case MENU_CONV_TO_BIN: {
 			txt_res_file_selection->popup_centered(Size2(800, 600));
 		} break;
+		case MENU_STEX_TO_PNG: {
+			stex_file_selection->popup_centered(Size2(800, 600));
+		} break;
+		case MENU_OSTR_TO_OGG: {
+			ostr_file_selection->popup_centered(Size2(800, 600));
+		} break;
+		case MENU_SMPL_TO_WAV: {
+			smpl_file_selection->popup_centered(Size2(800, 600));
+		} break;
+
 		case MENU_ABOUT_RE: {
 			show_about_dialog();
 		} break;
@@ -954,6 +1004,194 @@ void GodotREEditor::_pck_extract_files_process() {
 /* Res convert                                                           */
 /*************************************************************************/
 
+void GodotREEditor::_res_smpl_2_wav_request(const PoolVector<String> &p_files) {
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String overwrite_list = String();
+	for (int i = 0; i < p_files.size(); i++) {
+		if (da->file_exists(p_files[i].get_basename() + ".wav")) {
+			overwrite_list += p_files[i].get_basename() + ".wav" + "\n";
+		}
+	}
+
+	res_files = p_files;
+
+	if (overwrite_list.length() == 0) {
+		_res_smpl_2_wav_process();
+	} else {
+		ovd->set_message(overwrite_list);
+		ovd->connect("confirmed", this, "_res_smpl_2_wav_process", Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->popup_centered();
+	}
+}
+
+void GodotREEditor::_res_smpl_2_wav_process() {
+
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_wav2_res", RTR("Converting files..."), res_files.size(), true));
+
+	String failed_files;
+	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
+	for (int i = 0; i < res_files.size(); i++) {
+
+		bool cancel = pr->step(res_files[i], i, true);
+		if (cancel) {
+			break;
+		}
+
+		Ref<ResourceInteractiveLoaderBinary> ria = rl->load_interactive(res_files[i]);
+		Error err = ria->poll();
+		while (err == OK) {
+			err = ria->poll();
+		}
+		if (ria->get_resource().is_null()) {
+			failed_files += res_files[i] + " (load AudioStreamSample error)\n";
+			continue;
+		}
+
+		Ref<AudioStreamSample> sample = ria->get_resource();
+
+		sample->save_to_wav(res_files[i].get_basename() + ".wav");
+	}
+
+	memdelete(pr);
+	res_files = PoolVector<String>();
+
+	if (failed_files.length() > 0) {
+		show_warning(failed_files, RTR("Convert WAV samples"), RTR("At least one error was detected!"));
+	} else {
+		show_warning(RTR("No errors detected."), RTR("Convert WAV samples"), RTR("The operation completed successfully!"));
+	}
+}
+
+void GodotREEditor::_res_ostr_2_ogg_request(const PoolVector<String> &p_files) {
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String overwrite_list = String();
+	for (int i = 0; i < p_files.size(); i++) {
+		if (da->file_exists(p_files[i].get_basename() + ".ogg")) {
+			overwrite_list += p_files[i].get_basename() + ".ogg" + "\n";
+		}
+	}
+
+	res_files = p_files;
+
+	if (overwrite_list.length() == 0) {
+		_res_ostr_2_ogg_process();
+	} else {
+		ovd->set_message(overwrite_list);
+		ovd->connect("confirmed", this, "_res_ostr_2_ogg_process", Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->popup_centered();
+	}
+}
+
+void GodotREEditor::_res_ostr_2_ogg_process() {
+
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ogg2_res", RTR("Converting files..."), res_files.size(), true));
+
+	String failed_files;
+	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
+	for (int i = 0; i < res_files.size(); i++) {
+
+		bool cancel = pr->step(res_files[i], i, true);
+		if (cancel) {
+			break;
+		}
+
+		Ref<ResourceInteractiveLoaderBinary> ria = rl->load_interactive(res_files[i]);
+		Error err = ria->poll();
+		while (err == OK) {
+			err = ria->poll();
+		}
+		if (ria->get_resource().is_null()) {
+			failed_files += res_files[i] + " (load AudioStreamOGGVorbis error)\n";
+			continue;
+		}
+		Ref<AudioStreamOGGVorbis> sample = ria->get_resource();
+
+		PoolVector<uint8_t> buf = sample->get_data();
+
+		FileAccess *res = FileAccess::open(res_files[i].get_basename() + ".ogg", FileAccess::WRITE);
+		if (!res) {
+			failed_files += res_files[i] + " (write error)\n";
+			continue;
+		}
+		res->store_buffer(buf.read().ptr(), buf.size());
+		res->close();
+	}
+
+	memdelete(pr);
+	res_files = PoolVector<String>();
+
+	if (failed_files.length() > 0) {
+		show_warning(failed_files, RTR("Convert OGG samples"), RTR("At least one error was detected!"));
+	} else {
+		show_warning(RTR("No errors detected."), RTR("Convert OGG samples"), RTR("The operation completed successfully!"));
+	}
+}
+
+void GodotREEditor::_res_stex_2_png_request(const PoolVector<String> &p_files) {
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String overwrite_list = String();
+	for (int i = 0; i < p_files.size(); i++) {
+		if (da->file_exists(p_files[i].get_basename() + ".png")) {
+			overwrite_list += p_files[i].get_basename() + ".png" + "\n";
+		}
+	}
+
+	res_files = p_files;
+
+	if (overwrite_list.length() == 0) {
+		_res_stxt_2_png_process();
+	} else {
+		ovd->set_message(overwrite_list);
+		ovd->connect("confirmed", this, "_res_stxt_2_png_process", Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->popup_centered();
+	}
+}
+
+void GodotREEditor::_res_stxt_2_png_process() {
+
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_st2pnh_res", RTR("Converting files..."), res_files.size(), true));
+
+	String failed_files;
+	for (int i = 0; i < res_files.size(); i++) {
+
+		bool cancel = pr->step(res_files[i], i, true);
+		if (cancel) {
+			break;
+		}
+
+		Ref<StreamTexture> stex;
+		stex.instance();
+		Error err = stex->load(res_files[i]);
+		if (err != OK) {
+			failed_files += res_files[i] + " (load StreamTexture error)\n";
+			continue;
+		}
+
+		Ref<Image> img = stex->get_data();
+		if (img.is_null()) {
+			failed_files += res_files[i] + " (invalid texture data)\n";
+			continue;
+		}
+
+		err = img->save_png(res_files[i].get_basename() + ".png");
+		if (err != OK) {
+			failed_files += res_files[i] + " (ResourceFormatLoaderText error)\n";
+		}
+	}
+
+	memdelete(pr);
+	res_files = PoolVector<String>();
+
+	if (failed_files.length() > 0) {
+		show_warning(failed_files, RTR("Convert textures"), RTR("At least one error was detected!"));
+	} else {
+		show_warning(RTR("No errors detected."), RTR("Convert textures"), RTR("The operation completed successfully!"));
+	}
+}
+
 void GodotREEditor::_res_bin_2_txt_request(const PoolVector<String> &p_files) {
 
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
@@ -1369,6 +1607,15 @@ void GodotREEditor::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_request", "files"), &GodotREEditor::_res_txt_2_bin_request);
 	ClassDB::bind_method(D_METHOD("_res_txt_2_bin_process"), &GodotREEditor::_res_txt_2_bin_process);
+
+	ClassDB::bind_method(D_METHOD("_res_stex_2_png_request", "files"), &GodotREEditor::_res_stex_2_png_request);
+	ClassDB::bind_method(D_METHOD("_res_stxt_2_png_process"), &GodotREEditor::_res_stxt_2_png_process);
+
+	ClassDB::bind_method(D_METHOD("_res_ostr_2_ogg_request", "files"), &GodotREEditor::_res_ostr_2_ogg_request);
+	ClassDB::bind_method(D_METHOD("_res_ostr_2_ogg_process"), &GodotREEditor::_res_ostr_2_ogg_process);
+
+	ClassDB::bind_method(D_METHOD("_res_smpl_2_wav_request", "files"), &GodotREEditor::_res_smpl_2_wav_request);
+	ClassDB::bind_method(D_METHOD("_res_smpl_2_wav_process"), &GodotREEditor::_res_smpl_2_wav_process);
 
 	ClassDB::bind_method(D_METHOD("show_about_dialog"), &GodotREEditor::show_about_dialog);
 	ClassDB::bind_method(D_METHOD("get_gui_icon", "name"), &GodotREEditor::get_gui_icon);

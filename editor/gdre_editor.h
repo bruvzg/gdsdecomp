@@ -213,6 +213,10 @@ private:
 	FileDialog *bin_res_file_selection;
 	FileDialog *txt_res_file_selection;
 
+	FileDialog *stex_file_selection;
+	FileDialog *ostr_file_selection;
+	FileDialog *smpl_file_selection;
+
 	MenuButton *menu_button;
 	PopupMenu *menu_popup;
 
@@ -245,6 +249,15 @@ private:
 	void _res_txt_2_bin_request(const PoolVector<String> &p_files);
 	void _res_txt_2_bin_process();
 
+	void _res_stex_2_png_request(const PoolVector<String> &p_files);
+	void _res_stxt_2_png_process();
+
+	void _res_ostr_2_ogg_request(const PoolVector<String> &p_files);
+	void _res_ostr_2_ogg_process();
+
+	void _res_smpl_2_wav_request(const PoolVector<String> &p_files);
+	void _res_smpl_2_wav_process();
+
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
 	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
 
@@ -265,6 +278,9 @@ public:
 		MENU_COMP_GDS,
 		MENU_CONV_TO_TXT,
 		MENU_CONV_TO_BIN,
+		MENU_STEX_TO_PNG,
+		MENU_OSTR_TO_OGG,
+		MENU_SMPL_TO_WAV,
 		MENU_ABOUT_RE,
 		MENU_EXIT_RE
 	};
