@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://theme.tres" type="Theme" id=1]
 [ext_resource path="res://main.gd" type="Script" id=2]
-[ext_resource path="res://background.png" type="Texture" id=3]
 
 [node name="root" type="Control"]
 anchor_right = 1.0
@@ -10,42 +9,37 @@ anchor_bottom = 1.0
 theme = ExtResource( 1 )
 script = ExtResource( 2 )
 
-[node name="background_logo" type="TextureRect" parent="."]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-margin_left = -189.5
-margin_top = -482.5
-margin_right = 189.5
-margin_bottom = 2.5
-texture = ExtResource( 3 )
-
 [node name="log_window" type="RichTextLabel" parent="."]
-anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_top = -497.0
+margin_top = 27.0
+focus_mode = 2
+custom_colors/default_color = Color( 0.470588, 0.45098, 0.45098, 1 )
+custom_constants/line_separation = 5
+selection_enabled = true
 
 [node name="menu_background" type="Panel" parent="."]
 anchor_right = 1.0
 margin_bottom = 24.0
 
-[node name="version_lbl" type="Label" parent="menu_background"]
+[node name="version_lbl" type="Button" parent="menu_background"]
 anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-margin_left = -131.0
-margin_top = -11.0
-margin_right = -10.0
-margin_bottom = 11.0
+margin_left = -97.0
+margin_top = -10.0
+margin_right = -4.0
+margin_bottom = 12.0
 text = "v0.0.3-poc"
-align = 2
-valign = 1
+flat = true
 
 [node name="re_editor_standalone" type="GodotREEditorStandalone" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
+margin_left = 8.0
+margin_right = -420.0
+margin_bottom = -1000.0
 
+[connection signal="pressed" from="menu_background/version_lbl" to="." method="_on_version_lbl_pressed"]
 [connection signal="write_log_message" from="re_editor_standalone" to="." method="_on_re_editor_standalone_write_log_message"]

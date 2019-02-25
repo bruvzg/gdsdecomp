@@ -23,3 +23,7 @@ config/icon="res://icon.png"
 
 window/size/width=1200
 window/size/height=1024
+
+[rendering]
+
+environment/default_clear_color=Color( 0.0784314, 0.0901961, 0.121569, 1 )
