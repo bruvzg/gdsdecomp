@@ -776,6 +776,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	int files_checked = 0;
 	int files_broken = 0;
 
+	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
+
 	for (int i = 0; i < file_count; i++) {
 
 		uint32_t sl = pck->get_32();
@@ -792,19 +794,23 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		uint8_t md5_saved[16];
 		pck->get_buffer(md5_saved, 16);
 
-		bool cancel = pr->step(path, i, true);
-		if (cancel) {
-			if (p_check_md5) {
-				memdelete(pr);
-				pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_no_md5", RTR("Reading PCK archive, click cancel again to abort..."), file_count, true));
-				p_check_md5 = false;
-			} else {
-				memdelete(pr);
-				memdelete(pck);
+		if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
+			last_progress_upd = OS::get_singleton()->get_ticks_usec();
 
-				pck_dialog->clear();
-				pck_files.clear();
-				return;
+			bool cancel = pr->step(path, i, true);
+			if (cancel) {
+				if (p_check_md5) {
+					memdelete(pr);
+					pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_no_md5", RTR("Reading PCK archive, click cancel again to abort..."), file_count, true));
+					p_check_md5 = false;
+				} else {
+					memdelete(pr);
+					memdelete(pck);
+
+					pck_dialog->clear();
+					pck_files.clear();
+					return;
+				}
 			}
 		}
 
@@ -834,16 +840,21 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			MD5Final(&md5);
 			pck->seek(oldpos);
 
+			String file_md5;
+			String saved_md5;
+
 			bool md5_match = true;
 			for (int j = 0; j < 16; j++) {
 				md5_match &= (md5.digest[j] == md5_saved[j]);
+				file_md5 += String::num_uint64(md5.digest[j], 16);
+				saved_md5 += String::num_uint64(md5_saved[j], 16);
 			}
 			if (!md5_match) {
 				files_broken++;
 			}
-			pck_dialog->add_file(path, size, (md5_match) ? gui_icons["FileOk"] : gui_icons["FileBroken"]);
+			pck_dialog->add_file(path, size, (md5_match) ? gui_icons["FileOk"] : gui_icons["FileBroken"], "MD5 file: " + file_md5 + "; MD5 saved: " + saved_md5);
 		} else {
-			pck_dialog->add_file(path, size, gui_icons["File"]);
+			pck_dialog->add_file(path, size, gui_icons["File"], RTR("MD5 check skipped"));
 		}
 
 		pck_files[path] = PackedFile(ofs, size);

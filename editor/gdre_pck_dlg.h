@@ -38,11 +38,17 @@ class PackDialog : public AcceptDialog {
 	LineEdit *target_dir;
 	Button *select_dir;
 
+	bool updating;
+	void _update_subitems(TreeItem *p_item, bool p_check, bool p_first = false);
+	void _item_edited();
+
 	void _dir_select_pressed();
 	void _dir_select_request(const String &p_path);
 
-	void _select_all_toggle(int p_col);
 	void _validate_selection();
+
+	size_t _selected(TreeItem *p_item);
+	void _get_selected_files(Vector<String> &p_list, TreeItem *p_item) const;
 
 protected:
 	void _notification(int p_notification);
@@ -50,7 +56,8 @@ protected:
 
 public:
 	void clear();
-	void add_file(const String &p_name, int64_t p_size, Ref<Texture> p_icon);
+	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5);
+	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5);
 	void set_version(const String &p_version);
 	void set_info(const String &p_info);
 
