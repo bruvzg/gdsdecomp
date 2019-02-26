@@ -102,18 +102,18 @@ void PackDialog::clear() {
 	_validate_selection();
 }
 
-void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5, bool p_malformed_name) {
+void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_malformed_name) {
 
 	if (p_malformed_name) {
 		have_malformed_names = true;
 	}
 
 	updating = true;
-	add_file_to_item(root, p_name, p_name, p_size, p_icon, p_md5);
+	add_file_to_item(root, p_name, p_name, p_size, p_icon, p_error);
 	updating = false;
 }
 
-void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5) {
+void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error) {
 
 	int pp = p_name.find("/");
 	if (pp == -1) {
@@ -126,7 +126,6 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		item->set_icon(0, p_icon);
 		item->set_text(0, p_name);
 		item->set_metadata(0, p_fullname);
-		item->set_tooltip(0, p_fullname);
 		if (p_size < (1024)) {
 			item->set_text(1, String::num_int64(p_size) + " B");
 		} else if (p_size < (1024 * 1024)) {
@@ -136,7 +135,8 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		} else {
 			item->set_text(1, String::num((double)p_size / (1024 * 1024 * 1024), 2) + " GiB");
 		}
-		item->set_tooltip(1, p_md5);
+		item->set_tooltip(0, p_error);
+		item->set_tooltip(1, p_error);
 
 		_validate_selection();
 	} else {
@@ -146,7 +146,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		TreeItem *it = p_item->get_children();
 		while (it) {
 			if (it->get_text(0) == fld_name) {
-				add_file_to_item(it, p_fullname, path, p_size, p_icon, p_md5);
+				add_file_to_item(it, p_fullname, path, p_size, p_icon, p_error);
 				return;
 			}
 			it = it->get_next();
@@ -159,7 +159,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		item->set_icon(0, get_icon("folder", "FileDialog"));
 		item->set_text(0, fld_name);
 		item->set_metadata(0, String());
-		add_file_to_item(item, p_fullname, path, p_size, p_icon, p_md5);
+		add_file_to_item(item, p_fullname, path, p_size, p_icon, p_error);
 	}
 }
 

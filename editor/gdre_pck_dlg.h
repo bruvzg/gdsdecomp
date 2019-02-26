@@ -57,8 +57,8 @@ protected:
 
 public:
 	void clear();
-	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5, bool p_malformed_name);
-	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_md5);
+	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_malformed_name);
+	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error);
 	void set_version(const String &p_version);
 	void set_info(const String &p_info);
 

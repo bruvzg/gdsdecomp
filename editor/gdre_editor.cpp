@@ -868,26 +868,31 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		path.parse_utf8(cs.ptr());
 
 		path = path.replace("res://", "");
+		String raw_path = path;
 
 		bool malformed = false;
-		if (path.begins_with("~")) {
-			path = "_" + path;
+		while (path.begins_with("~")) {
+			path = path.substr(1, path.length() - 1);
 			malformed = true;
 		}
-		if (path.begins_with("/")) {
-			path = "_" + path;
+		while (path.begins_with("/")) {
+			path = path.substr(1, path.length() - 1);
 			malformed = true;
 		}
-		if (path.find("..") >= 0) {
+		while (path.find("...") >= 0) {
+			path = path.replace("...", "_");
+			malformed = true;
+		}
+		while (path.find("..") >= 0) {
 			path = path.replace("..", "_");
+			malformed = true;
+		}
+		if (path.find("\\.") >= 0) {
+			path = path.replace("\\.", "_");
 			malformed = true;
 		}
 		if (path.find("//") >= 0) {
 			path = path.replace("//", "_");
-			malformed = true;
-		}
-		if (path.find("://") >= 0) {
-			path = path.replace("://", "_");
 			malformed = true;
 		}
 		if (path.find("\\") >= 0) {
@@ -920,6 +925,10 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		}
 		if (path.find("\"") >= 0) {
 			path = path.replace("\"", "_");
+			malformed = true;
+		}
+		if (path.find("\'") >= 0) {
+			path = path.replace("\'", "_");
 			malformed = true;
 		}
 
@@ -976,6 +985,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			String file_md5;
 			String saved_md5;
+			String error_msg = "";
 
 			bool md5_match = true;
 			for (int j = 0; j < 16; j++) {
@@ -985,10 +995,20 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			}
 			if (!md5_match) {
 				files_broken++;
+				error_msg += RTR("MD5 mismatch, calculated") + " [" + file_md5 + "] " + RTR("expected") + " [" + saved_md5 + "]\n";
 			}
-			pck_dialog->add_file(path, size, (!md5_match || malformed) ? gui_icons["FileBroken"] : gui_icons["FileOk"], "MD5 file: " + file_md5 + "; MD5 saved: " + saved_md5, malformed);
+			if (malformed) {
+				files_broken++;
+				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
+			}
+			pck_dialog->add_file(path, size, (!md5_match || malformed) ? gui_icons["FileBroken"] : gui_icons["FileOk"], error_msg, malformed);
 		} else {
-			pck_dialog->add_file(path, size, (malformed) ? gui_icons["FileBroken"] : gui_icons["File"], RTR("MD5 check skipped"), malformed);
+			String error_msg = RTR("MD5 check skipped") + "\n";
+			if (malformed) {
+				files_broken++;
+				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
+			}
+			pck_dialog->add_file(path, size, (malformed) ? gui_icons["FileBroken"] : gui_icons["File"], error_msg, malformed);
 		}
 
 		pck_files[path] = PackedFile(ofs, size);
