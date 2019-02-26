@@ -23,6 +23,7 @@ config/icon="res://icon.png"
 
 window/size/width=1200
 window/size/height=1024
+window/dpi/allow_hidpi=true
 
 [rendering]
 

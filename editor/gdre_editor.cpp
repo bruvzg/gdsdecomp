@@ -457,9 +457,9 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
 		menu_popup->add_icon_item(gui_icons["ResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", this, "menu_option_pressed");
 		p_menu->add_child(menu_button);
 	} else {
@@ -478,9 +478,9 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
 		menu_popup->add_icon_item(gui_icons["ResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
-		menu_popup->add_icon_item(gui_icons["ResBT"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(gui_icons["ResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", this, "menu_option_pressed");
 		p_menu->add_child(menu_button);
 		if (p_menu->get_child_count() >= 2) {
@@ -508,7 +508,7 @@ void GodotREEditor::show_about_dialog() {
 #else
 	{
 #endif
-		about_dialog_checkbox->set_disabled(true);
+		about_dialog_checkbox->set_visible(false);
 	}
 	about_dialog->popup_centered_minsize();
 }
@@ -1286,7 +1286,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 
 		err = img->save_png(res_files[i].get_basename() + ".png");
 		if (err != OK) {
-			failed_files += res_files[i] + " (ResourceFormatLoaderText error)\n";
+			failed_files += res_files[i] + " (write error)\n";
 		}
 	}
 
