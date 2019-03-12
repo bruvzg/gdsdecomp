@@ -314,6 +314,7 @@ protected:
 
 public:
 	void _write_log_message(String p_message);
+	String get_version();
 
 	GodotREEditorStandalone();
 	~GodotREEditorStandalone();

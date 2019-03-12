@@ -2,6 +2,8 @@
 /*  gdre_editor.cpp                                                      */
 /*************************************************************************/
 
+#include "gdre_version.h"
+
 #include "gdre_editor.h"
 
 #include "modules/gdscript/gdscript.h"
@@ -399,7 +401,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		about_label->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 		about_label->set_autowrap(true);
 		String about_text =
-				String("Godot RE Tools, v0.0.3-poc \n\n") +
+				String("Godot RE Tools, ") + String(GDRE_VERSION) + String(" \n\n") +
 				RTR(String("Resources, binary code and source code might be protected by copyright and trademark\n") +
 						"laws. Before using this software make sure that decompilation is not prohibited by the\n" +
 						"applicable license agreement, permitted under applicable law or you obtained explicit\n" +
@@ -1690,7 +1692,7 @@ void GodotREEditor::_notification(int p_notification) {
 				show_about_dialog();
 				about_dialog->set_exclusive(false);
 			}
-			emit_signal("write_log_message", "****\nGodot RE Tools, v0.0.3-poc\n****\n\n");
+			emit_signal("write_log_message", String("****\nGodot RE Tools, ") + String(GDRE_VERSION) + String("\n****\n\n"));
 		}
 	}
 }
@@ -1753,10 +1755,17 @@ void GodotREEditorStandalone::_write_log_message(String p_message) {
 	emit_signal("write_log_message", p_message);
 }
 
+String GodotREEditorStandalone::get_version() {
+
+	return String(GDRE_VERSION);
+}
+
 void GodotREEditorStandalone::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_write_log_message"), &GodotREEditorStandalone::_write_log_message);
 	ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
+
+	ClassDB::bind_method(D_METHOD("get_version"), &GodotREEditorStandalone::get_version);
 }
 
 GodotREEditorStandalone::GodotREEditorStandalone() {

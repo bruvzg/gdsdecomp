@@ -59,8 +59,8 @@ struct GDScriptDecompVersion {
 
 static GDScriptDecompVersion decomp_versions[] = {
 
-	{ 0x1a36141, "3.1.0 beta 6 (1a36141 / 2019-02-20 / Bytecode version: 13)" },
-	{ 0x1ca61a3, "3.1.0 beta 1 - beta 5 (1ca61a3 / 2018-10-31 / Bytecode version: 13)" },
+	{ 0x1a36141, "3.1.0 release (1a36141 / 2019-02-20 / Bytecode version: 13)" },
+	{ 0x1ca61a3, "     3.1 beta 1 - beta 5 (1ca61a3 / 2018-10-31 / Bytecode version: 13)" },
 	{ 0xd6b31da, "     3.1 dev (d6b31da / 2018-09-15 / Bytecode version: 13)" },
 	{ 0x8aab9a0, "     3.1 dev (8aab9a0 / 2018-07-20 / Bytecode version: 13)" },
 	{ 0xa3f1ee5, "     3.1 dev (a3f1ee5 / 2018-07-15 / Bytecode version: 13)" },

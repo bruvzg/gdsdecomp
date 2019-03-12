@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>rerools</string>
+	<string>gdretools</string>
 	<key>CFBundleName</key>
 	<string>Godot RE Tools</string>
 	<key>CFBundleIconFile</key>

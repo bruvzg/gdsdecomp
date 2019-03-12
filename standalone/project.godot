@@ -25,6 +25,10 @@ window/size/width=1200
 window/size/height=1024
 window/dpi/allow_hidpi=true
 
+[editor]
+
+convert_text_resources_to_binary_on_export=true
+
 [rendering]
 
 quality/driver/driver_name="GLES2"

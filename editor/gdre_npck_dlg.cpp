@@ -6,6 +6,8 @@
 
 #include "core/version.h"
 
+#include "gdre_version.h"
+
 NewPackDialog::NewPackDialog() {
 
 	set_title(RTR("Create new PCK..."));
@@ -51,7 +53,7 @@ NewPackDialog::NewPackDialog() {
 	script_vb->add_margin_child(RTR("Target Godot engine version:"), dir_hbc);
 
 	wmark = memnew(LineEdit);
-	wmark->set_text(String("Created with Godot RE tools, v0.0.1-poc!"));
+	wmark->set_text(String("Created with Godot RE tools, ") + String(GDRE_VERSION));
 	script_vb->add_margin_child(RTR("Extra tag:"), wmark);
 
 	add_child(script_vb);
