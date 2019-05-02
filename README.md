@@ -43,3 +43,5 @@ Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/deve
 ## License
 
 The source code of the module is licensed under MIT license.
+
+[![Travis Build Status](https://travis-ci.org/bruvzg/gdsdecomp.svg?branch=master)](https://travis-ci.org/bruvzg/gdsdecomp)

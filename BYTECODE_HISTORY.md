@@ -77,4 +77,5 @@
 |                           | [8aab9a0](https://github.com/godotengine/godot/commit/8aab9a0) | `2018.07.20` | 13               | Added `AS`, `VOID`, `FORWARD_ARROW` tokens                      |
 |                           | [d6b31da](https://github.com/godotengine/godot/commit/d6b31da) | `2018.09.15` | 13               | Added `PUPPET` token, token `SLAVESYNC` renamed to `PUPPETSYNC` |
 | 3.1 beta 1 - beta 5       | [1ca61a3](https://github.com/godotengine/godot/commit/1ca61a3) | `2018.10.31` | 13               | Added `push_error`, `push_warning` function                     |
-| 3.1 beta 6                | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
+| 3.1 beta 6 / **3.1**      | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
+| **3.1.1**                 | [514a3fb](https://github.com/godotengine/godot/commit/514a3fb) | `2019.03.19` | 13               | Added `smoothstep` function                                     |
