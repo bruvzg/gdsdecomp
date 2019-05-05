@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GodotREEditorStandalone" inherits="Control" category="Core" version="3.2">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_version">
+			<return type="String">
+			</return>
+			<description>
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="write_log_message">
+			<argument index="0" name="message" type="String">
+			</argument>
+			<description>
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>
