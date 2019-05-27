@@ -58,6 +58,7 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	}
 
 	script_vb->add_margin_child(RTR("Script bytecode version:"), scrver);
+	scrver->connect("item_selected", this, "_bytcode_changed");
 
 	//Encryption key
 	script_key = memnew(LineEdit);
@@ -164,6 +165,11 @@ void ScriptDecompDialog::_clear_pressed() {
 	_validate_input();
 }
 
+void ScriptDecompDialog::_bytcode_changed(int p_id) {
+
+	_validate_input();
+}
+
 void ScriptDecompDialog::_remove_file_pressed() {
 
 	Vector<int> items = file_list->get_selected_items();
@@ -214,6 +220,12 @@ void ScriptDecompDialog::_validate_input() {
 		ok = false;
 	}
 
+	if (scrver->get_selected_id() == 0xfffffff) {
+		error_message += RTR("No bytecode version selected") + "\n";
+		script_key_error->add_color_override("font_color", error_color);
+		ok = false;
+	}
+
 	script_key_error->set_text(error_message);
 
 	get_ok()->set_disabled(!ok);
@@ -252,4 +264,5 @@ void ScriptDecompDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_script_encryption_key_changed", "key"), &ScriptDecompDialog::_script_encryption_key_changed);
 	ClassDB::bind_method(D_METHOD("_dir_select_pressed"), &ScriptDecompDialog::_dir_select_pressed);
 	ClassDB::bind_method(D_METHOD("_dir_select_request", "path"), &ScriptDecompDialog::_dir_select_request);
+	ClassDB::bind_method(D_METHOD("_bytcode_changed", "id"), &ScriptDecompDialog::_bytcode_changed);
 }

@@ -50,6 +50,7 @@ class ScriptDecompDialog : public AcceptDialog {
 	void _script_encryption_key_changed(const String &p_key);
 	void _dir_select_pressed();
 	void _dir_select_request(const String &p_path);
+	void _bytcode_changed(int p_id);
 
 protected:
 	void _notification(int p_notification);

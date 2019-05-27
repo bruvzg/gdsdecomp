@@ -65,7 +65,7 @@
 | **3.0.0 - 3.0.6**         | [054a2ac](https://github.com/godotengine/godot/commit/054a2ac) | `2017.11.20` | 12               | Added `polar2cartesian`, `cartesian2polar` functions            |
 | *3.1 branch diverge*      |                                                                |              |                  |                                                                 |
 
-### Branch 3.1 (master)
+### Branch 3.1
 
 | Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
@@ -79,3 +79,8 @@
 | 3.1 beta 1 - beta 5       | [1ca61a3](https://github.com/godotengine/godot/commit/1ca61a3) | `2018.10.31` | 13               | Added `push_error`, `push_warning` function                     |
 | 3.1 beta 6 / **3.1**      | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
 | **3.1.1**                 | [514a3fb](https://github.com/godotengine/godot/commit/514a3fb) | `2019.03.19` | 13               | Added `smoothstep` function                                     |
+
+### Branch 3.2 (master)
+
+|                           | [7f7d97f](https://github.com/godotengine/godot/commit/7f7d97f) | `2019.04.29` | 13               | Added `is_equal_approx` and `is_zero_approx` functions          |
+|                           | [620ec47](https://github.com/godotengine/godot/commit/620ec47) | `2019.05.01` | 13               | Added `step_decimals` function                                  |

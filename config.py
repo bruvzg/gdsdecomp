@@ -51,6 +51,8 @@ def get_doc_classes():
         "GDScriptDecomp_1ca61a3",
         "GDScriptDecomp_1a36141",
         "GDScriptDecomp_514a3fb",
+        "GDScriptDecomp_7f7d97f",
+        "GDScriptDecomp_620ec47",
         "GodotREEditorStandalone",
         "PackDialog",
         "NewPackDialog",
