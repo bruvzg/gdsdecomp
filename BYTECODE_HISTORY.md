@@ -82,5 +82,7 @@
 
 ### Branch 3.2 (master)
 
+| Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
+| ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
 |                           | [7f7d97f](https://github.com/godotengine/godot/commit/7f7d97f) | `2019.04.29` | 13               | Added `is_equal_approx` and `is_zero_approx` functions          |
 |                           | [620ec47](https://github.com/godotengine/godot/commit/620ec47) | `2019.05.01` | 13               | Added `step_decimals` function                                  |
