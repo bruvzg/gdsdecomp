@@ -579,6 +579,13 @@ Error GDScriptDecomp_1add52b::decompile_buffer(Vector<uint8_t> p_buffer) {
 		}
 	}
 
+	if (!line.empty()) {
+		for (int j = 0; j < indent; j++) {
+			script_text += "\t";
+		}
+		script_text += line + "\n";
+	}
+
 	if (script_text == String()) {
 		error_message = RTR("Invalid token");
 		return ERR_INVALID_DATA;
