@@ -499,6 +499,7 @@ Error GDScriptDecomp_514a3fb::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "extends ";
 			} break;
 			case TK_PR_IS: {
+				_ensure_space(line);
 				line += "is ";
 			} break;
 			case TK_PR_ONREADY: {

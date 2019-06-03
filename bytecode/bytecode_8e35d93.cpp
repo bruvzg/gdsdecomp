@@ -500,6 +500,7 @@ Error GDScriptDecomp_8e35d93::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "extends ";
 			} break;
 			case TK_PR_IS: {
+				_ensure_space(line);
 				line += "is ";
 			} break;
 			case TK_PR_ONREADY: {
