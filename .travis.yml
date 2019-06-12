@@ -5,11 +5,12 @@ sudo: required
 
 matrix:
   include:
-    - env: LABEL="clang format" STATIC_CHECKS=yes
+    - name: Static checks (clang-format)
+      env: STATIC_CHECKS=yes
       os: linux
       compiler: clang
 
-    - env: LABEL="Linux module"
+    - name: Linux module (clang, Godot master min. release)
       os: linux
       compiler: clang
 

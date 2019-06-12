@@ -1,1 +1,1 @@
-#define GDRE_VERSION "v0.0.5-poc (for Godot 3.1.1)"
+#define GDRE_VERSION "v0.0.6-poc (for Godot 3.2.dev)"

@@ -42,6 +42,7 @@
 #include "bytecode/bytecode_a3f1ee5.h"
 #include "bytecode/bytecode_a56d6ff.h"
 #include "bytecode/bytecode_be46be7.h"
+#include "bytecode/bytecode_c00427a.h"
 #include "bytecode/bytecode_c24c739.h"
 #include "bytecode/bytecode_c6120e7.h"
 #include "bytecode/bytecode_d28da86.h"
@@ -63,6 +64,7 @@ struct GDScriptDecompVersion {
 static GDScriptDecompVersion decomp_versions[] = {
 
 	{ 0xfffffff, "--- Please select bytecode version ---" },
+	{ 0xc00427a, "     3.2 dev (c00427a / 2019-06-01 / Bytecode version: 13)" },
 	{ 0x620ec47, "     3.2 dev (620ec47 / 2019-05-01 / Bytecode version: 13)" },
 	{ 0x7f7d97f, "     3.2 dev (7f7d97f / 2019-04-29 / Bytecode version: 13)" },
 	{ 0x514a3fb, "3.1.1 release (514a3fb / 2019-03-19 / Bytecode version: 13)" },

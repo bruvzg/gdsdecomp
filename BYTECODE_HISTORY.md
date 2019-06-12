@@ -77,8 +77,9 @@
 |                           | [8aab9a0](https://github.com/godotengine/godot/commit/8aab9a0) | `2018.07.20` | 13               | Added `AS`, `VOID`, `FORWARD_ARROW` tokens                      |
 |                           | [d6b31da](https://github.com/godotengine/godot/commit/d6b31da) | `2018.09.15` | 13               | Added `PUPPET` token, token `SLAVESYNC` renamed to `PUPPETSYNC` |
 | 3.1 beta 1 - beta 5       | [1ca61a3](https://github.com/godotengine/godot/commit/1ca61a3) | `2018.10.31` | 13               | Added `push_error`, `push_warning` function                     |
-| 3.1 beta 6 / **3.1**      | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
+| **3.1**                   | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
 | **3.1.1**                 | [514a3fb](https://github.com/godotengine/godot/commit/514a3fb) | `2019.03.19` | 13               | Added `smoothstep` function                                     |
+| *3.2 branch diverge*      |                                                                |              |                  |                                                                 |
 
 ### Branch 3.2 (master)
 
@@ -86,3 +87,4 @@
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
 |                           | [7f7d97f](https://github.com/godotengine/godot/commit/7f7d97f) | `2019.04.29` | 13               | Added `is_equal_approx` and `is_zero_approx` functions          |
 |                           | [620ec47](https://github.com/godotengine/godot/commit/620ec47) | `2019.05.01` | 13               | Added `step_decimals` function                                  |
+|                           | [c00427a](https://github.com/godotengine/godot/commit/c00427a) | `2019.06.01` | 13               | Added `move_toward` function                                    |
