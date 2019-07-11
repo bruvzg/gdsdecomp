@@ -41,7 +41,7 @@
 | **2.1.0 - 2.1.1**         | [7124599](https://github.com/godotengine/godot/commit/7124599) | `2016.06.18` | 10               | Added `type_exists` function                                    |
 | *3.0 branch diverge*      |                                                                |              |                  |                                                                 |
 | **2.1.2**                 | [85585c7](https://github.com/godotengine/godot/commit/85585c7) | `2017.01.12` | 10               | Added `ColorN` function (backport for 3.0)                      |
-| **2.1.3 - 2.1.5**         | [ed80f45](https://github.com/godotengine/godot/commit/ed80f45) | `2017.04.06` | 10               | Added `ENUM` token (backport for 3.0)                           |
+| **2.1.3 - 2.1.6**         | [ed80f45](https://github.com/godotengine/godot/commit/ed80f45) | `2017.04.06` | 10               | Added `ENUM` token (backport for 3.0)                           |
 
 ### Branch 3.0
 

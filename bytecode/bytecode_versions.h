@@ -93,7 +93,7 @@ static GDScriptDecompVersion decomp_versions[] = {
 	{ 0x4ee82a2, "     3.0 dev (4ee82a2 / 2016-08-27 / Bytecode version: 11)" },
 	{ 0x1add52b, "     3.0 dev (1add52b / 2016-08-19 / Bytecode version: 11)" },
 	{ 0x7124599, "     3.0-dev (7124599 / 2016-06-18 / Bytecode version: 10)" },
-	{ 0xed80f45, "2.1.3 - 2.1.5 release (ed80f45 / 2017-04-06 / Bytecode version: 10)" },
+	{ 0xed80f45, "2.1.3 - 2.1.6 release (ed80f45 / 2017-04-06 / Bytecode version: 10)" },
 	{ 0x85585c7, "2.1.2 release (85585c7 / 2017-01-12 / Bytecode version: 10)" },
 	{ 0x7124599, "2.1.0 - 2.1.1 release (7124599 / 2016-06-18 / Bytecode version: 10)" },
 	{ 0x23441ec, "2.0.0 - 2.0.4-1 release (23441ec / 2016-01-02 / Bytecode version: 10)" },
