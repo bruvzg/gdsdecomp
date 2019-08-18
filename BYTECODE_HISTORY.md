@@ -40,8 +40,8 @@
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
 | **2.1.0 - 2.1.1**         | [7124599](https://github.com/godotengine/godot/commit/7124599) | `2016.06.18` | 10               | Added `type_exists` function                                    |
 | *3.0 branch diverge*      |                                                                |              |                  |                                                                 |
-| **2.1.2**                 | [85585c7](https://github.com/godotengine/godot/commit/85585c7) | `2017.01.12` | 10               | Added `ColorN` function (backport for 3.0)                      |
-| **2.1.3 - 2.1.6**         | [ed80f45](https://github.com/godotengine/godot/commit/ed80f45) | `2017.04.06` | 10               | Added `ENUM` token (backport for 3.0)                           |
+| **2.1.2**                 | [85585c7](https://github.com/godotengine/godot/commit/85585c7) | `2017.01.12` | 10               | Added `ColorN` function (backport from 3.0)                      |
+| **2.1.3 - 2.1.6**         | [ed80f45](https://github.com/godotengine/godot/commit/ed80f45) | `2017.04.06` | 10               | Added `ENUM` token (backport from 3.0)                           |
 
 ### Branch 3.0
 
@@ -76,7 +76,7 @@
 |                           | [a3f1ee5](https://github.com/godotengine/godot/commit/a3f1ee5) | `2018.07.15` | 13               | Added `CLASS_NAME` token                                        |
 |                           | [8aab9a0](https://github.com/godotengine/godot/commit/8aab9a0) | `2018.07.20` | 13               | Added `AS`, `VOID`, `FORWARD_ARROW` tokens                      |
 |                           | [d6b31da](https://github.com/godotengine/godot/commit/d6b31da) | `2018.09.15` | 13               | Added `PUPPET` token, token `SLAVESYNC` renamed to `PUPPETSYNC` |
-| 3.1 beta 1 - beta 5       | [1ca61a3](https://github.com/godotengine/godot/commit/1ca61a3) | `2018.10.31` | 13               | Added `push_error`, `push_warning` function                     |
+|                           | [1ca61a3](https://github.com/godotengine/godot/commit/1ca61a3) | `2018.10.31` | 13               | Added `push_error`, `push_warning` function                     |
 | **3.1**                   | [1a36141](https://github.com/godotengine/godot/commit/1a36141) | `2019.02.20` | 13               | Removed `DO`, `CASE`, `SWITCH` tokens                           |
 | **3.1.1**                 | [514a3fb](https://github.com/godotengine/godot/commit/514a3fb) | `2019.03.19` | 13               | Added `smoothstep` function                                     |
 | *3.2 branch diverge*      |                                                                |              |                  |                                                                 |
@@ -88,3 +88,11 @@
 |                           | [7f7d97f](https://github.com/godotengine/godot/commit/7f7d97f) | `2019.04.29` | 13               | Added `is_equal_approx` and `is_zero_approx` functions          |
 |                           | [620ec47](https://github.com/godotengine/godot/commit/620ec47) | `2019.05.01` | 13               | Added `step_decimals` function                                  |
 |                           | [c00427a](https://github.com/godotengine/godot/commit/c00427a) | `2019.06.01` | 13               | Added `move_toward` function                                    |
+|                           | [a60f242](https://github.com/godotengine/godot/commit/a60f242) | `2019.07.19` | 13               | Added `posmod` function                                         |
+|                           | [6694c11](https://github.com/godotengine/godot/commit/6694c11) | `2019.07.20` | 13               | Added `lerp_angle` function                                     |
+
+### Branch 4.0 (vulkan)
+
+| Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
+| ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
+| even with 3.2 (master)    |                                                                |              |                  |                                                                 |
