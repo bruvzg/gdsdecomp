@@ -21,7 +21,7 @@
 #include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/resources/audio_stream_sample.h"
 
-#include "core/math/crypto_core.h"
+#include "core/crypto/crypto_core.h"
 
 /*************************************************************************/
 
