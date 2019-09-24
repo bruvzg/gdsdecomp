@@ -90,6 +90,7 @@
 |                           | [c00427a](https://github.com/godotengine/godot/commit/c00427a) | `2019.06.01` | 13               | Added `move_toward` function                                    |
 |                           | [a60f242](https://github.com/godotengine/godot/commit/a60f242) | `2019.07.19` | 13               | Added `posmod` function                                         |
 |                           | [6694c11](https://github.com/godotengine/godot/commit/6694c11) | `2019.07.20` | 13               | Added `lerp_angle` function                                     |
+|                           | [5565f55](https://github.com/godotengine/godot/commit/5565f55) | `2019.08.26` | 13               | Added `ord` function                                            |
 
 ### Branch 4.0 (vulkan)
 
