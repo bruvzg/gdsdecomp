@@ -324,7 +324,6 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_save_file_selection = memnew(FileDialog);
 	pck_save_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	pck_save_file_selection->set_mode(FileDialog::MODE_SAVE_FILE);
-	pck_save_file_selection->add_filter("*.pck;PCK archive files");
 	pck_save_file_selection->connect("file_selected", this, "_pck_save_request");
 	pck_save_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_save_file_selection);
@@ -1498,6 +1497,12 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 
 void GodotREEditor::_pck_save_prep() {
 
+	pck_save_file_selection->clear_filters();
+	if (pck_save_dialog->get_is_emb()) {
+		pck_save_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
+	} else {
+		pck_save_file_selection->add_filter("*.pck;PCK archive files");
+	}
 	pck_save_file_selection->popup_centered(Size2(800, 600));
 }
 
@@ -1569,6 +1574,9 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 void GodotREEditor::_pck_save_request(const String &p_path) {
 
+	int64_t embedded_start = 0;
+	int64_t embedded_size = 0;
+
 	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
 	if (!f) {
 		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("New PCK"));
@@ -1576,6 +1584,45 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	}
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_write_pck", RTR("Writing PCK archive..."), pck_save_files.size() + 2, true));
+
+	if (pck_save_dialog->get_is_emb()) {
+		// append to exe
+		FileAccess *fs = FileAccess::open(pck_save_dialog->get_emb_source(), FileAccess::READ);
+		if (!fs) {
+			show_warning(RTR("Error opening source executable file: ") + pck_save_dialog->get_emb_source(), RTR("New PCK"));
+			return;
+		}
+
+		pr->step("Exec...", 0, true);
+
+		fs->seek_end();
+		fs->seek(fs->get_position() - 4);
+		int32_t magic = fs->get_32();
+		if (magic == 0x43504447) {
+			// exe already have embedded pck
+			fs->seek(fs->get_position() - 12);
+			uint64_t ds = f->get_64();
+			fs->seek(fs->get_position() - ds - 8);
+		} else {
+			fs->seek_end();
+		}
+		int64_t exe_end = fs->get_position();
+		fs->seek(0);
+		// copy executable data
+		for (int i = 0; i < exe_end; i++) {
+			f->store_8(fs->get_8());
+		}
+		memdelete(fs);
+
+		embedded_start = f->get_position();
+
+		// ensure embedded PCK starts at a 64-bit multiple
+		int pad = f->get_position() % 8;
+		for (int i = 0; i < pad; i++) {
+			f->store_8(0);
+		}
+	}
+	int64_t pck_start_pos = f->get_position();
 
 	f->store_32(0x43504447); //GDPK
 	f->store_32(pck_save_dialog->get_version_pack());
@@ -1659,6 +1706,177 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	f->store_32(0);
 
 	f->store_32(0x43504447); //GDPK
+
+	if (pck_save_dialog->get_is_emb()) {
+		// ensure embedded data ends at a 64-bit multiple
+		int64_t embed_end = f->get_position() - embedded_start + 12;
+		int pad = embed_end % 8;
+		for (int i = 0; i < pad; i++) {
+			f->store_8(0);
+		}
+
+		int64_t pck_size = f->get_position() - pck_start_pos;
+		f->store_64(pck_size);
+		f->store_32(0x43504447); //GDPC
+
+		embedded_size = f->get_position() - embedded_start;
+
+		// fixup headers
+		pr->step("Exec header fix...", pck_save_files.size() + 2, true);
+		f->seek(0);
+		int16_t exe1_magic = f->get_16();
+		int16_t exe2_magic = f->get_16();
+		if (exe1_magic == 0x5A4D) {
+			//windows (pe) - copy from "platform/windows/export/export.cpp"
+			f->seek(0x3c);
+			uint32_t pe_pos = f->get_32();
+
+			f->seek(pe_pos);
+			uint32_t magic = f->get_32();
+			if (magic != 0x00004550) {
+				show_warning(RTR("Invalid PE magic"), RTR("New PCK"), RTR("At least one error was detected!"));
+				pck_save_files.clear();
+				pck_file = String();
+				memdelete(f);
+				memdelete(pr);
+				return;
+			}
+
+			// Process header
+			int num_sections;
+			{
+				int64_t header_pos = f->get_position();
+
+				f->seek(header_pos + 2);
+				num_sections = f->get_16();
+				f->seek(header_pos + 16);
+				uint16_t opt_header_size = f->get_16();
+
+				// Skip rest of header + optional header to go to the section headers
+				f->seek(f->get_position() + 2 + opt_header_size);
+			}
+
+			// Search for the "pck" section
+			int64_t section_table_pos = f->get_position();
+
+			bool found = false;
+			for (int i = 0; i < num_sections; ++i) {
+
+				int64_t section_header_pos = section_table_pos + i * 40;
+				f->seek(section_header_pos);
+
+				uint8_t section_name[9];
+				f->get_buffer(section_name, 8);
+				section_name[8] = '\0';
+
+				if (strcmp((char *)section_name, "pck") == 0) {
+					// "pck" section found, let's patch!
+
+					// Set virtual size to a little to avoid it taking memory (zero would give issues)
+					f->seek(section_header_pos + 8);
+					f->store_32(8);
+
+					f->seek(section_header_pos + 16);
+					f->store_32(embedded_size);
+					f->seek(section_header_pos + 20);
+					f->store_32(embedded_start);
+
+					found = true;
+					break;
+				}
+			}
+		} else if ((exe1_magic == 0x457F) && (exe2_magic == 0x467C)) {
+			// linux (elf) - copy from "platform/x11/export/export.cpp"
+			// Read program architecture bits from class field
+			int bits = f->get_8() * 32;
+
+			if (bits == 32 && embedded_size >= 0x100000000) {
+				show_warning(RTR("32-bit executables cannot have embedded data >= 4 GiB"), RTR("New PCK"), RTR("At least one error was detected!"));
+				pck_save_files.clear();
+				pck_file = String();
+				memdelete(f);
+				memdelete(pr);
+				return;
+			}
+
+			// Get info about the section header table
+			int64_t section_table_pos;
+			int64_t section_header_size;
+			if (bits == 32) {
+				section_header_size = 40;
+				f->seek(0x20);
+				section_table_pos = f->get_32();
+				f->seek(0x30);
+			} else { // 64
+				section_header_size = 64;
+				f->seek(0x28);
+				section_table_pos = f->get_64();
+				f->seek(0x3c);
+			}
+			int num_sections = f->get_16();
+			int string_section_idx = f->get_16();
+
+			// Load the strings table
+			uint8_t *strings;
+			{
+				// Jump to the strings section header
+				f->seek(section_table_pos + string_section_idx * section_header_size);
+
+				// Read strings data size and offset
+				int64_t string_data_pos;
+				int64_t string_data_size;
+				if (bits == 32) {
+					f->seek(f->get_position() + 0x10);
+					string_data_pos = f->get_32();
+					string_data_size = f->get_32();
+				} else { // 64
+					f->seek(f->get_position() + 0x18);
+					string_data_pos = f->get_64();
+					string_data_size = f->get_64();
+				}
+
+				// Read strings data
+				f->seek(string_data_pos);
+				strings = (uint8_t *)memalloc(string_data_size);
+				if (!strings) {
+					show_warning(RTR("Out of memory"), RTR("New PCK"), RTR("At least one error was detected!"));
+					pck_save_files.clear();
+					pck_file = String();
+					memdelete(f);
+					memdelete(pr);
+					return;
+				}
+				f->get_buffer(strings, string_data_size);
+			}
+
+			// Search for the "pck" section
+			bool found = false;
+			for (int i = 0; i < num_sections; ++i) {
+
+				int64_t section_header_pos = section_table_pos + i * section_header_size;
+				f->seek(section_header_pos);
+
+				uint32_t name_offset = f->get_32();
+				if (strcmp((char *)strings + name_offset, "pck") == 0) {
+					// "pck" section found, let's patch!
+
+					if (bits == 32) {
+						f->seek(section_header_pos + 0x10);
+						f->store_32(embedded_start);
+						f->store_32(embedded_size);
+					} else { // 64
+						f->seek(section_header_pos + 0x18);
+						f->store_64(embedded_start);
+						f->store_64(embedded_size);
+					}
+
+					found = true;
+					break;
+				}
+			}
+			memfree(strings);
+		}
+	}
 
 	pck_save_files.clear();
 	pck_file = String();

@@ -52,6 +52,30 @@ NewPackDialog::NewPackDialog() {
 
 	script_vb->add_margin_child(RTR("Target Godot engine version:"), dir_hbc);
 
+	emb_selection = memnew(FileDialog);
+	emb_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
+	emb_selection->set_mode(FileDialog::MODE_OPEN_FILE);
+	emb_selection->add_filter("*.exe,*.bin,*.32,*.64;Executable files");
+	emb_selection->connect("file_selected", this, "_exe_select_request");
+	emb_selection->set_show_hidden_files(true);
+	add_child(emb_selection);
+
+	HBoxContainer *emb_hbc = memnew(HBoxContainer);
+	emb_chk = memnew(CheckBox);
+	emb_chk->set_text("Embed PCK");
+	emb_hbc->add_child(emb_chk);
+
+	emb_name = memnew(LineEdit);
+	emb_name->set_h_size_flags(SIZE_EXPAND_FILL);
+	emb_hbc->add_child(emb_name);
+
+	emb_button = memnew(Button);
+	emb_button->set_text("...");
+	emb_button->connect("pressed", this, "_exe_select_pressed");
+	emb_hbc->add_child(emb_button);
+
+	script_vb->add_margin_child(RTR("Embed PCK:"), emb_hbc);
+
 	wmark = memnew(LineEdit);
 	wmark->set_text(String("Created with Godot RE tools, ") + String(GDRE_VERSION));
 	script_vb->add_margin_child(RTR("Extra tag:"), wmark);
@@ -62,8 +86,24 @@ NewPackDialog::NewPackDialog() {
 	add_cancel(RTR("Cancel"));
 }
 
+void NewPackDialog::_exe_select_pressed() {
+	emb_selection->popup_centered(Size2(800, 600));
+}
+
+void NewPackDialog::_exe_select_request(const String &p_path) {
+	emb_name->set_text(p_path);
+}
+
 NewPackDialog::~NewPackDialog() {
 	//NOP
+}
+
+bool NewPackDialog::get_is_emb() const {
+	return emb_chk->is_pressed();
+}
+
+String NewPackDialog::get_emb_source() const {
+	return emb_name->get_text();
 }
 
 void NewPackDialog::set_message(const String &p_text) {
@@ -95,5 +135,6 @@ void NewPackDialog::_notification(int p_notification) {
 }
 
 void NewPackDialog::_bind_methods() {
-	//NOP
+	ClassDB::bind_method(D_METHOD("_exe_select_pressed"), &NewPackDialog::_exe_select_pressed);
+	ClassDB::bind_method(D_METHOD("_exe_select_request", "path"), &NewPackDialog::_exe_select_request);
 }

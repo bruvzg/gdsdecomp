@@ -8,6 +8,7 @@
 #include "core/map.h"
 #include "core/resource.h"
 
+#include "scene/gui/check_box.h"
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/file_dialog.h"
@@ -34,12 +35,24 @@ class NewPackDialog : public AcceptDialog {
 
 	LineEdit *wmark;
 
+	CheckBox *emb_chk;
+	LineEdit *emb_name;
+	Button *emb_button;
+
+	FileDialog *emb_selection;
+
 protected:
 	void _notification(int p_notification);
 	static void _bind_methods();
 
+	void _exe_select_pressed();
+	void _exe_select_request(const String &p_path);
+
 public:
 	void set_message(const String &p_text);
+
+	bool get_is_emb() const;
+	String get_emb_source() const;
 
 	int get_version_pack() const;
 	int get_version_major() const;
