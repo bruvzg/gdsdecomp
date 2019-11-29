@@ -50,7 +50,7 @@ NewPackDialog::NewPackDialog() {
 	ver_rev->set_value(0);
 	dir_hbc->add_child(ver_rev);
 
-	script_vb->add_margin_child(RTR("Target Godot engine version:"), dir_hbc);
+	script_vb->add_margin_child(RTR("Target Godot engine version (note: revision number is ignored by the engine):"), dir_hbc);
 
 	emb_selection = memnew(FileDialog);
 	emb_selection->set_access(FileDialog::ACCESS_FILESYSTEM);

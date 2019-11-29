@@ -839,9 +839,9 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint32_t ver_minor = pck->get_32();
 	uint32_t ver_rev = pck->get_32();
 
-	pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+	pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
 
-	print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev (unused) ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}

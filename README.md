@@ -35,6 +35,21 @@ Godot 3.1
 
 [Supported bytecode versions](BYTECODE_HISTORY.md)
 
+To decompile GDScript, exact engine version that was used to compile it, should be specified.
+
+### To detect Godot version 
+
+Run `./{executable_name} --version > version.txt`.
+
+Version strings have following formats:
+- Official releases: `{major}.{minor}.{rev}.stable.official`
+- Development builds:`{major}.{minor}.{rev}.{build_type}.{commit_hash}`
+
+### To detect GDScript version
+
+Copy executable to the `helpers` folder.
+Run `./{executable_name} -s detect_bytecode_ver.gd --path .`.
+
 ## Downloading and compiling
 
 Clone this repository into Godots `modules` subfolder as `gdsdecomp`.
