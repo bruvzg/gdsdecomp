@@ -29,7 +29,7 @@ This module includes following tools:
 
 ## Requirements
 
-Godot 3.1
+Godot 3.1 or 3.2
 
 ## GDScript decompiler compatibility
 

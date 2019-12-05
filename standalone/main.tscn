@@ -8,6 +8,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource( 1 )
 script = ExtResource( 2 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="log_window" type="RichTextLabel" parent="."]
 anchor_right = 1.0
@@ -17,6 +20,9 @@ focus_mode = 2
 custom_colors/default_color = Color( 0.470588, 0.45098, 0.45098, 1 )
 custom_constants/line_separation = 5
 selection_enabled = true
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="menu_background" type="Panel" parent="."]
 anchor_right = 1.0
@@ -41,6 +47,8 @@ anchor_bottom = 1.0
 margin_left = 8.0
 margin_right = -420.0
 margin_bottom = -1000.0
-
+__meta__ = {
+"_edit_use_anchors_": false
+}
 [connection signal="pressed" from="menu_background/version_lbl" to="." method="_on_version_lbl_pressed"]
 [connection signal="write_log_message" from="re_editor_standalone" to="." method="_on_re_editor_standalone_write_log_message"]

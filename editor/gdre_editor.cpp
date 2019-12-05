@@ -21,7 +21,18 @@
 #include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/resources/audio_stream_sample.h"
 
+#include "core/version_generated.gen.h"
+
+#if VERSION_MAJOR != 3
+#error Unsupported Godot version
+#endif
+
+#if VERSION_MINOR == 2
 #include "core/crypto/crypto_core.h"
+#else
+#include "thirdparty/misc/md5.h"
+#include "thirdparty/misc/sha256.h"
+#endif
 
 /*************************************************************************/
 
@@ -963,8 +974,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			files_checked++;
 
+#if VERSION_MINOR == 2
 			CryptoCore::MD5Context ctx;
 			ctx.start();
+#else
+			MD5_CTX md5;
+			MD5Init(&md5);
+#endif
 
 			int64_t rq_size = size;
 			uint8_t buf[32768];
@@ -973,16 +989,23 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 				int got = pck->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
+#if VERSION_MINOR == 2
 					ctx.update(buf, got);
+#else
+					MD5Update(&md5, buf, got);
+#endif
 				}
 				if (got < 4096)
 					break;
 				rq_size -= 32768;
 			}
 
+#if VERSION_MINOR == 2
 			unsigned char hash[16];
 			ctx.finish(hash);
-
+#else
+			MD5Final(&md5);
+#endif
 			pck->seek(oldpos);
 
 			String file_md5;
@@ -991,8 +1014,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			bool md5_match = true;
 			for (int j = 0; j < 16; j++) {
+#if VERSION_MINOR == 2
 				md5_match &= (hash[j] == md5_saved[j]);
 				file_md5 += String::num_uint64(hash[j], 16);
+#else
+				md5_match &= (md5.digest[j] == md5_saved[j]);
+				file_md5 += String::num_uint64(md5.digest[j], 16);
+#endif
 				saved_md5 += String::num_uint64(md5_saved[j], 16);
 			}
 			if (!md5_match) {
@@ -1535,8 +1563,13 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 		} else {
 			FileAccess *file = FileAccess::open(p_path.plus_file(p_rel).plus_file(f), FileAccess::READ);
 
+#if VERSION_MINOR == 2
 			CryptoCore::MD5Context ctx;
 			ctx.start();
+#else
+			MD5_CTX md5;
+			MD5Init(&md5);
+#endif
 
 			int64_t rq_size = file->get_len();
 			uint8_t buf[32768];
@@ -1545,20 +1578,32 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 				int got = file->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
+#if VERSION_MINOR == 2
 					ctx.update(buf, got);
+#else
+					MD5Update(&md5, buf, got);
+#endif
 				}
 				if (got < 4096)
 					break;
 				rq_size -= 32768;
 			}
 
+#if VERSION_MINOR == 2
 			unsigned char hash[16];
 			ctx.finish(hash);
+#else
+			MD5Final(&md5);
+#endif
 
 			PackedFile finfo = PackedFile(offset, file->get_len());
 			finfo.name = p_rel.plus_file(f);
 			for (int j = 0; j < 16; j++) {
+#if VERSION_MINOR == 2
 				finfo.md5[j] = hash[j];
+#else
+				finfo.md5[j] = md5.digest[j];
+#endif
 			}
 			pck_save_files.push_back(finfo);
 
