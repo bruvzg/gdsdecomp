@@ -27,6 +27,7 @@
 #ifdef TOOLS_ENABLED
 #include "editor/editor_export.h"
 #include "editor/editor_node.h"
+#include "editor/editor_scale.h"
 #else
 #define EDSCALE 1.0
 #endif
@@ -72,6 +73,8 @@ public:
 
 	ProgressDialog();
 };
+#else
+#include "editor/progress_dialog.h"
 #endif
 
 class ResultDialog : public AcceptDialog {
