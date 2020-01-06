@@ -26,7 +26,8 @@ NewPackDialog::NewPackDialog() {
 	ver_base->set_max(1);
 	ver_base->set_step(1);
 	ver_base->set_value(1);
-	script_vb->add_margin_child(RTR("PCK version (0 - Godot 2.x; 1 - Godot 3.x):"), ver_base);
+	ver_base->connect("value_changed", this, "_val_change");
+	script_vb->add_margin_child(RTR("PCK version (\"0\" - Godot 2.x; \"1\" - Godot 3.x+):"), ver_base);
 
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 
@@ -35,6 +36,7 @@ NewPackDialog::NewPackDialog() {
 	ver_major->set_max(99999);
 	ver_major->set_step(1);
 	ver_major->set_value(VERSION_MAJOR);
+	ver_major->connect("value_changed", this, "_val_change");
 	dir_hbc->add_child(ver_major);
 
 	ver_minor = memnew(SpinBox);
@@ -42,15 +44,20 @@ NewPackDialog::NewPackDialog() {
 	ver_minor->set_max(99999);
 	ver_minor->set_step(1);
 	ver_minor->set_value(VERSION_MINOR);
+	ver_minor->connect("value_changed", this, "_val_change");
 	dir_hbc->add_child(ver_minor);
+
 	ver_rev = memnew(SpinBox);
 	ver_rev->set_min(0);
 	ver_rev->set_max(99999);
 	ver_rev->set_step(1);
 	ver_rev->set_value(0);
+	ver_rev->connect("value_changed", this, "_val_change");
 	dir_hbc->add_child(ver_rev);
 
-	script_vb->add_margin_child(RTR("Target Godot engine version (note: revision number is ignored by the engine):"), dir_hbc);
+	_val_change();
+
+	script_vb->add_margin_child(RTR("Godot engine version (\"Major\".\"Minor\".\"Patch\", \"Patch\" value should be \"0\" for all pre 3.2 versions):"), dir_hbc);
 
 	emb_selection = memnew(FileDialog);
 	emb_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
@@ -84,6 +91,26 @@ NewPackDialog::NewPackDialog() {
 
 	get_ok()->set_text(RTR("Save..."));
 	add_cancel(RTR("Cancel"));
+}
+
+void NewPackDialog::_val_change(double p_val) {
+#ifdef TOOLS_ENABLED
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+#else
+	Color error_color = Color(1, 0, 0);
+#endif
+	Color def_color = ver_major->get_line_edit()->get_color("font_color");
+	if ((ver_major->get_value() <= 2 && ver_base->get_value() != 0) || (ver_major->get_value() > 2 && ver_base->get_value() != 1)) {
+		ver_base->get_line_edit()->set("custom_colors/font_color", error_color);
+	} else {
+		ver_base->get_line_edit()->set("custom_colors/font_color", def_color);
+	}
+
+	if ((ver_major->get_value() < 3 || (ver_major->get_value() == 3 && ver_minor->get_value() < 2)) && (ver_rev->get_value() != 0)) {
+		ver_rev->get_line_edit()->set("custom_colors/font_color", error_color);
+	} else {
+		ver_rev->get_line_edit()->set("custom_colors/font_color", def_color);
+	}
 }
 
 void NewPackDialog::_exe_select_pressed() {
@@ -137,4 +164,5 @@ void NewPackDialog::_notification(int p_notification) {
 void NewPackDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_exe_select_pressed"), &NewPackDialog::_exe_select_pressed);
 	ClassDB::bind_method(D_METHOD("_exe_select_request", "path"), &NewPackDialog::_exe_select_request);
+	ClassDB::bind_method(D_METHOD("_val_change", "val"), &NewPackDialog::_val_change);
 }

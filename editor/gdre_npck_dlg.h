@@ -43,6 +43,7 @@ class NewPackDialog : public AcceptDialog {
 	FileDialog *emb_selection;
 
 protected:
+	void _val_change(double p_val = 0.0f);
 	void _notification(int p_notification);
 	static void _bind_methods();
 

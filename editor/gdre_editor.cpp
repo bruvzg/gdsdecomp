@@ -23,11 +23,11 @@
 
 #include "core/version_generated.gen.h"
 
-#if VERSION_MAJOR != 3
+#if VERSION_MAJOR < 3
 #error Unsupported Godot version
 #endif
 
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 #include "core/crypto/crypto_core.h"
 #else
 #include "thirdparty/misc/md5.h"
@@ -850,9 +850,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint32_t ver_minor = pck->get_32();
 	uint32_t ver_rev = pck->get_32();
 
-	pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-
-	print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + RTR(" rev (unused) ") + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	if ((ver_major < 3) || ((ver_major == 3) && (ver_minor < 2))) {
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	} else {
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	}
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
@@ -974,7 +978,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			files_checked++;
 
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 			CryptoCore::MD5Context ctx;
 			ctx.start();
 #else
@@ -989,7 +993,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 				int got = pck->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 					ctx.update(buf, got);
 #else
 					MD5Update(&md5, buf, got);
@@ -1000,7 +1004,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 				rq_size -= 32768;
 			}
 
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 			unsigned char hash[16];
 			ctx.finish(hash);
 #else
@@ -1014,7 +1018,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			bool md5_match = true;
 			for (int j = 0; j < 16; j++) {
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 				md5_match &= (hash[j] == md5_saved[j]);
 				file_md5 += String::num_uint64(hash[j], 16);
 #else
@@ -1563,7 +1567,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 		} else {
 			FileAccess *file = FileAccess::open(p_path.plus_file(p_rel).plus_file(f), FileAccess::READ);
 
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 			CryptoCore::MD5Context ctx;
 			ctx.start();
 #else
@@ -1578,7 +1582,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 				int got = file->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 					ctx.update(buf, got);
 #else
 					MD5Update(&md5, buf, got);
@@ -1589,7 +1593,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 				rq_size -= 32768;
 			}
 
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 			unsigned char hash[16];
 			ctx.finish(hash);
 #else
@@ -1599,7 +1603,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			PackedFile finfo = PackedFile(offset, file->get_len());
 			finfo.name = p_rel.plus_file(f);
 			for (int j = 0; j < 16; j++) {
-#if VERSION_MINOR == 2
+#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2)) || (VERSION_MAJOR == 4)
 				finfo.md5[j] = hash[j];
 #else
 				finfo.md5[j] = md5.digest[j];
