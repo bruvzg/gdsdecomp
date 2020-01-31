@@ -67,7 +67,7 @@ struct GDScriptDecompVersion {
 static GDScriptDecompVersion decomp_versions[] = {
 
 	{ 0xfffffff, "--- Please select bytecode version ---" },
-	{ 0x5565f55, "3.2.0 beta (5565f55 / 2019-08-26 / Bytecode version: 13) - added `ord` function" },
+	{ 0x5565f55, "3.2.0 release (5565f55 / 2019-08-26 / Bytecode version: 13) - added `ord` function" },
 	{ 0x6694c11, "     3.2 dev (6694c11 / 2019-07-20 / Bytecode version: 13) - added `lerp_angle` function" },
 	{ 0xa60f242, "     3.2 dev (a60f242 / 2019-07-19 / Bytecode version: 13) - added `posmod` function" },
 	{ 0xc00427a, "     3.2 dev (c00427a / 2019-06-01 / Bytecode version: 13) - added `move_toward` function" },
