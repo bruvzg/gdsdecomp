@@ -19,6 +19,7 @@
 #include "bytecode/bytecode_3ea6d9f.h"
 #include "bytecode/bytecode_48f1d02.h"
 #include "bytecode/bytecode_4ee82a2.h"
+#include "bytecode/bytecode_506df14.h"
 #include "bytecode/bytecode_513c026.h"
 #include "bytecode/bytecode_514a3fb.h"
 #include "bytecode/bytecode_5565f55.h"
@@ -52,6 +53,7 @@
 #include "bytecode/bytecode_d6b31da.h"
 #include "bytecode/bytecode_e82dc40.h"
 #include "bytecode/bytecode_ed80f45.h"
+#include "bytecode/bytecode_f3f05dc.h"
 #include "bytecode/bytecode_f8a7c46.h"
 #include "bytecode/bytecode_ff1e7cf.h"
 
@@ -67,6 +69,8 @@ struct GDScriptDecompVersion {
 static GDScriptDecompVersion decomp_versions[] = {
 
 	{ 0xfffffff, "--- Please select bytecode version ---" },
+	{ 0xf3f05dc, "     4.0 dev (f3f05dc / 2020-02-13 / Bytecode version: 13) - removed `SYNC` and `SLAVE` tokens" },
+	{ 0x506df14, "     4.0 dev (506df14 / 2020-02-12 / Bytecode version: 13) - removed `decimals` function" },
 	{ 0x5565f55, "3.2.0 release (5565f55 / 2019-08-26 / Bytecode version: 13) - added `ord` function" },
 	{ 0x6694c11, "     3.2 dev (6694c11 / 2019-07-20 / Bytecode version: 13) - added `lerp_angle` function" },
 	{ 0xa60f242, "     3.2 dev (a60f242 / 2019-07-19 / Bytecode version: 13) - added `posmod` function" },

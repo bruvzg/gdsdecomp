@@ -81,7 +81,7 @@
 | **3.1.1**                 | [514a3fb](https://github.com/godotengine/godot/commit/514a3fb) | `2019.03.19` | 13               | Added `smoothstep` function                                     |
 | *3.2 branch diverge*      |                                                                |              |                  |                                                                 |
 
-### Branch 3.2 (master)
+### Branch 3.2
 
 | Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
@@ -91,9 +91,11 @@
 |                           | [a60f242](https://github.com/godotengine/godot/commit/a60f242) | `2019.07.19` | 13               | Added `posmod` function                                         |
 |                           | [6694c11](https://github.com/godotengine/godot/commit/6694c11) | `2019.07.20` | 13               | Added `lerp_angle` function                                     |
 | **3.2**                   | [5565f55](https://github.com/godotengine/godot/commit/5565f55) | `2019.08.26` | 13               | Added `ord` function                                            |
+| *4.0 branch diverge*      |                                                                |              |                  |                                                                 |
 
-### Branch 4.0 (vulkan)
+### Branch 4.0 (master)
 
 | Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
-| even with 3.2 (master)    |                                                                |              |                  |                                                                 |
+|                           | [506df14](https://github.com/godotengine/godot/commit/506df14) | `2020.02.12` | 13               | Removed `decimals` function                                     |
+|                           | [f3f05dc](https://github.com/godotengine/godot/commit/f3f05dc) | `2020.02.13` | 13               | Removed `SYNC` and `SLAVE` tokens                               |

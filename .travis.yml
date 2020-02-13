@@ -10,7 +10,13 @@ matrix:
       os: linux
       compiler: clang
 
-    - name: Linux module (clang, Godot master min. release)
+    - name: Linux module (clang, Godot 3.2)
+      env: GDVER="3.2"
+      os: linux
+      compiler: clang
+
+    - name: Linux module (clang, Godot 4.0)
+      env: GDVER="4.0"
       os: linux
       compiler: clang
 
@@ -27,5 +33,9 @@ script:
   - if [ "$STATIC_CHECKS" = "yes" ]; then
       bash ./.scripts/clang_format.sh;
     else
-      bash ./.scripts/module_build.sh;
+      if [ "$GDVER" = "3.2" ]; then
+        bash ./.scripts/module_build_3.sh;
+      else
+        bash ./.scripts/module_build_4.sh;
+      fi
     fi
