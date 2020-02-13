@@ -31,5 +31,4 @@ convert_text_resources_to_binary_on_export=true
 
 [rendering]
 
-quality/driver/driver_name="GLES2"
 environment/default_clear_color=Color( 0.0784314, 0.0901961, 0.121569, 1 )
