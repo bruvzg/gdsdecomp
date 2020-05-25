@@ -8,19 +8,19 @@
 ScriptDecompDialog::ScriptDecompDialog() {
 
 	set_title(RTR("Decompile GDScript"));
-	set_resizable(true);
+	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
 	target_folder_selection = memnew(FileDialog);
 	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
-	target_folder_selection->set_mode(FileDialog::MODE_OPEN_DIR);
-	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
+	target_folder_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_DIR);
+	target_folder_selection->connect("dir_selected", callable_mp(this, &ScriptDecompDialog::_dir_select_request));
 	target_folder_selection->set_show_hidden_files(true);
 	add_child(target_folder_selection);
 
 	file_selection = memnew(FileDialog);
 	file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
-	file_selection->set_mode(FileDialog::MODE_OPEN_FILES);
-	file_selection->connect("files_selected", this, "_add_files_request");
+	file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
+	file_selection->connect("files_selected", callable_mp(this, &ScriptDecompDialog::_add_files_request));
 	file_selection->add_filter("*.gdc,*.gde;GDScript binary files");
 	file_selection->set_show_hidden_files(true);
 	add_child(file_selection);
@@ -34,17 +34,17 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	HBoxContainer *file_list_hbc = memnew(HBoxContainer);
 	add_file = memnew(Button);
 	add_file->set_text(RTR("Add files..."));
-	add_file->connect("pressed", this, "_add_files_pressed");
+	add_file->connect("pressed", callable_mp(this, &ScriptDecompDialog::_add_files_pressed));
 	file_list_hbc->add_child(add_file);
 
 	remove_file = memnew(Button);
 	remove_file->set_text(RTR("Remove files"));
-	remove_file->connect("pressed", this, "_remove_file_pressed");
+	remove_file->connect("pressed", callable_mp(this, &ScriptDecompDialog::_remove_file_pressed));
 	file_list_hbc->add_child(remove_file);
 
 	clear_files = memnew(Button);
 	clear_files->set_text(RTR("Clear files"));
-	clear_files->connect("pressed", this, "_clear_pressed");
+	clear_files->connect("pressed", callable_mp(this, &ScriptDecompDialog::_clear_pressed));
 	file_list_hbc->add_child(clear_files);
 
 	script_vb->add_margin_child(RTR("Script files:"), file_list);
@@ -58,23 +58,23 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	}
 
 	script_vb->add_margin_child(RTR("Script bytecode version:"), scrver);
-	scrver->connect("item_selected", this, "_bytcode_changed");
+	scrver->connect("item_selected", callable_mp(this, &ScriptDecompDialog::_bytcode_changed));
 
 	//Encryption key
 	script_key = memnew(LineEdit);
-	script_key->connect("text_changed", this, "_script_encryption_key_changed");
+	script_key->connect("text_changed", callable_mp(this, &ScriptDecompDialog::_script_encryption_key_changed));
 	script_vb->add_margin_child(RTR("Script encryption key (256-bits as hex, optional):"), script_key);
 
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 	target_dir = memnew(LineEdit);
 	target_dir->set_editable(false);
-	target_dir->set_h_size_flags(SIZE_EXPAND_FILL);
+	target_dir->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	dir_hbc->add_child(target_dir);
 
 	select_dir = memnew(Button);
 	select_dir->set_text("...");
-	select_dir->connect("pressed", this, "_dir_select_pressed");
+	select_dir->connect("pressed", callable_mp(this, &ScriptDecompDialog::_dir_select_pressed));
 	dir_hbc->add_child(select_dir);
 
 	script_vb->add_margin_child(RTR("Destination folder:"), dir_hbc);
@@ -151,7 +151,7 @@ void ScriptDecompDialog::_add_files_pressed() {
 	file_selection->popup_centered(Size2(800, 600));
 }
 
-void ScriptDecompDialog::_add_files_request(const PoolVector<String> &p_files) {
+void ScriptDecompDialog::_add_files_request(const Vector<String> &p_files) {
 
 	for (int i = 0; i < p_files.size(); i++) {
 		file_list->add_item(p_files[i]);
@@ -193,7 +193,7 @@ void ScriptDecompDialog::_validate_input() {
 	String error_message;
 
 #ifdef TOOLS_ENABLED
-	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_theme_color("error_color", "Editor") : Color(1, 0, 0);
 #else
 	Color error_color = Color(1, 0, 0);
 #endif
@@ -201,28 +201,28 @@ void ScriptDecompDialog::_validate_input() {
 	if (script_key->get_text().empty()) {
 		if (need_key) {
 			error_message += RTR("No encryption key") + "\n";
-			script_key_error->add_color_override("font_color", error_color);
+			script_key_error->add_theme_color_override("font_color", error_color);
 			ok = false;
 		}
 	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
 		error_message += RTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (target_dir->get_text().empty()) {
 		error_message += RTR("No destination folder selected") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (file_list->get_item_count() == 0) {
 		error_message += RTR("No files selected") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 
 	if (scrver->get_selected_id() == 0xfffffff) {
 		error_message += RTR("No bytecode version selected") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 

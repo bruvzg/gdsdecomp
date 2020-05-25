@@ -11,7 +11,7 @@
 NewPackDialog::NewPackDialog() {
 
 	set_title(RTR("Create new PCK..."));
-	set_resizable(true);
+	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
 
@@ -26,7 +26,7 @@ NewPackDialog::NewPackDialog() {
 	ver_base->set_max(1);
 	ver_base->set_step(1);
 	ver_base->set_value(1);
-	ver_base->connect("value_changed", this, "_val_change");
+	ver_base->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
 	script_vb->add_margin_child(RTR("PCK version (\"0\" - Godot 2.x; \"1\" - Godot 3.x+):"), ver_base);
 
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
@@ -36,7 +36,7 @@ NewPackDialog::NewPackDialog() {
 	ver_major->set_max(99999);
 	ver_major->set_step(1);
 	ver_major->set_value(VERSION_MAJOR);
-	ver_major->connect("value_changed", this, "_val_change");
+	ver_major->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
 	dir_hbc->add_child(ver_major);
 
 	ver_minor = memnew(SpinBox);
@@ -44,7 +44,7 @@ NewPackDialog::NewPackDialog() {
 	ver_minor->set_max(99999);
 	ver_minor->set_step(1);
 	ver_minor->set_value(VERSION_MINOR);
-	ver_minor->connect("value_changed", this, "_val_change");
+	ver_minor->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
 	dir_hbc->add_child(ver_minor);
 
 	ver_rev = memnew(SpinBox);
@@ -52,7 +52,7 @@ NewPackDialog::NewPackDialog() {
 	ver_rev->set_max(99999);
 	ver_rev->set_step(1);
 	ver_rev->set_value(0);
-	ver_rev->connect("value_changed", this, "_val_change");
+	ver_rev->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
 	dir_hbc->add_child(ver_rev);
 
 	_val_change();
@@ -61,9 +61,9 @@ NewPackDialog::NewPackDialog() {
 
 	emb_selection = memnew(FileDialog);
 	emb_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
-	emb_selection->set_mode(FileDialog::MODE_OPEN_FILE);
+	emb_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILE);
 	emb_selection->add_filter("*.exe,*.bin,*.32,*.64;Executable files");
-	emb_selection->connect("file_selected", this, "_exe_select_request");
+	emb_selection->connect("file_selected", callable_mp(this, &NewPackDialog::_exe_select_request));
 	emb_selection->set_show_hidden_files(true);
 	add_child(emb_selection);
 
@@ -73,12 +73,12 @@ NewPackDialog::NewPackDialog() {
 	emb_hbc->add_child(emb_chk);
 
 	emb_name = memnew(LineEdit);
-	emb_name->set_h_size_flags(SIZE_EXPAND_FILL);
+	emb_name->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	emb_hbc->add_child(emb_name);
 
 	emb_button = memnew(Button);
 	emb_button->set_text("...");
-	emb_button->connect("pressed", this, "_exe_select_pressed");
+	emb_button->connect("pressed", callable_mp(this, &NewPackDialog::_exe_select_pressed));
 	emb_hbc->add_child(emb_button);
 
 	script_vb->add_margin_child(RTR("Embed PCK:"), emb_hbc);
@@ -95,11 +95,11 @@ NewPackDialog::NewPackDialog() {
 
 void NewPackDialog::_val_change(double p_val) {
 #ifdef TOOLS_ENABLED
-	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_theme_color("error_color", "Editor") : Color(1, 0, 0);
 #else
 	Color error_color = Color(1, 0, 0);
 #endif
-	Color def_color = ver_major->get_line_edit()->get_color("font_color");
+	Color def_color = ver_major->get_line_edit()->get_theme_color("font_color");
 	if ((ver_major->get_value() <= 2 && ver_base->get_value() != 0) || (ver_major->get_value() > 2 && ver_base->get_value() != 1)) {
 		ver_base->get_line_edit()->set("custom_colors/font_color", error_color);
 	} else {

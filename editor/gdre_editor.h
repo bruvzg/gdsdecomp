@@ -42,7 +42,6 @@ class ProgressDialog : public Popup {
 
 	GDCLASS(ProgressDialog, Popup);
 	struct Task {
-
 		String task;
 		VBoxContainer *vb;
 		ProgressBar *progress;
@@ -194,8 +193,6 @@ private:
 #endif
 	Control *ne_parent;
 
-	Map<String, Ref<ImageTexture> > gui_icons;
-
 	OverwriteDialog *ovd;
 	ResultDialog *rdl;
 
@@ -226,8 +223,6 @@ private:
 	AcceptDialog *about_dialog;
 	CheckBox *about_dialog_checkbox;
 
-	Ref<ImageTexture> get_gui_icon(const String &p_name);
-
 	void _toggle_about_dialog_on_start(bool p_enabled);
 
 	void _decompile_files();
@@ -245,20 +240,20 @@ private:
 	uint64_t _pck_create_process_folder(EditorProgressGDDC *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel);
 	void _pck_save_request(const String &p_path);
 
-	PoolVector<String> res_files;
+	Vector<String> res_files;
 
-	void _res_bin_2_txt_request(const PoolVector<String> &p_files);
+	void _res_bin_2_txt_request(const Vector<String> &p_files);
 	void _res_bin_2_txt_process();
-	void _res_txt_2_bin_request(const PoolVector<String> &p_files);
+	void _res_txt_2_bin_request(const Vector<String> &p_files);
 	void _res_txt_2_bin_process();
 
-	void _res_stex_2_png_request(const PoolVector<String> &p_files);
+	void _res_stex_2_png_request(const Vector<String> &p_files);
 	void _res_stxt_2_png_process();
 
-	void _res_ostr_2_ogg_request(const PoolVector<String> &p_files);
+	void _res_ostr_2_ogg_request(const Vector<String> &p_files);
 	void _res_ostr_2_ogg_process();
 
-	void _res_smpl_2_wav_request(const PoolVector<String> &p_files);
+	void _res_smpl_2_wav_request(const Vector<String> &p_files);
 	void _res_smpl_2_wav_process();
 
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);

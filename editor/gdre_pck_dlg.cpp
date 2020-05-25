@@ -7,14 +7,14 @@
 PackDialog::PackDialog() {
 
 	set_title(RTR("PCK explorer"));
-	set_resizable(true);
+	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 	updating = false;
 	have_malformed_names = false;
 
 	target_folder_selection = memnew(FileDialog);
 	target_folder_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
-	target_folder_selection->set_mode(FileDialog::MODE_OPEN_DIR);
-	target_folder_selection->connect("dir_selected", this, "_dir_select_request");
+	target_folder_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_DIR);
+	target_folder_selection->connect("dir_selected", callable_mp(this, &PackDialog::_dir_select_request));
 	target_folder_selection->set_show_hidden_files(true);
 	add_child(target_folder_selection);
 
@@ -32,7 +32,7 @@ PackDialog::PackDialog() {
 	file_list = memnew(Tree);
 	file_list->set_custom_minimum_size(Size2(1000, 600) * EDSCALE);
 
-	file_list->set_v_size_flags(SIZE_EXPAND_FILL);
+	file_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	file_list->set_columns(2);
 	file_list->set_column_titles_visible(true);
 
@@ -43,17 +43,17 @@ PackDialog::PackDialog() {
 	file_list->set_column_expand(1, false);
 	file_list->set_column_min_width(1, 120 * EDSCALE);
 
-	file_list->add_constant_override("draw_relationship_lines", 1);
+	file_list->add_theme_constant_override("draw_relationship_lines", 1);
 
 	root = file_list->create_item();
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 	root->set_checked(0, true);
 	root->set_editable(0, true);
-	root->set_icon(0, get_icon("folder", "FileDialog"));
+	root->set_icon(0, get_theme_icon("folder", "FileDialog"));
 	root->set_text(0, "res://");
 	root->set_metadata(0, String());
 
-	file_list->connect("item_edited", this, "_item_edited");
+	file_list->connect("item_edited", callable_mp(this, &PackDialog::_item_edited));
 
 	script_vb->add_margin_child(RTR("Files:"), file_list);
 
@@ -61,12 +61,12 @@ PackDialog::PackDialog() {
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 	target_dir = memnew(LineEdit);
 	target_dir->set_editable(false);
-	target_dir->set_h_size_flags(SIZE_EXPAND_FILL);
+	target_dir->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	dir_hbc->add_child(target_dir);
 
 	select_dir = memnew(Button);
 	select_dir->set_text("...");
-	select_dir->connect("pressed", this, "_dir_select_pressed");
+	select_dir->connect("pressed", callable_mp(this, &PackDialog::_dir_select_pressed));
 	dir_hbc->add_child(select_dir);
 
 	script_vb->add_margin_child(RTR("Destination folder:"), dir_hbc);
@@ -93,7 +93,7 @@ void PackDialog::clear() {
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 	root->set_checked(0, true);
 	root->set_editable(0, true);
-	root->set_icon(0, get_icon("folder", "FileDialog"));
+	root->set_icon(0, get_theme_icon("folder", "FileDialog"));
 	root->set_text(0, "res://");
 	root->set_metadata(0, String());
 
@@ -156,7 +156,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		item->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 		item->set_checked(0, true);
 		item->set_editable(0, true);
-		item->set_icon(0, get_icon("folder", "FileDialog"));
+		item->set_icon(0, get_theme_icon("folder", "FileDialog"));
 		item->set_text(0, fld_name);
 		item->set_metadata(0, String());
 		add_file_to_item(item, p_fullname, path, p_size, p_icon, p_error);
@@ -240,23 +240,23 @@ void PackDialog::_validate_selection() {
 	String error_message;
 
 #ifdef TOOLS_ENABLED
-	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor") : Color(1, 0, 0);
+	Color error_color = (EditorNode::get_singleton()) ? EditorNode::get_singleton()->get_gui_base()->get_theme_color("error_color", "Editor") : Color(1, 0, 0);
 #else
 	Color error_color = Color(1, 0, 0);
 #endif
 
 	if (have_malformed_names) {
 		error_message += RTR("Some files have malformed names") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 	}
 	if (target_dir->get_text().empty()) {
 		error_message += RTR("No destination folder selected") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 	if (nothing_selected) {
 		error_message += RTR("No files selected") + "\n";
-		script_key_error->add_color_override("font_color", error_color);
+		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
 
