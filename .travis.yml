@@ -16,10 +16,9 @@ matrix:
       compiler: clang
 
 before_install:
-  - echo "deb http://archive.ubuntu.com/ubuntu xenial-updates main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/xenial-updates.list
   - sudo apt-get update -qq
   - sudo apt -y install libasound2-dev libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev -q
-  - sudo apt -t xenial-updates -y install clang-format-6.0 clang-6.0 -q
+  - sudo apt -y install clang-format-8 -q
 
 install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
