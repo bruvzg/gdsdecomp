@@ -22,7 +22,11 @@ before_install:
   - sudo apt -t xenial-updates -y install clang-format-6.0 clang-6.0 -q
 
 install:
-  - pip install --user scons;
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+      pyenv global 3.8 system;
+      pip3 install --user scons;
+    fi
+  - scons --version
 
 script:
   - if [ "$STATIC_CHECKS" = "yes" ]; then

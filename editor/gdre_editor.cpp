@@ -549,12 +549,16 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 	}
 }
 
+#if defined(MINGW_ENABLED) || defined(_MSC_VER)
+#define sprintf sprintf_s
+#endif
+
 void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
 
 	char timestamp[21];
 	OS::Date date = OS::get_singleton()->get_date();
 	OS::Time time = OS::get_singleton()->get_time();
-	sprintf_s(timestamp, 21, "-%04d-%02d-%02d-%02d-%02d-%02d", date.year, date.month, date.day, time.hour, time.min, time.sec);
+	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", date.year, date.month, date.day, time.hour, time.min, time.sec);
 
 	Vector<String> lines = p_text.split("\n");
 	if (lines.size() > 1) {
@@ -1714,7 +1718,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			// Search for the "pck" section
 			int64_t section_table_pos = f->get_position();
 
-			bool found = false;
 			for (int i = 0; i < num_sections; ++i) {
 
 				int64_t section_header_pos = section_table_pos + i * 40;
@@ -1736,7 +1739,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 					f->seek(section_header_pos + 20);
 					f->store_32(embedded_start);
 
-					found = true;
 					break;
 				}
 			}
@@ -1805,7 +1807,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			}
 
 			// Search for the "pck" section
-			bool found = false;
 			for (int i = 0; i < num_sections; ++i) {
 
 				int64_t section_header_pos = section_table_pos + i * section_header_size;
@@ -1825,7 +1826,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 						f->store_64(embedded_size);
 					}
 
-					found = true;
 					break;
 				}
 			}
