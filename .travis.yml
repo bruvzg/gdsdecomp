@@ -10,11 +10,6 @@ matrix:
       os: linux
       compiler: clang
 
-    - name: Linux module (clang, Godot 3.2)
-      env: GDVER="3.2"
-      os: linux
-      compiler: clang
-
     - name: Linux module (clang, Godot 4.0)
       env: GDVER="4.0"
       os: linux
