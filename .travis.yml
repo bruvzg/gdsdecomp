@@ -15,11 +15,6 @@ matrix:
       os: linux
       compiler: clang
 
-    - name: Linux module (clang, Godot 4.0)
-      env: GDVER="4.0"
-      os: linux
-      compiler: clang
-
 before_install:
   - echo "deb http://archive.ubuntu.com/ubuntu xenial-updates main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/xenial-updates.list
   - sudo apt-get update -qq
