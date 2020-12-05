@@ -4,7 +4,7 @@
 
 #include "bytecode_base.h"
 
-#include "core/engine.h"
+#include "core/config/engine.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/os/file_access.h"
 

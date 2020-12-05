@@ -24,7 +24,7 @@ protected:
 	};
 
 public:
-	virtual Error decompile_buffer(Vector<uint8_t> p_buffer);
+	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
 };
 
 #endif

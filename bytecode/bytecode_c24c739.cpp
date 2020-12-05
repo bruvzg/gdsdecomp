@@ -3,8 +3,8 @@
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
-#include "core/map.h"
-#include "core/print_string.h"
+#include "core/templates/map.h"
+#include "core/string/print_string.h"
 
 #include "bytecode_c24c739.h"
 

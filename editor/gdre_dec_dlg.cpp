@@ -125,7 +125,7 @@ Vector<uint8_t> ScriptDecompDialog::get_key() const {
 	for (int i = 0; i < 32; i++) {
 		int v = 0;
 		if (i * 2 < script_key->get_text().length()) {
-			CharType ct = script_key->get_text().to_lower()[i * 2];
+			char32_t ct = script_key->get_text().to_lower()[i * 2];
 			if (ct >= '0' && ct <= '9')
 				ct = ct - '0';
 			else if (ct >= 'a' && ct <= 'f')
@@ -134,7 +134,7 @@ Vector<uint8_t> ScriptDecompDialog::get_key() const {
 		}
 
 		if (i * 2 + 1 < script_key->get_text().length()) {
-			CharType ct = script_key->get_text().to_lower()[i * 2 + 1];
+			char32_t ct = script_key->get_text().to_lower()[i * 2 + 1];
 			if (ct >= '0' && ct <= '9')
 				ct = ct - '0';
 			else if (ct >= 'a' && ct <= 'f')

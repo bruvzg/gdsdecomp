@@ -457,7 +457,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Explore PCK archive..."), MENU_EXT_PCK);
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		//menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REResBT", "EditorIcons"), RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REResTB", "EditorIcons"), RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
@@ -705,7 +705,7 @@ void GodotREEditor::_compile_files() {
 }
 
 void GodotREEditor::_compile_process() {
-
+/*
 	Vector<String> files = script_dialog_c->get_file_list();
 	Vector<uint8_t> key = script_dialog_c->get_key();
 	String dir = script_dialog_c->get_target_dir();
@@ -763,6 +763,7 @@ void GodotREEditor::_compile_process() {
 	} else {
 		show_warning(RTR("No errors detected."), RTR("Compile"), RTR("The operation completed successfully!"));
 	}
+*/
 }
 
 /*************************************************************************/

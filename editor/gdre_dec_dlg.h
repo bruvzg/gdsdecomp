@@ -5,8 +5,8 @@
 #ifndef GODOT_RE_DEC_DLG_H
 #define GODOT_RE_DEC_DLG_H
 
-#include "core/map.h"
-#include "core/resource.h"
+#include "core/templates/map.h"
+#include "core/io/resource.h"
 
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"

@@ -5,8 +5,8 @@
 #ifndef GODOT_RE_EDITOR_H
 #define GODOT_RE_EDITOR_H
 
-#include "core/map.h"
-#include "core/resource.h"
+#include "core/templates/map.h"
+#include "core/io/resource.h"
 
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"

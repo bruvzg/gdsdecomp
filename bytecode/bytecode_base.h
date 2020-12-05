@@ -5,8 +5,9 @@
 #ifndef GDSCRIPT_DECOMP_H
 #define GDSCRIPT_DECOMP_H
 
-#include "core/map.h"
-#include "core/object.h"
+#include "core/templates/map.h"
+#include "core/object/object.h"
+#include "core/object/class_db.h"
 
 class GDScriptDecomp : public Object {
 	GDCLASS(GDScriptDecomp, Object);
