@@ -69,6 +69,7 @@ struct GDScriptDecompVersion {
 static GDScriptDecompVersion decomp_versions[] = {
 
 	{ 0xfffffff, "--- Please select bytecode version ---" },
+	{ 0xfffffff, "     4.0 dev (5d6e853 / 2020.07.24 / Bytecode version: xx) - GDScript 2.0 (Compiled mode is not implemented yet)" },
 	{ 0xf3f05dc, "     4.0 dev (f3f05dc / 2020-02-13 / Bytecode version: 13) - removed `SYNC` and `SLAVE` tokens" },
 	{ 0x506df14, "     4.0 dev (506df14 / 2020-02-12 / Bytecode version: 13) - removed `decimals` function" },
 	{ 0x5565f55, "3.2.0 release (5565f55 / 2019-08-26 / Bytecode version: 13) - added `ord` function" },

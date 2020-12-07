@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="GDScriptDecomp" inherits="Object" category="Core" version="3.2">
+<class name="GDScriptDecomp" inherits="Object" version="4.0">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -20,7 +20,7 @@
 			</return>
 			<argument index="0" name="path" type="String">
 			</argument>
-			<argument index="1" name="key" type="PoolByteArray">
+			<argument index="1" name="key" type="PackedByteArray">
 			</argument>
 			<description>
 			</description>

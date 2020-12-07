@@ -99,3 +99,4 @@
 | ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
 |                           | [506df14](https://github.com/godotengine/godot/commit/506df14) | `2020.02.12` | 13               | Removed `decimals` function                                     |
 |                           | [f3f05dc](https://github.com/godotengine/godot/commit/f3f05dc) | `2020.02.13` | 13               | Removed `SYNC` and `SLAVE` tokens                               |
+| GDScript 2.0              | [5d6e853](https://github.com/godotengine/godot/commit/5d6e853) | `2020.07.24` | N/A              | **Compiled mode is not implemented yet**                        |
