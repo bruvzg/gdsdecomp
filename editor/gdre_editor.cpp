@@ -259,7 +259,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 	singleton = this;
 	editor = p_editor;
-	ne_parent = NULL;
+	ne_parent = editor->get_gui_base();
 
 	init_gui(editor->get_gui_base(), editor->get_menu_hb(), false);
 }
@@ -281,6 +281,9 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	rdl = memnew(ResultDialog);
 	p_control->add_child(rdl);
+
+	key_dialog = memnew(EncKeyDialog);
+	p_control->add_child(key_dialog);
 
 	script_dialog_d = memnew(ScriptDecompDialog);
 	script_dialog_d->connect("confirmed", callable_mp(this, &GodotREEditor::_decompile_files));
@@ -420,8 +423,12 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_button->set_text(RTR("PCK"));
 		menu_button->set_icon(p_control->get_theme_icon("REPack", "EditorIcons"));
 		menu_popup = menu_button->get_popup();
+		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Set encryption key..."), MENU_KEY);
+		menu_popup->add_separator();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_CREATE_PCK), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
+
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -431,6 +438,8 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup = menu_button->get_popup();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
+	
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -453,11 +462,17 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup = menu_button->get_popup();
 		menu_popup->add_icon_item(p_control->get_theme_icon("RELogo", "EditorIcons"), RTR("About Godot RE Tools"), MENU_ABOUT_RE);
 		menu_popup->add_separator();
+
+		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Set encryption key..."), MENU_KEY);
+		menu_popup->add_separator();
+
 		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_CREATE_PCK), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
 		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Explore PCK archive..."), MENU_EXT_PCK);
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
-		//menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(p_control->get_theme_icon("REResBT", "EditorIcons"), RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REResTB", "EditorIcons"), RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
@@ -509,6 +524,9 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 	switch (p_id) {
 		case MENU_ONE_CLICK_UNEXPORT: {
 
+		} break;
+		case MENU_KEY: {
+			key_dialog->popup_centered(Size2(800, 600));
 		} break;
 		case MENU_CREATE_PCK: {
 			pck_source_folder->popup_centered(Size2(800, 600));
@@ -620,7 +638,7 @@ void GodotREEditor::_decompile_files() {
 void GodotREEditor::_decompile_process() {
 
 	Vector<String> files = script_dialog_d->get_file_list();
-	Vector<uint8_t> key = script_dialog_d->get_key();
+	Vector<uint8_t> key = key_dialog->get_key();
 	String dir = script_dialog_d->get_target_dir();
 
 	print_warning("GDScriptDecomp{" + itos(script_dialog_d->get_bytecode_version()) + "}", RTR("Decompile"));
@@ -682,7 +700,7 @@ void GodotREEditor::_decompile_process() {
 void GodotREEditor::_compile_files() {
 
 	Vector<String> files = script_dialog_c->get_file_list();
-	Vector<uint8_t> key = script_dialog_c->get_key();
+	Vector<uint8_t> key = key_dialog->get_key();
 	String dir = script_dialog_c->get_target_dir();
 	String ext = (key.size() == 32) ? ".gde" : ".gds";
 
@@ -707,7 +725,7 @@ void GodotREEditor::_compile_files() {
 void GodotREEditor::_compile_process() {
 /*
 	Vector<String> files = script_dialog_c->get_file_list();
-	Vector<uint8_t> key = script_dialog_c->get_key();
+	Vector<uint8_t> key = key_dialog->get_key(); = script_dialog_c->get_key();
 	String dir = script_dialog_c->get_target_dir();
 	String ext = (key.size() == 32) ? ".gde" : ".gdc";
 
@@ -813,7 +831,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	uint32_t version = pck->get_32();
 
-	if (version > 1) {
+	if (version > 2) {
 		show_warning(RTR("Pack version unsupported: ") + itos(version), RTR("Read PCK"));
 		memdelete(pck);
 		return;
@@ -830,11 +848,38 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
 		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	}
+	uint32_t pack_flags = 0;
+	uint64_t file_base = 0;
+	if (version == 2) {
+		pack_flags = pck->get_32();
+		file_base = pck->get_64();
+	}
+	bool enc_directory = (pack_flags & (1 << 0));
+
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
 
-	int file_count = pck->get_32();
+	uint32_t file_count = pck->get_32();
+
+	Vector<uint8_t> key = key_dialog->get_key();
+
+	if (enc_directory) {
+		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+		if (!fae) {
+			pck->close();
+			memdelete(pck);
+			ERR_FAIL_MSG("Can't open encrypted pack directory.");
+		}
+		Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
+		if (err) {
+			pck->close();
+			memdelete(pck);
+			memdelete(fae);
+			ERR_FAIL_MSG("Can't open encrypted pack directory.");
+		}
+		pck = fae;
+	}
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_md5", RTR("Reading PCK archive, click cancel to skip MD5 checking..."), file_count, true));
 
@@ -921,6 +966,10 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		}
 
 		uint64_t ofs = pck->get_64();
+		if (version == 2) {
+			ofs += file_base;
+		}
+
 		uint64_t size = pck->get_64();
 		uint8_t md5_saved[16];
 		pck->get_buffer(md5_saved, 16);
@@ -945,10 +994,28 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			}
 		}
 
-		if (p_check_md5) {
-			size_t oldpos = pck->get_position();
-			pck->seek(ofs);
+		uint32_t flags = 0;
+		if (version == 2) {
+			flags = pck->get_32();
+		}
 
+		if (p_check_md5) {
+			String error_msg = "";
+			FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
+			f->seek(ofs);
+			if (flags & (1 << 0)) {
+				FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+				if (!fae) {
+					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
+				}
+
+				Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_READ, false);
+				if (err) {
+					memdelete(fae);
+					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
+				}
+				f = fae;
+			}
 			files_checked++;
 
 			CryptoCore::MD5Context ctx;
@@ -959,7 +1026,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			while (rq_size > 0) {
 
-				int got = pck->get_buffer(buf, MIN(32768, rq_size));
+				int got = f->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
 					ctx.update(buf, got);
 				}
@@ -970,11 +1037,12 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			unsigned char hash[16];
 			ctx.finish(hash);
-			pck->seek(oldpos);
+			
+			f->close();
+			memdelete(f);
 
 			String file_md5;
 			String saved_md5;
-			String error_msg = "";
 
 			bool md5_match = true;
 			for (int j = 0; j < 16; j++) {
@@ -986,21 +1054,22 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 				files_broken++;
 				error_msg += RTR("MD5 mismatch, calculated") + " [" + file_md5 + "] " + RTR("expected") + " [" + saved_md5 + "]\n";
 			}
+
 			if (malformed) {
 				files_broken++;
 				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
 			}
-			pck_dialog->add_file(path, size, (!md5_match || malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFileOk", "EditorIcons"), error_msg, malformed);
+			pck_dialog->add_file(path, size, (!md5_match || malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFileOk", "EditorIcons"), error_msg, malformed, (flags & (1 << 0)));
 		} else {
 			String error_msg = RTR("MD5 check skipped") + "\n";
 			if (malformed) {
 				files_broken++;
 				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
 			}
-			pck_dialog->add_file(path, size, (malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFile", "EditorIcons"), error_msg, malformed);
+			pck_dialog->add_file(path, size, (malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFile", "EditorIcons"), error_msg, malformed, (flags & (1 << 0)));
 		}
 
-		pck_files[path] = PackedFile(ofs, size);
+		pck_files[path] = PackedFile(ofs, size, flags);
 	};
 
 	pck_dialog->set_info(String("    ") + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken));
@@ -1038,16 +1107,12 @@ void GodotREEditor::_pck_extract_files() {
 
 void GodotREEditor::_pck_extract_files_process() {
 
-	FileAccess *pck = FileAccess::open(pck_file, FileAccess::READ);
-	if (!pck) {
-		show_warning(RTR("Error opening PCK file: ") + pck_file, RTR("Read PCK"));
-		return;
-	}
-
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
 
 	String failed_files;
+
+	Vector<uint8_t> key = key_dialog->get_key();
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck", RTR("Extracting files..."), files.size(), true));
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
@@ -1063,7 +1128,32 @@ void GodotREEditor::_pck_extract_files_process() {
 			break;
 		}
 
+		FileAccess *pck = FileAccess::open(pck_file, FileAccess::READ);
+		if (!pck) {
+			failed_files += files[i] + " (FileAccess error)\n";
+			continue;
+		}
 		pck->seek(pck_files[files[i]].offset);
+		
+		if (pck_files[files[i]].flags & (1 << 0)) {
+			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+			if (!fae) {
+				pck->close();
+				memdelete(pck);
+				failed_files += files[i] + " (FileAccess error)\n";
+				continue;
+			}
+
+			Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
+			if (err) {
+				pck->close();
+				memdelete(pck);
+				memdelete(fae);
+				failed_files += files[i] + " (FileAccess error)\n";
+				continue;
+			}
+			pck = fae;
+		}
 
 		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (fa) {
@@ -1080,9 +1170,10 @@ void GodotREEditor::_pck_extract_files_process() {
 		} else {
 			failed_files += files[i] + " (FileAccess error)\n";
 		}
+		pck->close();
+		memdelete(pck);
 	}
 	memdelete(pr);
-	memdelete(pck);
 
 	pck_files.clear();
 	pck_file = String();
@@ -1515,7 +1606,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			unsigned char hash[16];
 			ctx.finish(hash);
 
-			PackedFile finfo = PackedFile(offset, file->get_len());
+			PackedFile finfo = PackedFile(offset, file->get_len(), 0); //TODO verf 2 support
 			finfo.name = p_rel.plus_file(f);
 			for (int j = 0; j < 16; j++) {
 				finfo.md5[j] = hash[j];
@@ -1584,8 +1675,10 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	}
 	int64_t pck_start_pos = f->get_position();
 
+	int version = pck_save_dialog->get_version_pack();
+
 	f->store_32(0x43504447); //GDPK
-	f->store_32(pck_save_dialog->get_version_pack());
+	f->store_32(version);
 	f->store_32(pck_save_dialog->get_version_major());
 	f->store_32(pck_save_dialog->get_version_minor());
 	f->store_32(pck_save_dialog->get_version_rev());
@@ -1595,6 +1688,11 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	}
 
 	pr->step("Header...", 0, true);
+
+	//uint64_t file_base = 0;
+	if (version == 2) {
+		//TODO stor pack flags and file base
+	}
 
 	f->store_32(pck_save_files.size()); //amount of files
 

@@ -13,12 +13,6 @@
 			<description>
 			</description>
 		</method>
-		<method name="get_key" qualifiers="const">
-			<return type="PackedByteArray">
-			</return>
-			<description>
-			</description>
-		</method>
 		<method name="get_target_dir" qualifiers="const">
 			<return type="String">
 			</return>

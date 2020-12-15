@@ -60,11 +60,6 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	script_vb->add_margin_child(RTR("Script bytecode version:"), scrver);
 	scrver->connect("item_selected", callable_mp(this, &ScriptDecompDialog::_bytcode_changed));
 
-	//Encryption key
-	script_key = memnew(LineEdit);
-	script_key->connect("text_changed", callable_mp(this, &ScriptDecompDialog::_script_encryption_key_changed));
-	script_vb->add_margin_child(RTR("Script encryption key (256-bits as hex, optional):"), script_key);
-
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 	target_dir = memnew(LineEdit);
@@ -111,39 +106,6 @@ Vector<String> ScriptDecompDialog::get_file_list() const {
 String ScriptDecompDialog::get_target_dir() const {
 
 	return target_dir->get_text();
-}
-
-Vector<uint8_t> ScriptDecompDialog::get_key() const {
-
-	Vector<uint8_t> key;
-
-	if (script_key->get_text().empty() || !script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
-		return key;
-	}
-
-	key.resize(32);
-	for (int i = 0; i < 32; i++) {
-		int v = 0;
-		if (i * 2 < script_key->get_text().length()) {
-			char32_t ct = script_key->get_text().to_lower()[i * 2];
-			if (ct >= '0' && ct <= '9')
-				ct = ct - '0';
-			else if (ct >= 'a' && ct <= 'f')
-				ct = 10 + ct - 'a';
-			v |= ct << 4;
-		}
-
-		if (i * 2 + 1 < script_key->get_text().length()) {
-			char32_t ct = script_key->get_text().to_lower()[i * 2 + 1];
-			if (ct >= '0' && ct <= '9')
-				ct = ct - '0';
-			else if (ct >= 'a' && ct <= 'f')
-				ct = 10 + ct - 'a';
-			v |= ct;
-		}
-		key.write[i] = v;
-	}
-	return key;
 }
 
 void ScriptDecompDialog::_add_files_pressed() {
@@ -198,17 +160,6 @@ void ScriptDecompDialog::_validate_input() {
 	Color error_color = Color(1, 0, 0);
 #endif
 
-	if (script_key->get_text().empty()) {
-		if (need_key) {
-			error_message += RTR("No encryption key") + "\n";
-			script_key_error->add_theme_color_override("font_color", error_color);
-			ok = false;
-		}
-	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
-		error_message += RTR("Invalid encryption key (must be 64 characters long hex)") + "\n";
-		script_key_error->add_theme_color_override("font_color", error_color);
-		ok = false;
-	}
 	if (target_dir->get_text().empty()) {
 		error_message += RTR("No destination folder selected") + "\n";
 		script_key_error->add_theme_color_override("font_color", error_color);
@@ -231,11 +182,6 @@ void ScriptDecompDialog::_validate_input() {
 	get_ok()->set_disabled(!ok);
 }
 
-void ScriptDecompDialog::_script_encryption_key_changed(const String &p_key) {
-
-	_validate_input();
-}
-
 void ScriptDecompDialog::_dir_select_pressed() {
 
 	target_folder_selection->popup_centered(Size2(800, 600));
@@ -255,13 +201,11 @@ void ScriptDecompDialog::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_file_list"), &ScriptDecompDialog::get_file_list);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &ScriptDecompDialog::get_target_dir);
-	ClassDB::bind_method(D_METHOD("get_key"), &ScriptDecompDialog::get_key);
 
 	ClassDB::bind_method(D_METHOD("_add_files_pressed"), &ScriptDecompDialog::_add_files_pressed);
 	ClassDB::bind_method(D_METHOD("_add_files_request", "files"), &ScriptDecompDialog::_add_files_request);
 	ClassDB::bind_method(D_METHOD("_remove_file_pressed"), &ScriptDecompDialog::_remove_file_pressed);
 	ClassDB::bind_method(D_METHOD("_clear_pressed"), &ScriptDecompDialog::_clear_pressed);
-	ClassDB::bind_method(D_METHOD("_script_encryption_key_changed", "key"), &ScriptDecompDialog::_script_encryption_key_changed);
 	ClassDB::bind_method(D_METHOD("_dir_select_pressed"), &ScriptDecompDialog::_dir_select_pressed);
 	ClassDB::bind_method(D_METHOD("_dir_select_request", "path"), &ScriptDecompDialog::_dir_select_request);
 	ClassDB::bind_method(D_METHOD("_bytcode_changed", "id"), &ScriptDecompDialog::_bytcode_changed);

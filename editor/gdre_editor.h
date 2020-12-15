@@ -36,6 +36,7 @@
 #include "gdre_dec_dlg.h"
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
+#include "gdre_enc_key.h"
 
 #ifndef TOOLS_ENABLED
 class ProgressDialog : public Popup {
@@ -174,13 +175,16 @@ private:
 		uint64_t offset;
 		uint64_t size;
 		uint8_t md5[16];
+		uint32_t flags;
 
 		PackedFile() {
+			flags = 0;
 			offset = 0;
 			size = 0;
 		}
 
-		PackedFile(uint64_t p_offset, uint64_t p_size) {
+		PackedFile(uint64_t p_offset, uint64_t p_size, uint32_t p_flags) {
+			flags = p_flags;
 			offset = p_offset;
 			size = p_size;
 		}
@@ -199,12 +203,13 @@ private:
 	ScriptDecompDialog *script_dialog_d;
 	ScriptCompDialog *script_dialog_c;
 
+	EncKeyDialog *key_dialog;
 	PackDialog *pck_dialog;
 	FileDialog *pck_file_selection;
 	String pck_file;
 	Map<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
-
+	
 	NewPackDialog *pck_save_dialog;
 	FileDialog *pck_source_folder;
 
@@ -281,7 +286,8 @@ public:
 		MENU_OSTR_TO_OGG,
 		MENU_SMPL_TO_WAV,
 		MENU_ABOUT_RE,
-		MENU_EXIT_RE
+		MENU_EXIT_RE,
+		MENU_KEY
 	};
 
 	_FORCE_INLINE_ static GodotREEditor *get_singleton() { return singleton; }

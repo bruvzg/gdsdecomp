@@ -23,11 +23,11 @@ NewPackDialog::NewPackDialog() {
 
 	ver_base = memnew(SpinBox);
 	ver_base->set_min(0);
-	ver_base->set_max(1);
+	ver_base->set_max(2);
 	ver_base->set_step(1);
-	ver_base->set_value(1);
+	ver_base->set_value(2);
 	ver_base->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
-	script_vb->add_margin_child(RTR("PCK version (\"0\" - Godot 2.x; \"1\" - Godot 3.x+):"), ver_base);
+	script_vb->add_margin_child(RTR("PCK version (\"0\" - Godot 2.x; \"1\" - Godot 3.x; \"2\" - Godot 4.x):"), ver_base);
 
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 
