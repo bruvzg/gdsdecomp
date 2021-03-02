@@ -74,3 +74,11 @@ String GDScriptDecomp::get_error_message() {
 
 	return error_message;
 }
+
+String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
+	String constString = constants[constId].get_construct_string();
+	if (constants[constId].get_type() == Variant::Type::STRING) {
+		constString = constString.replace("\n", "\\n");
+	}
+	return constString;
+}
