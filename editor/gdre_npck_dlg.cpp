@@ -89,8 +89,8 @@ NewPackDialog::NewPackDialog() {
 
 	add_child(script_vb);
 
-	get_ok()->set_text(RTR("Save..."));
-	add_cancel(RTR("Cancel"));
+	get_ok_button()->set_text(RTR("Save..."));
+	add_cancel_button(RTR("Cancel"));
 }
 
 void NewPackDialog::_val_change(double p_val) {

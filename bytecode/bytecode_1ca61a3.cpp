@@ -661,7 +661,7 @@ Error GDScriptDecomp_1ca61a3::decompile_buffer(Vector<uint8_t> p_buffer) {
 		}
 	}
 
-	if (!line.empty()) {
+	if (!line.is_empty()) {
 		for (int j = 0; j < indent; j++) {
 			script_text += "\t";
 		}

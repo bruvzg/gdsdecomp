@@ -21,10 +21,10 @@ EncKeyDialog::EncKeyDialog() {
 
 	add_child(script_vb);
 
-	get_ok()->set_text(RTR("Set"));
+	get_ok_button()->set_text(RTR("Set"));
 	_validate_input();
 
-	add_cancel(RTR("Cancel"));
+	add_cancel_button(RTR("Cancel"));
 }
 
 EncKeyDialog::~EncKeyDialog() {
@@ -35,7 +35,7 @@ Vector<uint8_t> EncKeyDialog::get_key() const {
 
 	Vector<uint8_t> key;
 
-	if (script_key->get_text().empty() || !script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
+	if (script_key->get_text().is_empty() || !script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
 		return key;
 	}
 
@@ -77,7 +77,7 @@ void EncKeyDialog::_validate_input() {
 	Color warn_color = Color(1, 1, 0);
 #endif
 
-	if (script_key->get_text().empty()) {
+	if (script_key->get_text().is_empty()) {
 		error_message += RTR("No encryption key") + "\n";
 		script_key_error->add_theme_color_override("font_color", warn_color);
 	} else if (!script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
@@ -88,7 +88,7 @@ void EncKeyDialog::_validate_input() {
 
 	script_key_error->set_text(error_message);
 
-	get_ok()->set_disabled(!ok);
+	get_ok_button()->set_disabled(!ok);
 }
 
 void EncKeyDialog::_script_encryption_key_changed(const String &p_key) {

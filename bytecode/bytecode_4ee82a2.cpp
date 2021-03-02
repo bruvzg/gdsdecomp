@@ -583,7 +583,7 @@ Error GDScriptDecomp_4ee82a2::decompile_buffer(Vector<uint8_t> p_buffer) {
 		}
 	}
 
-	if (!line.empty()) {
+	if (!line.is_empty()) {
 		for (int j = 0; j < indent; j++) {
 			script_text += "\t";
 		}
