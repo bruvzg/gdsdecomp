@@ -301,7 +301,7 @@ Error GDScriptDecomp_a56d6ff::decompile_buffer(Vector<uint8_t> p_buffer) {
 			case TK_CONSTANT: {
 				uint32_t constant = tokens[i] >> TOKEN_BITS;
 				ERR_FAIL_INDEX_V(constant, (uint32_t)constants.size(), ERR_INVALID_DATA);
-				line += constants[constant].get_construct_string();
+				line += get_constant_string(constants, constant);
 			} break;
 			case TK_SELF: {
 				line += "self";
