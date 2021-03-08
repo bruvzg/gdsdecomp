@@ -79,10 +79,10 @@ PackDialog::PackDialog() {
 
 	add_child(script_vb);
 
-	get_ok()->set_text(RTR("Extract..."));
+	get_ok_button()->set_text(RTR("Extract..."));
 	_validate_selection();
 
-	add_cancel(RTR("Cancel"));
+	add_cancel_button(RTR("Cancel"));
 }
 
 PackDialog::~PackDialog() {
@@ -253,7 +253,7 @@ void PackDialog::_validate_selection() {
 		error_message += RTR("Some files have malformed names") + "\n";
 		script_key_error->add_theme_color_override("font_color", error_color);
 	}
-	if (target_dir->get_text().empty()) {
+	if (target_dir->get_text().is_empty()) {
 		error_message += RTR("No destination folder selected") + "\n";
 		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
@@ -266,7 +266,7 @@ void PackDialog::_validate_selection() {
 
 	script_key_error->set_text(error_message);
 
-	get_ok()->set_disabled(!ok);
+	get_ok_button()->set_disabled(!ok);
 }
 
 Vector<String> PackDialog::get_selected_files() const {

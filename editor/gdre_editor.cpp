@@ -7,7 +7,7 @@
 #include "gdre_editor.h"
 
 #include "modules/gdscript/gdscript.h"
-#include "modules/gdscript/gdscript_functions.h"
+#include "modules/gdscript/gdscript_utility_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
 
 #include "bytecode/bytecode_versions.h"
@@ -32,7 +32,7 @@
 /*************************************************************************/
 
 #ifndef TOOLS_ENABLED
-#include "core/message_queue.h"
+#include "core/object/message_queue.h"
 #include "core/os/os.h"
 #include "main/main.h"
 
@@ -124,7 +124,7 @@ void ProgressDialog::end_task(const String &p_task) {
 	memdelete(t.vb);
 	tasks.erase(p_task);
 
-	if (tasks.empty())
+	if (tasks.is_empty())
 		hide();
 	else
 		_popup();
@@ -220,8 +220,8 @@ OverwriteDialog::OverwriteDialog() {
 
 	add_child(script_vb);
 
-	get_ok()->set_text(RTR("Overwrite"));
-	add_cancel(RTR("Cancel"));
+	get_ok_button()->set_text(RTR("Overwrite"));
+	add_cancel_button(RTR("Cancel"));
 };
 
 OverwriteDialog::~OverwriteDialog() {
