@@ -37,6 +37,9 @@
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
 #include "gdre_enc_key.h"
+#include "gdre_dec_rec_dlg.h"
+
+#include "bytecode/bytecode_base.h"
 
 #ifndef TOOLS_ENABLED
 class ProgressDialog : public Popup {
@@ -203,6 +206,7 @@ private:
 	OverwriteDialog *ovd;
 	ResultDialog *rdl;
 
+	ScriptDecompRecursiveDialog *script_dialog_re;
 	ScriptDecompDialog *script_dialog_d;
 	ScriptCompDialog *script_dialog_c;
 
@@ -232,6 +236,10 @@ private:
 	CheckBox *about_dialog_checkbox;
 
 	void _toggle_about_dialog_on_start(bool p_enabled);
+
+	void _decompile_dir();
+	void _decompile_process_dir();
+	void _decompile(GDScriptDecomp *dce, EditorProgressGDDC *p_pr, const Vector<String> &files, const String &destdir);
 
 	void _decompile_files();
 	void _decompile_process();
@@ -263,6 +271,7 @@ private:
 
 	void _res_smpl_2_wav_request(const Vector<String> &p_files);
 	void _res_smpl_2_wav_process();
+	String check_overwrites(Vector<String> files, String dir = "");
 
 	Error convert_file_to_binary(const String &p_src_path, const String &p_dst_path);
 	Error convert_file_to_text(const String &p_src_path, const String &p_dst_path);
@@ -281,6 +290,7 @@ public:
 		MENU_ONE_CLICK_UNEXPORT,
 		MENU_CREATE_PCK,
 		MENU_EXT_PCK,
+		MENU_DECOMP_RECURSE_GDS,
 		MENU_DECOMP_GDS,
 		MENU_COMP_GDS,
 		MENU_CONV_TO_TXT,
