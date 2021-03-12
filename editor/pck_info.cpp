@@ -4,7 +4,7 @@
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
 #include "bytecode/bytecode_versions.h"
-
+#include "pcfg_loader.h"
 #if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
 #include "core/crypto/crypto_core.h"
 #else
@@ -194,6 +194,17 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 		} else {
 			failed_files += files.get(i).path + " (FileAccess error)\n";
 		}
+		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
+			ProjectConfigLoader pcfgldr;
+			Error e1 = pcfgldr.load_cfb(target_name);
+			if (e1 == OK) {
+				printf("good");
+			}
+			Error e2 = pcfgldr.save_cfb(target_name.get_base_dir());
+			if (e2 == OK) {
+				printf("good");
+			}
+		}
 	}
 	memdelete(da);
 	memdelete(pck);
@@ -312,6 +323,10 @@ Vector<String> PckDumper::get_loaded_files(){
 	return filenames;
 }
 
+String PckDumper::get_engine_version(){
+	return String(itos(ver_major) + "." + itos(ver_minor) + "." +itos(ver_rev));
+}
+
 void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_pck"), &PckDumper::load_pck);
 	ClassDB::bind_method(D_METHOD("check_md5_all_files"), &PckDumper::check_md5_all_files);
@@ -320,5 +335,7 @@ void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_loaded"), &PckDumper::is_loaded);
 	ClassDB::bind_method(D_METHOD("get_file_count"), &PckDumper::get_file_count);
 	ClassDB::bind_method(D_METHOD("get_loaded_files"), &PckDumper::get_loaded_files);
+	ClassDB::bind_method(D_METHOD("get_engine_version"), &PckDumper::get_engine_version);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
+
 }
