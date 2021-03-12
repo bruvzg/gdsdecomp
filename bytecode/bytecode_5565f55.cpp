@@ -304,6 +304,7 @@ Error GDScriptDecomp_5565f55::decompile_buffer(Vector<uint8_t> p_buffer) {
 	String line;
 	int indent = 0;
 
+	Token prev_token = TK_EMPTY;
 	for (int i = 0; i < tokens.size(); i++) {
 		switch (Token(tokens[i] & TOKEN_MASK)) {
 			case TK_EMPTY: {
@@ -464,12 +465,14 @@ Error GDScriptDecomp_5565f55::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
+				if(prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "if ";
 			} break;
 			case TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
+				if(prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "else ";
 			} break;
 			case TK_CF_FOR: {
@@ -655,6 +658,7 @@ Error GDScriptDecomp_5565f55::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 		}
+		prev_token = Token(tokens[i] & TOKEN_MASK);
 	}
 
 	if (!line.empty()) {
