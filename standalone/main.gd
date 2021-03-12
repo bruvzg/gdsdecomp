@@ -170,8 +170,8 @@ func handle_cli():
 	var output_dir: String = ""
 	for i in range(args.size()):
 		var arg:String = args[i]
-		if arg == "--fart":
-			print("GO AWAY!!!!!!!!!!")
+		if arg == "--help":
+			print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR>")
 			get_tree().quit()
 		if arg.begins_with("--extract"):
 			exe_file = get_arg_value(arg)
