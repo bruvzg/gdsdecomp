@@ -67,6 +67,8 @@ class PckDumper : public Object {
 	bool _get_magic_number(FileAccess *pck);
 	bool _pck_file_check_md5(FileAccess *pck, const PackedFile & f);
 	Vector<String> dumped_files;
+protected:
+	static void _bind_methods();
 
 public:
 	
@@ -80,7 +82,6 @@ public:
 	String get_engine_version();
 	int get_file_count();
 	Vector<String> get_loaded_files();
-	Vector<String> get_dumped_files();
 
 };
 

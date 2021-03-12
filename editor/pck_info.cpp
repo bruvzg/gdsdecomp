@@ -299,3 +299,26 @@ void PackedFile::fix_path() {
 		malformed_path = true;
 	}
 }
+
+int PckDumper::get_file_count(){
+	return file_count;
+}
+
+Vector<String> PckDumper::get_loaded_files(){
+	Vector<String> filenames;
+	for (int i = 0; i < files.size(); i++){
+		filenames.push_back(files[i].path);
+	}
+	return filenames;
+}
+
+void PckDumper::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("load_pck"), &PckDumper::load_pck);
+	ClassDB::bind_method(D_METHOD("check_md5_all_files"), &PckDumper::check_md5_all_files);
+	ClassDB::bind_method(D_METHOD("pck_dump_to_dir"), &PckDumper::pck_dump_to_dir);
+	ClassDB::bind_method(D_METHOD("pck_load_and_dump"), &PckDumper::pck_load_and_dump);
+	ClassDB::bind_method(D_METHOD("is_loaded"), &PckDumper::is_loaded);
+	ClassDB::bind_method(D_METHOD("get_file_count"), &PckDumper::get_file_count);
+	ClassDB::bind_method(D_METHOD("get_loaded_files"), &PckDumper::get_loaded_files);
+	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
+}

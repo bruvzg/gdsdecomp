@@ -7,7 +7,7 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "editor/gdre_editor.h"
-
+#include "editor/pck_info.h"
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
 
@@ -22,6 +22,7 @@ void register_gdsdecomp_types() {
 	register_decomp_versions();
 
 	ClassDB::register_class<GodotREEditorStandalone>();
+	ClassDB::register_class<PckDumper>();
 
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();
