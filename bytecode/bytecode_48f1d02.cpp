@@ -255,7 +255,7 @@ Error GDScriptDecomp_48f1d02::decompile_buffer(Vector<uint8_t> p_buffer) {
 	String line;
 	int indent = 0;
 
-	Token prev_token = TK_EMPTY;
+	Token prev_token = TK_NEWLINE;
 	for (int i = 0; i < tokens.size(); i++) {
 		switch (Token(tokens[i] & TOKEN_MASK)) {
 			case TK_EMPTY: {
