@@ -593,6 +593,7 @@ Error GDScriptDecomp_62273e5::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 		}
+		prev_token = Token(tokens[i] & TOKEN_MASK);
 	}
 
 	if (!line.empty()) {

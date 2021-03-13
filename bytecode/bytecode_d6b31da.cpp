@@ -660,6 +660,7 @@ Error GDScriptDecomp_d6b31da::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 		}
+		prev_token = Token(tokens[i] & TOKEN_MASK);
 	}
 
 	if (!line.empty()) {
