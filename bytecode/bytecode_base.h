@@ -26,6 +26,9 @@ public:
 	String get_script_text();
 	String get_error_message();
 	String get_constant_string(Vector<Variant>& constants, uint32_t constId);
+
+	Error decode_variant_3(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len = nullptr, bool p_allow_objects = false);
+	Error decode_variant_2(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len = nullptr, bool p_allow_objects = false);
 };
 
 #endif

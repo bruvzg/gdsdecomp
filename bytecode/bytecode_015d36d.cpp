@@ -233,7 +233,7 @@ Error GDScriptDecomp_015d36d::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 		Variant v;
 		int len;
-		Error err = decode_variant(v, b, total_len, &len);
+		Error err = decode_variant_3(v, b, total_len, &len);
 		if (err) {
 			error_message = RTR("Invalid constant");
 			return err;
