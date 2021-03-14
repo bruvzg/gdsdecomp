@@ -12,12 +12,6 @@
 #include "thirdparty/misc/sha256.h"
 #endif
 
-
-int PckInfo::add_file(const PackedFile f) {
-	return 0;
-}
-
-
 bool PckDumper::_get_magic_number(FileAccess * pck) {
 	uint32_t magic = pck->get_32();
 
@@ -44,9 +38,9 @@ bool PckDumper::_get_magic_number(FileAccess * pck) {
 
 
 
-bool PckDumper::_pck_file_check_md5(FileAccess *pck, const Ref<PackedFile> f) {
+bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 	size_t oldpos = pck->get_position();
-	pck->seek(f->offset);
+	pck->seek(f.offset);
 
 #if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
 	CryptoCore::MD5Context ctx;
@@ -56,7 +50,7 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const Ref<PackedFile> f) {
 	MD5Init(&md5);
 #endif
 
-	int64_t rq_size = f->size;
+	int64_t rq_size = f.size;
 	uint8_t buf[32768];
 
 	while (rq_size > 0) {
@@ -89,13 +83,13 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const Ref<PackedFile> f) {
 	bool md5_match = true;
 	for (int j = 0; j < 16; j++) {
 #if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
-		md5_match &= (hash[j] == f->md5[j]);
+		md5_match &= (hash[j] == f.md5[j]);
 		file_md5 += String::num_uint64(hash[j], 16);
 #else
 		md5_match &= (md5.digest[j] == md5_saved[j]);
 		file_md5 += String::num_uint64(md5.digest[j], 16);
 #endif
-		saved_md5 += String::num_uint64(f->md5[j], 16);
+		saved_md5 += String::num_uint64(f.md5[j], 16);
 	}
 	return md5_match;
 }
@@ -147,9 +141,9 @@ Error PckDumper::load_pck(const String& p_path) {
 		uint64_t size = pck->get_64();
 		uint8_t md5_saved[16];
 		pck->get_buffer(md5_saved, 16);
-		PackedFile *p_file = memnew(PackedFile);
-		p_file->set_stuff(path, ofs, size, md5_saved);
+		PackedFile p_file = PackedFile(path, ofs, size, md5_saved);
 		files.push_back(p_file);
+
 	}
 	loaded = true;
 	memdelete(pck);
@@ -160,9 +154,9 @@ bool PckDumper::check_md5_all_files() {
 	FileAccess *pck = FileAccess::open(path, FileAccess::READ);
 	int bad_checksums = 0;
 	for (int i = 0; i < files.size(); i++) {
-		Ref<PackedFile> p_file = files.get(i);
-		p_file->md5_match = _pck_file_check_md5(pck, p_file);
-		if (p_file->md5_match) {
+		PackedFile p_file = files.get(i);
+		p_file.md5_match = _pck_file_check_md5(pck, p_file);
+		if (p_file.md5_match) {
 
 		}
 	}
@@ -178,17 +172,17 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	}
 	String failed_files;
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files.get(i)->path);
+		String target_name = dir.plus_file(files.get(i).path);
 
 		da->make_dir_recursive(target_name.get_base_dir());
 
 		//print_warning("extracting " + files[i], RTR("Read PCK"));
 
-		pck->seek(files.get(i)->offset);
+		pck->seek(files.get(i).offset);
 
 		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (fa) {
-			int64_t rq_size = files.get(i)->size;
+			int64_t rq_size = files.get(i).size;
 			uint8_t buf[16384];
 
 			while (rq_size > 0) {
@@ -198,7 +192,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			}
 			memdelete(fa);
 		} else {
-			failed_files += files.get(i)->path + " (FileAccess error)\n";
+			failed_files += files.get(i).path + " (FileAccess error)\n";
 		}
 	}
 	memdelete(da);
@@ -209,6 +203,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	} else {
 		//show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
 	}
+	return OK;
 }
 
 Error PckDumper::pck_load_and_dump(const String &p_path, const String &dir) {

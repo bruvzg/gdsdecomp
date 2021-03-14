@@ -8,7 +8,9 @@
 
 
 class PackedFile {
+
 public:
+	String name;
 	String path;
 	String raw_path;
 	uint64_t offset;
@@ -51,43 +53,19 @@ private:
 	void fix_path();
 };
 
-class PckInfo : public Object {
-	GDCLASS(PckInfo, Object)
-public:
-	String path;
-	uint32_t pck_ver;
-	Vector<Ref<PackedFile>> *files;
-	uint32_t ver_major;
-	uint32_t ver_minor;
-	uint32_t ver_rev;
-	int file_count;
-	int add_file(const PackedFile f);
-
-	PckInfo() {
-		pck_ver = 1;
-		file_count = 0;
-		ver_major = 0;
-		ver_minor = 0;
-		ver_rev = 0;
-	}
-	PckInfo(String p) {
-		path = p;
-	}
-};
-
 class PckDumper : public Object {
 	GDCLASS(PckDumper, Object)
 
 	String path;
 	uint32_t pck_ver;
-	Vector<Ref<PackedFile>> files;
+	Vector<PackedFile> files;
 	uint32_t ver_major;
 	uint32_t ver_minor;
 	uint32_t ver_rev;
 	int file_count;
 	bool loaded = false;
 	bool _get_magic_number(FileAccess *pck);
-	bool _pck_file_check_md5(FileAccess *pck, const Ref<PackedFile> f);
+	bool _pck_file_check_md5(FileAccess *pck, const PackedFile & f);
 	Vector<String> dumped_files;
 
 public:

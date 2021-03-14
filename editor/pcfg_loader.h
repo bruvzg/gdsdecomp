@@ -50,6 +50,7 @@ class ProjectConfigLoader : Object {
 		Error save_custom(const String &p_path);
 		Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props);
 		Error _save_settings_binary(const String &p_file);
+		Error _save_settings_text(const String &p_file);
 		bool has_setting(String p_var) const;
 		Variant g_set(const String &p_var, const Variant &p_default, bool p_restart_if_changed = false);
     ProjectConfigLoader();
