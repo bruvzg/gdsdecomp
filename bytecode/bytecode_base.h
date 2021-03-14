@@ -26,6 +26,7 @@ public:
 
 	String get_script_text();
 	String get_error_message();
+	String get_constant_string(Vector<Variant>& constants, uint32_t constId);
 };
 
 #endif
