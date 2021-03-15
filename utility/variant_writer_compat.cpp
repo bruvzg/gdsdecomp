@@ -5,8 +5,9 @@
 #include "core/string/string_buffer.h"
 #include "core/io/image.h"
 #include "core/variant/variant_parser.h"
+namespace V2toV4{
 
-enum V2toV4Type {
+enum Type {
 
     NIL,
 
@@ -56,7 +57,10 @@ enum V2toV4Type {
 
 };
 
-enum V3toV4Type {
+}
+namespace V3toV4{
+
+enum Type {
 
 	NIL,
 
@@ -107,6 +111,7 @@ enum V3toV4Type {
 
 };
 
+}
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -123,66 +128,66 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 	switch (p_variant.get_type()) {
 
-		case V2toV4Type::NIL: {
+		case V2toV4::Type::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
 		} break;
-		case V2toV4Type::BOOL: {
+		case V2toV4::Type::BOOL: {
 
 			p_store_string_func(p_store_string_ud, p_variant.operator bool() ? "true" : "false");
 		} break;
-		case V2toV4Type::INT: {
+		case V2toV4::Type::INT: {
 
 			p_store_string_func(p_store_string_ud, itos(p_variant.operator int()));
 		} break;
-		case V2toV4Type::REAL: {
+		case V2toV4::Type::REAL: {
 
 			String s = rtosfix(p_variant.operator real_t());
 			if (s.find(".") == -1 && s.find("e") == -1)
 				s += ".0";
 			p_store_string_func(p_store_string_ud, s);
 		} break;
-		case V2toV4Type::STRING: {
+		case V2toV4::Type::STRING: {
 
 			String str = p_variant;
 
 			str = "\"" + str.c_escape_multiline() + "\"";
 			p_store_string_func(p_store_string_ud, str);
 		} break;
-		case V2toV4Type::VECTOR2: {
+		case V2toV4::Type::VECTOR2: {
 
 			Vector2 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector2( " + rtosfix(v.x) + ", " + rtosfix(v.y) + " )");
 		} break;
-		case V2toV4Type::RECT2: {
+		case V2toV4::Type::RECT2: {
 
 			Rect2 aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "Rect2( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + " )");
 
 		} break;
-		case V2toV4Type::VECTOR3: {
+		case V2toV4::Type::VECTOR3: {
 
 			Vector3 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector3( " + rtosfix(v.x) + ", " + rtosfix(v.y) + ", " + rtosfix(v.z) + " )");
 		} break;
-		case V2toV4Type::PLANE: {
+		case V2toV4::Type::PLANE: {
 
 			Plane p = p_variant;
 			p_store_string_func(p_store_string_ud, "Plane( " + rtosfix(p.normal.x) + ", " + rtosfix(p.normal.y) + ", " + rtosfix(p.normal.z) + ", " + rtosfix(p.d) + " )");
 
 		} break;
-		case V2toV4Type::_AABB: {
+		case V2toV4::Type::_AABB: {
 
 			AABB aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "AABB( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.position.z) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + ", " + rtosfix(aabb.size.z) + " )");
 
 		} break;
-		case V2toV4Type::QUAT: {
+		case V2toV4::Type::QUAT: {
 
 			Quat quat = p_variant;
 			p_store_string_func(p_store_string_ud, "Quat( " + rtosfix(quat.x) + ", " + rtosfix(quat.y) + ", " + rtosfix(quat.z) + ", " + rtosfix(quat.w) + " )");
 
 		} break;
-		case V2toV4Type::MATRIX32: {
+		case V2toV4::Type::MATRIX32: {
 
 			String s = "Matrix32( ";
 			Transform2D m3 = p_variant;
@@ -198,7 +203,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, s + " )");
 
 		} break;
-		case V2toV4Type::MATRIX3: {
+		case V2toV4::Type::MATRIX3: {
 			String s = "Matrix3( ";
 			Basis m3 = p_variant;
 			for (int i = 0; i < 3; i++) {
@@ -212,7 +217,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, s + " )");
 
 		} break;
-		case V2toV4Type::TRANSFORM: {
+		case V2toV4::Type::TRANSFORM: {
 
 			String s = "Transform( ";
 			Transform t = p_variant;
@@ -232,13 +237,13 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 		} break;
 
 		// misc types
-		case V2toV4Type::COLOR: {
+		case V2toV4::Type::COLOR: {
 
 			Color c = p_variant;
 			p_store_string_func(p_store_string_ud, "Color( " + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + " )");
 
 		} break;
-		case V2toV4Type::IMAGE: {
+		case V2toV4::Type::IMAGE: {
 
 			// Image img = p_variant;
 
@@ -298,7 +303,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			// p_store_string_func(p_store_string_ud, s);
 			// p_store_string_func(p_store_string_ud, " )");
 		} break;
-		case V2toV4Type::NODE_PATH: {
+		case V2toV4::Type::NODE_PATH: {
 
 			String str = p_variant;
 
@@ -307,7 +312,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 
-		case V2toV4Type::OBJECT: {
+		case V2toV4::Type::OBJECT: {
 
 			RES res = p_variant;
 			if (res.is_null()) {
@@ -335,7 +340,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, res_text);
 
 		} break;
-		case V2toV4Type::INPUT_EVENT: {
+		case V2toV4::Type::INPUT_EVENT: {
 
 			// String str = "InputEvent(";
 
@@ -380,7 +385,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			// p_store_string_func(p_store_string_ud, str); //will be added later
 
 		} break;
-		case V2toV4Type::DICTIONARY: {
+		case V2toV4::Type::DICTIONARY: {
 
 			Dictionary dict = p_variant;
 
@@ -403,7 +408,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, "\n}");
 
 		} break;
-		case V2toV4Type::ARRAY: {
+		case V2toV4::Type::ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "[ ");
 			Array array = p_variant;
@@ -418,7 +423,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 
-		case V2toV4Type::RAW_ARRAY: {
+		case V2toV4::Type::RAW_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "ByteArray( ");
 			String s;
@@ -437,7 +442,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::INT_ARRAY: {
+		case V2toV4::Type::INT_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "IntArray( ");
 			Vector<int> data = p_variant;
@@ -456,7 +461,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::REAL_ARRAY: {
+		case V2toV4::Type::REAL_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "FloatArray( ");
 			Vector<real_t> data = p_variant;
@@ -474,7 +479,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::STRING_ARRAY: {
+		case V2toV4::Type::STRING_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "StringArray( ");
 			Vector<String> data = p_variant;
@@ -495,7 +500,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::VECTOR2_ARRAY: {
+		case V2toV4::Type::VECTOR2_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "Vector2Array( ");
 			Vector<Vector2> data = p_variant;
@@ -513,7 +518,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::VECTOR3_ARRAY: {
+		case V2toV4::Type::VECTOR3_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "Vector3Array( ");
 			Vector<Vector3> data = p_variant;
@@ -531,7 +536,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V2toV4Type::COLOR_ARRAY: {
+		case V2toV4::Type::COLOR_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "ColorArray( ");
 
@@ -562,66 +567,66 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 
 	switch (p_variant.get_type()) {
 
-		case V3toV4Type::NIL: {
+		case V3toV4::Type::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
 		} break;
-		case V3toV4Type::BOOL: {
+		case V3toV4::Type::BOOL: {
 
 			p_store_string_func(p_store_string_ud, p_variant.operator bool() ? "true" : "false");
 		} break;
-		case V3toV4Type::INT: {
+		case V3toV4::Type::INT: {
 
 			p_store_string_func(p_store_string_ud, itos(p_variant.operator int()));
 		} break;
-		case V3toV4Type::REAL: {
+		case V3toV4::Type::REAL: {
 
 			String s = rtosfix(p_variant.operator real_t());
 			if (s.find(".") == -1 && s.find("e") == -1)
 				s += ".0";
 			p_store_string_func(p_store_string_ud, s);
 		} break;
-		case V3toV4Type::STRING: {
+		case V3toV4::Type::STRING: {
 
 			String str = p_variant;
 
 			str = "\"" + str.c_escape_multiline() + "\"";
 			p_store_string_func(p_store_string_ud, str);
 		} break;
-		case V3toV4Type::VECTOR2: {
+		case V3toV4::Type::VECTOR2: {
 
 			Vector2 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector2( " + rtosfix(v.x) + ", " + rtosfix(v.y) + " )");
 		} break;
-		case V3toV4Type::RECT2: {
+		case V3toV4::Type::RECT2: {
 
 			Rect2 aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "Rect2( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + " )");
 
 		} break;
-		case V3toV4Type::VECTOR3: {
+		case V3toV4::Type::VECTOR3: {
 
 			Vector3 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector3( " + rtosfix(v.x) + ", " + rtosfix(v.y) + ", " + rtosfix(v.z) + " )");
 		} break;
-		case V3toV4Type::PLANE: {
+		case V3toV4::Type::PLANE: {
 
 			Plane p = p_variant;
 			p_store_string_func(p_store_string_ud, "Plane( " + rtosfix(p.normal.x) + ", " + rtosfix(p.normal.y) + ", " + rtosfix(p.normal.z) + ", " + rtosfix(p.d) + " )");
 
 		} break;
-		case V3toV4Type::_AABB: {
+		case V3toV4::Type::_AABB: {
 
 			AABB aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "AABB( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.position.z) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + ", " + rtosfix(aabb.size.z) + " )");
 
 		} break;
-		case V3toV4Type::QUAT: {
+		case V3toV4::Type::QUAT: {
 
 			Quat quat = p_variant;
 			p_store_string_func(p_store_string_ud, "Quat( " + rtosfix(quat.x) + ", " + rtosfix(quat.y) + ", " + rtosfix(quat.z) + ", " + rtosfix(quat.w) + " )");
 
 		} break;
-		case V3toV4Type::TRANSFORM2D: {
+		case V3toV4::Type::TRANSFORM2D: {
 
 			String s = "Transform2D( ";
 			Transform2D m3 = p_variant;
@@ -637,7 +642,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, s + " )");
 
 		} break;
-		case V3toV4Type::BASIS: {
+		case V3toV4::Type::BASIS: {
 
 			String s = "Basis( ";
 			Basis m3 = p_variant;
@@ -653,7 +658,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, s + " )");
 
 		} break;
-		case V3toV4Type::TRANSFORM: {
+		case V3toV4::Type::TRANSFORM: {
 
 			String s = "Transform( ";
 			Transform t = p_variant;
@@ -673,13 +678,13 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 		} break;
 
 		// misc types
-		case V3toV4Type::COLOR: {
+		case V3toV4::Type::COLOR: {
 
 			Color c = p_variant;
 			p_store_string_func(p_store_string_ud, "Color( " + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + " )");
 
 		} break;
-		case V3toV4Type::NODE_PATH: {
+		case V3toV4::Type::NODE_PATH: {
 
 			String str = p_variant;
 
@@ -688,7 +693,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 
-		case V3toV4Type::OBJECT: {
+		case V3toV4::Type::OBJECT: {
 
 			Object *obj = p_variant;
 
@@ -750,7 +755,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 
-		case V3toV4Type::DICTIONARY: {
+		case V3toV4::Type::DICTIONARY: {
 
 			Dictionary dict = p_variant;
 
@@ -775,7 +780,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, "\n}");
 
 		} break;
-		case V3toV4Type::ARRAY: {
+		case V3toV4::Type::ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "[ ");
 			Array array = p_variant;
@@ -790,7 +795,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 
-		case V3toV4Type::POOL_BYTE_ARRAY: {
+		case V3toV4::Type::POOL_BYTE_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolByteArray( ");
 			String s;
@@ -809,7 +814,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_INT_ARRAY: {
+		case V3toV4::Type::POOL_INT_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolIntArray( ");
 			Vector<int> data = p_variant;
@@ -828,7 +833,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_REAL_ARRAY: {
+		case V3toV4::Type::POOL_REAL_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolRealArray( ");
 			Vector<real_t> data = p_variant;
@@ -845,7 +850,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_STRING_ARRAY: {
+		case V3toV4::Type::POOL_STRING_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolStringArray( ");
 			Vector<String> data = p_variant;
@@ -866,7 +871,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_VECTOR2_ARRAY: {
+		case V3toV4::Type::POOL_VECTOR2_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolVector2Array( ");
 			Vector<Vector2> data = p_variant;
@@ -883,7 +888,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_VECTOR3_ARRAY: {
+		case V3toV4::Type::POOL_VECTOR3_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolVector3Array( ");
 			Vector<Vector3> data = p_variant;
@@ -900,7 +905,7 @@ Error VariantWriterCompat::writeV3(const Variant &p_variant, StoreStringFunc p_s
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case V3toV4Type::POOL_COLOR_ARRAY: {
+		case V3toV4::Type::POOL_COLOR_ARRAY: {
 
 			p_store_string_func(p_store_string_ud, "PoolColorArray( ");
 

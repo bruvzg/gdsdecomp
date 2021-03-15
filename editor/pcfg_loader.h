@@ -4,6 +4,7 @@
 #define PCFG_LOADER_H
 
 #include <core/object/object.h>
+#include "core/object/class_db.h"
 
 
 typedef Map<String, Variant> CustomMap;
