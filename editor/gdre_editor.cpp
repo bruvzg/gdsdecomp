@@ -983,16 +983,16 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		return;
 	}
 
-	uint32_t ver_major = pck->get_32();
-	uint32_t ver_minor = pck->get_32();
-	uint32_t ver_rev = pck->get_32();
+	pck_ver_major = pck->get_32();
+	pck_ver_minor = pck->get_32();
+	pck_ver_rev = pck->get_32();
 
-	if ((ver_major < 3) || ((ver_major == 3) && (ver_minor < 2))) {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	if ((pck_ver_major < 3) || ((pck_ver_major == 3) && (pck_ver_minor < 2))) {
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	} else {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	}
 	uint32_t pack_flags = 0;
 	uint64_t file_base = 0;
@@ -1229,13 +1229,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 }
 
 
-void convert_cfb_to_cfg(const String path) {
+void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	ProjectConfigLoader pcfgldr;
-	Error e1 = pcfgldr.load_cfb(path);
+	Error e1 = pcfgldr.load_cfb(path, ver_major, ver_minor);
 	if (e1 == OK) {
 		printf("good");
 	}
-	Error e2 = pcfgldr.save_cfb(path.get_base_dir());
+	Error e2 = pcfgldr.save_cfb(path.get_base_dir(), ver_major, ver_minor);
 	if (e2 == OK) {
 		printf("good");
 	}
@@ -1331,8 +1331,10 @@ void GodotREEditor::_pck_extract_files_process() {
 			failed_files += files[i] + " (FileAccess error)\n";
 		}
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
-			convert_cfb_to_cfg(target_name);
+			convert_cfb_to_cfg(target_name, pck_ver_major, pck_ver_minor);
 		}
+		pck->close();
+		memdelete(pck);
 	}
 	memdelete(pr);
 

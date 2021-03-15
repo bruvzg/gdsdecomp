@@ -1,23 +1,32 @@
 #include "pcfg_loader.h"
-#include <core/os/input_event.h>
-#include <core/os/input_event.h>
-#include <core/engine.h>
+#include <core/input/input_event.h>
+#include <core/config/engine.h>
 #include <core/os/keyboard.h>
 #include <core/io/compression.h>
 #include <core/os/file_access.h>
 #include <core/io/marshalls.h>
-#include <core/variant_parser.h>
+#include <core/variant/variant_parser.h>
+#include "bytecode/bytecode_base.h"
+#include "utility/variant_writer_compat.h"
 
-Error ProjectConfigLoader::load_cfb(const String path){
+
+Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor){
+
     cfb_path = path;
-    return _load_settings_binary(path);
+    return _load_settings_binary(path, ver_major);
 }
-Error ProjectConfigLoader::save_cfb(const String dir){
-	String file = "project.godot";
-	return save_custom(dir.plus_file(file));
+Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor){
+	String file;
+	if (ver_major > 2) {
+		file = "project.godot";
+	} else {
+		file = "engine.cfg";
+	}
+
+	return save_custom(dir.plus_file(file), ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_load_settings_binary(const String &p_path) {
+Error ProjectConfigLoader::_load_settings_binary(const String &p_path, uint32_t ver_major) {
 
 	Error err;
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
@@ -50,7 +59,14 @@ Error ProjectConfigLoader::_load_settings_binary(const String &p_path) {
 		d.resize(vlen);
 		f->get_buffer(d.ptrw(), vlen);
 		Variant value;
-		err = decode_variant(value, d.ptr(), d.size(), NULL, true);
+		if (ver_major == 4){
+			err = decode_variant(value, d.ptr(), d.size(), NULL, true);
+		} else if (ver_major == 3){
+			err = GDScriptDecomp::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
+		} else if (ver_major == 2){
+			err = GDScriptDecomp::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
+
+		}
 		ERR_CONTINUE_MSG(err != OK, "Error decoding property: " + key + ".");
 		props[key] = VariantContainer(value, last_builtin_order++, true);
 	}
@@ -70,7 +86,7 @@ struct _VCSort {
 	bool operator<(const _VCSort &p_vcs) const { return order == p_vcs.order ? name < p_vcs.name : order < p_vcs.order; }
 };
 
-Error ProjectConfigLoader::save_custom(const String &p_path) {
+Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor) {
 
 	ERR_FAIL_COND_V_MSG(p_path == "", ERR_INVALID_PARAMETER, "Project settings save path cannot be empty.");
 
@@ -112,26 +128,38 @@ Error ProjectConfigLoader::save_custom(const String &p_path) {
 		proops[category].push_back(name);
 	}
 
-	return _save_settings_text(p_path, proops);
+	return _save_settings_text(p_path, proops, ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<String, List<String> > &proops) {
+Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<String, List<String> > &proops, const uint32_t ver_major, const uint32_t ver_minor) {
 
 	Error err;
 	FileAccess *file = FileAccess::open(p_file, FileAccess::WRITE, &err);
+	uint32_t config_version = 2;
+	if (ver_major > 2) {
+		if (ver_major == 3 && ver_minor == 0){
+			config_version = 3;
+		} else {
+			config_version = 4;
+		}
+	} else {
+		config_version = 2;
+	}
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Couldn't save project.godot - " + p_file + ".");
 
-	file->store_line("; Engine configuration file.");
-	file->store_line("; It's best edited using the editor UI and not directly,");
-	file->store_line("; since the parameters that go here are not all obvious.");
-	file->store_line(";");
-	file->store_line("; Format:");
-	file->store_line(";   [section] ; section goes between []");
-	file->store_line(";   param=value ; assign values to parameters");
-	file->store_line("");
+	if (config_version > 2){
+		file->store_line("; Engine configuration file.");
+		file->store_line("; It's best edited using the editor UI and not directly,");
+		file->store_line("; since the parameters that go here are not all obvious.");
+		file->store_line(";");
+		file->store_line("; Format:");
+		file->store_line(";   [section] ; section goes between []");
+		file->store_line(";   param=value ; assign values to parameters");
+		file->store_line("");
 
-	file->store_string("config_version=" + itos(4) + "\n");
+		file->store_string("config_version=" + itos(config_version) + "\n");
+	}
 
 	file->store_string("\n");
 
@@ -151,7 +179,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 			value = props[key].variant;
 
 			String vstr;
-			VariantWriter::write_to_string(value, vstr);
+			VariantWriterCompat::write_to_string(value, vstr, ver_major);
 			file->store_string(F->get().property_name_encode() + "=" + vstr + "\n");
 		}
 	}

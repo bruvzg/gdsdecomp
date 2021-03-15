@@ -5,7 +5,7 @@
 #include <core/version_generated.gen.h>
 #include "bytecode/bytecode_versions.h"
 #include "pcfg_loader.h"
-#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
+#if (VERSION_MAJOR == 4)
 #include "core/crypto/crypto_core.h"
 #else
 #include "thirdparty/misc/md5.h"
@@ -42,7 +42,7 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 	size_t oldpos = pck->get_position();
 	pck->seek(f.offset);
 
-#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
+#if (VERSION_MAJOR == 4)
 	CryptoCore::MD5Context ctx;
 	ctx.start();
 #else
@@ -57,7 +57,7 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 
 		int got = pck->get_buffer(buf, MIN(32768, rq_size));
 		if (got > 0) {
-#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
+#if (VERSION_MAJOR == 4)
 			ctx.update(buf, got);
 #else
 			MD5Update(&md5, buf, got);
@@ -68,7 +68,7 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 		rq_size -= 32768;
 	}
 
-#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
+#if (VERSION_MAJOR == 4)
 	unsigned char hash[16];
 	ctx.finish(hash);
 #else
@@ -82,7 +82,7 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 
 	bool md5_match = true;
 	for (int j = 0; j < 16; j++) {
-#if ((VERSION_MAJOR == 3) && (VERSION_MINOR == 2))
+#if (VERSION_MAJOR == 4)
 		md5_match &= (hash[j] == f.md5[j]);
 		file_md5 += String::num_uint64(hash[j], 16);
 #else
@@ -196,11 +196,11 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 		}
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader pcfgldr;
-			Error e1 = pcfgldr.load_cfb(target_name);
+			Error e1 = pcfgldr.load_cfb(target_name, ver_major, ver_minor);
 			if (e1 == OK) {
 				printf("good");
 			}
-			Error e2 = pcfgldr.save_cfb(target_name.get_base_dir());
+			Error e2 = pcfgldr.save_cfb(target_name.get_base_dir(), ver_major, ver_minor);
 			if (e2 == OK) {
 				printf("good");
 			}

@@ -214,6 +214,9 @@ private:
 	PackDialog *pck_dialog;
 	FileDialog *pck_file_selection;
 	String pck_file;
+	uint32_t pck_ver_major;
+	uint32_t pck_ver_minor;
+	uint32_t pck_ver_rev;
 	Map<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
 	

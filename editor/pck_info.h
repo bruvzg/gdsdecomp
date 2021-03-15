@@ -1,9 +1,9 @@
 #ifndef RE_PCK_INFO_H
 #define RE_PCK_INFO_H
 
-#include "core/map.h"
-#include "core/resource.h"
-#include "core/object.h"
+#include "core/templates/map.h"
+#include "core/io/resource.h"
+#include "core/object/object.h"
 #include "core/os/file_access.h"
 
 

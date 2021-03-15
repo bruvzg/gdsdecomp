@@ -3,7 +3,7 @@
 #ifndef PCFG_LOADER_H
 #define PCFG_LOADER_H
 
-#include <core/object.h>
+#include <core/object/object.h>
 
 
 typedef Map<String, Variant> CustomMap;
@@ -40,16 +40,15 @@ class ProjectConfigLoader : Object {
 	int last_builtin_order;
 
     public:
-        Error load_cfb(const String path);
-		Error save_cfb(const String dir);
-		Error _load_settings_binary(const String &p_path);
+        Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
+		Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
+		Error _load_settings_binary(const String &p_path, uint32_t ver_major);
 		void set_initial_value(const String &p_name, const Variant &p_value);
 		void set_restart_if_changed(const String &p_name, bool p_restart);
 		void set_builtin_order(const String &p_name);
-		Error save_custom(const String &p_path, const CustomMap &p_custom, const Vector<String> &p_custom_features, bool p_merge_with_current);
-		Error save_custom(const String &p_path);
-		Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props);
-		Error _save_settings_binary(const String &p_file);
+		
+		Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
+		Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props, const uint32_t ver_major, const uint32_t ver_minor);
 		Error _save_settings_text(const String &p_file);
 		bool has_setting(String p_var) const;
 		Variant g_set(const String &p_var, const Variant &p_default, bool p_restart_if_changed = false);
