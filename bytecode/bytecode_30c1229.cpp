@@ -276,7 +276,7 @@ Error GDScriptDecomp_30c1229::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "self";
 			} break;
 			case TK_BUILT_IN_TYPE: {
-				line += Variant::get_type_name(Variant::Type(tokens[i] >> TOKEN_BITS));
+				line += get_type_name_v2(tokens[i] >> TOKEN_BITS);
 			} break;
 			case TK_BUILT_IN_FUNC: {
 				line += func_names[tokens[i] >> TOKEN_BITS];
