@@ -119,7 +119,83 @@ func test_scnthing(output_dir:String):
 		print("*** " + f)
 	convert_bin_res_files(list, output_dir)
 
+func stex_to_pngV3(output_dir:String, src:String, dst:String):
+	var thing:StreamTextureV3 = StreamTextureV3.new()
+	if thing.load(output_dir.plus_file(src)) != OK:
+		print("error opening texture file " + src)
+		return
+	var img:Image = thing.get_image()
+	if img.save_png(output_dir.plus_file(dst)) != OK:
+		print("error saving " + dst)
+	else:
+		print("Converted " + src + " to " + dst)
 
+func oggstr_to_ogg(output_dir:String, src:String, dst:String):
+	var sample: AudioStreamOGGVorbis = ResourceLoader.load(output_dir.plus_file(src))
+	if sample == null:
+		print("error loading sample")
+		return
+	var data:PackedByteArray = sample.get_data()
+	var gdfile:File = File.new()
+
+	var err = gdfile.open(output_dir.plus_file(dst), File.WRITE)
+	if err != OK:
+		print(str(err) + " error saving " + dst)
+	else:
+		gdfile.store_buffer(data)
+		gdfile.close()
+		print("Converted " + src + " to " + dst)
+
+
+func sample_to_wav(output_dir:String, src:String, dst:String):
+	var sample: AudioStreamSample = ResourceLoader.load(output_dir.plus_file(src))
+	if sample == null:
+		print("error loading sample")
+	var err = sample.save_to_wav(output_dir.plus_file(dst))
+	if err != OK:
+		print(str(err) + " error saving " + dst)
+	else:
+		print("Converted " + src + " to " + dst)
+
+func export_imports(output_dir:String, ver_major:int = 3):
+	var importer:ImportExporter = ImportExporter.new()
+	importer.load_import_files(output_dir, 3)
+	var arr = importer.get_import_files()
+	for ifo in arr:
+		#the path to the imported file
+		var path:String = ifo.get("path").replace("res://","")
+		#the original source file that we will convert the imported file to
+		var source_file:String = ifo.get("source_file").replace("res://","")
+
+		if ifo.get("source_file").get_extension() == "wav":
+			sample_to_wav(output_dir, path, source_file)
+		if ifo.get("source_file").get_extension() == "ogg":
+			oggstr_to_ogg(output_dir, path, source_file)
+		if ifo.get("source_file").get_extension() == "png":
+			stex_to_pngV3(output_dir, path, source_file)
+	print("HELLO!!!!!!!!")
+
+func test_decomp(filename):
+	var decomp = GDScriptDecomp_5565f55.new()
+	var f = filename
+	if f.get_extension() == "gdc":
+		print("decompiling " + f)
+		#
+		#if decomp.decompile_byte_code(output_dir.plus_file(f)) != OK: 
+		if decomp.decompile_byte_code(f) != OK: 
+			print("error decompiling " + f)
+		else:
+			var text = decomp.get_script_text()
+			var gdfile:File = File.new()
+			if gdfile.open(f.replace(".gdc",".gd"), File.WRITE) == OK:
+				gdfile.store_string(text)
+				gdfile.close()
+				#da.remove(f)
+				print("successfully decompiled " + f)
+			else:
+				print("error failed to save "+ f)
+
+	
 func dump_files(exe_file:String, output_dir:String):
 	var thing = PckDumper.new()
 	if thing.load_pck(exe_file) == OK:
@@ -155,7 +231,7 @@ func dump_files(exe_file:String, output_dir:String):
 					if gdfile.open(output_dir.plus_file(f.replace(".gdc",".gd")), File.WRITE) == OK:
 						gdfile.store_string(text)
 						gdfile.close()
-						da.remove(f)
+						#da.remove(f)
 						if da.file_exists(f.replace(".gdc",".gd.remap")):
 							da.remove(f.replace(".gdc",".gd.remap"))
 						print("successfully decompiled " + f)
@@ -163,6 +239,20 @@ func dump_files(exe_file:String, output_dir:String):
 						print("error failed to save "+ f)
 	else:
 		print("ERROR: failed to load exe")
+
+func normalize_path(path: String):
+	return path.replace("\\","/")
+
+func print_import_info(output_dir: String):
+	print("stuff")
+	var importer:ImportExporter = ImportExporter.new()
+	importer.load_import_files(output_dir, 3)
+	var arr = importer.get_import_files()
+	for ifo in arr:
+		print(ifo)
+
+
+
 
 func handle_cli():
 	var args = OS.get_cmdline_args()
@@ -174,15 +264,16 @@ func handle_cli():
 			print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR>")
 			get_tree().quit()
 		if arg.begins_with("--extract"):
-			exe_file = get_arg_value(arg)
+			exe_file = normalize_path(get_arg_value(arg))
 		if arg.begins_with("--output-dir"):
-			output_dir = get_arg_value(arg)
+			output_dir = normalize_path(get_arg_value(arg))
 	if exe_file != "":
 		if output_dir == "":
 			print("Error: use --output-dir=<dir> when using --extract")
 			get_tree().quit()
 		else:
 			dump_files(exe_file, output_dir)
+			export_imports(output_dir)
 	get_tree().quit()	
 
 

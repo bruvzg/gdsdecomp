@@ -5,6 +5,9 @@
 #include "core/io/resource.h"
 #include "core/object/object.h"
 #include "core/os/file_access.h"
+#include "core/object/reference.h"
+#include "core/io/resource_importer.h"
+
 
 
 class PackedFile {
@@ -83,6 +86,39 @@ public:
 	int get_file_count();
 	Vector<String> get_loaded_files();
 
+};
+
+class ImportInfo: public Reference {
+	GDCLASS(ImportInfo, Reference)
+public:
+	String path; // imported file path
+	String type;
+	String importer;
+	String group_file;
+	Variant metadata;
+	String source_file; // file to import
+	Vector<String> dest_files;
+	void _init() {
+		path = "";
+		type = "";
+		importer = "";
+		group_file = "";
+		source_file = "";
+	};
+};
+
+
+class ImportExporter: public Object {
+	GDCLASS(ImportExporter, Object)
+	Array files;
+	Error load_import_file(const String &p_path);
+
+protected:
+	static void _bind_methods();
+
+public:
+	Error load_import_files(const String &base_dir, const uint32_t ver_major);
+	Array get_import_files();
 };
 
 

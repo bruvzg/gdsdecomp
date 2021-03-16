@@ -5,6 +5,7 @@
 #include <core/version_generated.gen.h>
 #include "bytecode/bytecode_versions.h"
 #include "pcfg_loader.h"
+#include "core/variant/variant_parser.h"
 #if (VERSION_MAJOR == 4)
 #include "core/crypto/crypto_core.h"
 #else
@@ -338,4 +339,141 @@ void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_engine_version"), &PckDumper::get_engine_version);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 
+}
+Vector<String> get_directory_listing2(const String dir, const Vector<String> &filters, const String rel = ""){
+	Vector<String> ret;
+	DirAccess *da = DirAccess::open(dir.plus_file(rel));
+
+	if (!da) {
+		return ret;
+	}
+	da->list_dir_begin();
+	String f;
+	while ((f = da->get_next()) != "") {
+		if (f == "." || f == ".."){
+			continue;
+		} else if (da->current_is_dir()){
+			ret.append_array(get_directory_listing2(dir, filters, rel.plus_file(f)));
+		} else {
+			if (filters.size() > 0){
+				for (int i = 0; i < filters.size(); i++){
+					if (filters[i] == f.get_extension()){
+						ret.append(dir.plus_file(rel).plus_file(f));
+						break;
+					}
+				}
+			} else {
+				ret.append(dir.plus_file(rel).plus_file(f));
+			}
+			
+		}
+	}
+	memdelete(da);
+	return ret;
+}
+
+Vector<String> get_directory_listing2(const String dir){
+	Vector<String> temp;
+	return get_directory_listing2(dir, temp);
+}
+
+
+
+Array ImportExporter::get_import_files(){
+	return files;
+}
+
+Error ImportExporter::load_import_files(const String &base_dir, const uint32_t ver_major){
+	Vector<String> filters;
+	filters.push_back("import");
+	Vector<String> file_names = get_directory_listing2(base_dir, filters);
+	for (int i = 0; i < file_names.size(); i++){
+		if (load_import_file(file_names[i]) == OK){
+			//do something
+		} else{
+			//do something
+		}
+	}
+	return OK;
+}
+
+Error ImportExporter::load_import_file(const String &p_path){
+	Error err;
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	//ImportInfo * i_info = memnew(ImportInfo);
+	Dictionary iinfo;
+	if (!f) {
+		return err;
+	}
+	Dictionary thing;
+
+	VariantParser::StreamFile stream;
+	stream.f = f;
+
+	String assign;
+	Variant value;
+	VariantParser::Tag next_tag;
+
+	int lines = 0;
+	String error_text;
+	bool path_found = false; //first match must have priority
+	while (true) {
+		assign = Variant();
+		next_tag.fields.clear();
+		next_tag.name = String();
+
+		err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
+		if (err == ERR_FILE_EOF) {
+			memdelete(f);
+			return OK;
+		} else if (err != OK) {
+			ERR_PRINT("ResourceFormatImporter::load - " + p_path + ".import:" + itos(lines) + " error: " + error_text);
+			memdelete(f);
+			return err;
+		}
+
+		if (assign != String()) {
+			if (!path_found && assign.begins_with("path.") && iinfo["path"] == String()) {
+				String feature = assign.get_slicec('.', 1);
+				if (OS::get_singleton()->has_feature(feature)) {
+					iinfo["path"] = value;
+					path_found = true; //first match must have priority
+				}
+
+			} else if (!path_found && assign == "path") {
+				iinfo["path"] = value;
+				path_found = true; //first match must have priority
+			} else if (assign == "type") {
+				iinfo["type"] = ClassDB::get_compatibility_remapped_class(value);
+			} else if (assign == "importer") {
+				iinfo["importer"] = value;
+			} else if (assign == "group_file") {
+				iinfo["group_file"] = value;
+			} else if (assign == "metadata") {
+				iinfo["metadata"] = value;
+			} else if (assign == "source_file") {
+				iinfo["source_file"] = value;
+			} else if (assign == "dest_files") {
+				iinfo["dest_files"] = value;
+			}
+
+		} else if (next_tag.name != "remap" && next_tag.name != "deps") {
+			break;
+		}
+	}
+
+	memdelete(f);
+
+	if (iinfo["path"] == String() || iinfo["type"] == String()) {
+		return ERR_FILE_CORRUPT;
+	} else {
+		files.push_back(iinfo);
+	}
+	return OK;
+}
+
+void ImportExporter::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
+	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
+	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }
