@@ -173,10 +173,9 @@ func export_imports(output_dir:String, ver_major:int = 3):
 			oggstr_to_ogg(output_dir, path, source_file)
 		if ifo.get("source_file").get_extension() == "png":
 			stex_to_pngV3(output_dir, path, source_file)
-	print("HELLO!!!!!!!!")
 
 func test_decomp(filename):
-	var decomp = GDScriptDecomp_5565f55.new()
+	var decomp = GDScriptDecomp_ed80f45.new()
 	var f = filename
 	if f.get_extension() == "gdc":
 		print("decompiling " + f)
@@ -199,14 +198,14 @@ func test_decomp(filename):
 func dump_files(exe_file:String, output_dir:String):
 	var thing = PckDumper.new()
 	if thing.load_pck(exe_file) == OK:
-		print("Loaded this shit!")
+		print("Successfully loaded PCK!")
 		var version:String = thing.get_engine_version();
 		print("Version: " + version)
 		#thing.check_md5_all_files()
 		if thing.pck_dump_to_dir(output_dir) != OK:
 			print("error dumping to dir")
 			return
-		print("haldo")
+
 		var decomp;
 		if version.begins_with("2.1"):
 			print("Version 2.1.x detected")
