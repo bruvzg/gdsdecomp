@@ -23,6 +23,7 @@
 
 #include "core/version_generated.gen.h"
 #include "pcfg_loader.h"
+#include "utility/old_stream_texture.h"
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -1505,12 +1506,21 @@ void GodotREEditor::_res_stxt_2_png_process() {
 		Ref<StreamTexture2D> stex;
 		stex.instance();
 		Error err = stex->load(res_files[i]);
+		Ref<Image> img;
+		if (err == OK){
+			img = stex->get_image();
+		}
+		else if (err == ERR_FILE_CORRUPT) {
+			//This may be because we tried to load the old format
+			Ref<StreamTextureV3> stex3;
+			stex3.instance();
+			err = stex3->load(res_files[i]);	
+			if (err == OK) img = stex3->get_image();
+		}
 		if (err != OK) {
 			failed_files += res_files[i] + " (load StreamTexture error)\n";
 			continue;
 		}
-
-		Ref<Image> img = stex->get_image();
 		if (img.is_null()) {
 			failed_files += res_files[i] + " (invalid texture data)\n";
 			continue;
