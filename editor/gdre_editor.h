@@ -176,17 +176,20 @@ private:
 		uint64_t size;
 		uint8_t md5[16];
 		uint32_t flags;
+		bool encrypted;
 
 		PackedFile() {
 			flags = 0;
 			offset = 0;
 			size = 0;
+			encrypted = false;
 		}
 
-		PackedFile(uint64_t p_offset, uint64_t p_size, uint32_t p_flags) {
+		PackedFile(uint64_t p_offset, uint64_t p_size, uint32_t p_flags, bool p_encrypted = false) {
 			flags = p_flags;
 			offset = p_offset;
 			size = p_size;
+			encrypted = p_encrypted;
 		}
 	};
 

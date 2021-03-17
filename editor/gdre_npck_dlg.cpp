@@ -15,12 +15,6 @@ NewPackDialog::NewPackDialog() {
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
 
-	message = memnew(TextEdit);
-	message->set_readonly(true);
-	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
-
-	script_vb->add_margin_child(RTR("Files:"), message);
-
 	ver_base = memnew(SpinBox);
 	ver_base->set_min(0);
 	ver_base->set_max(2);
@@ -54,6 +48,29 @@ NewPackDialog::NewPackDialog() {
 	ver_rev->set_value(0);
 	ver_rev->connect("value_changed", callable_mp(this, &NewPackDialog::_val_change));
 	dir_hbc->add_child(ver_rev);
+
+	HBoxContainer *enc_hbc = memnew(HBoxContainer);
+	enc_dir_chk = memnew(CheckBox);
+	enc_dir_chk->set_text("Encrypt directory");
+	enc_hbc->add_child(enc_dir_chk);
+
+	Label *enc_lbl_in = memnew(Label);
+	enc_lbl_in->set_text("Include filters:");
+	enc_hbc->add_child(enc_lbl_in);
+
+	enc_filters_in = memnew(LineEdit);
+	enc_filters_in->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	enc_hbc->add_child(enc_filters_in);
+
+	Label *enc_lbl_ex = memnew(Label);
+	enc_lbl_ex->set_text("Exclude filters:");
+	enc_hbc->add_child(enc_lbl_ex);
+
+	enc_filters_ex = memnew(LineEdit);
+	enc_filters_ex->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	enc_hbc->add_child(enc_filters_ex);
+
+	script_vb->add_margin_child(RTR("Encryption:"), enc_hbc);
 
 	_val_change();
 
@@ -100,17 +117,28 @@ void NewPackDialog::_val_change(double p_val) {
 	Color error_color = Color(1, 0, 0);
 #endif
 	Color def_color = ver_major->get_line_edit()->get_theme_color("font_color");
-	if ((ver_major->get_value() <= 2 && ver_base->get_value() != 0) || (ver_major->get_value() > 2 && ver_base->get_value() != 1)) {
-		ver_base->get_line_edit()->set("custom_colors/font_color", error_color);
-	} else {
-		ver_base->get_line_edit()->set("custom_colors/font_color", def_color);
-	}
+	if (ver_base->get_value() < 2) {
+		if ((ver_major->get_value() <= 2 && ver_base->get_value() != 0) || (ver_major->get_value() > 2 && ver_base->get_value() != 1)) {
+			ver_base->get_line_edit()->set("custom_colors/font_color", error_color);
+		} else {
+			ver_base->get_line_edit()->set("custom_colors/font_color", def_color);
+		}
 
-	if ((ver_major->get_value() < 3 || (ver_major->get_value() == 3 && ver_minor->get_value() < 2)) && (ver_rev->get_value() != 0)) {
-		ver_rev->get_line_edit()->set("custom_colors/font_color", error_color);
-	} else {
-		ver_rev->get_line_edit()->set("custom_colors/font_color", def_color);
+		if ((ver_major->get_value() < 3 || (ver_major->get_value() == 3 && ver_minor->get_value() < 2)) && (ver_rev->get_value() != 0)) {
+			ver_rev->get_line_edit()->set("custom_colors/font_color", error_color);
+		} else {
+			ver_rev->get_line_edit()->set("custom_colors/font_color", def_color);
+		}
+	} else if (ver_base->get_value() == 2) {
+		if (ver_major->get_value() < 4) {
+			ver_base->get_line_edit()->set("custom_colors/font_color", error_color);
+		} else {
+			ver_base->get_line_edit()->set("custom_colors/font_color", def_color);
+		}
 	}
+	enc_dir_chk->set_disabled(ver_base->get_value() < 2);
+	enc_filters_in->set_editable(ver_base->get_value() == 2);
+	enc_filters_ex->set_editable(ver_base->get_value() == 2);
 }
 
 void NewPackDialog::_exe_select_pressed() {
@@ -133,8 +161,16 @@ String NewPackDialog::get_emb_source() const {
 	return emb_name->get_text();
 }
 
-void NewPackDialog::set_message(const String &p_text) {
-	message->set_text(p_text);
+bool NewPackDialog::get_enc_dir() const {
+	return enc_dir_chk->is_pressed();
+}
+
+String NewPackDialog::get_enc_filters_in() const {
+	return enc_filters_in->get_text();
+}
+
+String NewPackDialog::get_enc_filters_ex() const {
+	return enc_filters_ex->get_text();
 }
 
 int NewPackDialog::get_version_pack() const {

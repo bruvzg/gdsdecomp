@@ -27,14 +27,16 @@
 class NewPackDialog : public AcceptDialog {
 	GDCLASS(NewPackDialog, AcceptDialog)
 
-	TextEdit *message;
-
 	SpinBox *ver_base;
 	SpinBox *ver_major;
 	SpinBox *ver_minor;
 	SpinBox *ver_rev;
 
 	LineEdit *wmark;
+	LineEdit *enc_filters_in;
+	LineEdit *enc_filters_ex;
+
+	CheckBox *enc_dir_chk;
 
 	CheckBox *emb_chk;
 	LineEdit *emb_name;
@@ -51,8 +53,6 @@ protected:
 	void _exe_select_request(const String &p_path);
 
 public:
-	void set_message(const String &p_text);
-
 	bool get_is_emb() const;
 	String get_emb_source() const;
 
@@ -61,6 +61,10 @@ public:
 	int get_version_minor() const;
 	int get_version_rev() const;
 	String get_watermark() const;
+
+	bool get_enc_dir() const;
+	String get_enc_filters_in() const;
+	String get_enc_filters_ex() const;
 
 	NewPackDialog();
 	~NewPackDialog();
