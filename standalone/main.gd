@@ -121,11 +121,13 @@ func test_scnthing(output_dir:String):
 
 func stex_to_pngV3(output_dir:String, src:String, dst:String):
 	var thing:StreamTextureV3 = StreamTextureV3.new()
-	if thing.load(output_dir.plus_file(src)) != OK:
+	var err = thing.load(output_dir.plus_file(src))
+	if err != OK:
 		print("error opening texture file " + src)
 		return
 	var img:Image = thing.get_image()
-	if img.save_png(output_dir.plus_file(dst)) != OK:
+	err = img.save_png(output_dir.plus_file(dst))
+	if err != OK:
 		print("error saving " + dst)
 	else:
 		print("Converted " + src + " to " + dst)
