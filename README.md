@@ -15,7 +15,7 @@ This module includes following tools:
 ## Usage
 
 - All module functions are accessible via `RE Tools` menu.
-- Decompilers additionaly available as `GDScriptDecomp_{commit_hash}` GDScript classes.
+- Decompilers additionally available as `GDScriptDecomp_{commit_hash}` GDScript classes.
 
 ```gdscript
 	var decomp = GDScriptDecomp_{commit_hash}.new()
@@ -29,7 +29,7 @@ This module includes following tools:
 
 ## Requirements
 
-Godot 3.x (3.2 branch) or 4.0 (master branch)
+Godot 3.x (3.x branch) or 4.0 (master branch)
 
 ## GDScript decompiler compatibility
 
@@ -52,7 +52,7 @@ Run `./{executable_name} -s detect_bytecode_ver.gd --path .`.
 
 ## Downloading and compiling
 
-Clone this repository into Godots `modules` subfolder as `gdsdecomp`.
+Clone this repository into Godot's `modules` subfolder as `gdsdecomp`.
 Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/development/compiling/index.html.
 
 ## License

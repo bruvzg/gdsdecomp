@@ -7,7 +7,7 @@ scons --version
 clang --version
 
 cd ..
-git clone --depth 1 https://github.com/godotengine/godot godot -b 3.2
+git clone --depth 1 https://github.com/godotengine/godot godot -b 3.x
 
 if [ ! -d $(pwd)/godot/modules/gdsdecomp ]; then
 	ln -s $(pwd)/gdsdecomp $(pwd)/godot/modules/gdsdecomp
