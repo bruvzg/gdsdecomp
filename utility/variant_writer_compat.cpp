@@ -5,6 +5,8 @@
 #include "core/string/string_buffer.h"
 #include "core/io/image.h"
 #include "core/variant/variant_parser.h"
+#include "V2ImageParser.h"
+
 namespace V2toV4{
 
 enum Type {
@@ -149,8 +151,12 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 		case V2toV4::Type::STRING: {
 
 			String str = p_variant;
-
-			str = "\"" + str.c_escape_multiline() + "\"";
+			//Handle external resources so we don't have to load them
+			if (str.begins_with("@RESEXTERNAL:")) {
+				str = "ExtResource( " + str.get_slice(":", 1) + " )";
+			} else{
+				str = "\"" + str.c_escape_multiline() + "\"";
+			}
 			p_store_string_func(p_store_string_ud, str);
 		} break;
 		case V2toV4::Type::VECTOR2: {
@@ -244,64 +250,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 		case V2toV4::Type::IMAGE: {
-
-			// Image img = p_variant;
-
-			// if (img.empty()) {
-			// 	p_store_string_func(p_store_string_ud, "Image()");
-			// 	break;
-			// }
-
-			// String imgstr = "Image( ";
-			// imgstr += itos(img.get_width());
-			// imgstr += ", " + itos(img.get_height());
-			// imgstr += ", " + itos(img.get_mipmaps());
-			// imgstr += ", ";
-
-			// switch (img.get_format()) {
-
-			// 	case Image::FORMAT_GRAYSCALE: imgstr += "GRAYSCALE"; break;
-			// 	case Image::FORMAT_INTENSITY: imgstr += "INTENSITY"; break;
-			// 	case Image::FORMAT_GRAYSCALE_ALPHA: imgstr += "GRAYSCALE_ALPHA"; break;
-			// 	case Image::FORMAT_RGB: imgstr += "RGB"; break;
-			// 	case Image::FORMAT_RGBA: imgstr += "RGBA"; break;
-			// 	case Image::FORMAT_INDEXED: imgstr += "INDEXED"; break;
-			// 	case Image::FORMAT_INDEXED_ALPHA: imgstr += "INDEXED_ALPHA"; break;
-			// 	case Image::FORMAT_BC1: imgstr += "BC1"; break;
-			// 	case Image::FORMAT_BC2: imgstr += "BC2"; break;
-			// 	case Image::FORMAT_BC3: imgstr += "BC3"; break;
-			// 	case Image::FORMAT_BC4: imgstr += "BC4"; break;
-			// 	case Image::FORMAT_BC5: imgstr += "BC5"; break;
-			// 	case Image::FORMAT_PVRTC2: imgstr += "PVRTC2"; break;
-			// 	case Image::FORMAT_PVRTC2_ALPHA: imgstr += "PVRTC2_ALPHA"; break;
-			// 	case Image::FORMAT_PVRTC4: imgstr += "PVRTC4"; break;
-			// 	case Image::FORMAT_PVRTC4_ALPHA: imgstr += "PVRTC4_ALPHA"; break;
-			// 	case Image::FORMAT_ETC: imgstr += "ETC"; break;
-			// 	case Image::FORMAT_ATC: imgstr += "ATC"; break;
-			// 	case Image::FORMAT_ATC_ALPHA_EXPLICIT: imgstr += "ATC_ALPHA_EXPLICIT"; break;
-			// 	case Image::FORMAT_ATC_ALPHA_INTERPOLATED: imgstr += "ATC_ALPHA_INTERPOLATED"; break;
-			// 	case Image::FORMAT_CUSTOM: imgstr += "CUSTOM"; break;
-			// 	default: {
-			// 	}
-			// }
-
-			// String s;
-
-			// Vector<uint8_t> data = img.get_data();
-			// int len = data.size();
-
-			// const uint8_t *ptr = data.ptr();
-			// for (int i = 0; i < len; i++) {
-
-			// 	if (i > 0)
-			// 		s += ", ";
-			// 	s += itos(ptr[i]);
-			// }
-
-			// imgstr += ", ";
-			// p_store_string_func(p_store_string_ud, imgstr);
-			// p_store_string_func(p_store_string_ud, s);
-			// p_store_string_func(p_store_string_ud, " )");
+			//Do this in Object
 		} break;
 		case V2toV4::Type::NODE_PATH: {
 
@@ -313,22 +262,22 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 		} break;
 
 		case V2toV4::Type::OBJECT: {
-
 			RES res = p_variant;
 			if (res.is_null()) {
 				p_store_string_func(p_store_string_ud, "null");
 				break; // don't save it
 			}
-
+		
 			String res_text;
 
-			if (p_encode_res_func) {
-
+			//Hack for V2 Images
+			if (res->is_class("Image")){
+				res_text = V2ImageParser::ImageV2_to_string(res);
+			} else if (p_encode_res_func) {
 				res_text = p_encode_res_func(p_encode_res_ud, res);
 			}
 
 			if (res_text == String() && res->get_path().is_resource_file()) {
-
 				//external resource
 				String path = res->get_path();
 				res_text = "Resource( \"" + path + "\")";
@@ -341,49 +290,9 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 		} break;
 		case V2toV4::Type::INPUT_EVENT: {
-
-			// String str = "InputEvent(";
-
-			// InputEventV2 ev = p_variant;
-			// switch (ev.type) {
-			// 	case InputEventV2::KEY: {
-
-			// 		str += "KEY," + itos(ev.key.scancode);
-			// 		String mod;
-			// 		if (ev.key.mod.alt)
-			// 			mod += "A";
-			// 		if (ev.key.mod.shift)
-			// 			mod += "S";
-			// 		if (ev.key.mod.control)
-			// 			mod += "C";
-			// 		if (ev.key.mod.meta)
-			// 			mod += "M";
-
-			// 		if (mod != String())
-			// 			str += "," + mod;
-			// 	} break;
-			// 	case InputEventV2::MOUSE_BUTTON: {
-
-			// 		str += "MBUTTON," + itos(ev.mouse_button.button_index);
-			// 	} break;
-			// 	case InputEventV2::JOYSTICK_BUTTON: {
-			// 		str += "JBUTTON," + itos(ev.joy_button.button_index);
-
-			// 	} break;
-			// 	case InputEventV2::JOYSTICK_MOTION: {
-			// 		str += "JAXIS," + itos(ev.joy_motion.axis) + "," + itos(ev.joy_motion.axis_value);
-			// 	} break;
-			// 	case InputEventV2::NONE: {
-			// 		str += "NONE";
-			// 	} break;
-			// 	default: {
-			// 	}
-			// }
-
-			// str += ")";
-
-			// p_store_string_func(p_store_string_ud, str); //will be added later
-
+			// binary resource formats don't support storing input events,
+			// so we don't bother writing them.
+			WARN_PRINT("Attempted to save Input Event!??!");
 		} break;
 		case V2toV4::Type::DICTIONARY: {
 
