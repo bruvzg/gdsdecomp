@@ -24,6 +24,8 @@
 #include "core/version_generated.gen.h"
 #include "pcfg_loader.h"
 #include "utility/old_stream_texture.h"
+#include "utility/resource_loader_compat.h"
+
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -1551,7 +1553,11 @@ void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
 		String ext = p_files[i].get_extension().to_lower();
 		String new_ext = ".txt";
 		if (ext == "scn") {
-			new_ext = ".tscn";
+			if (p_files[i].to_lower().find(".escn.") != -1){
+				new_ext = ".escn";
+			} else {
+				new_ext = ".tscn";
+			}
 		} else if (ext == "res") {
 			new_ext = ".tres";
 		}
@@ -1610,9 +1616,13 @@ void GodotREEditor::_res_bin_2_txt_process() {
 }
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
-
-	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
-	return ResourceFormatSaverText::singleton->save(p_dst_path, rl->load(p_src_path));
+	
+	ResourceLoader::set_abort_on_missing_resources(false);
+	Ref<ResourceFormatLoaderBinaryCompat> rl = memnew(ResourceFormatLoaderBinaryCompat);
+	//Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
+	//RES res = rl->load(p_src_path);
+	Error err = rl->convert_bin_to_txt(p_src_path, p_dst_path);
+	return err;
 }
 
 void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
