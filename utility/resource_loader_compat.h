@@ -6,38 +6,11 @@
 #include "core/io/resource_format_binary.h"
 #include "scene/resources/packed_scene.h"
 
+#ifdef TOOLS_ENABLED
+#define print_bl(m_what) print_line(m_what)
+#else 
 #define print_bl(m_what) (void)(m_what)
-
-static const char *type_v2_to_v3renames[][2] = {
-	{ "CanvasItemMaterial", "ShaderMaterial" },
-	{ "CanvasItemShader", "Shader" },
-	{ "ColorFrame", "ColorRect" },
-	{ "ColorRamp", "Gradient" },
-	{ "FixedMaterial", "SpatialMaterial" },
-	{ "Patch9Frame", "NinePatchRect" },
-	{ "ReferenceFrame", "ReferenceRect" },
-	{ "SampleLibrary", "Resource" },
-	{ "SamplePlayer2D", "AudioStreamPlayer2D" },
-	{ "SamplePlayer", "Node" },
-	{ "SoundPlayer2D", "Node2D" },
-	{ "SpatialSamplePlayer", "AudioStreamPlayer3D" },
-	{ "SpatialStreamPlayer", "AudioStreamPlayer3D" },
-	{ "StreamPlayer", "AudioStreamPlayer" },
-	{ "TestCube", "MeshInstance" },
-	{ "TextureFrame", "TextureRect" },
-	// Only for scripts
-	{ "Matrix32", "Transform2D" },
-	{ "Matrix3", "Basis" },
-	{ "RawArray", "PoolByteArray" },
-	{ "IntArray", "PoolIntArray" },
-	{ "RealArray", "PoolRealArray" },
-	{ "StringArray", "PoolStringArray" },
-	{ "Vector2Array", "PoolVector2Array" },
-	{ "Vector3Array", "PoolVector3Array" },
-	{ "ColorArray", "PoolColorArray" },
-	{ NULL, NULL }
-};
-
+#endif
 namespace VariantBinV3{
 	
 	enum Type {
@@ -163,18 +136,6 @@ namespace VariantBinV1{
 	};
 }
 
-struct NonPersistentKey { //for resource properties generated on the fly
-	RES base;
-	StringName property;
-	bool operator<(const NonPersistentKey &p_key) const { return base == p_key.base ? property < p_key.property : base < p_key.base; }
-};
-
-class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
-public:
-	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr );
-    RES _load(const String &p_path, const String &base_dir, bool no_ext_load = false, Error *r_error = nullptr, float *r_progress = nullptr );
-};
-
 class ResourceLoaderBinaryCompat {
     bool translation_remapped = false;
 	bool no_ext_load = false;
@@ -187,14 +148,16 @@ class ResourceLoaderBinaryCompat {
 
 	Map<String, String> typeV2toV3Renames;
 	Map<String, String> typeV3toV2Renames;
+	Map<String, String> propV2toV3Renames;
+	Map<String, String> propV3toV2Renames;
+	Map<String, String> signalV2toV3Renames;
+	Map<String, String> signalV3toV2Renames;
 
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
 
 	Vector<char> str_buf;
-	List<RES> resource_cache;
-
 	Vector<StringName> string_map;
 
 	StringName _get_string();
@@ -214,8 +177,16 @@ class ResourceLoaderBinaryCompat {
 		uint64_t offset;
 	};
 
+	struct ResourceProperty{
+		String name;
+		Variant::Type type;
+		Variant value;
+	};
+
 	Vector<IntResource> internal_resources;
 	Map<String, RES> internal_index_cache;
+	Map<String, String> internal_type_cache;
+	Map<String, List<ResourceProperty>> internal_index_cached_properties;
 
 	String get_unicode_string();
 	void _advance_padding(uint32_t p_len);
@@ -223,40 +194,49 @@ class ResourceLoaderBinaryCompat {
 	Map<String, String> remaps;
 	Error error = OK;
 
-	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
-
 	friend class ResourceFormatLoaderBinaryCompat;
 
-	Error parse_variant(Variant &r_v);
+	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
+	static Error _get_resource_header(FileAccess *f);
+	RES set_dummy_ext(const String& path, const String& exttype);
+	RES set_dummy_ext(const uint32_t erindex);
+	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
+
+	void clear_dummy_externals();
 
 	Map<String, RES> dependency_cache;
     public:
 		void set_local_path(const String &p_local_path);
-        Vector<uint32_t> get_version(FileAccess * p_f);
-        void open(FileAccess *p_f);
-		Error load();
+
+        static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
+        Error open(FileAccess *p_f);
+		Error fake_load();
 		Error parse_variantv2(Variant &r_v);
 		static String get_ustring(FileAccess *f);
-		Error save_as_text(const String &p_path, uint32_t p_flags = 0);
-		static String _write_resources(void *ud, const RES &p_resource);
-		String _write_resource(const RES &res);
+		Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
+		static String _write_fake_resources(void *ud, const RES &p_resource);
+		String _write_fake_resource(const RES &res);
 		Error parse_variantv3v4(Variant &r_v);
-
-
+		ResourceLoaderBinaryCompat();
+		~ResourceLoaderBinaryCompat();
+};
+class FakeResource : public PackedScene {
+	GDCLASS(FakeResource, PackedScene);
+	String real_path;
+	String real_type;
+	public:
+		String get_path() const {return real_path;}
+		String get_real_path(){return real_path;}
+		String get_real_type(){return real_type;}
+		void set_real_type(const String &t){real_type = t;}
+		void set_real_path(const String &p){real_path = p;}
 };
 
-
-class DummyExtResource: public Resource {
-	GDCLASS(DummyExtResource, Resource)
-	String path;
-	String type;
-	int id;
+class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
+private:
+	ResourceLoaderBinaryCompat _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
 public:
-	
-	String get_type(){return type;}
-	void set_type(const String &t){type = t;}
-	String get_path(){return path;}
-	void set_path(const String &p){path = p;}
-	int get_id(){return id;}
-	void set_id(const int i){id = i;}
+	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr );
 };
+
+
