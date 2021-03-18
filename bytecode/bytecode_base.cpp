@@ -10,6 +10,8 @@
 #include "core/image.h"
 #include "core/os/file_access.h"
 
+#include <limits.h>
+
 #define _S(a) ((int32_t)a)
 #define ERR_FAIL_ADD_OF(a, b, err) ERR_FAIL_COND_V(_S(b) < 0 || _S(a) < 0 || _S(a) > INT_MAX - _S(b), err)
 #define ERR_FAIL_MUL_OF(a, b, err) ERR_FAIL_COND_V(_S(a) < 0 || _S(b) <= 0 || _S(a) > INT_MAX / _S(b), err)
