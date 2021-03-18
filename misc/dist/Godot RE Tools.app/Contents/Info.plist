@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.0.6</string>
+	<string>dev</string>
 	<key>CFBundleSignature</key>
 	<string>retoolsgodot</string>
 	<key>CFBundleVersion</key>
-	<string>0.0.6</string>
+	<string>dev</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>10.9.0</string>
 	<key>LSMinimumSystemVersionByArchitecture</key>
