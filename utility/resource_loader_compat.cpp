@@ -287,7 +287,7 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 			lrp.push_back(rp);
 		}
 
-		if (!main) {
+		if (!main ) {
 			internal_index_cached_properties[path] = lrp;
 			internal_index_cache[path] = make_dummy(path, rtype, subindex);
 		} else {
@@ -304,6 +304,9 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 				
 				ps->set(lrp.front()->get().name, lrp.front()->get().value);
 				resource = ps;
+			} else {
+				internal_index_cached_properties[path] = lrp;
+				internal_index_cache[path] = make_dummy(path, rtype, subindex);
 			}
 		}
 
@@ -468,7 +471,8 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		} else {
 			String line = "[sub_resource ";
 			String type = internal_type_cache[path];
-			line += "type=\"" + type + "\" id=" + itos(i+1) + "]";
+			int idx = internal_index_cache[path]->get_subindex();
+			line += "type=\"" + type + "\" id=" + itos(idx) + "]";
 			if (FORMAT_VERSION == 1){
 				// Godot 2.x has this particular quirk, don't know why
 				line+="\n";
@@ -509,7 +513,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			NodePath path = state->get_node_path(i, true);
 			NodePath owner = state->get_node_owner_path(i);
 			RES instance = state->get_node_instance(i);
-			
+
 			String instance_placeholder = state->get_node_instance_placeholder(i);
 			Vector<StringName> groups = state->get_node_groups(i);
 

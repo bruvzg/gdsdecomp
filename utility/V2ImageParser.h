@@ -5,7 +5,7 @@
 #include "core/variant/variant.h"
 
 class V2ImageParser{
-    public:
-static String ImageV2_to_string(const Variant &r_v);
-static Error parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for_dropped_fmt = true);
+public:
+    static String ImageV2_to_string(const Variant &r_v);
+    static Error parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for_dropped_fmt = true);
 };
