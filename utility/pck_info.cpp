@@ -6,6 +6,9 @@
 #include "bytecode/bytecode_versions.h"
 #include "pcfg_loader.h"
 #include "core/variant/variant_parser.h"
+#include "resource_loader_compat.h"
+#include "modules/regex/regex.h"
+
 #if (VERSION_MAJOR == 4)
 #include "core/crypto/crypto_core.h"
 #else
@@ -36,8 +39,6 @@ bool PckDumper::_get_magic_number(FileAccess * pck) {
 	}
 	return true;
 }
-
-
 
 bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 	size_t oldpos = pck->get_position();
@@ -338,8 +339,39 @@ void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_loaded_files"), &PckDumper::get_loaded_files);
 	ClassDB::bind_method(D_METHOD("get_engine_version"), &PckDumper::get_engine_version);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
-
 }
+
+Vector<String> get_directory_listing3(const String dir, const Vector<String> &search_str, const String rel = "") {
+	Vector<String> ret;
+	DirAccess *da = DirAccess::open(dir.plus_file(rel));
+	String base = "res://";
+	if (!da) {
+		return ret;
+	}
+	da->list_dir_begin();
+	String f;
+	while ((f = da->get_next()) != "") {
+		if (f == "." || f == "..") {
+			continue;
+		} else if (da->current_is_dir()) {
+			ret.append_array(get_directory_listing3(dir, search_str, rel.plus_file(f)));
+		} else {
+			if (search_str.size() > 0) {
+				for (int i = 0; i < search_str.size(); i++) {
+					if (f.get_file().find(search_str[i]) > -1) {
+						ret.append(base.plus_file(rel).plus_file(f));
+						break;
+					}
+				}
+			} else {
+				ret.append(base.plus_file(rel).plus_file(f));
+			}
+		}
+	}
+	memdelete(da);
+	return ret;
+}
+
 Vector<String> get_directory_listing2(const String dir, const Vector<String> &filters, const String rel = ""){
 	Vector<String> ret;
 	DirAccess *da = DirAccess::open(dir.plus_file(rel));
@@ -383,15 +415,89 @@ Array ImportExporter::get_import_files(){
 	return files;
 }
 
-Error ImportExporter::load_import_files(const String &base_dir, const uint32_t ver_major){
+Error ImportExporter::load_v2_converted_file(const String& p_path) {
+	String dest;
+	String type;
+	Vector<String> spl = p_path.get_file().split(".");
+	//This is a converted file, no metadata
+	if (p_path.get_file().find(".converted.") != -1) {
+		
+		if (spl.size() != 4) {
+			// this doesn't match "filename.ext.converted.newext"
+			return ERR_CANT_RESOLVE;
+		}
+		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
+	} else {
+		// This is an import file, possibly has import metadata
+		// Going to have to rewrite the import metadata in the resource file to make this work
+		//ResourceFormatLoaderBinaryCompat rlc;
+		//Dictionary metadata;
+		//
+		//if (rlc.get_v2_import_metadata(p_path, base_dir, metadata) == OK) {
+		//	Dictionary iinfo;
+		//	iinfo["path"] = p_path;
+		//	//this is a relative path to this file
+		//	iinfo["source_file"] = p_path.get_base_dir().plus_file(metadata["src"]);
+		//	iinfo["type"] = metadata["type"];
+		//	iinfo["dest_files"] = Vector<String>().push_back(p_path);
+		//	iinfo["metadata"] = metadata;
+		//	iinfo["group_file"] = "";
+		//	iinfo["importer"] = "";
+		//	files.push_back(iinfo);
+		//	return OK;
+		//}
+		//No import metadata, assume that it's loaded from the assets dir in the base dir
+		String new_ext;
+		if (p_path.get_extension() == "tex") {
+			new_ext = "png";
+		} else if (p_path.get_extension() == "smp") {
+			new_ext = "wav";
+		}
+		dest = String("assets").plus_file(p_path.get_base_dir().plus_file(spl[0] + "." + new_ext));
+	}
+	Dictionary iinfo;
+	iinfo["path"] = p_path;
+	iinfo["source_file"] = dest;
+	if (p_path.get_extension() == "scn") {
+		iinfo["type"] = "PackedScene";
+	} else if (p_path.get_extension() == "res") {
+		iinfo["type"] = "Resource";
+	} else if (p_path.get_extension() == "tex") {
+		iinfo["type"] = "ImageTexture";
+	} else if (p_path.get_extension() == "smp") {
+		iinfo["type"] = "Sample";
+	} //Others??
+	iinfo["dest_files"] = Vector<String>().push_back(p_path);
+	iinfo["metadata"] = "";
+	iinfo["group_file"] = "";
+	iinfo["importer"] = "";
+	files.push_back(iinfo);
+
+	return OK;
+}
+
+Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_major){
+	base_dir = dir;
 	Vector<String> filters;
-	filters.push_back("import");
-	Vector<String> file_names = get_directory_listing2(base_dir, filters);
-	for (int i = 0; i < file_names.size(); i++){
-		if (load_import_file(file_names[i]) == OK){
-			//do something
-		} else{
-			//do something
+	Vector<String> file_names;
+	// We instead look for file names with ".converted." in the name
+	// Like "filename.tscn.converted.scn"
+	if (ver_major <= 2) {
+		filters.push_back(".converted.");
+		filters.push_back(".tex");
+		file_names = get_directory_listing3(dir, filters);
+		for (int i = 0; i < file_names.size(); i++) {
+			if (load_v2_converted_file(file_names[i]) != OK) {
+				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
+			}
+		}
+	} else {
+		filters.push_back("import");
+		file_names = get_directory_listing2(dir, filters);
+		for (int i = 0; i < file_names.size(); i++) {
+			if (load_import_file(file_names[i]) != OK) {
+				WARN_PRINT("Can't load import file: " + file_names[i]);
+			}
 		}
 	}
 	return OK;
@@ -472,8 +578,25 @@ Error ImportExporter::load_import_file(const String &p_path){
 	return OK;
 }
 
+Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
+	ResourceFormatLoaderBinaryCompat rlc;
+	return rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
+}
+
+Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
+	ResourceFormatLoaderBinaryCompat rlc;
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	String dst_dir = output_dir.plus_file(p_dst.get_base_dir());
+	da->make_dir_recursive(dst_dir);
+	memdelete(da);
+	return rlc.convert_v2tex_to_png(p_path, p_dst, output_dir);
+}
+
 void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
 	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
+	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
+	ClassDB::bind_method(D_METHOD("convert_v2tex_to_png"), &ImportExporter::convert_v2tex_to_png);
+
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }

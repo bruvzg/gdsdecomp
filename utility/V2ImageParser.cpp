@@ -118,7 +118,7 @@ String V2ImageParser::ImageV2_to_string(const Variant &r_v){
         return imgstr;
 }
 
-Error V2ImageParser::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for_dropped_fmt){
+Error V2ImageParser::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed){
 	uint32_t encoding = f->get_32();
     Ref<Image> img;
     img.instance();
@@ -215,8 +215,33 @@ Error V2ImageParser::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
 		uint8_t * w = imgdata.ptrw();
 		f->get_buffer(w, datalen);
 		_advance_padding(f, datalen);
-        img->create(width, height, mipmaps > 0, fmt, imgdata);
 
+		if (convert_indexed && (format == 5 || format == 6)) {
+			int p_width;
+			if (format == V2Image::Type::IMAGE_FORMAT_INDEXED) {
+				fmt = Image::FORMAT_RGB8;
+				p_width = 3;
+			} else if (format == V2Image::Type::IMAGE_FORMAT_INDEXED_ALPHA) {
+				fmt = Image::FORMAT_RGBA8;
+				p_width = 4;
+			}
+
+			Vector<uint8_t> new_imgdata;
+
+			Vector<Vector<uint8_t> > palette;
+
+			//palette data starts at end of pixel data, is equal to 256 * p_width
+			for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {
+				palette.push_back(imgdata.subarray(dataidx, dataidx + p_width - 1));
+			}
+			//pixel data is index into palette
+			for (int i = 0; i < width * height; i++) {
+				new_imgdata.append_array(palette[imgdata[i]]);
+			}
+			img->create(width, height, mipmaps > 0, fmt, new_imgdata);
+		} else {
+			img->create(width, height, mipmaps > 0, fmt, imgdata);
+		}
 	} else {
 		//compressed
 		Vector<uint8_t> data;

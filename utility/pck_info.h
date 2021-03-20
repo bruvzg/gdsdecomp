@@ -111,7 +111,11 @@ public:
 class ImportExporter: public Object {
 	GDCLASS(ImportExporter, Object)
 	Array files;
+	String base_dir;
 	Error load_import_file(const String &p_path);
+	Error convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst);
+	Error convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst);
+
 
 protected:
 	static void _bind_methods();
@@ -119,6 +123,7 @@ protected:
 public:
 	Error load_import_files(const String &base_dir, const uint32_t ver_major);
 	Array get_import_files();
+	Error load_v2_converted_file(const String &p_path);
 };
 
 

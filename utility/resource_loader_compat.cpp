@@ -8,34 +8,92 @@
 
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
-	ResourceLoaderBinaryCompat loader = _open(p_path, output_dir, true, &error, r_progress);
+	String dst_path = dst;
+	//Relative path
+	if (!output_dir.is_empty()) {
+		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
+	}
+	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
 	ERR_FAIL_COND_V(error != OK, error);
-	error = loader.fake_load();
+	error = loader->fake_load();
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
 
 	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot load resource '" + p_path + "'.");
 
-	error = loader.save_as_text_unloaded(dst);
+	error = loader->save_as_text_unloaded(dst_path);
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
+
 	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '"+ dst +"'.");
 	return OK;
 }
-
-ResourceLoaderBinaryCompat ResourceFormatLoaderBinaryCompat::_open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
+Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir, float *r_progress) {
 	Error error = OK;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &error);
+	String dst_path = dst;
+	//Relative path
+	if (!output_dir.is_empty()) {
+		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
+	}
+	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
+	loader->convert_v2image_indexed = true;
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
+
+	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot open file '" + p_path + "'.");
+
+	error = loader->fake_load();
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
+	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot load resource '" + p_path + "'.");
+	//Load the main resource, which should be the ImageTexture
+	List<ResourceLoaderBinaryCompat::ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
+	String name;
+	Ref<Image> img;
+	for (List<ResourceLoaderBinaryCompat::ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
+		ResourceLoaderBinaryCompat::ResourceProperty pe = PE->get();
+		if (pe.name == "resource/name") {
+			name = pe.value;
+		}
+		else if (pe.name == "image") {
+			img = pe.value;
+		}
+	}
+	memdelete(loader);
+
+	ERR_FAIL_COND_V_MSG(!img.is_valid(), error, "Cannot load tex '" + p_path + "'.");
+	error = img->save_png(dst_path);
+	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.");
+	return OK;
+}
+ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
+
+	Error error = OK;
+	String path = p_path;
+	if (!base_dir.is_empty()) {
+		path = base_dir.plus_file(p_path.replace_first("res://", ""));
+	}
+	FileAccess *f = FileAccess::open(path, FileAccess::READ, &error);
 	if (r_error) {
 		*r_error = error;
 	}
-	ResourceLoaderBinaryCompat loader;
 
-	ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot open file '" + p_path + "'.");
+	ERR_FAIL_COND_V_MSG(error != OK, nullptr, "Cannot open file '" + path + "'.");
+	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
 
-	loader.progress = r_progress;
-	loader.no_ext_load = no_ext_load;
-	String path = p_path;
-	loader.local_path = p_path;
-	loader.res_path = loader.local_path;
+	loader->progress = r_progress;
+	loader->no_ext_load = no_ext_load;
+	loader->local_path = p_path; // Local path
+	loader->res_path = path; // Absoulte path
 	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
-	error = loader.open(f);
+	error = loader->open(f);
 	if (r_error) {
 		*r_error = error;
 	}
@@ -45,12 +103,58 @@ ResourceLoaderBinaryCompat ResourceFormatLoaderBinaryCompat::_open(const String 
 			f->close();
 			memdelete(f);
 		}
-		ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot load resource '" + p_path + "'.");
+		ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot load resource '" + path + "'.");
 	}
 
 	return loader;
 }
 
+Error ResourceFormatLoaderBinaryCompat::get_v2_import_metadata(const String &p_path, const String &base_dir, Dictionary &r_var) {
+
+	Error error = OK;
+	//Relative path
+	ResourceLoaderBinaryCompat * loader = _open(p_path, base_dir, true, &error, nullptr);
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
+	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot open file '" + p_path + "'.");
+	error = loader->load_import_metadata(r_var);
+	if (loader->f) {
+		loader->f->close();
+	}
+	memdelete(loader);
+	return error;
+}
+
+Error ResourceLoaderBinaryCompat::load_import_metadata(Dictionary& r_var) {
+	if (!f) {
+		return ERR_CANT_ACQUIRE_RESOURCE;
+	}
+	if (importmd_ofs == 0) {
+		return ERR_UNAVAILABLE;
+	}
+	f->seek(importmd_ofs);
+	String editor = get_unicode_string();
+	r_var["type"] = editor;
+	int sc = f->get_32();
+	for (int i = 0; i < sc; i++) {
+		String src = get_unicode_string();
+		String md5 = get_unicode_string();
+		r_var["src"] = src;
+		r_var["md5"] = md5;
+	}
+	int pc = f->get_32();
+	Dictionary props;
+	for (int i = 0; i < pc; i++) {
+
+		String name = get_unicode_string();
+		Variant val;
+		parse_variant(val);
+		props[name] = val;
+	}
+	r_var["properties"] = props;
+	return OK;
+}
 
 Error ResourceLoaderBinaryCompat::_get_resource_header(FileAccess *f){
 	uint8_t header[4];
@@ -78,13 +182,13 @@ Error ResourceLoaderBinaryCompat::_get_resource_header(FileAccess *f){
 }
 
 Map<String,String> ResourceLoaderBinaryCompat::_get_file_info(FileAccess *f, Error *r_error){
-    Map<String,String> ret;
+	Map<String,String> ret;
 	
 	Error err = _get_resource_header(f);
 	if (r_error){
 		*r_error = err;
 	}
-	ERR_FAIL_COND_V(err != OK, ret);
+	ERR_FAIL_COND_V_MSG(err != OK, ret, "Cannot get resource file header");
 
 	bool big_endian = f->get_32();
 	f->get_32(); // use_real64
@@ -111,7 +215,7 @@ Map<String,String> ResourceLoaderBinaryCompat::get_version_and_type(const String
 	}
 
 	f->close();
-    return ret;
+	return ret;
 	
 }
 
@@ -139,8 +243,27 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	error = OK;
 
 	f = p_f;
-	error = _get_resource_header(f);
-	ERR_FAIL_COND_V(error != OK, error);
+	uint8_t header[4];
+	Error r_error;
+	f->get_buffer(header, 4);
+	if (header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C') {
+		// Compressed.
+		FileAccessCompressed *fac = memnew(FileAccessCompressed);
+		r_error = fac->open_after_magic(f);
+		
+		if (r_error != OK) {
+			memdelete(fac);
+			f->close();
+			ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Cannot decompress compressed resource file '" + f->get_path() + "'.");
+		}
+		f = fac;
+
+	} else if (header[0] != 'R' || header[1] != 'S' || header[2] != 'R' || header[3] != 'C') {
+		// Not normal.
+		r_error = ERR_FILE_UNRECOGNIZED;
+		f->close();
+		ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Unable to recognize  '" + f->get_path() + "'.");
+	}
 
 	bool big_endian = f->get_32();
 	bool use_real64 = f->get_32();
@@ -161,16 +284,11 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	print_bl("major: " + itos(engine_ver_major));
 	print_bl("minor: " + itos(ver_minor));
 	print_bl("format: " + itos(ver_format));
-	if (engine_ver_major < 2 || engine_ver_major > 4){
-			error = ERR_FILE_UNRECOGNIZED;
-			ERR_FAIL_COND_V_MSG(engine_ver_major < 2 || engine_ver_major > 4, error, 
-				"Unsupported engine version used to create resource '" + res_path + "'.");
-	}
-	if(ver_format == 2 || ver_format > 3){
-			error = ERR_FILE_UNRECOGNIZED;
-			ERR_FAIL_COND_V_MSG(ver_format < 2 || ver_format > 4, error, 
+	ERR_FAIL_COND_V_MSG(engine_ver_major > 4, ERR_FILE_UNRECOGNIZED, 
+				"Unsupported engine version " + itos(engine_ver_major) + " used to create resource '" + res_path + "'.");
+	ERR_FAIL_COND_V_MSG(ver_format > 4, ERR_FILE_UNRECOGNIZED, 
 				"Unsupported binary resource format '" + res_path + "'.");
-	}
+	
 
 	type = get_unicode_string();
 
@@ -221,6 +339,21 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	return OK;
 }
 
+void ResourceLoaderBinaryCompat::debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp){
+	String valstring;
+	print_bl("Resource name: " + res_name);
+	print_bl("type: " + res_type);
+	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
+		ResourceProperty pe = PE->get();
+		String vars;
+		VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_fake_resources, this);
+		Vector<String> vstrs = vars.split("\n");
+		for (int i = 0; i < vstrs.size(); i++){
+			print_bl(vstrs[i]);
+		}
+	}
+}
+
 Error ResourceLoaderBinaryCompat::fake_load(){
 	if (error != OK) {
 		return error;
@@ -243,9 +376,9 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 		if (!main) {
 			path = internal_resources[i].path;
 			if (path.begins_with("local://")) {
-			 	path = path.replace_first("local://", "");
-			 	subindex = path.to_int();
-			 	path = res_path + "::" + path;
+				path = path.replace_first("local://", "");
+				subindex = path.to_int();
+				path = res_path + "::" + path;
 			}
 		} else {
 			path = res_path;
@@ -270,13 +403,8 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 			}
 
 			Variant value;
-			if (ver_format == 1){
-				error = parse_variantv2(value);
-			} else if (ver_format == 3){
-				error = parse_variantv3v4(value);
-			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Binary resource format v2, and v4 and above, are not supported");
-			}
+
+			error = parse_variant(value);
 			if (error) {
 				return error;
 			}
@@ -296,12 +424,8 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 				Ref<PackedScene> ps;
 				ps.instance();
 				String valstring;
-				VariantWriterCompat::write_to_string(lrp.front()->get().value,valstring, engine_ver_major, _write_fake_resources, this);
-				Vector<String> vstrs = valstring.split("\n");
-				for (int i = 0; i < vstrs.size(); i++){
-					print_bl(vstrs[i]);
-				}
-				
+				// Debug print
+				// debug_print_properties(path, rtype, lrp);
 				ps->set(lrp.front()->get().name, lrp.front()->get().value);
 				resource = ps;
 			} else {
@@ -330,6 +454,9 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 String ResourceLoaderBinaryCompat::get_ustring(FileAccess *f) {
 	int len = f->get_32();
 	Vector<char> str_buf;
+	if (len == 0) {
+		return String();
+	}
 	str_buf.resize(len);
 	f->get_buffer((uint8_t *)&str_buf[0], len);
 	String s;
@@ -423,13 +550,11 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	f = FileAccess::open(dest_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
 	FileAccessRef _fref(f);
-	// do something with this path??
-	String local_path = dest_path;
 	String main_res_path = internal_resources[internal_resources.size()-1].path;
 	String main_type = internal_type_cache[main_res_path];
-	int FORMAT_VERSION = 1;
+	int text_format_version = 1;
 	if (engine_ver_major > 2){
-		FORMAT_VERSION= 2;
+		text_format_version= 2;
 	}
 
 	// save resources
@@ -443,7 +568,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		if (load_steps > 1) {
 			title += "load_steps=" + itos(load_steps) + " ";
 		}
-		title += "format=" + itos(FORMAT_VERSION) + "";
+		title += "format=" + itos(text_format_version) + "";
 
 		f->store_string(title);
 		f->store_line("]\n"); //one empty line
@@ -473,8 +598,8 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			String type = internal_type_cache[path];
 			int idx = internal_index_cache[path]->get_subindex();
 			line += "type=\"" + type + "\" id=" + itos(idx) + "]";
-			if (FORMAT_VERSION == 1){
-				// Godot 2.x has this particular quirk, don't know why
+			if (text_format_version == 1){
+				// Godot 2.x quirk: newline between subresource and properties
 				line+="\n";
 			}
 			f->store_line(line);
@@ -486,15 +611,6 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			String vars;
 			VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_fake_resources, this);
 			f->store_string(pe.name.property_name_encode() + " = " + vars + "\n");
-
-				// Variant default_value = ClassDB::class_get_default_property_value(res->get_class(), name);
-				// if (default_value.get_type() != Variant::NIL && bool(Variant::evaluate(Variant::OP_EQUAL, value, default_value))) {
-				// 	continue;
-				// }
-
-				// if (PE->get().type == Variant::OBJECT && value.is_zero() && !(PE->get().usage & PROPERTY_USAGE_STORE_IF_NULL)) {
-				// 	continue;
-				// }
 		}
 
 		if (i < internal_resources.size() - 1) {
@@ -505,7 +621,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	//if this is a scene, save nodes and connections!
 	if (is_scene) {
 		Ref<SceneState> state = packed_scene->get_state();
-		ERR_FAIL_COND_V_MSG(!state.is_valid(), ERR_FILE_CORRUPT, "What the fuck");
+		ERR_FAIL_COND_V_MSG(!state.is_valid(), ERR_FILE_CORRUPT, "Packed scene is corrupt!");
 		for (int i = 0; i < state->get_node_count(); i++) {
 			StringName type = state->get_node_type(i);
 			StringName name = state->get_node_name(i);
@@ -559,9 +675,9 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			}
 
 			f->store_line("]");
-			if (FORMAT_VERSION == 1){
-				// Godot 2.x has this particular quirk, don't know why
-				header+="\n";
+			if (text_format_version == 1 && state->get_node_property_count(i) != 0) {
+				// Godot 2.x quirk: newline between header and properties
+				f->store_line("");
 			}
 
 			for (int j = 0; j < state->get_node_property_count(i); j++) {
@@ -600,6 +716,10 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			}
 
 			f->store_line("]");
+			if (text_format_version == 1) {
+				// Godot 2.x has this particular quirk, don't know why
+				f->store_line("");
+			}
 		}
 
 		Vector<NodePath> editable_instances = state->get_editable_instances();
@@ -621,487 +741,47 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	return OK;
 }
 
-
-Error ResourceLoaderBinaryCompat::parse_variantv2(Variant &r_v) {
-	ResourceLoader::set_abort_on_missing_resources(false);
-	uint32_t type = f->get_32();
-	//print_bl("find property of type: " + itos(type));
-    bool p_for_export_data = false;
-	switch (type) {
-
-		case VariantBinV1::Type::VARIANT_NIL: {
-
-			r_v = Variant();
-		} break;
-		case VariantBinV1::Type::VARIANT_BOOL: {
-
-			r_v = bool(f->get_32());
-		} break;
-		case VariantBinV1::Type::VARIANT_INT: {
-
-			r_v = int(f->get_32());
-		} break;
-		case VariantBinV1::Type::VARIANT_REAL: {
-
-			r_v = f->get_real();
-		} break;
-		case VariantBinV1::Type::VARIANT_STRING: {
-			r_v = get_unicode_string();
-		} break;
-		case VariantBinV1::Type::VARIANT_VECTOR2: {
-
-			Vector2 v;
-			v.x = f->get_real();
-			v.y = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_RECT2: {
-
-			Rect2 v;
-			v.position.x = f->get_real();
-			v.position.y = f->get_real();
-			v.size.x = f->get_real();
-			v.size.y = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_VECTOR3: {
-
-			Vector3 v;
-			v.x = f->get_real();
-			v.y = f->get_real();
-			v.z = f->get_real();
-			r_v = v;
-		} break;
-		case VariantBinV1::Type::VARIANT_PLANE: {
-
-			Plane v;
-			v.normal.x = f->get_real();
-			v.normal.y = f->get_real();
-			v.normal.z = f->get_real();
-			v.d = f->get_real();
-			r_v = v;
-		} break;
-		case VariantBinV1::Type::VARIANT_QUAT: {
-			Quat v;
-			v.x = f->get_real();
-			v.y = f->get_real();
-			v.z = f->get_real();
-			v.w = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_AABB: {
-
-			AABB v;
-			v.position.x = f->get_real();
-			v.position.y = f->get_real();
-			v.position.z = f->get_real();
-			v.size.x = f->get_real();
-			v.size.y = f->get_real();
-			v.size.z = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_MATRIX32: {
-
-			Transform2D v;
-			v.elements[0].x = f->get_real();
-			v.elements[0].y = f->get_real();
-			v.elements[1].x = f->get_real();
-			v.elements[1].y = f->get_real();
-			v.elements[2].x = f->get_real();
-			v.elements[2].y = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_MATRIX3: {
-
-			Basis v;
-			v.elements[0].x = f->get_real();
-			v.elements[0].y = f->get_real();
-			v.elements[0].z = f->get_real();
-			v.elements[1].x = f->get_real();
-			v.elements[1].y = f->get_real();
-			v.elements[1].z = f->get_real();
-			v.elements[2].x = f->get_real();
-			v.elements[2].y = f->get_real();
-			v.elements[2].z = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_TRANSFORM: {
-
-			Transform v;
-			v.basis.elements[0].x = f->get_real();
-			v.basis.elements[0].y = f->get_real();
-			v.basis.elements[0].z = f->get_real();
-			v.basis.elements[1].x = f->get_real();
-			v.basis.elements[1].y = f->get_real();
-			v.basis.elements[1].z = f->get_real();
-			v.basis.elements[2].x = f->get_real();
-			v.basis.elements[2].y = f->get_real();
-			v.basis.elements[2].z = f->get_real();
-			v.origin.x = f->get_real();
-			v.origin.y = f->get_real();
-			v.origin.z = f->get_real();
-			r_v = v;
-		} break;
-		case VariantBinV1::Type::VARIANT_COLOR: {
-
-			Color v;
-			v.r = f->get_real();
-			v.g = f->get_real();
-			v.b = f->get_real();
-			v.a = f->get_real();
-			r_v = v;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_IMAGE: {
-			//Have to parse Image here
-			if (V2ImageParser::parse_image_v2(f, r_v) != OK){
-				WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
-			}
-		} break;
-		case VariantBinV1::Type::VARIANT_NODE_PATH: {
-
-			Vector<StringName> names;
-			Vector<StringName> subnames;
-			//StringName property;
-			bool absolute;
-
-			int name_count = f->get_16();
-			uint32_t subname_count = f->get_16();
-			absolute = subname_count & 0x8000;
-			subname_count &= 0x7FFF;
-
-			for (int i = 0; i < name_count; i++)
-				names.push_back(_get_string());
-			for (uint32_t i = 0; i < subname_count; i++)
-				subnames.push_back(_get_string());
-			//skip property
-			f->get_32();
-			//property = string_map[f->get_32()];
-
-			NodePath np = NodePath(names, subnames, absolute);
-			//print_line("got path: "+String(np));
-
-			r_v = np;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_RID: {
-
-			r_v = f->get_32();
-		} break;
-		case VariantBinV1::Type::VARIANT_OBJECT: {
-
-			uint32_t type = f->get_32();
-
-			switch (type) {
-
-				case VariantBinV1::Type::OBJECT_EMPTY: {
-					//do none
-
-				} break;
-				case VariantBinV1::Type::OBJECT_INTERNAL_RESOURCE: {
-					uint32_t index = f->get_32();
-					String path = res_path + "::" + itos(index);
-
-					//always use internal cache for loading internal resources
-					if (!internal_index_cache.has(path)) {
-						WARN_PRINT(String("Couldn't load resource (no cache): " + path).utf8().get_data());
-						r_v = Variant();
-					} else {
-						r_v = internal_index_cache[path];
-					}
-				} break;
-				case VariantBinV1::Type::OBJECT_EXTERNAL_RESOURCE: {
-					//old file format, still around for compatibility
-
-					String exttype = get_unicode_string();
-					String path = get_unicode_string();
-
-					if (no_ext_load){
-						r_v = set_dummy_ext(path,exttype);
-						break;
-					}
-
-					if (path.find("://") == -1 && path.is_rel_path()) {
-						// path is relative to file being loaded, so convert to a resource path
-						path = ProjectSettings::get_singleton()->localize_path(res_path.get_base_dir().plus_file(path));
-					}
-
-					if (remaps.find(path)) {
-						path = remaps[path];
-					}
-
-					RES res = ResourceLoader::load(path, exttype);
-
-					if (res.is_null()) {
-						WARN_PRINT(String("Couldn't load resource: " + path).utf8().get_data());
-					}
-					r_v = res;
-
-				} break;
-				case VariantBinV1::Type::OBJECT_EXTERNAL_RESOURCE_INDEX: {
-					//new file format, just refers to an index in the external list
-					int erindex = f->get_32();
-
-					if (erindex < 0 || erindex >= external_resources.size()) {
-						WARN_PRINT("Broken external resource! (index out of size)");
-						r_v = Variant();
-					} else {
-						//Don't load External resources
-						if (no_ext_load){
-							r_v = set_dummy_ext(erindex);
-							break;
-						}
-
-						if (external_resources[erindex].cache.is_null()) {
-							//cache not here yet, wait for it?
-							if (use_sub_threads) {
-								Error err;
-								external_resources.write[erindex].cache = ResourceLoader::load_threaded_get(external_resources[erindex].path, &err);
-
-								if (err != OK || external_resources[erindex].cache.is_null()) {
-									if (!ResourceLoader::get_abort_on_missing_resources()) {
-										ResourceLoader::notify_dependency_error(local_path, external_resources[erindex].path, external_resources[erindex].type);
-									} else {
-										error = ERR_FILE_MISSING_DEPENDENCIES;
-										ERR_FAIL_V_MSG(error, "Can't load dependency: " + external_resources[erindex].path + ".");
-									}
-								}
-							}
-						}
-
-						r_v = external_resources[erindex].cache;
-					}
-
-				} break;
-				default: {
-
-					ERR_FAIL_V(ERR_FILE_CORRUPT);
-				} break;
-			}
-
-		} break;
-		case VariantBinV1::Type::VARIANT_INPUT_EVENT: {
-			// No need, they're not saved in binary files
-		} break;
-		case VariantBinV1::Type::VARIANT_DICTIONARY: {
-
-			uint32_t len = f->get_32();
-			Dictionary d = Dictionary(); //last bit means shared
-			len &= 0x7FFFFFFF;
-			for (uint32_t i = 0; i < len; i++) {
-				Variant key;
-				Error err = parse_variantv2(key);
-				ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
-				Variant value;
-				err = parse_variantv2(value);
-				ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
-				d[key] = value;
-			}
-			r_v = d;
-		} break;
-		case VariantBinV1::Type::VARIANT_ARRAY: {
-
-			uint32_t len = f->get_32();
-			Array a = Array(); //last bit means shared
-			len &= 0x7FFFFFFF;
-			a.resize(len);
-			for (uint32_t i = 0; i < len; i++) {
-				Variant val;
-				Error err = parse_variantv2(val);
-				ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
-				a[i] = val;
-			}
-			r_v = a;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_RAW_ARRAY: {
-
-			uint32_t len = f->get_32();
-
-			Vector<uint8_t> array;
-			array.resize(len);
-			uint8_t *w = array.ptrw();
-			f->get_buffer(w, len);
-			_advance_padding(len);
-			r_v = array;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_INT_ARRAY: {
-
-			uint32_t len = f->get_32();
-
-			Vector<int32_t> array;
-			array.resize(len);
-			int32_t *w = array.ptrw();
-			f->get_buffer((uint8_t *)w, len * sizeof(int32_t));
-#ifdef BIG_ENDIAN_ENABLED
-			{
-				uint32_t *ptr = (uint32_t *)w.ptr();
-				for (int i = 0; i < len; i++) {
-					ptr[i] = BSWAP32(ptr[i]);
-				}
-			}
-
-#endif
-			r_v = array;
-		} break;
-		case VariantBinV1::Type::VARIANT_REAL_ARRAY: {
-
-			uint32_t len = f->get_32();
-
-			Vector<float> array;
-			array.resize(len);
-			float *w = array.ptrw();
-			f->get_buffer((uint8_t *)w, len * sizeof(float));
-#ifdef BIG_ENDIAN_ENABLED
-			{
-				uint32_t *ptr = (uint32_t *)w.ptr();
-				for (int i = 0; i < len; i++) {
-					ptr[i] = BSWAP32(ptr[i]);
-				}
-			}
-
-#endif
-
-			r_v = array;
-		} break;
-		case VariantBinV1::Type::VARIANT_STRING_ARRAY: {
-
-			uint32_t len = f->get_32();
-			Vector<String> array;
-			array.resize(len);
-			String *w = array.ptrw();
-			for (uint32_t i = 0; i < len; i++) {
-				w[i] = get_unicode_string();
-			}
-			r_v = array;
-		} break;
-		case VariantBinV1::Type::VARIANT_VECTOR2_ARRAY: {
-
-			uint32_t len = f->get_32();
-
-			Vector<Vector2> array;
-			array.resize(len);
-			Vector2 *w = array.ptrw();
-			if (sizeof(Vector2) == 8) {
-				f->get_buffer((uint8_t *)w, len * sizeof(real_t) * 2);
-#ifdef BIG_ENDIAN_ENABLED
-				{
-					uint32_t *ptr = (uint32_t *)w.ptr();
-					for (int i = 0; i < len * 2; i++) {
-						ptr[i] = BSWAP32(ptr[i]);
-					}
-				}
-
-#endif
-
-			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Vector2 size is NOT 8!");
-			}
-
-			r_v = array;
-
-		} break;
-		case VariantBinV1::Type::VARIANT_VECTOR3_ARRAY: {
-			uint32_t len = f->get_32();
-
-			Vector<Vector3> array;
-			array.resize(len);
-			Vector3 *w = array.ptrw();
-			if (sizeof(Vector3) == 12) {
-				f->get_buffer((uint8_t *)w, len * sizeof(real_t) * 3);
-#ifdef BIG_ENDIAN_ENABLED
-				{
-					uint32_t *ptr = (uint32_t *)w.ptr();
-					for (int i = 0; i < len * 3; i++) {
-						ptr[i] = BSWAP32(ptr[i]);
-					}
-				}
-#endif
-			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Vector3 size is NOT 12!");
-			}
-
-			r_v = array;
-		} break;
-		case VariantBinV1::Type::VARIANT_COLOR_ARRAY: {
-
-			uint32_t len = f->get_32();
-
-			Vector<Color> array;
-			array.resize(len);
-			Color *w = array.ptrw();
-			if (sizeof(Color) == 16) {
-				f->get_buffer((uint8_t *)w, len * sizeof(real_t) * 4);
-#ifdef BIG_ENDIAN_ENABLED
-				{
-					uint32_t *ptr = (uint32_t *)w.ptr();
-					for (int i = 0; i < len * 4; i++) {
-						ptr[i] = BSWAP32(ptr[i]);
-					}
-				}
-#endif
-			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Color size is NOT 16!");
-			}
-			r_v = array;
-		} break;
-
-		default: {
-			ERR_FAIL_V(ERR_FILE_CORRUPT);
-		} break;
-	}
-
-	return OK; //never reach anyway
-}
-
-Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
+Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 	uint32_t type = f->get_32();
 	//print_bl("find property of type: %d", type);
 
 	switch (type) {
-		case VariantBinV3::Type::VARIANT_NIL: {
+		case VariantBin::Type::VARIANT_NIL: {
 			r_v = Variant();
 		} break;
-		case VariantBinV3::Type::VARIANT_BOOL: {
+		case VariantBin::Type::VARIANT_BOOL: {
 			r_v = bool(f->get_32());
 		} break;
-		case VariantBinV3::Type::VARIANT_INT: {
+		case VariantBin::Type::VARIANT_INT: {
 			r_v = int(f->get_32());
 		} break;
-		case VariantBinV3::Type::VARIANT_INT64: {
+		case VariantBin::Type::VARIANT_INT64: {
 			r_v = int64_t(f->get_64());
 		} break;
-		case VariantBinV3::Type::VARIANT_FLOAT: {
+		case VariantBin::Type::VARIANT_FLOAT: {
 			r_v = f->get_real();
 		} break;
-		case VariantBinV3::Type::VARIANT_DOUBLE: {
+		case VariantBin::Type::VARIANT_DOUBLE: {
 			r_v = f->get_double();
 		} break;
-		case VariantBinV3::Type::VARIANT_STRING: {
+		case VariantBin::Type::VARIANT_STRING: {
 			r_v = get_unicode_string();
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR2: {
+		case VariantBin::Type::VARIANT_VECTOR2: {
 			Vector2 v;
 			v.x = f->get_real();
 			v.y = f->get_real();
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR2I: {
+		case VariantBin::Type::VARIANT_VECTOR2I: {
 			Vector2i v;
 			v.x = f->get_32();
 			v.y = f->get_32();
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_RECT2: {
+		case VariantBin::Type::VARIANT_RECT2: {
 			Rect2 v;
 			v.position.x = f->get_real();
 			v.position.y = f->get_real();
@@ -1110,7 +790,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_RECT2I: {
+		case VariantBin::Type::VARIANT_RECT2I: {
 			Rect2i v;
 			v.position.x = f->get_32();
 			v.position.y = f->get_32();
@@ -1119,21 +799,21 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR3: {
+		case VariantBin::Type::VARIANT_VECTOR3: {
 			Vector3 v;
 			v.x = f->get_real();
 			v.y = f->get_real();
 			v.z = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR3I: {
+		case VariantBin::Type::VARIANT_VECTOR3I: {
 			Vector3i v;
 			v.x = f->get_32();
 			v.y = f->get_32();
 			v.z = f->get_32();
 			r_v = v;
 		} break;
-		case VariantBinV3::Type::VARIANT_PLANE: {
+		case VariantBin::Type::VARIANT_PLANE: {
 			Plane v;
 			v.normal.x = f->get_real();
 			v.normal.y = f->get_real();
@@ -1141,7 +821,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			v.d = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBinV3::Type::VARIANT_QUAT: {
+		case VariantBin::Type::VARIANT_QUAT: {
 			Quat v;
 			v.x = f->get_real();
 			v.y = f->get_real();
@@ -1150,7 +830,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_AABB: {
+		case VariantBin::Type::VARIANT_AABB: {
 			AABB v;
 			v.position.x = f->get_real();
 			v.position.y = f->get_real();
@@ -1161,7 +841,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_MATRIX32: {
+		case VariantBin::Type::VARIANT_MATRIX32: {
 			Transform2D v;
 			v.elements[0].x = f->get_real();
 			v.elements[0].y = f->get_real();
@@ -1172,7 +852,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_MATRIX3: {
+		case VariantBin::Type::VARIANT_MATRIX3: {
 			Basis v;
 			v.elements[0].x = f->get_real();
 			v.elements[0].y = f->get_real();
@@ -1186,7 +866,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_TRANSFORM: {
+		case VariantBin::Type::VARIANT_TRANSFORM: {
 			Transform v;
 			v.basis.elements[0].x = f->get_real();
 			v.basis.elements[0].y = f->get_real();
@@ -1202,7 +882,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			v.origin.z = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBinV3::Type::VARIANT_COLOR: {
+		case VariantBin::Type::VARIANT_COLOR: {
 			Color v; // Colors should always be in single-precision.
 			v.r = f->get_float();
 			v.g = f->get_float();
@@ -1211,11 +891,17 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_STRING_NAME: {
+		case VariantBin::Type::VARIANT_STRING_NAME: {
 			r_v = StringName(get_unicode_string());
 		} break;
-
-		case VariantBinV3::Type::VARIANT_NODE_PATH: {
+		//Old Godot 2.x Image variant, convert into an object
+		case VariantBin::Type::VARIANT_IMAGE: {
+			//Have to parse Image here
+			if (V2ImageParser::parse_image_v2(f, r_v, true, convert_v2image_indexed) != OK){
+				WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
+			}
+		} break;
+		case VariantBin::Type::VARIANT_NODE_PATH: {
 			Vector<StringName> names;
 			Vector<StringName> subnames;
 			bool absolute;
@@ -1224,35 +910,38 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			uint32_t subname_count = f->get_16();
 			absolute = subname_count & 0x8000;
 			subname_count &= 0x7FFF;
-			int ver_format = 2;
-			if (ver_format < VariantBinV3::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
+			bool has_property = ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY;
+			if (has_property) {
 				subname_count += 1; // has a property field, so we should count it as well
 			}
-
 			for (int i = 0; i < name_count; i++) {
 				names.push_back(_get_string());
 			}
 			for (uint32_t i = 0; i < subname_count; i++) {
 				subnames.push_back(_get_string());
 			}
-
+			//empty property field, remove it
+			if (has_property && subnames[subnames.size() - 1] == "") {
+				subnames.remove(subnames.size() - 1);
+			}
 			NodePath np = NodePath(names, subnames, absolute);
 
 			r_v = np;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_RID: {
+		case VariantBin::Type::VARIANT_RID: {
 			r_v = f->get_32();
 		} break;
-		case VariantBinV3::Type::VARIANT_OBJECT: {
+		
+		case VariantBin::Type::VARIANT_OBJECT: {
 			uint32_t objtype = f->get_32();
 
 			switch (objtype) {
-				case VariantBinV3::Type::OBJECT_EMPTY: {
+				case VariantBin::Type::OBJECT_EMPTY: {
 					//do none
 
 				} break;
-				case VariantBinV3::Type::OBJECT_INTERNAL_RESOURCE: {
+				case VariantBin::Type::OBJECT_INTERNAL_RESOURCE: {
 					uint32_t index = f->get_32();
 					String path = res_path + "::" + itos(index);
 
@@ -1265,7 +954,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 					}
 
 				} break;
-				case VariantBinV3::Type::OBJECT_EXTERNAL_RESOURCE: {
+				case VariantBin::Type::OBJECT_EXTERNAL_RESOURCE: {
 					//old file format, still around for compatibility
 
 					String exttype = get_unicode_string();
@@ -1293,7 +982,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 					r_v = res;
 
 				} break;
-				case VariantBinV3::Type::OBJECT_EXTERNAL_RESOURCE_INDEX: {
+				case VariantBin::Type::OBJECT_EXTERNAL_RESOURCE_INDEX: {
 					//new file format, just refers to an index in the external list
 					int erindex = f->get_32();
 
@@ -1334,43 +1023,49 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			}
 
 		} break;
-		case VariantBinV3::Type::VARIANT_CALLABLE: {
+
+		// Old Godot 2.x InputEvent variant, should never encounter these
+		// They were never saved into the binary resource files.
+		case VariantBin::Type::VARIANT_INPUT_EVENT: {
+				WARN_PRINT(String("Encountered a Input event variant?!?!?").utf8().get_data());
+		} break;
+		case VariantBin::Type::VARIANT_CALLABLE: {
 			r_v = Callable();
 		} break;
-		case VariantBinV3::Type::VARIANT_SIGNAL: {
+		case VariantBin::Type::VARIANT_SIGNAL: {
 			r_v = Signal();
 		} break;
 
-		case VariantBinV3::Type::VARIANT_DICTIONARY: {
+		case VariantBin::Type::VARIANT_DICTIONARY: {
 			uint32_t len = f->get_32();
 			Dictionary d; //last bit means shared
 			len &= 0x7FFFFFFF;
 			for (uint32_t i = 0; i < len; i++) {
 				Variant key;
-				Error err = parse_variantv3v4(key);
+				Error err = parse_variant(key);
 				ERR_FAIL_COND_V_MSG(err, ERR_FILE_CORRUPT, "Error when trying to parse Variant.");
 				Variant value;
-				err = parse_variantv3v4(value);
+				err = parse_variant(value);
 				ERR_FAIL_COND_V_MSG(err, ERR_FILE_CORRUPT, "Error when trying to parse Variant.");
 				d[key] = value;
 			}
 			r_v = d;
 		} break;
-		case VariantBinV3::Type::VARIANT_ARRAY: {
+		case VariantBin::Type::VARIANT_ARRAY: {
 			uint32_t len = f->get_32();
 			Array a; //last bit means shared
 			len &= 0x7FFFFFFF;
 			a.resize(len);
 			for (uint32_t i = 0; i < len; i++) {
 				Variant val;
-				Error err = parse_variantv3v4(val);
+				Error err = parse_variant(val);
 				ERR_FAIL_COND_V_MSG(err, ERR_FILE_CORRUPT, "Error when trying to parse Variant.");
 				a[i] = val;
 			}
 			r_v = a;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_RAW_ARRAY: {
+		case VariantBin::Type::VARIANT_RAW_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<uint8_t> array;
@@ -1382,11 +1077,15 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_INT32_ARRAY: {
+		case VariantBin::Type::VARIANT_INT32_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<int32_t> array;
 			array.resize(len);
+			if (len == 0){
+				r_v = array;
+				break;
+			}
 			int32_t *w = array.ptrw();
 			f->get_buffer((uint8_t *)w, len * sizeof(int32_t));
 #ifdef BIG_ENDIAN_ENABLED
@@ -1401,11 +1100,15 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBinV3::Type::VARIANT_INT64_ARRAY: {
+		case VariantBin::Type::VARIANT_INT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<int64_t> array;
 			array.resize(len);
+			if (len == 0){
+				r_v = array;
+				break;
+			}
 			int64_t *w = array.ptrw();
 			f->get_buffer((uint8_t *)w, len * sizeof(int64_t));
 #ifdef BIG_ENDIAN_ENABLED
@@ -1420,12 +1123,17 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBinV3::Type::VARIANT_FLOAT32_ARRAY: {
+		case VariantBin::Type::VARIANT_FLOAT32_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<float> array;
 			array.resize(len);
+			if (len == 0){
+				r_v = array;
+				break;
+			}
 			float *w = array.ptrw();
+			
 			f->get_buffer((uint8_t *)w, len * sizeof(float));
 #ifdef BIG_ENDIAN_ENABLED
 			{
@@ -1439,11 +1147,16 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBinV3::Type::VARIANT_FLOAT64_ARRAY: {
+		case VariantBin::Type::VARIANT_FLOAT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<double> array;
 			array.resize(len);
+			if (len == 0){
+				r_v = array;
+				break;
+			}
+
 			double *w = array.ptrw();
 			f->get_buffer((uint8_t *)w, len * sizeof(double));
 #ifdef BIG_ENDIAN_ENABLED
@@ -1458,7 +1171,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBinV3::Type::VARIANT_STRING_ARRAY: {
+		case VariantBin::Type::VARIANT_STRING_ARRAY: {
 			uint32_t len = f->get_32();
 			Vector<String> array;
 			array.resize(len);
@@ -1470,7 +1183,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR2_ARRAY: {
+		case VariantBin::Type::VARIANT_VECTOR2_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Vector2> array;
@@ -1495,7 +1208,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_VECTOR3_ARRAY: {
+		case VariantBin::Type::VARIANT_VECTOR3_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Vector3> array;
@@ -1520,7 +1233,7 @@ Error ResourceLoaderBinaryCompat::parse_variantv3v4(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBinV3::Type::VARIANT_COLOR_ARRAY: {
+		case VariantBin::Type::VARIANT_COLOR_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Color> array;

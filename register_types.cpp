@@ -7,7 +7,7 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "editor/gdre_editor.h"
-#include "editor/pck_info.h"
+#include "utility/pck_info.h"
 #include "utility/old_stream_texture.h"
 
 #ifdef TOOLS_ENABLED

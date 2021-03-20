@@ -7,73 +7,20 @@
 #include "scene/resources/packed_scene.h"
 
 #ifdef TOOLS_ENABLED
-#define print_bl(m_what) print_line(m_what)
+#define print_bl(m_what) (void)(m_what)
+//#define print_bl(m_what) print_line(m_what)
 #else 
 #define print_bl(m_what) (void)(m_what)
 #endif
-namespace VariantBinV3{
+namespace VariantBin{
 	
 	enum Type {
 		//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
 		VARIANT_NIL = 1,
 		VARIANT_BOOL = 2,
 		VARIANT_INT = 3,
+		VARIANT_REAL = 4, //Old name for VARIANT_FLOAT
 		VARIANT_FLOAT = 4,
-		VARIANT_STRING = 5,
-		VARIANT_VECTOR2 = 10,
-		VARIANT_RECT2 = 11,
-		VARIANT_VECTOR3 = 12,
-		VARIANT_PLANE = 13,
-		VARIANT_QUAT = 14,
-		VARIANT_AABB = 15,
-		VARIANT_MATRIX3 = 16,
-		VARIANT_TRANSFORM = 17,
-		VARIANT_MATRIX32 = 18,
-		VARIANT_COLOR = 20,
-		VARIANT_NODE_PATH = 22,
-		VARIANT_RID = 23,
-		VARIANT_OBJECT = 24,
-		VARIANT_INPUT_EVENT = 25,
-		VARIANT_DICTIONARY = 26,
-		VARIANT_ARRAY = 30,
-		VARIANT_RAW_ARRAY = 31,
-		VARIANT_INT32_ARRAY = 32,
-		VARIANT_FLOAT32_ARRAY = 33,
-		VARIANT_STRING_ARRAY = 34,
-		VARIANT_VECTOR3_ARRAY = 35,
-		VARIANT_COLOR_ARRAY = 36,
-		VARIANT_VECTOR2_ARRAY = 37,
-		VARIANT_INT64 = 40,
-		VARIANT_DOUBLE = 41,
-		VARIANT_CALLABLE = 42,
-		VARIANT_SIGNAL = 43,
-		VARIANT_STRING_NAME = 44,
-		VARIANT_VECTOR2I = 45,
-		VARIANT_RECT2I = 46,
-		VARIANT_VECTOR3I = 47,
-		VARIANT_INT64_ARRAY = 48,
-		VARIANT_FLOAT64_ARRAY = 49,
-		OBJECT_EMPTY = 0,
-		OBJECT_EXTERNAL_RESOURCE = 1,
-		OBJECT_INTERNAL_RESOURCE = 2,
-		OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
-		//version 2: added 64 bits support for float and int
-		//version 3: changed nodepath encoding
-		FORMAT_VERSION = 3,
-		FORMAT_VERSION_CAN_RENAME_DEPS = 1,
-		FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
-	};
-
-}
-
-namespace VariantBinV1{
-	
-	enum Type {
-		//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
-		VARIANT_NIL = 1,
-		VARIANT_BOOL = 2,
-		VARIANT_INT = 3,
-		VARIANT_REAL = 4,
 		VARIANT_STRING = 5,
 		VARIANT_VECTOR2 = 10,
 		VARIANT_RECT2 = 11,
@@ -93,13 +40,30 @@ namespace VariantBinV1{
 		VARIANT_DICTIONARY = 26,
 		VARIANT_ARRAY = 30,
 		VARIANT_RAW_ARRAY = 31,
-		VARIANT_INT_ARRAY = 32,
-		VARIANT_REAL_ARRAY = 33,
+		VARIANT_INT_ARRAY = 32, //Old name for VARIANT_INT32_ARRAY
+		VARIANT_INT32_ARRAY = 32,
+		VARIANT_REAL_ARRAY = 33, //Old name for VARIANT_FLOAT32_ARRAY
+		VARIANT_FLOAT32_ARRAY = 33,
 		VARIANT_STRING_ARRAY = 34,
 		VARIANT_VECTOR3_ARRAY = 35,
 		VARIANT_COLOR_ARRAY = 36,
 		VARIANT_VECTOR2_ARRAY = 37,
+		VARIANT_INT64 = 40,
+		VARIANT_DOUBLE = 41,
+		VARIANT_CALLABLE = 42,
+		VARIANT_SIGNAL = 43,
+		VARIANT_STRING_NAME = 44,
+		VARIANT_VECTOR2I = 45,
+		VARIANT_RECT2I = 46,
+		VARIANT_VECTOR3I = 47,
+		VARIANT_INT64_ARRAY = 48,
+		VARIANT_FLOAT64_ARRAY = 49,
+		OBJECT_EMPTY = 0,
+		OBJECT_EXTERNAL_RESOURCE = 1,
+		OBJECT_INTERNAL_RESOURCE = 2,
+		OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
 
+		//Old variant image enums
 		IMAGE_ENCODING_EMPTY = 0,
 		IMAGE_ENCODING_RAW = 1,
 		IMAGE_ENCODING_LOSSLESS = 2,
@@ -127,13 +91,13 @@ namespace VariantBinV1{
 		IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED = 19,
 		IMAGE_FORMAT_CUSTOM = 30,
 
-		OBJECT_EMPTY = 0,
-		OBJECT_EXTERNAL_RESOURCE = 1,
-		OBJECT_INTERNAL_RESOURCE = 2,
-		OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
-		FORMAT_VERSION = 1,
-		FORMAT_VERSION_CAN_RENAME_DEPS = 1
+		//version 2: added 64 bits support for float and int
+		//version 3: changed nodepath encoding
+		FORMAT_VERSION = 3,
+		FORMAT_VERSION_CAN_RENAME_DEPS = 1,
+		FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 	};
+
 }
 
 class ResourceLoaderBinaryCompat {
@@ -141,18 +105,12 @@ class ResourceLoaderBinaryCompat {
 	bool no_ext_load = false;
 	String local_path;
 	String res_path;
+
 	String type;
 	Ref<Resource> resource;
 	uint32_t ver_format = 0;
 	uint32_t engine_ver_major = 0;
-
-	Map<String, String> typeV2toV3Renames;
-	Map<String, String> typeV3toV2Renames;
-	Map<String, String> propV2toV3Renames;
-	Map<String, String> propV3toV2Renames;
-	Map<String, String> signalV2toV3Renames;
-	Map<String, String> signalV3toV2Renames;
-
+	bool convert_v2image_indexed = false;
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
@@ -197,11 +155,12 @@ class ResourceLoaderBinaryCompat {
 	friend class ResourceFormatLoaderBinaryCompat;
 
 	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
+	Error load_import_metadata(Dictionary &r_var);
 	static Error _get_resource_header(FileAccess *f);
 	RES set_dummy_ext(const String& path, const String& exttype);
 	RES set_dummy_ext(const uint32_t erindex);
 	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
-
+	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 	void clear_dummy_externals();
 
 	Map<String, RES> dependency_cache;
@@ -216,7 +175,7 @@ class ResourceLoaderBinaryCompat {
 		Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
 		static String _write_fake_resources(void *ud, const RES &p_resource);
 		String _write_fake_resource(const RES &res);
-		Error parse_variantv3v4(Variant &r_v);
+		Error parse_variant(Variant &r_v);
 		ResourceLoaderBinaryCompat();
 		~ResourceLoaderBinaryCompat();
 };
@@ -234,9 +193,12 @@ class FakeResource : public PackedScene {
 
 class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
 private:
-	ResourceLoaderBinaryCompat _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
+	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
+
 public:
-	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr );
+	Error get_v2_import_metadata(const String &p_path, const String &base_dir, Dictionary &r_var);
+	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
+	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 };
 
 
