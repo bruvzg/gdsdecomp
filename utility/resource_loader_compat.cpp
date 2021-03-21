@@ -5,7 +5,7 @@
 #include "V2ImageParser.h"
 #include "godot3_export.h"
 #include "core/version.h"
-
+#include "core/os/dir_access.h"
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
 	String dst_path = dst;
@@ -33,8 +33,10 @@ Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path,
 	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '"+ dst +"'.");
 	return OK;
 }
-Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir, float *r_progress) {
+
+Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir, const bool rewrite_metadata, float *r_progress) {
 	Error error = OK;
+	String rel_dst_path = dst.replace_first("res://", "");
 	String dst_path = dst;
 	//Relative path
 	if (!output_dir.is_empty()) {
@@ -45,7 +47,6 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 	if (error != OK && loader != nullptr) {
 		memdelete(loader);
 	}
-
 	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot open file '" + p_path + "'.");
 
 	error = loader->fake_load();
@@ -53,12 +54,14 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 		memdelete(loader);
 	}
 	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot load resource '" + p_path + "'.");
-	//Load the main resource, which should be the ImageTexture
-	List<ResourceLoaderBinaryCompat::ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	String name;
+	
 	Ref<Image> img;
-	for (List<ResourceLoaderBinaryCompat::ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceLoaderBinaryCompat::ResourceProperty pe = PE->get();
+	String name;
+	
+	//Load the main resource, which should be the ImageTexture
+	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
+	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
+		ResourceProperty pe = PE->get();
 		if (pe.name == "resource/name") {
 			name = pe.value;
 		}
@@ -66,13 +69,56 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 			img = pe.value;
 		}
 	}
-	memdelete(loader);
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
+	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to load image from '" + p_path + "'.");
 
-	ERR_FAIL_COND_V_MSG(!img.is_valid(), error, "Cannot load tex '" + p_path + "'.");
 	error = img->save_png(dst_path);
+	if (error != OK && loader != nullptr) {
+		memdelete(loader);
+	}
 	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.");
+
+	if (rewrite_metadata){
+		error = _rewrite_import_metadata(loader, name, rel_dst_path);
+		if (error == ERR_UNAVAILABLE){
+			WARN_PRINT("Unable to read import metadata, did not save new import metadata");
+		} else if (error != OK) {
+			memdelete(loader);
+			ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.");
+		}
+	}
+	memdelete(loader);
 	return OK;
 }
+
+Error ResourceFormatLoaderBinaryCompat::_rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path){
+	//Rewrite the metadata
+	if(!loader->imd.is_valid() || loader->imd->get_source_count() <= 0){
+		return ERR_UNAVAILABLE;
+	}
+	if (loader->imd->get_source_count() > 1){
+		WARN_PRINT("multiple import sources detected!?");
+	}
+	int i;
+	for (i = 0; i < loader->imd->get_source_count(); i++) {
+		// case insensitive windows paths...
+		if (loader->imd->get_source_path(i).get_file().to_lower() == name.to_lower()){
+			// We won't recalculate here, to force a re-import upon load
+			String md5 = loader->imd->get_source_md5(i);
+			loader->imd->remove_source(i);
+			loader->imd->add_source(rel_dst_path, md5);
+			break;
+		}
+	}
+	// Did not find the file name in the metadata sources
+	if (i == loader->imd->get_source_count()) {
+		return ERR_CANT_RESOLVE;
+	}
+	return loader->save_to_bin(loader->res_path + ".tmp");
+}
+
 ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
 
 	Error error = OK;
@@ -99,17 +145,13 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const Strin
 	}
 
 	if (error != OK){
-		if (f && f->is_open()){
-			f->close();
-			memdelete(f);
-		}
 		ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot load resource '" + path + "'.");
 	}
 
 	return loader;
 }
 
-Error ResourceFormatLoaderBinaryCompat::get_v2_import_metadata(const String &p_path, const String &base_dir, Dictionary &r_var) {
+Error ResourceFormatLoaderBinaryCompat::get_v2_import_metadata(const String &p_path, const String &base_dir, Ref<ResourceImportMetadatav2> &r_var) {
 
 	Error error = OK;
 	//Relative path
@@ -118,105 +160,40 @@ Error ResourceFormatLoaderBinaryCompat::get_v2_import_metadata(const String &p_p
 		memdelete(loader);
 	}
 	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot open file '" + p_path + "'.");
-	error = loader->load_import_metadata(r_var);
-	if (loader->f) {
-		loader->f->close();
-	}
+	error = loader->load_import_metadata();
+	r_var = loader->imd;
 	memdelete(loader);
 	return error;
 }
 
-Error ResourceLoaderBinaryCompat::load_import_metadata(Dictionary& r_var) {
+Error ResourceLoaderBinaryCompat::load_import_metadata() {
 	if (!f) {
 		return ERR_CANT_ACQUIRE_RESOURCE;
 	}
 	if (importmd_ofs == 0) {
 		return ERR_UNAVAILABLE;
 	}
+	if (imd.is_null()){
+		imd.instance();
+	}
 	f->seek(importmd_ofs);
-	String editor = get_unicode_string();
-	r_var["type"] = editor;
+	imd->set_editor(get_unicode_string());
 	int sc = f->get_32();
 	for (int i = 0; i < sc; i++) {
+
 		String src = get_unicode_string();
 		String md5 = get_unicode_string();
-		r_var["src"] = src;
-		r_var["md5"] = md5;
+		imd->add_source(src, md5);
 	}
 	int pc = f->get_32();
-	Dictionary props;
-	for (int i = 0; i < pc; i++) {
 
+	for (int i = 0; i < pc; i++) {
 		String name = get_unicode_string();
 		Variant val;
 		parse_variant(val);
-		props[name] = val;
-	}
-	r_var["properties"] = props;
-	return OK;
-}
-
-Error ResourceLoaderBinaryCompat::_get_resource_header(FileAccess *f){
-	uint8_t header[4];
-	Error r_error;
-	f->get_buffer(header, 4);
-	if (header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C') {
-		// Compressed.
-		FileAccessCompressed *fac = memnew(FileAccessCompressed);
-		r_error = fac->open_after_magic(f);
-		
-		if (r_error != OK) {
-			memdelete(fac);
-			f->close();
-			ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Cannot decompress compressed resource file '" + f->get_path() + "'.");
-		}
-		f = fac;
-
-	} else if (header[0] != 'R' || header[1] != 'S' || header[2] != 'R' || header[3] != 'C') {
-		// Not normal.
-		r_error = ERR_FILE_UNRECOGNIZED;
-		f->close();
-		ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Unable to recognize  '" + f->get_path() + "'.");
+		imd->set_option(name, val);
 	}
 	return OK;
-}
-
-Map<String,String> ResourceLoaderBinaryCompat::_get_file_info(FileAccess *f, Error *r_error){
-	Map<String,String> ret;
-	
-	Error err = _get_resource_header(f);
-	if (r_error){
-		*r_error = err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, ret, "Cannot get resource file header");
-
-	bool big_endian = f->get_32();
-	f->get_32(); // use_real64
-
-	f->set_endian_swap(big_endian != 0); //read big endian if saved as big endian
-	ret["ver_major"] = itos(f->get_32());
-	ret["ver_minor"] = itos(f->get_32());
-	ret["ver_format"] = itos(f->get_32());
-	ret["type"] = get_ustring(f);
-	return ret;
-}
-
-Map<String,String> ResourceLoaderBinaryCompat::get_version_and_type(const String &p_path, Error *r_error){
-	Error err;
-	Map<String,String> ret;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (r_error){
-		*r_error = err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, ret, "Cannot open file '" + p_path + "'.");
-	ret = _get_file_info(f, &err);
-	if (r_error){
-		*r_error = err;
-	}
-
-	f->close();
-	return ret;
-	
 }
 
 StringName ResourceLoaderBinaryCompat::_get_string() {
@@ -269,11 +246,11 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	bool use_real64 = f->get_32();
 	
 	f->set_endian_swap(big_endian != 0); //read big endian if saved as big endian
-
+	stored_big_endian = big_endian;
 	engine_ver_major = f->get_32();
-	uint32_t ver_minor = f->get_32();
+	engine_ver_minor = f->get_32();
 	ver_format = f->get_32();
-
+	stored_use_real64 = use_real64;
 	print_bl("big endian: " + itos(big_endian));
 #ifdef BIG_ENDIAN_ENABLED
 	print_bl("endian swap: " + itos(!big_endian));
@@ -282,7 +259,7 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 #endif
 	print_bl("real64: " + itos(use_real64));
 	print_bl("major: " + itos(engine_ver_major));
-	print_bl("minor: " + itos(ver_minor));
+	print_bl("minor: " + itos(engine_ver_minor));
 	print_bl("format: " + itos(ver_format));
 	ERR_FAIL_COND_V_MSG(engine_ver_major > 4, ERR_FILE_UNRECOGNIZED, 
 				"Unsupported engine version " + itos(engine_ver_major) + " used to create resource '" + res_path + "'.");
@@ -362,10 +339,10 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 	int stage = 0;
 	Vector<String> lines;
 	for (int i = 0; i < external_resources.size(); i++) {
+		// no_ext_load
 		set_dummy_ext(i);
 		stage++;
 	}
-	
 
 	for (int i = 0; i < internal_resources.size(); i++) {
 		bool main = i == (internal_resources.size() - 1);
@@ -414,24 +391,18 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 			rp.type = value.get_type();
 			lrp.push_back(rp);
 		}
+		internal_index_cached_properties[path] = lrp;
+		internal_index_cache[path] = make_dummy(path, rtype, subindex);
 
-		if (!main ) {
-			internal_index_cached_properties[path] = lrp;
-			internal_index_cache[path] = make_dummy(path, rtype, subindex);
-		} else {
+		if (main && type == "PackedScene"){
 			// packed scenes with instances for nodes won't work right without creating an instance of it
-			if (type == "PackedScene"){
-				Ref<PackedScene> ps;
-				ps.instance();
-				String valstring;
-				// Debug print
-				// debug_print_properties(path, rtype, lrp);
-				ps->set(lrp.front()->get().name, lrp.front()->get().value);
-				resource = ps;
-			} else {
-				internal_index_cached_properties[path] = lrp;
-				internal_index_cache[path] = make_dummy(path, rtype, subindex);
-			}
+			Ref<PackedScene> ps;
+			ps.instance();
+			String valstring;
+			// Debug print
+			// debug_print_properties(path, rtype, lrp);
+			ps->set(lrp.front()->get().name, lrp.front()->get().value);
+			resource = ps;
 		}
 
 		stage++;
@@ -441,12 +412,19 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 		}
 
 		if (main) {
-			f->close();
+			// Get the import metadata, if we're able to
+			if (engine_ver_major == 2){
+				Error limperr = load_import_metadata();
+				if (limperr != OK && limperr != ERR_UNAVAILABLE){
+					error = limperr;
+					ERR_FAIL_V_MSG(error, "Failed to load");
+				}
+			}
 			error = OK;
 			return OK;
 		}
 	}
-
+	//If we got here, we never loaded the main resource
 	return ERR_FILE_EOF;
 }
 
@@ -1265,5 +1243,509 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 	return OK; //never reach anyway
 }
 
+void ResourceLoaderBinaryCompat::save_unicode_string(const String &p_string) {
+	CharString utf8 = p_string.utf8();
+	f->store_32(utf8.length() + 1);
+	f->store_buffer((const uint8_t *)utf8.get_data(), utf8.length() + 1);
+}
+
+Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property, const PropertyInfo &p_hint) {
+
+	switch (p_property.get_type()) {
+
+		case Variant::NIL: {
+
+			f->store_32(VariantBin::Type::VARIANT_NIL);
+			// don't store anything
+		} break;
+		case Variant::BOOL: {
+
+			f->store_32(VariantBin::Type::VARIANT_BOOL);
+			bool val = p_property;
+			f->store_32(val);
+		} break;
+		case Variant::INT: {
+
+			f->store_32(VariantBin::Type::VARIANT_INT);
+			int val = p_property;
+			f->store_32(val);
+		} break;
+		case Variant::FLOAT: {
+
+			f->store_32(VariantBin::Type::VARIANT_REAL);
+			real_t val = p_property;
+			f->store_real(val);
+
+		} break;
+		case Variant::STRING: {
+
+			f->store_32(VariantBin::Type::VARIANT_STRING);
+			String val = p_property;
+			save_unicode_string(val);
+
+		} break;
+		case Variant::VECTOR2: {
+
+			f->store_32(VariantBin::Type::VARIANT_VECTOR2);
+			Vector2 val = p_property;
+			f->store_real(val.x);
+			f->store_real(val.y);
+
+		} break;
+		case Variant::RECT2: {
+
+			f->store_32(VariantBin::Type::VARIANT_RECT2);
+			Rect2 val = p_property;
+			f->store_real(val.position.x);
+			f->store_real(val.position.y);
+			f->store_real(val.size.x);
+			f->store_real(val.size.y);
+
+		} break;
+		case Variant::VECTOR3: {
+
+			f->store_32(VariantBin::Type::VARIANT_VECTOR3);
+			Vector3 val = p_property;
+			f->store_real(val.x);
+			f->store_real(val.y);
+			f->store_real(val.z);
+
+		} break;
+		case Variant::PLANE: {
+
+			f->store_32(VariantBin::Type::VARIANT_PLANE);
+			Plane val = p_property;
+			f->store_real(val.normal.x);
+			f->store_real(val.normal.y);
+			f->store_real(val.normal.z);
+			f->store_real(val.d);
+
+		} break;
+		case Variant::QUAT: {
+
+			f->store_32(VariantBin::Type::VARIANT_QUAT);
+			Quat val = p_property;
+			f->store_real(val.x);
+			f->store_real(val.y);
+			f->store_real(val.z);
+			f->store_real(val.w);
+
+		} break;
+		case Variant::AABB: {
+
+			f->store_32(VariantBin::Type::VARIANT_AABB);
+			AABB val = p_property;
+			f->store_real(val.position.x);
+			f->store_real(val.position.y);
+			f->store_real(val.position.z);
+			f->store_real(val.size.x);
+			f->store_real(val.size.y);
+			f->store_real(val.size.z);
+
+		} break;
+		case Variant::TRANSFORM2D: {
+
+			f->store_32(VariantBin::Type::VARIANT_MATRIX32);
+			Transform2D val = p_property;
+			f->store_real(val.elements[0].x);
+			f->store_real(val.elements[0].y);
+			f->store_real(val.elements[1].x);
+			f->store_real(val.elements[1].y);
+			f->store_real(val.elements[2].x);
+			f->store_real(val.elements[2].y);
+
+		} break;
+		case Variant::BASIS: {
+
+			f->store_32(VariantBin::Type::VARIANT_MATRIX3);
+			Basis val = p_property;
+			f->store_real(val.elements[0].x);
+			f->store_real(val.elements[0].y);
+			f->store_real(val.elements[0].z);
+			f->store_real(val.elements[1].x);
+			f->store_real(val.elements[1].y);
+			f->store_real(val.elements[1].z);
+			f->store_real(val.elements[2].x);
+			f->store_real(val.elements[2].y);
+			f->store_real(val.elements[2].z);
+
+		} break;
+		case Variant::TRANSFORM: {
+
+			f->store_32(VariantBin::Type::VARIANT_TRANSFORM);
+			Transform val = p_property;
+			f->store_real(val.basis.elements[0].x);
+			f->store_real(val.basis.elements[0].y);
+			f->store_real(val.basis.elements[0].z);
+			f->store_real(val.basis.elements[1].x);
+			f->store_real(val.basis.elements[1].y);
+			f->store_real(val.basis.elements[1].z);
+			f->store_real(val.basis.elements[2].x);
+			f->store_real(val.basis.elements[2].y);
+			f->store_real(val.basis.elements[2].z);
+			f->store_real(val.origin.x);
+			f->store_real(val.origin.y);
+			f->store_real(val.origin.z);
+
+		} break;
+		case Variant::COLOR: {
+
+			f->store_32(VariantBin::Type::VARIANT_COLOR);
+			Color val = p_property;
+			f->store_real(val.r);
+			f->store_real(val.g);
+			f->store_real(val.b);
+			f->store_real(val.a);
+
+		} break;
+		case Variant::NODE_PATH: {
+			f->store_32(VariantBin::Type::VARIANT_NODE_PATH);
+			NodePath np = p_property;
+			f->store_16(np.get_name_count());
+			uint16_t snc = np.get_subname_count();
+			if (np.is_absolute())
+				snc |= 0x8000;
+			f->store_16(snc);
+			for (int i = 0; i < np.get_name_count(); i++)
+				f->store_32(string_map.find(np.get_name(i)));
+			for (int i = 0; i < np.get_subname_count(); i++)
+				f->store_32(string_map.find(np.get_subname(i)));
+			//not present in v3
+			//f->store_32(string_map.find(np.get_property()));
+
+		} break;
+		case Variant::RID: {
+
+			f->store_32(VariantBin::Type::VARIANT_RID);
+			WARN_PRINT("Can't save RIDs");
+			RID val = p_property;
+			f->store_32(val.get_id());
+		} break;
+		case Variant::OBJECT: {
+			RES res = p_property;
+			if (res->is_class("Image")){
+				f->store_32(VariantBin::Type::VARIANT_IMAGE);
+				V2ImageParser::write_v2image_to_bin(f, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
+			}
+			else{
+				f->store_32(VariantBin::Type::VARIANT_OBJECT);
+				if (res.is_null()) {
+					f->store_32(VariantBin::Type::OBJECT_EMPTY);
+					return OK; // don't save it
+				}
+				String rpath;
+				if (res->is_class("FakeResource")){
+					Ref<FakeResource> fr = res;
+					rpath = fr->get_real_path();
+				} else {
+					rpath = res->get_path();
+				}
+				if (rpath.length() && rpath.find("::") == -1) {
+					int idx = -1;
+					for (int i = 0; i < external_resources.size(); i++){
+						if (external_resources[i].path == rpath){
+							idx = i;
+							break;
+						}
+					}
+					if (idx == -1){
+						f->store_32(VariantBin::Type::OBJECT_EMPTY);
+						ERR_FAIL_COND_V_MSG(idx == -1, ERR_BUG, "Cannot find external resource");
+					}
+					
+					f->store_32(VariantBin::Type::OBJECT_EXTERNAL_RESOURCE_INDEX);
+					f->store_32(idx);
+				} else {
+
+					if (!internal_index_cache.has(rpath)) {
+						f->store_32(VariantBin::Type::OBJECT_EMPTY);
+						ERR_FAIL_V_MSG(ERR_BUG, "Resource was not pre cached for the resource section, bug?");
+					}
+
+					f->store_32(VariantBin::Type::OBJECT_INTERNAL_RESOURCE);
+					f->store_32(res->get_subindex());
+				}
+			}
+		} break;
+		case Variant::DICTIONARY: {
+
+			f->store_32(VariantBin::Type::VARIANT_DICTIONARY);
+			Dictionary d = p_property;
+			f->store_32(uint32_t(d.size()) | (p_property.is_shared() ? 0x80000000 : 0));
+
+			List<Variant> keys;
+			d.get_key_list(&keys);
+
+			for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
+
+				//if (!_check_type(dict[E->get()]))
+				//	continue;
+
+				write_variant_binv2(E->get());
+				write_variant_binv2(d[E->get()]);
+			}
+
+		} break;
+		case Variant::ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_ARRAY);
+			Array a = p_property;
+			f->store_32(uint32_t(a.size()) | (p_property.is_shared() ? 0x80000000 : 0));
+			for (int i = 0; i < a.size(); i++) {
+
+				write_variant_binv2(a[i]);
+			}
+
+		} break;
+		case Variant::PACKED_BYTE_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_RAW_ARRAY);
+			Vector<uint8_t> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			f->store_buffer(arr.ptr(), len);
+			_advance_padding(len);
+
+		} break;
+		case Variant::PACKED_INT32_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_INT_ARRAY);
+			Vector<int> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			for (int i = 0; i < len; i++)
+				f->store_32(arr.ptr()[i]);
+
+		} break;
+		case Variant::PACKED_FLOAT32_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_REAL_ARRAY);
+			Vector<real_t> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			for (int i = 0; i < len; i++) {
+				f->store_real(arr.ptr()[i]);
+			}
+
+		} break;
+		case Variant::PACKED_STRING_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_STRING_ARRAY);
+			Vector<String> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			for (int i = 0; i < len; i++) {
+				save_unicode_string(arr.ptr()[i]);
+			}
+
+		} break;
+		case Variant::PACKED_VECTOR3_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_VECTOR3_ARRAY);
+			Vector<Vector3> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			
+			for (int i = 0; i < len; i++) {
+				f->store_real(arr.ptr()[i].x);
+				f->store_real(arr.ptr()[i].y);
+				f->store_real(arr.ptr()[i].z);
+			}
+
+		} break;
+		case Variant::PACKED_VECTOR2_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_VECTOR2_ARRAY);
+			Vector<Vector2> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			for (int i = 0; i < len; i++) {
+				f->store_real(arr.ptr()[i].x);
+				f->store_real(arr.ptr()[i].y);
+			}
+
+		} break;
+		case Variant::PACKED_COLOR_ARRAY: {
+
+			f->store_32(VariantBin::Type::VARIANT_COLOR_ARRAY);
+			Vector<Color> arr = p_property;
+			int len = arr.size();
+			f->store_32(len);
+			for (int i = 0; i < len; i++) {
+				f->store_real(arr.ptr()[i].r);
+				f->store_real(arr.ptr()[i].g);
+				f->store_real(arr.ptr()[i].b);
+				f->store_real(arr.ptr()[i].a);
+			}
+
+		} break;
+		default: {
+
+			ERR_FAIL_V_MSG(ERR_CANT_CREATE,"Invalid variant type");
+		}
+	}
+	return OK;
+}
+
+
 ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat(){}
-ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){}
+ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){
+	if (f && f->is_open()){
+		f->close();	
+	}
+	if (f) {
+		memdelete(f);
+	}
+}
+
+Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
+
+	Error err;
+	FileAccess *oldf = f;
+	if (p_flags & ResourceSaver::FLAG_COMPRESS) {
+		FileAccessCompressed *fac = memnew(FileAccessCompressed);
+		fac->configure("RSCC");
+		f = fac;
+		err = fac->_open(p_path, FileAccess::WRITE);
+		if (err)
+			memdelete(f);
+
+	} else {
+		f = FileAccess::open(p_path, FileAccess::WRITE, &err);
+	}
+
+	ERR_FAIL_COND_V(err, err);
+	FileAccessRef _fref(f);
+	
+	/*relative_paths = p_flags & ResourceSaver::FLAG_RELATIVE_PATHS;
+	skip_editor = p_flags & ResourceSaver::FLAG_OMIT_EDITOR_PROPERTIES;
+	bundle_resources = p_flags & ResourceSaver::FLAG_BUNDLE_RESOURCES;
+	big_endian = p_flags & ResourceSaver::FLAG_SAVE_BIG_ENDIAN;
+	takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;*/
+	bool takeover_paths = false;
+	bool big_endian = false;
+	if (!p_path.begins_with("res://"))
+		takeover_paths = false;
+
+	//bin_meta_idx = get_string_index("__bin_meta__"); //is often used, so create
+
+	if (!(p_flags & ResourceSaver::FLAG_COMPRESS)) {
+		//save header compressed
+		static const uint8_t header[4] = { 'R', 'S', 'R', 'C' };
+		f->store_buffer(header, 4);
+	}
+
+	if (big_endian) {
+		f->store_32(1);
+		f->set_endian_swap(true);
+	} else {
+		f->store_32(0);
+	}
+	if (stored_use_real64) {
+		f->store_32(1); //64 bits file, false for now
+	} else {
+		f->store_32(0);
+	}
+	
+	f->store_32(engine_ver_major);
+	f->store_32(engine_ver_minor);
+	f->store_32(ver_format);
+
+	if (f->get_error() != OK && f->get_error() != ERR_FILE_EOF) {
+		f->close();
+		return ERR_CANT_CREATE;
+	}
+
+	//f->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
+	save_unicode_string(type);
+	uint64_t md_at = f->get_position();
+	f->store_64(0); //offset to impoty metadata
+	for (int i = 0; i < 14; i++)
+		f->store_32(0); // reserved
+
+
+	f->store_32(string_map.size()); //string table size
+	for (int i = 0; i < string_map.size(); i++) {
+		//print_bl("saving string: "+strings[i]);
+		save_unicode_string(string_map[i]);
+	}
+
+	// save external resource table
+	f->store_32(external_resources.size()); //amount of external resources
+	for (int i = 0; i < external_resources.size(); i++) {
+		save_unicode_string(external_resources[i].type);
+		save_unicode_string(external_resources[i].path);
+	}
+
+	// save internal resource table
+	f->store_32(internal_resources.size()); //amount of internal resources
+	Vector<uint64_t> ofs_pos;
+
+	for (int i = 0; i < internal_resources.size(); i++) {
+		IntResource r = internal_resources[i];
+		int subidx = internal_index_cache[r.path]->get_subindex();
+		if (r.path == "" || r.path.find("::") != -1) {
+			save_unicode_string("local://" + itos(subidx));
+		} else if (r.path == res_path) {
+			save_unicode_string(local_path); //actual external
+		}
+		ofs_pos.push_back(f->get_position());
+		f->store_64(0); //offset in 64 bits
+	}
+
+	Vector<uint64_t> ofs_table;
+	//	int saved_idx=0;
+	//now actually save the resources
+	for (int i = 0; i < internal_resources.size(); i++) {
+		IntResource r = internal_resources[i];
+		int subidx = internal_index_cache[r.path]->get_subindex();
+		String rtype = internal_type_cache[r.path];
+		List<ResourceProperty> lrp = internal_index_cached_properties[r.path];
+		ofs_table.push_back(f->get_position());
+		save_unicode_string(rtype);
+		f->store_32(lrp.size());
+		for (List<ResourceProperty>::Element *F = lrp.front(); F; F = F->next()) {
+			ResourceProperty &p = F->get();
+			f->store_32(string_map.find(p.name));
+			write_variant_binv2(p.value);
+		}
+	}
+
+	for (int i = 0; i < ofs_table.size(); i++) {
+		f->seek(ofs_pos[i]);
+		f->store_64(ofs_table[i]);
+	}
+	f->seek_end();
+	print_line("Saving: " + p_path);
+	if (imd.is_valid()) {
+		uint64_t md_pos = f->get_position();
+		save_unicode_string(imd->get_editor());
+		f->store_32(imd->get_source_count());
+		for (int i = 0; i < imd->get_source_count(); i++) {
+			save_unicode_string(imd->get_source_path(i));
+			save_unicode_string(imd->get_source_md5(i));
+		}
+		List<String> options;
+		imd->get_options(&options);
+		f->store_32(options.size());
+		for (List<String>::Element *E = options.front(); E; E = E->next()) {
+			save_unicode_string(E->get());
+			write_variant_binv2(imd->get_option(E->get()));
+		}
+
+		f->seek(md_at);
+		f->store_64(md_pos);
+		f->seek_end();
+	}
+
+	f->store_buffer((const uint8_t *)"RSRC", 4); //magic at end
+
+	if (f->get_error() != OK && f->get_error() != ERR_FILE_EOF) {
+		f->close();
+		return ERR_CANT_CREATE;
+	}
+
+	f->close();
+	f = oldf;
+	return OK;
+}

@@ -340,6 +340,36 @@ void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_engine_version"), &PckDumper::get_engine_version);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }
+Vector<String> get_directory_listing4(const String dir, const Vector<String> &search_str, const String rel = "") {
+	Vector<String> ret;
+	DirAccess *da = DirAccess::open(dir.plus_file(rel));
+	String base = "res://";
+	if (!da) {
+		return ret;
+	}
+	da->list_dir_begin();
+	String f;
+	while ((f = da->get_next()) != "") {
+		if (f == "." || f == "..") {
+			continue;
+		} else if (da->current_is_dir()) {
+			ret.append_array(get_directory_listing4(dir, search_str, rel.plus_file(f)));
+		} else {
+			if (search_str.size() > 0) {
+				for (int i = 0; i < search_str.size(); i++) {
+					if (search_str[i] == f.get_extension()) {
+						ret.append(base.plus_file(rel).plus_file(f));
+						break;
+					}
+				}
+			} else {
+				ret.append(base.plus_file(rel).plus_file(f));
+			}
+		}
+	}
+	memdelete(da);
+	return ret;
+}
 
 Vector<String> get_directory_listing3(const String dir, const Vector<String> &search_str, const String rel = "") {
 	Vector<String> ret;
@@ -419,9 +449,9 @@ Error ImportExporter::load_v2_converted_file(const String& p_path) {
 	String dest;
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
+	Ref<ResourceImportMetadatav2> metadata;
 	//This is a converted file, no metadata
 	if (p_path.get_file().find(".converted.") != -1) {
-		
 		if (spl.size() != 4) {
 			// this doesn't match "filename.ext.converted.newext"
 			return ERR_CANT_RESOLVE;
@@ -430,31 +460,24 @@ Error ImportExporter::load_v2_converted_file(const String& p_path) {
 	} else {
 		// This is an import file, possibly has import metadata
 		// Going to have to rewrite the import metadata in the resource file to make this work
-		//ResourceFormatLoaderBinaryCompat rlc;
-		//Dictionary metadata;
+		// Just get it into the import info for now
+		ResourceFormatLoaderBinaryCompat rlc;
 		//
-		//if (rlc.get_v2_import_metadata(p_path, base_dir, metadata) == OK) {
-		//	Dictionary iinfo;
-		//	iinfo["path"] = p_path;
-		//	//this is a relative path to this file
-		//	iinfo["source_file"] = p_path.get_base_dir().plus_file(metadata["src"]);
-		//	iinfo["type"] = metadata["type"];
-		//	iinfo["dest_files"] = Vector<String>().push_back(p_path);
-		//	iinfo["metadata"] = metadata;
-		//	iinfo["group_file"] = "";
-		//	iinfo["importer"] = "";
-		//	files.push_back(iinfo);
-		//	return OK;
-		//}
-		//No import metadata, assume that it's loaded from the assets dir in the base dir
+		if (rlc.get_v2_import_metadata(p_path, base_dir, metadata) == OK) {
+			//print_line("loaded metadata!");
+		} else {
+			//print_line("could not load metadata!");
+		}
+		//Assume that it's loaded from the assets dir in the base dir
 		String new_ext;
 		if (p_path.get_extension() == "tex") {
 			new_ext = "png";
 		} else if (p_path.get_extension() == "smp") {
 			new_ext = "wav";
 		}
-		dest = String("assets").plus_file(p_path.get_base_dir().plus_file(spl[0] + "." + new_ext));
+		dest = String("assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
 	}
+	
 	Dictionary iinfo;
 	iinfo["path"] = p_path;
 	iinfo["source_file"] = dest;
@@ -466,9 +489,11 @@ Error ImportExporter::load_v2_converted_file(const String& p_path) {
 		iinfo["type"] = "ImageTexture";
 	} else if (p_path.get_extension() == "smp") {
 		iinfo["type"] = "Sample";
-	} //Others??
+	} else if (dest.get_extension() == "fnt") {
+		iinfo["type"] = "Font";
+	}//Others??
 	iinfo["dest_files"] = Vector<String>().push_back(p_path);
-	iinfo["metadata"] = "";
+	iinfo["metadata"] = metadata;
 	iinfo["group_file"] = "";
 	iinfo["importer"] = "";
 	files.push_back(iinfo);
@@ -484,11 +509,20 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 	// Like "filename.tscn.converted.scn"
 	if (ver_major <= 2) {
 		filters.push_back(".converted.");
-		filters.push_back(".tex");
+		
 		file_names = get_directory_listing3(dir, filters);
+		filters.clear();
+		filters.push_back("tex");
+		Vector<String> file_names2 = get_directory_listing4(dir, filters);
+		
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_v2_converted_file(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
+			}
+		}
+		for (int i = 0; i < file_names2.size(); i++) {
+			if (load_v2_converted_file(file_names2[i]) != OK) {
+				WARN_PRINT("Can't load V2 converted file: " + file_names2[i]);
 			}
 		}
 	} else {
@@ -580,16 +614,27 @@ Error ImportExporter::load_import_file(const String &p_path){
 
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
 	ResourceFormatLoaderBinaryCompat rlc;
-	return rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
+	Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
+	print_line("Converted " + p_path + " to " + p_dst);
+	return err;
 }
 
 Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
 	ResourceFormatLoaderBinaryCompat rlc;
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	String dst_dir = output_dir.plus_file(p_dst.get_base_dir());
+	String dst_dir = output_dir.plus_file(p_dst.get_base_dir().replace("res://", ""));
+	String orig_file = output_dir.plus_file(p_path.replace("res://",""));
 	da->make_dir_recursive(dst_dir);
 	memdelete(da);
-	return rlc.convert_v2tex_to_png(p_path, p_dst, output_dir);
+	Error err = rlc.convert_v2tex_to_png(p_path, p_dst, output_dir, true);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
+	DirAccess *dr = DirAccess::open(output_dir.plus_file(p_path.get_base_dir().replace("res://", "")));
+	dr->remove(orig_file);
+	dr->rename(orig_file + ".tmp", orig_file);
+	print_line("Converted " + p_path + " to " + p_dst);
+	memdelete(dr);
+	return err;
 }
 
 void ImportExporter::_bind_methods() {

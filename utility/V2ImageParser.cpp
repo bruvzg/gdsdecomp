@@ -118,6 +118,139 @@ String V2ImageParser::ImageV2_to_string(const Variant &r_v){
         return imgstr;
 }
 
+Error V2ImageParser::write_v2image_to_bin(FileAccess* f, const Variant &r_v, const PropertyHint p_hint){
+    Ref<Image> val = r_v;
+    if (val.is_null() || val->is_empty()) {
+        f->store_32(V2Image::Type::IMAGE_ENCODING_EMPTY);
+        return OK;
+    }
+
+    int encoding = V2Image::Type::IMAGE_ENCODING_RAW;
+    float quality = 0.7;
+
+    if (val->get_format() <= Image::FORMAT_RGB565) {
+        //can only compress uncompressed stuff
+         if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::lossless_packer) {
+            encoding = V2Image::Type::IMAGE_ENCODING_LOSSLESS;
+        }
+    }
+
+    f->store_32(encoding); //raw encoding
+
+    if (encoding == V2Image::Type::IMAGE_ENCODING_RAW) {
+
+        f->store_32(val->get_width());
+        f->store_32(val->get_height());
+        int mipmaps = val->get_mipmap_count();
+        
+        V2Image::Type fmt;
+        bool hacks_for_dropped_fmt = true;
+        switch (val->get_format()) {
+            //convert old image format types to new ones
+			case Image::FORMAT_L8: {
+				fmt = V2Image::Type::IMAGE_FORMAT_GRAYSCALE;
+			} break;
+			case Image::FORMAT_LA8: {
+				fmt = V2Image::Type::IMAGE_FORMAT_GRAYSCALE_ALPHA;
+			} break;
+			case Image::FORMAT_RGB8: {
+				fmt = V2Image::Type::IMAGE_FORMAT_RGB;
+			} break;
+			case Image::FORMAT_RGBA8: {
+				fmt = V2Image::Type::IMAGE_FORMAT_RGBA;
+			} break;
+			case Image::FORMAT_DXT1: {
+				fmt = V2Image::Type::IMAGE_FORMAT_BC1;
+			} break;
+			case Image::FORMAT_DXT3: {
+				fmt = V2Image::Type::IMAGE_FORMAT_BC2;
+			} break;
+			case Image::FORMAT_DXT5: {
+				fmt = V2Image::Type::IMAGE_FORMAT_BC3;
+			} break;
+			case Image::FORMAT_RGTC_R: {
+				fmt = V2Image::Type::IMAGE_FORMAT_BC4;
+			} break;
+			case Image::FORMAT_RGTC_RG: {
+				fmt = V2Image::Type::IMAGE_FORMAT_BC5;
+			} break;
+			case Image::FORMAT_PVRTC1_2: {
+				fmt = V2Image::Type::IMAGE_FORMAT_PVRTC2;
+			} break;
+			case Image::FORMAT_PVRTC1_2A: {
+				fmt = V2Image::Type::IMAGE_FORMAT_PVRTC2_ALPHA;
+			} break;
+			case Image::FORMAT_PVRTC1_4: {
+				fmt = V2Image::Type::IMAGE_FORMAT_PVRTC4;
+			} break;
+			case Image::FORMAT_PVRTC1_4A: {
+				fmt = V2Image::Type::IMAGE_FORMAT_PVRTC4_ALPHA;
+			} break;
+			case Image::FORMAT_ETC: {
+				fmt = V2Image::Type::IMAGE_FORMAT_ETC;
+			} break;
+            if (hacks_for_dropped_fmt){
+                //Hacks for no-longer supported image formats
+                //These formats do not match up, so when saving, we have to set mipmaps manually
+                case Image::FORMAT_ETC2_R11: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+					fmt = V2Image::Type::IMAGE_FORMAT_INTENSITY;
+                } break;
+                case Image::FORMAT_ETC2_R11S: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+					fmt = V2Image::Type::IMAGE_FORMAT_INDEXED;
+                } break;
+                case Image::FORMAT_ETC2_RG11: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+					fmt = V2Image::Type::IMAGE_FORMAT_INDEXED_ALPHA;
+                } break;
+                case Image::FORMAT_ETC2_RG11S: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
+					fmt = V2Image::Type::IMAGE_FORMAT_ATC;
+                } break;
+                case Image::FORMAT_ETC2_RGB8: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
+					fmt = V2Image::Type::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
+                } break;
+                case Image::FORMAT_ETC2_RGB8A1: {
+                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
+					fmt = V2Image::Type::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED;
+                } break;
+                case Image::FORMAT_ETC2_RA_AS_RG: {
+                    mipmaps = 0;
+					fmt = V2Image::Type::IMAGE_FORMAT_CUSTOM;
+                } break;
+            }
+			default: {
+				ERR_FAIL_V(ERR_FILE_CORRUPT);
+			}
+        }
+
+        int dlen = val->get_data().size();
+        f->store_32(dlen);
+        f->store_buffer(val->get_data().ptr(), dlen);
+        _advance_padding(f, dlen);
+    } else {
+
+        Vector<uint8_t> data;
+        if (encoding == V2Image::Type::IMAGE_ENCODING_LOSSY) {
+            data = Image::lossy_packer(val, quality);
+
+        } else if (encoding == V2Image::Type::IMAGE_ENCODING_LOSSLESS) {
+            data = Image::lossless_packer(val);
+        }
+
+        int ds = data.size();
+        f->store_32(ds);
+        if (ds > 0) {
+            f->store_buffer(data.ptr(), ds);
+            _advance_padding(f, ds);
+        }
+    }
+
+}
+
+
 Error V2ImageParser::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed){
 	uint32_t encoding = f->get_32();
     Ref<Image> img;

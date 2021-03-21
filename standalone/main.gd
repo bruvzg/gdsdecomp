@@ -44,46 +44,53 @@ func list_dir_rel(root: String, filter:String="", rel:String ="") -> Array:
 	return list
 
 func stex_to_pngV3(output_dir:String, src:String, dst:String) -> int:
+	var src_path:String = output_dir.plus_file(src.replace("res://",""))
+	var dst_path:String = output_dir.plus_file(dst.replace("res://",""))
+
 	var thing:StreamTextureV3 = StreamTextureV3.new()
-	var err = thing.load(output_dir.plus_file(src))
+	var err = thing.load(src_path)
 	if err != OK:
-		print("error opening texture file " + src)
+		print("error opening texture file " + src_path)
 		return err
 	var img:Image = thing.get_image()
-	err = img.save_png(output_dir.plus_file(dst))
+	err = img.save_png(dst_path)
 	if err != OK:
-		print("error saving " + dst)
+		print("error saving " + dst_path)
 	else:
-		print("Converted " + src + " to " + dst)
+		print("Converted " + src_path + " to " + dst_path)
 	return err
 
 func oggstr_to_ogg(output_dir:String, src:String, dst:String) -> int:
-	var sample: AudioStreamOGGVorbis = ResourceLoader.load(output_dir.plus_file(src))
+	var src_path:String = output_dir.plus_file(src.replace("res://",""))
+	var dst_path:String = output_dir.plus_file(dst.replace("res://",""))
+	var sample: AudioStreamOGGVorbis = ResourceLoader.load(src_path)
 	if sample == null:
 		print("error loading sample")
 		return ERR_BUG
 	var data:PackedByteArray = sample.get_data()
 	var gdfile:File = File.new()
 
-	var err = gdfile.open(output_dir.plus_file(dst), File.WRITE)
+	var err = gdfile.open(dst_path, File.WRITE)
 	if err != OK:
-		print(str(err) + " error saving " + dst)
+		print(str(err) + " error saving " + dst_path)
 	else:
 		gdfile.store_buffer(data)
 		gdfile.close()
-		print("Converted " + src + " to " + dst)
+		print("Converted " + src_path + " to " + dst_path)
 	return err
 
 
 func sample_to_wav(output_dir:String, src:String, dst:String) -> int:
-	var sample: AudioStreamSample = ResourceLoader.load(output_dir.plus_file(src))
+	var src_path:String = output_dir.plus_file(src.replace("res://",""))
+	var dst_path:String = output_dir.plus_file(dst.replace("res://",""))
+	var sample: AudioStreamSample = ResourceLoader.load(src_path)
 	if sample == null:
 		print("error loading sample")
-	var err = sample.save_to_wav(output_dir.plus_file(dst))
+	var err = sample.save_to_wav(dst_path)
 	if err != OK:
-		print(str(err) + " error saving " + dst)
+		print(str(err) + " error saving " + dst_path)
 	else:
-		print("Converted " + src + " to " + dst)
+		print("Converted " + src_path + " to " + dst_path)
 	return err
 
 func export_imports(output_dir:String):
@@ -93,9 +100,9 @@ func export_imports(output_dir:String):
 	var failed_files = []
 	for ifo in arr:
 		#the path to the imported file
-		var path:String = ifo.get("path").replace("res://","")
+		var path:String = ifo.get("path")
 		#the original source file that we will convert the imported file to
-		var source_file:String = ifo.get("source_file").replace("res://","")
+		var source_file:String = ifo.get("source_file")
 		var ext:String = ifo.get("source_file").get_extension();
 		if ext == "wav":
 			sample_to_wav(output_dir, path, source_file)
@@ -103,9 +110,8 @@ func export_imports(output_dir:String):
 			oggstr_to_ogg(output_dir, path, source_file)
 		elif ext == "png" && ver_major == 3:
 			stex_to_pngV3(output_dir, path, source_file)
-		#elif ext == "png" && ver_major == 2:
-		#	importer.convert_v2tex_to_png(output_dir, path, source_file)
-			
+		elif ext == "png" && ver_major == 2:
+			importer.convert_v2tex_to_png(output_dir, path, source_file)
 		elif ext == "tscn" || ext == "escn":
 			importer.convert_res_bin_2_txt(output_dir, path, source_file)
 			
@@ -182,7 +188,7 @@ func normalize_path(path: String):
 func print_import_info(output_dir: String):
 	print("stuff")
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, 3)
+	importer.load_import_files(output_dir, ver_major)
 	var arr = importer.get_import_files()
 	for ifo in arr:
 		print(ifo)
@@ -205,6 +211,7 @@ func handle_cli():
 			print("Error: use --output-dir=<dir> when using --extract")
 			get_tree().quit()
 		else:
+			#print_import_info(output_dir)
 			dump_files(exe_file, output_dir)
 			export_imports(output_dir)
 	get_tree().quit()	

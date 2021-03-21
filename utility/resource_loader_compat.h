@@ -5,6 +5,7 @@
 #include "core/variant/variant.h"
 #include "core/io/resource_format_binary.h"
 #include "scene/resources/packed_scene.h"
+#include "resource_import_metadatav2.h"
 
 #ifdef TOOLS_ENABLED
 #define print_bl(m_what) (void)(m_what)
@@ -100,6 +101,12 @@ namespace VariantBin{
 
 }
 
+struct ResourceProperty{
+	String name;
+	Variant::Type type;
+	Variant value;
+};
+
 class ResourceLoaderBinaryCompat {
     bool translation_remapped = false;
 	bool no_ext_load = false;
@@ -108,8 +115,12 @@ class ResourceLoaderBinaryCompat {
 
 	String type;
 	Ref<Resource> resource;
+	Ref<ResourceImportMetadatav2> imd;
 	uint32_t ver_format = 0;
 	uint32_t engine_ver_major = 0;
+	uint32_t engine_ver_minor = 0;
+	bool stored_big_endian = false;
+	bool stored_use_real64 = false;
 	bool convert_v2image_indexed = false;
 	FileAccess *f = nullptr;
 
@@ -135,16 +146,14 @@ class ResourceLoaderBinaryCompat {
 		uint64_t offset;
 	};
 
-	struct ResourceProperty{
-		String name;
-		Variant::Type type;
-		Variant value;
-	};
 
 	Vector<IntResource> internal_resources;
 	Map<String, RES> internal_index_cache;
 	Map<String, String> internal_type_cache;
 	Map<String, List<ResourceProperty>> internal_index_cached_properties;
+
+	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
+	void save_unicode_string(const String &p_string);
 
 	String get_unicode_string();
 	void _advance_padding(uint32_t p_len);
@@ -155,27 +164,29 @@ class ResourceLoaderBinaryCompat {
 	friend class ResourceFormatLoaderBinaryCompat;
 
 	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
-	Error load_import_metadata(Dictionary &r_var);
+	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
 	RES set_dummy_ext(const String& path, const String& exttype);
 	RES set_dummy_ext(const uint32_t erindex);
 	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
-	void clear_dummy_externals();
-
+	Error load_ext_resources(const uint32_t i);
+	Error ResourceLoaderBinaryCompat::load_internal_resource(const int i);
+	Error ResourceLoaderBinaryCompat::real_load_internal_resource(const int i);
+	
+	Error write_variant_binv2(const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo()) ;
 	Map<String, RES> dependency_cache;
     public:
-		void set_local_path(const String &p_local_path);
-
+		Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
         static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
         Error open(FileAccess *p_f);
 		Error fake_load();
-		Error parse_variantv2(Variant &r_v);
 		static String get_ustring(FileAccess *f);
 		Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
 		static String _write_fake_resources(void *ud, const RES &p_resource);
 		String _write_fake_resource(const RES &res);
 		Error parse_variant(Variant &r_v);
+		Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
 		ResourceLoaderBinaryCompat();
 		~ResourceLoaderBinaryCompat();
 };
@@ -194,11 +205,11 @@ class FakeResource : public PackedScene {
 class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
 private:
 	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
-
+	Error _rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path);
 public:
-	Error get_v2_import_metadata(const String &p_path, const String &base_dir, Dictionary &r_var);
+	Error get_v2_import_metadata(const String &p_path, const String &base_dir, Ref<ResourceImportMetadatav2> &r_var);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
-	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
+	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);
 };
 
 
