@@ -2,10 +2,12 @@
 #include "core/io/file_access_compressed.h"
 #include "variant_writer_compat.h"
 #include "core/string/ustring.h"
-#include "V2ImageParser.h"
+#include "image_parser_v2.h"
 #include "godot3_export.h"
 #include "core/version.h"
 #include "core/os/dir_access.h"
+#include "core/variant/variant_parser.h"
+
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
 	String dst_path = dst;
@@ -82,14 +84,10 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 
 	if (rewrite_metadata){
 		error = _rewrite_import_metadata(loader, name, rel_dst_path);
-		if (error == ERR_UNAVAILABLE){
-			WARN_PRINT("Unable to read import metadata, did not save new import metadata");
-		} else if (error != OK) {
-			memdelete(loader);
-			ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.");
-		}
 	}
 	memdelete(loader);
+	ERR_FAIL_COND_V_MSG(error == ERR_UNAVAILABLE, error, "Unable to read import metadata, did not save new import metadata");
+	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' with rewritten import metadata.");
 	return OK;
 }
 
@@ -485,14 +483,17 @@ RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex){
 	
 	return dummy;
 }
-
-void ResourceLoaderBinaryCompat::_advance_padding(uint32_t p_len) {
+void ResourceLoaderBinaryCompat::advance_padding(FileAccess * f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
 			f->get_8(); //pad to 32
 		}
 	}
+}
+
+void ResourceLoaderBinaryCompat::_advance_padding(uint32_t p_len) {
+	advance_padding(f, p_len);
 }
 
 String ResourceLoaderBinaryCompat::_write_fake_resources(void *ud, const RES &p_resource) {
@@ -724,42 +725,42 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 	//print_bl("find property of type: %d", type);
 
 	switch (type) {
-		case VariantBin::Type::VARIANT_NIL: {
+		case VariantBin::VARIANT_NIL: {
 			r_v = Variant();
 		} break;
-		case VariantBin::Type::VARIANT_BOOL: {
+		case VariantBin::VARIANT_BOOL: {
 			r_v = bool(f->get_32());
 		} break;
-		case VariantBin::Type::VARIANT_INT: {
+		case VariantBin::VARIANT_INT: {
 			r_v = int(f->get_32());
 		} break;
-		case VariantBin::Type::VARIANT_INT64: {
+		case VariantBin::VARIANT_INT64: {
 			r_v = int64_t(f->get_64());
 		} break;
-		case VariantBin::Type::VARIANT_FLOAT: {
+		case VariantBin::VARIANT_FLOAT: {
 			r_v = f->get_real();
 		} break;
-		case VariantBin::Type::VARIANT_DOUBLE: {
+		case VariantBin::VARIANT_DOUBLE: {
 			r_v = f->get_double();
 		} break;
-		case VariantBin::Type::VARIANT_STRING: {
+		case VariantBin::VARIANT_STRING: {
 			r_v = get_unicode_string();
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR2: {
+		case VariantBin::VARIANT_VECTOR2: {
 			Vector2 v;
 			v.x = f->get_real();
 			v.y = f->get_real();
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR2I: {
+		case VariantBin::VARIANT_VECTOR2I: {
 			Vector2i v;
 			v.x = f->get_32();
 			v.y = f->get_32();
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_RECT2: {
+		case VariantBin::VARIANT_RECT2: {
 			Rect2 v;
 			v.position.x = f->get_real();
 			v.position.y = f->get_real();
@@ -768,7 +769,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_RECT2I: {
+		case VariantBin::VARIANT_RECT2I: {
 			Rect2i v;
 			v.position.x = f->get_32();
 			v.position.y = f->get_32();
@@ -777,21 +778,21 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR3: {
+		case VariantBin::VARIANT_VECTOR3: {
 			Vector3 v;
 			v.x = f->get_real();
 			v.y = f->get_real();
 			v.z = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR3I: {
+		case VariantBin::VARIANT_VECTOR3I: {
 			Vector3i v;
 			v.x = f->get_32();
 			v.y = f->get_32();
 			v.z = f->get_32();
 			r_v = v;
 		} break;
-		case VariantBin::Type::VARIANT_PLANE: {
+		case VariantBin::VARIANT_PLANE: {
 			Plane v;
 			v.normal.x = f->get_real();
 			v.normal.y = f->get_real();
@@ -799,7 +800,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			v.d = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBin::Type::VARIANT_QUAT: {
+		case VariantBin::VARIANT_QUAT: {
 			Quat v;
 			v.x = f->get_real();
 			v.y = f->get_real();
@@ -808,7 +809,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_AABB: {
+		case VariantBin::VARIANT_AABB: {
 			AABB v;
 			v.position.x = f->get_real();
 			v.position.y = f->get_real();
@@ -819,7 +820,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_MATRIX32: {
+		case VariantBin::VARIANT_MATRIX32: {
 			Transform2D v;
 			v.elements[0].x = f->get_real();
 			v.elements[0].y = f->get_real();
@@ -830,7 +831,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_MATRIX3: {
+		case VariantBin::VARIANT_MATRIX3: {
 			Basis v;
 			v.elements[0].x = f->get_real();
 			v.elements[0].y = f->get_real();
@@ -844,7 +845,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_TRANSFORM: {
+		case VariantBin::VARIANT_TRANSFORM: {
 			Transform v;
 			v.basis.elements[0].x = f->get_real();
 			v.basis.elements[0].y = f->get_real();
@@ -860,7 +861,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			v.origin.z = f->get_real();
 			r_v = v;
 		} break;
-		case VariantBin::Type::VARIANT_COLOR: {
+		case VariantBin::VARIANT_COLOR: {
 			Color v; // Colors should always be in single-precision.
 			v.r = f->get_float();
 			v.g = f->get_float();
@@ -869,17 +870,17 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 
 		} break;
-		case VariantBin::Type::VARIANT_STRING_NAME: {
+		case VariantBin::VARIANT_STRING_NAME: {
 			r_v = StringName(get_unicode_string());
 		} break;
 		//Old Godot 2.x Image variant, convert into an object
-		case VariantBin::Type::VARIANT_IMAGE: {
+		case VariantBin::VARIANT_IMAGE: {
 			//Have to parse Image here
-			if (V2ImageParser::parse_image_v2(f, r_v, true, convert_v2image_indexed) != OK){
+			if (ImageParserV2::parse_image_v2(f, r_v, true, convert_v2image_indexed) != OK){
 				WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
 			}
 		} break;
-		case VariantBin::Type::VARIANT_NODE_PATH: {
+		case VariantBin::VARIANT_NODE_PATH: {
 			Vector<StringName> names;
 			Vector<StringName> subnames;
 			bool absolute;
@@ -907,19 +908,19 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = np;
 
 		} break;
-		case VariantBin::Type::VARIANT_RID: {
+		case VariantBin::VARIANT_RID: {
 			r_v = f->get_32();
 		} break;
 		
-		case VariantBin::Type::VARIANT_OBJECT: {
+		case VariantBin::VARIANT_OBJECT: {
 			uint32_t objtype = f->get_32();
 
 			switch (objtype) {
-				case VariantBin::Type::OBJECT_EMPTY: {
+				case VariantBin::OBJECT_EMPTY: {
 					//do none
 
 				} break;
-				case VariantBin::Type::OBJECT_INTERNAL_RESOURCE: {
+				case VariantBin::OBJECT_INTERNAL_RESOURCE: {
 					uint32_t index = f->get_32();
 					String path = res_path + "::" + itos(index);
 
@@ -932,7 +933,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 					}
 
 				} break;
-				case VariantBin::Type::OBJECT_EXTERNAL_RESOURCE: {
+				case VariantBin::OBJECT_EXTERNAL_RESOURCE: {
 					//old file format, still around for compatibility
 
 					String exttype = get_unicode_string();
@@ -960,7 +961,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 					r_v = res;
 
 				} break;
-				case VariantBin::Type::OBJECT_EXTERNAL_RESOURCE_INDEX: {
+				case VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX: {
 					//new file format, just refers to an index in the external list
 					int erindex = f->get_32();
 
@@ -1004,17 +1005,17 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 		// Old Godot 2.x InputEvent variant, should never encounter these
 		// They were never saved into the binary resource files.
-		case VariantBin::Type::VARIANT_INPUT_EVENT: {
+		case VariantBin::VARIANT_INPUT_EVENT: {
 				WARN_PRINT(String("Encountered a Input event variant?!?!?").utf8().get_data());
 		} break;
-		case VariantBin::Type::VARIANT_CALLABLE: {
+		case VariantBin::VARIANT_CALLABLE: {
 			r_v = Callable();
 		} break;
-		case VariantBin::Type::VARIANT_SIGNAL: {
+		case VariantBin::VARIANT_SIGNAL: {
 			r_v = Signal();
 		} break;
 
-		case VariantBin::Type::VARIANT_DICTIONARY: {
+		case VariantBin::VARIANT_DICTIONARY: {
 			uint32_t len = f->get_32();
 			Dictionary d; //last bit means shared
 			len &= 0x7FFFFFFF;
@@ -1029,7 +1030,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			}
 			r_v = d;
 		} break;
-		case VariantBin::Type::VARIANT_ARRAY: {
+		case VariantBin::VARIANT_ARRAY: {
 			uint32_t len = f->get_32();
 			Array a; //last bit means shared
 			len &= 0x7FFFFFFF;
@@ -1043,7 +1044,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = a;
 
 		} break;
-		case VariantBin::Type::VARIANT_RAW_ARRAY: {
+		case VariantBin::VARIANT_RAW_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<uint8_t> array;
@@ -1055,7 +1056,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBin::Type::VARIANT_INT32_ARRAY: {
+		case VariantBin::VARIANT_INT32_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<int32_t> array;
@@ -1078,7 +1079,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::Type::VARIANT_INT64_ARRAY: {
+		case VariantBin::VARIANT_INT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<int64_t> array;
@@ -1101,7 +1102,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::Type::VARIANT_FLOAT32_ARRAY: {
+		case VariantBin::VARIANT_FLOAT32_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<float> array;
@@ -1125,7 +1126,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::Type::VARIANT_FLOAT64_ARRAY: {
+		case VariantBin::VARIANT_FLOAT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<double> array;
@@ -1149,7 +1150,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::Type::VARIANT_STRING_ARRAY: {
+		case VariantBin::VARIANT_STRING_ARRAY: {
 			uint32_t len = f->get_32();
 			Vector<String> array;
 			array.resize(len);
@@ -1161,7 +1162,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR2_ARRAY: {
+		case VariantBin::VARIANT_VECTOR2_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Vector2> array;
@@ -1186,7 +1187,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBin::Type::VARIANT_VECTOR3_ARRAY: {
+		case VariantBin::VARIANT_VECTOR3_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Vector3> array;
@@ -1211,7 +1212,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = array;
 
 		} break;
-		case VariantBin::Type::VARIANT_COLOR_ARRAY: {
+		case VariantBin::VARIANT_COLOR_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<Color> array;
@@ -1243,50 +1244,63 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 	return OK; //never reach anyway
 }
 
+void ResourceLoaderBinaryCompat::save_ustring(FileAccess * f, const String &p_string){
+	CharString utf8 = p_string.utf8();
+	f->store_32(utf8.length() + 1);
+	f->store_buffer((const uint8_t *)utf8.get_data(), utf8.length() + 1);
+}
+
 void ResourceLoaderBinaryCompat::save_unicode_string(const String &p_string) {
 	CharString utf8 = p_string.utf8();
 	f->store_32(utf8.length() + 1);
 	f->store_buffer((const uint8_t *)utf8.get_data(), utf8.length() + 1);
 }
 
-Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property, const PropertyInfo &p_hint) {
-
+Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
+													const Variant &p_property,
+													Map<String, RES> internal_index_cache,
+													Vector<IntResource> &internal_resources,
+													Vector<ExtResource> &external_resources,
+													Vector<StringName> &string_map,
+													const uint32_t ver_format,
+													const PropertyInfo &p_hint) {
+	
 	switch (p_property.get_type()) {
 
 		case Variant::NIL: {
 
-			f->store_32(VariantBin::Type::VARIANT_NIL);
+			f->store_32(VariantBin::VARIANT_NIL);
 			// don't store anything
 		} break;
 		case Variant::BOOL: {
 
-			f->store_32(VariantBin::Type::VARIANT_BOOL);
+			f->store_32(VariantBin::VARIANT_BOOL);
 			bool val = p_property;
 			f->store_32(val);
 		} break;
 		case Variant::INT: {
 
-			f->store_32(VariantBin::Type::VARIANT_INT);
+			f->store_32(VariantBin::VARIANT_INT);
 			int val = p_property;
 			f->store_32(val);
 		} break;
 		case Variant::FLOAT: {
 
-			f->store_32(VariantBin::Type::VARIANT_REAL);
+			f->store_32(VariantBin::VARIANT_REAL);
 			real_t val = p_property;
 			f->store_real(val);
 
 		} break;
 		case Variant::STRING: {
 
-			f->store_32(VariantBin::Type::VARIANT_STRING);
+			f->store_32(VariantBin::VARIANT_STRING);
 			String val = p_property;
-			save_unicode_string(val);
+			save_ustring(f, val);
 
 		} break;
 		case Variant::VECTOR2: {
 
-			f->store_32(VariantBin::Type::VARIANT_VECTOR2);
+			f->store_32(VariantBin::VARIANT_VECTOR2);
 			Vector2 val = p_property;
 			f->store_real(val.x);
 			f->store_real(val.y);
@@ -1294,7 +1308,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::RECT2: {
 
-			f->store_32(VariantBin::Type::VARIANT_RECT2);
+			f->store_32(VariantBin::VARIANT_RECT2);
 			Rect2 val = p_property;
 			f->store_real(val.position.x);
 			f->store_real(val.position.y);
@@ -1304,7 +1318,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::VECTOR3: {
 
-			f->store_32(VariantBin::Type::VARIANT_VECTOR3);
+			f->store_32(VariantBin::VARIANT_VECTOR3);
 			Vector3 val = p_property;
 			f->store_real(val.x);
 			f->store_real(val.y);
@@ -1313,7 +1327,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::PLANE: {
 
-			f->store_32(VariantBin::Type::VARIANT_PLANE);
+			f->store_32(VariantBin::VARIANT_PLANE);
 			Plane val = p_property;
 			f->store_real(val.normal.x);
 			f->store_real(val.normal.y);
@@ -1323,7 +1337,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::QUAT: {
 
-			f->store_32(VariantBin::Type::VARIANT_QUAT);
+			f->store_32(VariantBin::VARIANT_QUAT);
 			Quat val = p_property;
 			f->store_real(val.x);
 			f->store_real(val.y);
@@ -1333,7 +1347,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::AABB: {
 
-			f->store_32(VariantBin::Type::VARIANT_AABB);
+			f->store_32(VariantBin::VARIANT_AABB);
 			AABB val = p_property;
 			f->store_real(val.position.x);
 			f->store_real(val.position.y);
@@ -1345,7 +1359,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::TRANSFORM2D: {
 
-			f->store_32(VariantBin::Type::VARIANT_MATRIX32);
+			f->store_32(VariantBin::VARIANT_MATRIX32);
 			Transform2D val = p_property;
 			f->store_real(val.elements[0].x);
 			f->store_real(val.elements[0].y);
@@ -1357,7 +1371,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::BASIS: {
 
-			f->store_32(VariantBin::Type::VARIANT_MATRIX3);
+			f->store_32(VariantBin::VARIANT_MATRIX3);
 			Basis val = p_property;
 			f->store_real(val.elements[0].x);
 			f->store_real(val.elements[0].y);
@@ -1372,7 +1386,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::TRANSFORM: {
 
-			f->store_32(VariantBin::Type::VARIANT_TRANSFORM);
+			f->store_32(VariantBin::VARIANT_TRANSFORM);
 			Transform val = p_property;
 			f->store_real(val.basis.elements[0].x);
 			f->store_real(val.basis.elements[0].y);
@@ -1390,7 +1404,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::COLOR: {
 
-			f->store_32(VariantBin::Type::VARIANT_COLOR);
+			f->store_32(VariantBin::VARIANT_COLOR);
 			Color val = p_property;
 			f->store_real(val.r);
 			f->store_real(val.g);
@@ -1399,7 +1413,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 
 		} break;
 		case Variant::NODE_PATH: {
-			f->store_32(VariantBin::Type::VARIANT_NODE_PATH);
+			f->store_32(VariantBin::VARIANT_NODE_PATH);
 			NodePath np = p_property;
 			f->store_16(np.get_name_count());
 			uint16_t snc = np.get_subname_count();
@@ -1410,27 +1424,30 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 				f->store_32(string_map.find(np.get_name(i)));
 			for (int i = 0; i < np.get_subname_count(); i++)
 				f->store_32(string_map.find(np.get_subname(i)));
-			//not present in v3
-			//f->store_32(string_map.find(np.get_property()));
+			// If ver_format 1-2 (i.e. godot 2.x), store an empty string for property field
+			if (ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
+				// 0x80000000 will resolve to a zero length string in the binary parser
+				f->store_32(0x80000000);
+			}
 
 		} break;
 		case Variant::RID: {
-
-			f->store_32(VariantBin::Type::VARIANT_RID);
+			f->store_32(VariantBin::VARIANT_RID);
 			WARN_PRINT("Can't save RIDs");
 			RID val = p_property;
 			f->store_32(val.get_id());
 		} break;
 		case Variant::OBJECT: {
 			RES res = p_property;
-			if (res->is_class("Image")){
-				f->store_32(VariantBin::Type::VARIANT_IMAGE);
-				V2ImageParser::write_v2image_to_bin(f, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
+			// This will only be triggered on version 2, where the image variant is loaded as an image object vs. a resource
+			if (ver_format == 1 && res->is_class("Image")){
+				f->store_32(VariantBin::VARIANT_IMAGE);
+				ImageParserV2::write_v2image_to_bin(f, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
 			}
 			else{
-				f->store_32(VariantBin::Type::VARIANT_OBJECT);
+				f->store_32(VariantBin::VARIANT_OBJECT);
 				if (res.is_null()) {
-					f->store_32(VariantBin::Type::OBJECT_EMPTY);
+					f->store_32(VariantBin::OBJECT_EMPTY);
 					return OK; // don't save it
 				}
 				String rpath;
@@ -1444,32 +1461,32 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 					int idx = -1;
 					for (int i = 0; i < external_resources.size(); i++){
 						if (external_resources[i].path == rpath){
-							idx = i;
+							idx = i+1;
 							break;
 						}
 					}
 					if (idx == -1){
-						f->store_32(VariantBin::Type::OBJECT_EMPTY);
+						f->store_32(VariantBin::OBJECT_EMPTY);
 						ERR_FAIL_COND_V_MSG(idx == -1, ERR_BUG, "Cannot find external resource");
 					}
 					
-					f->store_32(VariantBin::Type::OBJECT_EXTERNAL_RESOURCE_INDEX);
+					f->store_32(VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX);
 					f->store_32(idx);
 				} else {
 
 					if (!internal_index_cache.has(rpath)) {
-						f->store_32(VariantBin::Type::OBJECT_EMPTY);
+						f->store_32(VariantBin::OBJECT_EMPTY);
 						ERR_FAIL_V_MSG(ERR_BUG, "Resource was not pre cached for the resource section, bug?");
 					}
 
-					f->store_32(VariantBin::Type::OBJECT_INTERNAL_RESOURCE);
+					f->store_32(VariantBin::OBJECT_INTERNAL_RESOURCE);
 					f->store_32(res->get_subindex());
 				}
 			}
 		} break;
 		case Variant::DICTIONARY: {
 
-			f->store_32(VariantBin::Type::VARIANT_DICTIONARY);
+			f->store_32(VariantBin::VARIANT_DICTIONARY);
 			Dictionary d = p_property;
 			f->store_32(uint32_t(d.size()) | (p_property.is_shared() ? 0x80000000 : 0));
 
@@ -1481,35 +1498,34 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 				//if (!_check_type(dict[E->get()]))
 				//	continue;
 
-				write_variant_binv2(E->get());
-				write_variant_binv2(d[E->get()]);
+				write_variant_bin(f, E->get(), internal_index_cache, internal_resources, external_resources, string_map, ver_format);
+				write_variant_bin(f, d[E->get()], internal_index_cache, internal_resources, external_resources, string_map, ver_format);
 			}
 
 		} break;
 		case Variant::ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_ARRAY);
+			f->store_32(VariantBin::VARIANT_ARRAY);
 			Array a = p_property;
 			f->store_32(uint32_t(a.size()) | (p_property.is_shared() ? 0x80000000 : 0));
 			for (int i = 0; i < a.size(); i++) {
-
-				write_variant_binv2(a[i]);
+				write_variant_bin(f, a[i], internal_index_cache, internal_resources, external_resources, string_map, ver_format);
 			}
 
 		} break;
 		case Variant::PACKED_BYTE_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_RAW_ARRAY);
+			f->store_32(VariantBin::VARIANT_RAW_ARRAY);
 			Vector<uint8_t> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
 			f->store_buffer(arr.ptr(), len);
-			_advance_padding(len);
+			advance_padding(f, len);
 
 		} break;
 		case Variant::PACKED_INT32_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_INT_ARRAY);
+			f->store_32(VariantBin::VARIANT_INT_ARRAY);
 			Vector<int> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
@@ -1519,7 +1535,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::PACKED_FLOAT32_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_REAL_ARRAY);
+			f->store_32(VariantBin::VARIANT_REAL_ARRAY);
 			Vector<real_t> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
@@ -1530,18 +1546,18 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::PACKED_STRING_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_STRING_ARRAY);
+			f->store_32(VariantBin::VARIANT_STRING_ARRAY);
 			Vector<String> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
 			for (int i = 0; i < len; i++) {
-				save_unicode_string(arr.ptr()[i]);
+				save_ustring(f, arr.ptr()[i]);
 			}
 
 		} break;
 		case Variant::PACKED_VECTOR3_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_VECTOR3_ARRAY);
+			f->store_32(VariantBin::VARIANT_VECTOR3_ARRAY);
 			Vector<Vector3> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
@@ -1555,7 +1571,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::PACKED_VECTOR2_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_VECTOR2_ARRAY);
+			f->store_32(VariantBin::VARIANT_VECTOR2_ARRAY);
 			Vector<Vector2> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
@@ -1567,7 +1583,7 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 		} break;
 		case Variant::PACKED_COLOR_ARRAY: {
 
-			f->store_32(VariantBin::Type::VARIANT_COLOR_ARRAY);
+			f->store_32(VariantBin::VARIANT_COLOR_ARRAY);
 			Vector<Color> arr = p_property;
 			int len = arr.size();
 			f->store_32(len);
@@ -1586,6 +1602,9 @@ Error ResourceLoaderBinaryCompat::write_variant_binv2(const Variant &p_property,
 	}
 	return OK;
 }
+Error ResourceLoaderBinaryCompat::write_variant_bin(const Variant &p_property, const PropertyInfo &p_hint) {
+	return write_variant_bin(f, p_property, internal_index_cache, internal_resources, external_resources, string_map, ver_format, p_hint);
+}
 
 
 ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat(){}
@@ -1598,24 +1617,26 @@ ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){
 	}
 }
 
+
+
 Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
 
 	Error err;
-	FileAccess *oldf = f;
+	FileAccess *fw;
 	if (p_flags & ResourceSaver::FLAG_COMPRESS) {
 		FileAccessCompressed *fac = memnew(FileAccessCompressed);
 		fac->configure("RSCC");
-		f = fac;
+		fw = fac;
 		err = fac->_open(p_path, FileAccess::WRITE);
 		if (err)
-			memdelete(f);
+			memdelete(fw);
 
 	} else {
-		f = FileAccess::open(p_path, FileAccess::WRITE, &err);
+		fw = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	}
 
 	ERR_FAIL_COND_V(err, err);
-	FileAccessRef _fref(f);
+	FileAccessRef _fref(fw);
 	
 	/*relative_paths = p_flags & ResourceSaver::FLAG_RELATIVE_PATHS;
 	skip_editor = p_flags & ResourceSaver::FLAG_OMIT_EDITOR_PROPERTIES;
@@ -1632,65 +1653,65 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	if (!(p_flags & ResourceSaver::FLAG_COMPRESS)) {
 		//save header compressed
 		static const uint8_t header[4] = { 'R', 'S', 'R', 'C' };
-		f->store_buffer(header, 4);
+		fw->store_buffer(header, 4);
 	}
 
 	if (big_endian) {
-		f->store_32(1);
-		f->set_endian_swap(true);
+		fw->store_32(1);
+		fw->set_endian_swap(true);
 	} else {
-		f->store_32(0);
+		fw->store_32(0);
 	}
 	if (stored_use_real64) {
-		f->store_32(1); //64 bits file, false for now
+		fw->store_32(1); //64 bits file, false for now
 	} else {
-		f->store_32(0);
+		fw->store_32(0);
 	}
 	
-	f->store_32(engine_ver_major);
-	f->store_32(engine_ver_minor);
-	f->store_32(ver_format);
+	fw->store_32(engine_ver_major);
+	fw->store_32(engine_ver_minor);
+	fw->store_32(ver_format);
 
-	if (f->get_error() != OK && f->get_error() != ERR_FILE_EOF) {
-		f->close();
+	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
+		fw->close();
 		return ERR_CANT_CREATE;
 	}
 
-	//f->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
-	save_unicode_string(type);
-	uint64_t md_at = f->get_position();
-	f->store_64(0); //offset to impoty metadata
+	//fw->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
+	save_ustring(fw, type);
+	uint64_t md_at = fw->get_position();
+	fw->store_64(0); //offset to impoty metadata
 	for (int i = 0; i < 14; i++)
-		f->store_32(0); // reserved
+		fw->store_32(0); // reserved
 
 
-	f->store_32(string_map.size()); //string table size
+	fw->store_32(string_map.size()); //string table size
 	for (int i = 0; i < string_map.size(); i++) {
 		//print_bl("saving string: "+strings[i]);
-		save_unicode_string(string_map[i]);
+		save_ustring(fw, string_map[i]);
 	}
 
 	// save external resource table
-	f->store_32(external_resources.size()); //amount of external resources
+	fw->store_32(external_resources.size()); //amount of external resources
 	for (int i = 0; i < external_resources.size(); i++) {
-		save_unicode_string(external_resources[i].type);
-		save_unicode_string(external_resources[i].path);
+		save_ustring(fw, external_resources[i].type);
+		save_ustring(fw, external_resources[i].path);
 	}
 
 	// save internal resource table
-	f->store_32(internal_resources.size()); //amount of internal resources
+	fw->store_32(internal_resources.size()); //amount of internal resources
 	Vector<uint64_t> ofs_pos;
 
 	for (int i = 0; i < internal_resources.size(); i++) {
 		IntResource r = internal_resources[i];
 		int subidx = internal_index_cache[r.path]->get_subindex();
 		if (r.path == "" || r.path.find("::") != -1) {
-			save_unicode_string("local://" + itos(subidx));
+			save_ustring(fw, "local://" + itos(subidx));
 		} else if (r.path == res_path) {
-			save_unicode_string(local_path); //actual external
+			save_ustring(fw, local_path); //actual external
 		}
-		ofs_pos.push_back(f->get_position());
-		f->store_64(0); //offset in 64 bits
+		ofs_pos.push_back(fw->get_position());
+		fw->store_64(0); //offset in 64 bits
 	}
 
 	Vector<uint64_t> ofs_table;
@@ -1701,51 +1722,50 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		int subidx = internal_index_cache[r.path]->get_subindex();
 		String rtype = internal_type_cache[r.path];
 		List<ResourceProperty> lrp = internal_index_cached_properties[r.path];
-		ofs_table.push_back(f->get_position());
-		save_unicode_string(rtype);
-		f->store_32(lrp.size());
+		ofs_table.push_back(fw->get_position());
+		save_ustring(fw, rtype);
+		fw->store_32(lrp.size());
 		for (List<ResourceProperty>::Element *F = lrp.front(); F; F = F->next()) {
 			ResourceProperty &p = F->get();
-			f->store_32(string_map.find(p.name));
-			write_variant_binv2(p.value);
+			fw->store_32(string_map.find(p.name));
+			write_variant_bin(fw, p.value, internal_index_cache, internal_resources, external_resources, string_map, ver_format);
 		}
 	}
 
 	for (int i = 0; i < ofs_table.size(); i++) {
-		f->seek(ofs_pos[i]);
-		f->store_64(ofs_table[i]);
+		fw->seek(ofs_pos[i]);
+		fw->store_64(ofs_table[i]);
 	}
-	f->seek_end();
+	fw->seek_end();
 	print_line("Saving: " + p_path);
 	if (imd.is_valid()) {
-		uint64_t md_pos = f->get_position();
-		save_unicode_string(imd->get_editor());
-		f->store_32(imd->get_source_count());
+		uint64_t md_pos = fw->get_position();
+		save_ustring(fw, imd->get_editor());
+		fw->store_32(imd->get_source_count());
 		for (int i = 0; i < imd->get_source_count(); i++) {
-			save_unicode_string(imd->get_source_path(i));
-			save_unicode_string(imd->get_source_md5(i));
+			save_ustring(fw, imd->get_source_path(i));
+			save_ustring(fw, imd->get_source_md5(i));
 		}
 		List<String> options;
 		imd->get_options(&options);
-		f->store_32(options.size());
+		fw->store_32(options.size());
 		for (List<String>::Element *E = options.front(); E; E = E->next()) {
-			save_unicode_string(E->get());
-			write_variant_binv2(imd->get_option(E->get()));
+			save_ustring(fw, E->get());
+			write_variant_bin(fw, imd->get_option(E->get()), internal_index_cache, internal_resources, external_resources, string_map, ver_format);
 		}
 
-		f->seek(md_at);
-		f->store_64(md_pos);
-		f->seek_end();
+		fw->seek(md_at);
+		fw->store_64(md_pos);
+		fw->seek_end();
 	}
 
-	f->store_buffer((const uint8_t *)"RSRC", 4); //magic at end
+	fw->store_buffer((const uint8_t *)"RSRC", 4); //magic at end
 
-	if (f->get_error() != OK && f->get_error() != ERR_FILE_EOF) {
-		f->close();
+	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
+		fw->close();
 		return ERR_CANT_CREATE;
 	}
 
-	f->close();
-	f = oldf;
+	fw->close();
 	return OK;
 }

@@ -1,5 +1,7 @@
 
 
+#ifndef RESOURCE_LOADER_COMPAT_H
+#define RESOURCE_LOADER_COMPAT_H
 #include "core/io/resource.h"
 #include "core/os/file_access.h"
 #include "core/variant/variant.h"
@@ -112,7 +114,6 @@ class ResourceLoaderBinaryCompat {
 	bool no_ext_load = false;
 	String local_path;
 	String res_path;
-
 	String type;
 	Ref<Resource> resource;
 	Ref<ResourceImportMetadatav2> imd;
@@ -154,8 +155,10 @@ class ResourceLoaderBinaryCompat {
 
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
+	static void save_ustring(FileAccess * f, const String &p_string);
 
 	String get_unicode_string();
+	static void advance_padding(FileAccess * f, uint32_t p_len);
 	void _advance_padding(uint32_t p_len);
 
 	Map<String, String> remaps;
@@ -171,12 +174,14 @@ class ResourceLoaderBinaryCompat {
 	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 	Error load_ext_resources(const uint32_t i);
-	Error ResourceLoaderBinaryCompat::load_internal_resource(const int i);
-	Error ResourceLoaderBinaryCompat::real_load_internal_resource(const int i);
-	
-	Error write_variant_binv2(const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo()) ;
+
+	Error load_internal_resource(const int i);
+	Error real_load_internal_resource(const int i);
+	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
+	Error write_variant_bin(const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo()) ;
 	Map<String, RES> dependency_cache;
     public:
+		static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 		Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
         static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
         Error open(FileAccess *p_f);
@@ -190,6 +195,7 @@ class ResourceLoaderBinaryCompat {
 		ResourceLoaderBinaryCompat();
 		~ResourceLoaderBinaryCompat();
 };
+
 class FakeResource : public PackedScene {
 	GDCLASS(FakeResource, PackedScene);
 	String real_path;
@@ -213,3 +219,4 @@ public:
 };
 
 
+#endif // RESOURCE_LOADER_COMPAT_H

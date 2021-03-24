@@ -8,12 +8,14 @@
 #define STREAM_TEXTURE_V3_H
 
 class StreamTextureV3 : public Reference{
-    GDCLASS(StreamTextureV3, Reference)
+    GDCLASS(StreamTextureV3, Reference);
+    
     Ref<Image> image;
     Error _load_data(const String &p_path);
 protected:
     static void _bind_methods();
 public:
+    Ref<Image> load_image(const String &p_path, Error &err) const;
     Ref<Image> get_image();
     Error load(const String &p_path);
 };

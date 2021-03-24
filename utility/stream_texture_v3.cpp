@@ -1,4 +1,4 @@
-#include "old_stream_texture.h"
+#include "stream_texture_v3.h"
 #include "core/os/file_access.h"
 enum FormatBits {
     FORMAT_MASK_IMAGE_FORMAT = (1 << 20) - 1,
@@ -19,15 +19,196 @@ Ref<Image> StreamTextureV3::get_image(){
 void StreamTextureV3::_bind_methods(){
     ClassDB::bind_method("load", &StreamTextureV3::load);
     ClassDB::bind_method("get_image", &StreamTextureV3::get_image);
+	ClassDB::add_virtual_method(get_class_static(), MethodInfo(PropertyInfo(Variant::OBJECT, "load_image", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "load_image", PropertyInfo(Variant::STRING, "path")));
+}
+
+Ref<Image> StreamTextureV3::load_image(const String &p_path, Error &err) const {
+	
+	Ref<Image> image;
+	image.instance();
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	
+	ERR_FAIL_COND_V_MSG(err != OK || !f, image, "Can't open image file for loading");
+
+	uint8_t header[4];
+	f->get_buffer(header, 4);
+	if (header[0] != 'G' || header[1] != 'D' || header[2] != 'S' || header[3] != 'T') {
+		memdelete(f);
+		err = ERR_FILE_CORRUPT;
+		ERR_FAIL_COND_V_MSG(header[0] != 'G' || header[1] != 'D' || header[2] != 'S' || header[3] != 'T', image, "File is not a V3 Stream texture");
+	}
+    
+	uint16_t tw = f->get_16();
+	uint16_t tw_custom = f->get_16();
+	uint16_t th = f->get_16();
+	uint16_t th_custom = f->get_16();
+
+	uint32_t flags = f->get_32(); //texture flags!
+	uint32_t df = f->get_32(); //data format
+    int p_size_limit = 0;
+	/*
+	print_line("width: " + itos(tw));
+	print_line("height: " + itos(th));
+	print_line("flags: " + itos(flags));
+	print_line("df: " + itos(df));
+	*/
+
+	if (!(df & FORMAT_BIT_STREAM)) {
+    // do something
+	}
+	if (df & FORMAT_BIT_LOSSLESS || df & FORMAT_BIT_LOSSY) {
+		//look for a PNG or WEBP file inside
+
+		int sw = tw;
+		int sh = th;
+
+		uint32_t mipmaps = f->get_32();
+		uint32_t size = f->get_32();
+
+		//print_line("mipmaps: " + itos(mipmaps));
+
+		while (mipmaps > 1 && p_size_limit > 0 && (sw > p_size_limit || sh > p_size_limit)) {
+
+			f->seek(f->get_position() + size);
+			mipmaps = f->get_32();
+			size = f->get_32();
+
+			sw = MAX(sw >> 1, 1);
+			sh = MAX(sh >> 1, 1);
+			mipmaps--;
+		}
+
+		//mipmaps need to be read independently, they will be later combined
+		Vector<Ref<Image> > mipmap_images;
+		int total_size = 0;
+
+		for (uint32_t i = 0; i < mipmaps; i++) {
+
+			if (i) {
+				size = f->get_32();
+			}
+			Vector<uint8_t> pv;
+			pv.resize(size);
+			{
+				uint8_t *wr = pv.ptrw();
+				f->get_buffer(wr, size);
+			}
+
+			Ref<Image> img;
+			if (df & FORMAT_BIT_LOSSLESS) {
+				img = Image::lossless_unpacker(pv);
+			} else {
+				img = Image::lossy_unpacker(pv);
+			}
+
+			if (img.is_null() || img->is_empty()) {
+				memdelete(f);
+				err = ERR_FILE_CORRUPT;
+				ERR_FAIL_COND_V_MSG(img.is_null() || img->is_empty(), image, "File is corrupt");
+			}
+
+			total_size += img->get_data().size();
+
+			mipmap_images.push_back(img);
+		}
+
+		//print_line("mipmap read total: " + itos(mipmap_images.size()));
+
+		memdelete(f); //no longer needed
+
+		if (mipmap_images.size() == 1) {
+			image = mipmap_images[0];
+		} else {
+			Vector<uint8_t> img_data;
+			img_data.resize(total_size);
+
+			{
+				uint8_t *wr = img_data.ptrw();
+
+				int ofs = 0;
+				for (int i = 0; i < mipmap_images.size(); i++) {
+					Vector<uint8_t> id = mipmap_images[i]->get_data();
+					int len = id.size();
+					const uint8_t *r = id.ptr();
+					copymem(&wr[ofs], r, len);
+					ofs += len;
+				}
+			}
+			image->create(tw, th, true, mipmap_images[0]->get_format(), img_data);
+		}
+	} else {
+		//look for regular format
+		Image::Format format = (Image::Format)(df & FORMAT_MASK_IMAGE_FORMAT);
+		bool mipmaps = df & FORMAT_BIT_HAS_MIPMAPS;
+
+		if (!mipmaps) {
+			int size = Image::get_image_data_size(tw, th, format, false);
+
+			Vector<uint8_t> img_data;
+			img_data.resize(size);
+
+			{
+				uint8_t *wr = img_data.ptrw();
+				f->get_buffer(wr, size);
+			}
+
+			memdelete(f);
+			image->create(tw, th, false, format, img_data);
+		} else {
+
+			int sw = tw;
+			int sh = th;
+
+			int mipmaps2 = Image::get_image_required_mipmaps(tw, th, format);
+			int total_size = Image::get_image_data_size(tw, th, format, true);
+			int idx = 0;
+
+			while (mipmaps2 > 1 && p_size_limit > 0 && (sw > p_size_limit || sh > p_size_limit)) {
+
+				sw = MAX(sw >> 1, 1);
+				sh = MAX(sh >> 1, 1);
+				mipmaps2--;
+				idx++;
+			}
+
+			int ofs = Image::get_image_mipmap_offset(tw, th, format, idx);
+
+			if (total_size - ofs <= 0) {
+				memdelete(f);
+				ERR_FAIL_V(image);
+			}
+
+			f->seek(f->get_position() + ofs);
+
+			Vector<uint8_t> img_data;
+			img_data.resize(total_size - ofs);
+
+			{
+				uint8_t *wr = img_data.ptrw();
+				int bytes = f->get_buffer(wr, total_size - ofs);
+				//print_line("requested read: " + itos(total_size - ofs) + " but got: " + itos(bytes));
+
+				memdelete(f);
+
+				int expected = total_size - ofs;
+				if (bytes < expected) {
+					//this is a compatibility workaround for older format, which saved less mipmaps2. It is still recommended the image is reimported.
+					zeromem(wr + bytes, (expected - bytes));
+				} else if (bytes != expected) {
+					ERR_FAIL_V(image);
+				}
+			}
+			image->create(sw, sh, true, format, img_data);
+		}
+	}
+	err = OK;
+	return image;
 }
 
 
 Error StreamTextureV3::_load_data(const String &p_path) {
 
 
-    if (p_path.find("cloud_sky") != -1){
-        printf("CLOUD SKY!!!");
-    }
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V(!f, ERR_CANT_OPEN);
 

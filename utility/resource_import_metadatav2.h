@@ -1,3 +1,7 @@
+
+#ifndef RESOURCE_IMPORT_METADATAV2_H
+#define RESOURCE_IMPORT_METADATAV2_H
+
 #include "core/io/resource.h"
 #include "core/object/reference.h"
 
@@ -35,3 +39,5 @@ public:
 	void get_options(List<String> *r_options) const;
 	ResourceImportMetadatav2();
 };
+
+#endif //RESOURCE_IMPORT_METADATAV2_H

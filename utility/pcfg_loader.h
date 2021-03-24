@@ -5,12 +5,12 @@
 
 #include <core/object/object.h>
 #include "core/object/class_db.h"
-
+#include "core/object/reference.h"
 
 typedef Map<String, Variant> CustomMap;
 
-class ProjectConfigLoader : Object {
-    GDCLASS(ProjectConfigLoader, Object);
+class ProjectConfigLoader : public Reference {
+    GDCLASS(ProjectConfigLoader, Reference);
 	struct VariantContainer {
 		int order;
 		bool persist;
@@ -44,9 +44,6 @@ class ProjectConfigLoader : Object {
         Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
 		Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
 		Error _load_settings_binary(const String &p_path, uint32_t ver_major);
-		void set_initial_value(const String &p_name, const Variant &p_value);
-		void set_restart_if_changed(const String &p_name, bool p_restart);
-		void set_builtin_order(const String &p_name);
 		
 		Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
 		Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props, const uint32_t ver_major, const uint32_t ver_minor);

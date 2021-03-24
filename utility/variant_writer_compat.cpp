@@ -5,7 +5,7 @@
 #include "core/string/string_buffer.h"
 #include "core/io/image.h"
 #include "core/variant/variant_parser.h"
-#include "V2ImageParser.h"
+#include "image_parser_v2.h"
 
 namespace V2toV4{
 
@@ -272,7 +272,7 @@ Error VariantWriterCompat::writeV2(const Variant &p_variant, StoreStringFunc p_s
 
 			//Hack for V2 Images
 			if (res->is_class("Image")){
-				res_text = V2ImageParser::ImageV2_to_string(res);
+				res_text = ImageParserV2::ImageV2_to_string(res);
 			} else if (p_encode_res_func) {
 				res_text = p_encode_res_func(p_encode_res_ud, res);
 			}

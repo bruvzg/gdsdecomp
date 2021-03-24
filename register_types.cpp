@@ -7,8 +7,10 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "editor/gdre_editor.h"
-#include "utility/pck_info.h"
-#include "utility/old_stream_texture.h"
+#include "utility/pck_dumper.h"
+#include "utility/stream_texture_v3.h"
+#include "utility/import_exporter.h"
+
 
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {

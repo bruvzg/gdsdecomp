@@ -1,5 +1,5 @@
-#ifndef RE_PCK_INFO_H
-#define RE_PCK_INFO_H
+#ifndef RE_PCK_DUMPER_H
+#define RE_PCK_DUMPER_H
 
 #include "core/templates/map.h"
 #include "core/io/resource.h"
@@ -56,8 +56,8 @@ private:
 	void fix_path();
 };
 
-class PckDumper : public Object {
-	GDCLASS(PckDumper, Object)
+class PckDumper : public Reference {
+	GDCLASS(PckDumper, Reference)
 
 	String path;
 	uint32_t pck_ver;
@@ -88,43 +88,4 @@ public:
 
 };
 
-class ImportInfo: public Reference {
-	GDCLASS(ImportInfo, Reference)
-public:
-	String path; // imported file path
-	String type;
-	String importer;
-	String group_file;
-	Variant metadata;
-	String source_file; // file to import
-	Vector<String> dest_files;
-	void _init() {
-		path = "";
-		type = "";
-		importer = "";
-		group_file = "";
-		source_file = "";
-	};
-};
-
-
-class ImportExporter: public Object {
-	GDCLASS(ImportExporter, Object)
-	Array files;
-	String base_dir;
-	Error load_import_file(const String &p_path);
-	Error convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst);
-	Error convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst);
-
-
-protected:
-	static void _bind_methods();
-
-public:
-	Error load_import_files(const String &base_dir, const uint32_t ver_major);
-	Array get_import_files();
-	Error load_v2_converted_file(const String &p_path);
-};
-
-
-#endif //RE_PCK_INFO_H
+#endif //RE_PCK_DUMPER_H

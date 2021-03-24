@@ -23,7 +23,7 @@
 
 #include "core/version_generated.gen.h"
 #include "utility/pcfg_loader.h"
-#include "utility/old_stream_texture.h"
+#include "utility/stream_texture_v3.h"
 #include "utility/resource_loader_compat.h"
 
 
