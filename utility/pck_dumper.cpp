@@ -1,5 +1,6 @@
 #include "pck_dumper.h"
 #include <core/os/file_access.h>
+#include <core/io/file_access_encrypted.h>
 #include <core/os/dir_access.h>
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
@@ -40,10 +41,26 @@ bool PckDumper::_get_magic_number(FileAccess * pck) {
 	return true;
 }
 
-bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
-	size_t oldpos = pck->get_position();
-	pck->seek(f.offset);
+bool PckDumper::_pck_file_check_md5(const PackedFile & file) {
+	FileAccess *pck_f = FileAccess::open(path, FileAccess::READ);
+	pck_f->seek(file.offset);
+	if (file.flags & (1<<0)){
+		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+		ERR_FAIL_COND_V_MSG(!fae, false, "Can't open encrypted pack-referenced file '" + String(file.path) + "'.");
 
+		Error err = fae->open_and_parse(pck_f, get_key(), FileAccessEncrypted::MODE_READ, false);
+		memdelete(fae);
+		pck_f->close();
+		memdelete(pck_f);
+		if (err != OK) {
+			if (err == ERR_FILE_UNRECOGNIZED){
+				ERR_FAIL_COND_V_MSG(err != OK, false, "Failed to decrypt '" + String(file.path) + "'.");
+			} else if (err == ERR_FILE_CORRUPT){
+				ERR_FAIL_COND_V_MSG(err != OK, false, "MD5 check failed for '" + String(file.path) + "'.");
+			}
+		}
+		return true;
+	}
 #if (VERSION_MAJOR == 4)
 	CryptoCore::MD5Context ctx;
 	ctx.start();
@@ -52,12 +69,12 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 	MD5Init(&md5);
 #endif
 
-	int64_t rq_size = f.size;
+	int64_t rq_size = file.size;
 	uint8_t buf[32768];
 
 	while (rq_size > 0) {
 
-		int got = pck->get_buffer(buf, MIN(32768, rq_size));
+		int got = pck_f->get_buffer(buf, MIN(32768, rq_size));
 		if (got > 0) {
 #if (VERSION_MAJOR == 4)
 			ctx.update(buf, got);
@@ -76,7 +93,6 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 #else
 	MD5Final(&md5);
 #endif
-	pck->seek(oldpos);
 
 	String file_md5;
 	String saved_md5;
@@ -85,14 +101,16 @@ bool PckDumper::_pck_file_check_md5(FileAccess *pck, const PackedFile & f) {
 	bool md5_match = true;
 	for (int j = 0; j < 16; j++) {
 #if (VERSION_MAJOR == 4)
-		md5_match &= (hash[j] == f.md5[j]);
+		md5_match &= (hash[j] == file.md5[j]);
 		file_md5 += String::num_uint64(hash[j], 16);
 #else
 		md5_match &= (md5.digest[j] == md5_saved[j]);
 		file_md5 += String::num_uint64(md5.digest[j], 16);
 #endif
-		saved_md5 += String::num_uint64(f.md5[j], 16);
+		saved_md5 += String::num_uint64(file.md5[j], 16);
 	}
+	pck_f->close();
+	memdelete(pck_f);
 	return md5_match;
 }
 
@@ -112,20 +130,46 @@ Error PckDumper::load_pck(const String& p_path) {
 	String failed_files;
 	pck_ver = pck->get_32();
 
-	if (pck_ver > 1) {
+	if (pck_ver > 2) {
 		//show_warning(RTR("Pack version unsupported: ") + itos(pck_ver), RTR("Read PCK"));
 		memdelete(pck);
 		return ERR_FILE_UNRECOGNIZED;
 	}
+	
 	ver_major = pck->get_32();
 	ver_minor = pck->get_32();
 	ver_rev = pck->get_32();
-	//skip?
+	
+	if (pck_ver == 2) {
+		pack_flags = pck->get_32();
+		file_base = pck->get_64();
+	}
+
+	bool enc_directory = (pack_flags & (1 << 0));
+	//skip reserved fields
 	for (int i = 0; i < 16; i++) {
 		pck->get_32();
 	}
 
 	file_count = pck->get_32();
+	Vector<uint8_t> key = get_key();
+	if (enc_directory) {
+		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+		if (!fae) {
+			pck->close();
+			memdelete(pck);
+			ERR_FAIL_V_MSG(ERR_FILE_CANT_OPEN, "Can't open encrypted pack directory.");
+		}
+		Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
+		if (err) {
+			pck->close();
+			memdelete(pck);
+			memdelete(fae);
+			ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Can't open encrypted pack directory.");
+		}
+		pck = fae;
+	}
+
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	files.clear();
 	for (int i = 0; i < file_count; i++) {
@@ -143,9 +187,12 @@ Error PckDumper::load_pck(const String& p_path) {
 		uint64_t size = pck->get_64();
 		uint8_t md5_saved[16];
 		pck->get_buffer(md5_saved, 16);
-		PackedFile p_file = PackedFile(path, ofs, size, md5_saved);
+		uint32_t flags = 0;
+		if (pck_ver == 2) {
+			flags = pck->get_32();
+		}
+		PackedFile p_file = PackedFile(path, ofs, size, md5_saved, flags);
 		files.push_back(p_file);
-
 	}
 	loaded = true;
 	memdelete(pck);
@@ -153,65 +200,86 @@ Error PckDumper::load_pck(const String& p_path) {
 }
 
 bool PckDumper::check_md5_all_files() {
-	FileAccess *pck = FileAccess::open(path, FileAccess::READ);
 	int bad_checksums = 0;
 	for (int i = 0; i < files.size(); i++) {
-		PackedFile p_file = files.get(i);
-		p_file.md5_match = _pck_file_check_md5(pck, p_file);
-		if (p_file.md5_match) {
-
-		}
+		files.write[i].md5_match = _pck_file_check_md5(files.get(i));
 	}
-	memdelete(pck);
 	return true;
 }
 
 Error PckDumper::pck_dump_to_dir(const String &dir) {
-	FileAccess *pck = FileAccess::open(path, FileAccess::READ);
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Vector<uint8_t> key = get_key();
 	if (!da) {
 		return ERR_FILE_CANT_WRITE;
 	}
 	String failed_files;
 	for (int i = 0; i < files.size(); i++) {
+		FileAccess *pck_f = FileAccess::open(path, FileAccess::READ);
+		if (!pck_f){
+			failed_files += files.get(i).path + " (FileAccess error)\n";
+			continue;
+		}
+		
 		String target_name = dir.plus_file(files.get(i).path);
 
 		da->make_dir_recursive(target_name.get_base_dir());
 
 		//print_warning("extracting " + files[i], RTR("Read PCK"));
 
-		pck->seek(files.get(i).offset);
 
 		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
-		if (fa) {
-			int64_t rq_size = files.get(i).size;
-			uint8_t buf[16384];
-
-			while (rq_size > 0) {
-				int got = pck->get_buffer(buf, MIN(16384, rq_size));
-				fa->store_buffer(buf, got);
-				rq_size -= 16384;
-			}
-			memdelete(fa);
-		} else {
-			failed_files += files.get(i).path + " (FileAccess error)\n";
+		if (!fa){
+			failed_files += files.get(i).path + " (FileWrite error)\n";
+			continue;
 		}
+
+		pck_f->seek(files.get(i).offset);
+		
+		if (files.get(i).flags & (1 << 0)) {
+			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+			if (!fae) {
+				pck_f->close();
+				memdelete(pck_f);
+				failed_files += files.get(i).path + " (FileAccess error)\n";
+				continue;
+			}
+
+			Error err = fae->open_and_parse(pck_f, key, FileAccessEncrypted::MODE_READ, false);
+			if (err) {
+				pck_f->close();
+				memdelete(pck_f);
+				memdelete(fae);
+				failed_files += files.get(i).path + " (FileAccess error)\n";
+				continue;
+			}
+			pck_f = fae;
+		}
+
+		int64_t rq_size = files.get(i).size;
+		uint8_t buf[16384];
+		while (rq_size > 0) {
+			int got = pck_f->get_buffer(buf, MIN(16384, rq_size));
+			fa->store_buffer(buf, got);
+			rq_size -= 16384;
+		}
+		memdelete(fa);
+		memdelete(pck_f);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader * pcfgldr = memnew(ProjectConfigLoader);
 
 			Error e1 = pcfgldr->load_cfb(target_name, ver_major, ver_minor);
-			if (e1 == OK) {
-				printf("good");
+			if (e1 != OK) {
+				WARN_PRINT("Failed to load cfb");
 			}
 			Error e2 = pcfgldr->save_cfb(target_name.get_base_dir(), ver_major, ver_minor);
-			if (e2 == OK) {
-				printf("good");
+			if (e2 != OK) {
+				WARN_PRINT("Failed to save cfb");
 			}
 			memdelete(pcfgldr);
 		}
 	}
 	memdelete(da);
-	memdelete(pck);
 
 	if (failed_files.length() > 0) {
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
@@ -237,6 +305,45 @@ Error PckDumper::pck_load_and_dump(const String &p_path, const String &dir) {
 bool PckDumper::is_loaded() {
 	return loaded;
 }
+
+void PckDumper::set_key(const String &s){
+	script_key = s;
+}
+
+
+Vector<uint8_t> PckDumper::get_key() const {
+
+	Vector<uint8_t> key;
+
+	if (script_key.is_empty() || !script_key.is_valid_hex_number(false) || script_key.length() != 64) {
+		return key;
+	}
+
+	key.resize(32);
+	for (int i = 0; i < 32; i++) {
+		int v = 0;
+		if (i * 2 < script_key.length()) {
+			char32_t ct = script_key.to_lower()[i * 2];
+			if (ct >= '0' && ct <= '9')
+				ct = ct - '0';
+			else if (ct >= 'a' && ct <= 'f')
+				ct = 10 + ct - 'a';
+			v |= ct << 4;
+		}
+
+		if (i * 2 + 1 < script_key.length()) {
+			char32_t ct = script_key.to_lower()[i * 2 + 1];
+			if (ct >= '0' && ct <= '9')
+				ct = ct - '0';
+			else if (ct >= 'a' && ct <= 'f')
+				ct = 10 + ct - 'a';
+			v |= ct;
+		}
+		key.write[i] = v;
+	}
+	return key;
+}
+
 
 void PackedFile::set_stuff(const String path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16]) {
 	raw_path = path;

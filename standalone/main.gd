@@ -96,9 +96,11 @@ func test_decomp(fname):
 				print("error failed to save "+ f)
 
 	
-func dump_files(exe_file:String, output_dir:String):
+func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 	var thing = PckDumper.new()
 	print(exe_file)
+	if (enc_key != ""):
+		thing.set_key(enc_key)
 	if thing.load_pck(exe_file) == OK:
 		print("Successfully loaded PCK!")
 		ver_major = thing.get_engine_version().split(".")[0].to_int()
@@ -160,6 +162,7 @@ func handle_cli():
 
 	var exe_file:String = ""
 	var output_dir: String = ""
+	var enc_key: String = ""
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
@@ -167,17 +170,18 @@ func handle_cli():
 			get_tree().quit()
 		if arg.begins_with("--extract"):
 			exe_file = normalize_path(get_arg_value(arg))
-		if arg.begins_with("--output-dir"):
+		elif arg.begins_with("--output-dir"):
 			output_dir = normalize_path(get_arg_value(arg))
+		elif arg.begins_with("--key"):
+			enc_key = get_arg_value(arg)
 	if exe_file != "":
 		if output_dir == "":
 			print("Error: use --output-dir=<dir> when using --extract")
-			get_tree().quit()
 		else:
 			#print_import_info(output_dir)
-			dump_files(exe_file, output_dir)
+			dump_files(exe_file, output_dir, enc_key)
 			export_imports(output_dir)
-	get_tree().quit()	
+		get_tree().quit()
 
 
 
