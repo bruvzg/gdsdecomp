@@ -540,6 +540,7 @@ Error GDScriptDecomp_1ca61a3::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "var ";
 			} break;
 			case TK_PR_AS: {
+				_ensure_space(line);
 				line += "as ";
 			} break;
 			case TK_PR_VOID: {
