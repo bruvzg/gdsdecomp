@@ -15,8 +15,7 @@
 #else 
 #define print_bl(m_what) (void)(m_what)
 #endif
-namespace VariantBin{
-	
+namespace VariantBin{	
 	enum Type {
 		//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
 		VARIANT_NIL = 1,
@@ -100,8 +99,21 @@ namespace VariantBin{
 		FORMAT_VERSION_CAN_RENAME_DEPS = 1,
 		FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 	};
-
 }
+/**
+ * Ensures `m_cond` is false.
+ * If `m_cond` is true, prints `m_msg` and the current function returns `m_retval`.
+ *
+ * If checking for null use ERR_FAIL_NULL_V_MSG instead.
+ * If checking index bounds use ERR_FAIL_INDEX_V_MSG instead.
+ */
+#define ERR_RFLBC_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                                              \
+	if (unlikely(m_cond)) {                                                                                                                         \
+	    if (loader != nullptr) memdelete(loader);                                                                                                   \
+		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), DEBUG_STR(m_msg)); \
+		return m_retval;                                                                                                                            \
+	} else                                                                                                                                          \
+		((void)0)
 
 struct ResourceProperty{
 	String name;
@@ -115,6 +127,7 @@ class ResourceLoaderBinaryCompat {
 	String local_path;
 	String res_path;
 	String type;
+	String project_dir;
 	Ref<Resource> resource;
 	Ref<ResourceImportMetadatav2> imd;
 	uint32_t ver_format = 0;
@@ -123,6 +136,7 @@ class ResourceLoaderBinaryCompat {
 	bool stored_big_endian = false;
 	bool stored_use_real64 = false;
 	bool convert_v2image_indexed = false;
+	bool hacks_for_deprecated_v2img_formats = true;
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
@@ -178,7 +192,7 @@ class ResourceLoaderBinaryCompat {
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
-	Error write_variant_bin(const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo()) ;
+	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Map<String, RES> dependency_cache;
     public:
 		static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());

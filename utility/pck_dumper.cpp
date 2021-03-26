@@ -227,13 +227,6 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 
 		//print_warning("extracting " + files[i], RTR("Read PCK"));
 
-
-		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
-		if (!fa){
-			failed_files += files.get(i).path + " (FileWrite error)\n";
-			continue;
-		}
-
 		pck_f->seek(files.get(i).offset);
 		
 		if (files.get(i).flags & (1 << 0)) {
@@ -254,6 +247,12 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 				continue;
 			}
 			pck_f = fae;
+		}
+
+		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
+		if (!fa) {
+			failed_files += files.get(i).path + " (FileWrite error)\n";
+			continue;
 		}
 
 		int64_t rq_size = files.get(i).size;

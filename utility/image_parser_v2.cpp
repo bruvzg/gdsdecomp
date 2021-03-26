@@ -333,48 +333,60 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
                 case V2Image::IMAGE_FORMAT_CUSTOM: {
                     fmt = Image::FORMAT_ETC2_RA_AS_RG;
                 } break;
+                // We can't convert YUV format
             }
 			default: {
-				ERR_FAIL_V(ERR_FILE_CORRUPT);
+                // We'll error out after we've skipped over the data
+                fmt = Image::FORMAT_MAX;
 			}
 		}
 
 		uint32_t datalen = f->get_32();
         
-        //bool has_mipmaps = Image::get_image_required_mipmaps(width,height,fmt);
-        //get_image_required_mipmaps
 		Vector<uint8_t> imgdata;
 		imgdata.resize(datalen);
 		uint8_t * w = imgdata.ptrw();
 		f->get_buffer(w, datalen);
 		_advance_padding(f, datalen);
+		
+		if (convert_indexed && (format == 5 || format == 6 || format == 1 )) {
+            Vector<uint8_t> new_imgdata;
 
-		if (convert_indexed && (format == 5 || format == 6)) {
-			int p_width;
-			if (format == V2Image::IMAGE_FORMAT_INDEXED) {
-				fmt = Image::FORMAT_RGB8;
-				p_width = 3;
-			} else if (format == V2Image::IMAGE_FORMAT_INDEXED_ALPHA) {
-				fmt = Image::FORMAT_RGBA8;
-				p_width = 4;
-			}
+            if (format == V2Image::IMAGE_FORMAT_INTENSITY) {
+                fmt = Image::FORMAT_RGBA8;
+                new_imgdata.resize(datalen*4);
+                for (int i = 0; i < datalen; i++) {
+                    new_imgdata.write[i*4] = 255;
+                    new_imgdata.write[i*4+1] = 255;
+                    new_imgdata.write[i*4+2] = 255;
+                    new_imgdata.write[i*4+3] = imgdata[i];
+                }
+            } else {
+                int p_width;
+                if (format == V2Image::IMAGE_FORMAT_INDEXED) {
+                    fmt = Image::FORMAT_RGB8;
+                    p_width = 3;
+                } else if (format == V2Image::IMAGE_FORMAT_INDEXED_ALPHA) {
+                    fmt = Image::FORMAT_RGBA8;
+                    p_width = 4;
+                }
 
-			Vector<uint8_t> new_imgdata;
+                Vector<Vector<uint8_t> > palette;
 
-			Vector<Vector<uint8_t> > palette;
-
-			//palette data starts at end of pixel data, is equal to 256 * p_width
-			for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {
-				palette.push_back(imgdata.subarray(dataidx, dataidx + p_width - 1));
-			}
-			//pixel data is index into palette
-			for (int i = 0; i < width * height; i++) {
-				new_imgdata.append_array(palette[imgdata[i]]);
-			}
-			img->create(width, height, mipmaps > 0, fmt, new_imgdata);
-		} else {
-			img->create(width, height, mipmaps > 0, fmt, imgdata);
+                //palette data starts at end of pixel data, is equal to 256 * p_width
+                for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {
+                    palette.push_back(imgdata.subarray(dataidx, dataidx + p_width - 1));
+                }
+                //pixel data is index into palette
+                for (int i = 0; i < width * height; i++) {
+                    new_imgdata.append_array(palette[imgdata[i]]);
+                }
+            }
+            imgdata = new_imgdata;   
 		}
+        //We wait until we've skipped all the data to do this
+        ERR_FAIL_COND_V_MSG(fmt == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Can't convert deprecated image formats to new image formats!");
+        img->create(width, height, mipmaps > 0, fmt, imgdata);
 	} else {
 		//compressed
 		Vector<uint8_t> data;

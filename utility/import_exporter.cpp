@@ -87,7 +87,7 @@ Error ImportExporter::load_v2_converted_file(const String& p_path) {
 		} else if (p_path.get_extension() == "smp") {
 			new_ext = "wav";
 		}
-		dest = String("assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
+		dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
 	}
 	
 	Dictionary iinfo;

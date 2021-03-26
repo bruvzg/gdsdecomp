@@ -7,6 +7,7 @@
 #include "core/version.h"
 #include "core/os/dir_access.h"
 #include "core/variant/variant_parser.h"
+#include "core/crypto/crypto_core.h"
 
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
@@ -16,22 +17,14 @@ Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path,
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
-	ERR_FAIL_COND_V(error != OK, error);
-	error = loader->fake_load();
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
+	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 
-	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot load resource '" + p_path + "'.");
+	error = loader->fake_load();
+	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 
 	error = loader->save_as_text_unloaded(dst_path);
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
 
+	memdelete(loader);
 	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '"+ dst +"'.");
 	return OK;
 }
@@ -41,21 +34,16 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 	String rel_dst_path = dst.replace_first("res://", "");
 	String dst_path = dst;
 	//Relative path
-	if (!output_dir.is_empty()) {
+	if (!output_dir.is_empty() && !dst_path.is_abs_path()) {
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
+	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot open file '" + p_path + "'.", loader);
+	
 	loader->convert_v2image_indexed = true;
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
-	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot open file '" + p_path + "'.");
-
+	loader->hacks_for_deprecated_v2img_formats = false;
 	error = loader->fake_load();
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
-	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot load resource '" + p_path + "'.");
+	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 	
 	Ref<Image> img;
 	String name;
@@ -71,16 +59,10 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 			img = pe.value;
 		}
 	}
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
-	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to load image from '" + p_path + "'.");
+	ERR_RFLBC_MSG_CLEANUP(img.is_null(), error, "failed to load image from '" + p_path + "'.", loader);
 
 	error = img->save_png(dst_path);
-	if (error != OK && loader != nullptr) {
-		memdelete(loader);
-	}
-	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.");
+	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.", loader);
 
 	if (rewrite_metadata){
 		error = _rewrite_import_metadata(loader, name, rel_dst_path);
@@ -91,7 +73,36 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 	return OK;
 }
 
+Error get_md5_hash(const String &path, String &hash_str){
+	FileAccess *file = FileAccess::open(path, FileAccess::READ);
+	if (!file){
+		return ERR_FILE_CANT_OPEN;
+	}
+	CryptoCore::MD5Context ctx;
+	ctx.start();
+
+	int64_t rq_size = file->get_len();
+	uint8_t buf[32768];
+
+	while (rq_size > 0) {
+		int got = file->get_buffer(buf, MIN(32768, rq_size));
+		if (got > 0) {
+			ctx.update(buf, got);
+		}
+		if (got < 4096)
+			break;
+		rq_size -= 32768;
+	}
+	unsigned char hash[16];
+	ctx.finish(hash);
+	hash_str = String::md5(hash);
+	file->close();
+	memdelete(file);
+	return OK;
+}
+
 Error ResourceFormatLoaderBinaryCompat::_rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path){
+	bool rewrite_md5 = true;
 	//Rewrite the metadata
 	if(!loader->imd.is_valid() || loader->imd->get_source_count() <= 0){
 		return ERR_UNAVAILABLE;
@@ -103,8 +114,20 @@ Error ResourceFormatLoaderBinaryCompat::_rewrite_import_metadata(ResourceLoaderB
 	for (i = 0; i < loader->imd->get_source_count(); i++) {
 		// case insensitive windows paths...
 		if (loader->imd->get_source_path(i).get_file().to_lower() == name.to_lower()){
-			// We won't recalculate here, to force a re-import upon load
 			String md5 = loader->imd->get_source_md5(i);
+			// We won't recalculate here, to force a re-import upon load
+			if (rewrite_md5){
+				String dst_path = rel_dst_path;
+				if (!loader->project_dir.is_empty()){
+					dst_path = loader->project_dir.plus_file(rel_dst_path);
+				}
+				String new_hash;
+				if (get_md5_hash(dst_path, new_hash) != OK){
+					WARN_PRINT("Can't open exported file to calculate hash");
+				} else {
+					md5 = new_hash;
+				}
+			}
 			loader->imd->remove_source(i);
 			loader->imd->add_source(rel_dst_path, md5);
 			break;
@@ -131,11 +154,11 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const Strin
 
 	ERR_FAIL_COND_V_MSG(error != OK, nullptr, "Cannot open file '" + path + "'.");
 	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
-
+	loader->project_dir = base_dir;
 	loader->progress = r_progress;
 	loader->no_ext_load = no_ext_load;
 	loader->local_path = p_path; // Local path
-	loader->res_path = path; // Absoulte path
+	loader->res_path = path; // Absolute path
 	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
 	error = loader->open(f);
 	if (r_error) {
@@ -342,6 +365,7 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 		stage++;
 	}
 
+	// We don't instance the internal resources here; We instead store the name, type and properties
 	for (int i = 0; i < internal_resources.size(); i++) {
 		bool main = i == (internal_resources.size() - 1);
 
@@ -391,9 +415,9 @@ Error ResourceLoaderBinaryCompat::fake_load(){
 		}
 		internal_index_cached_properties[path] = lrp;
 		internal_index_cache[path] = make_dummy(path, rtype, subindex);
-
+		
+		// packed scenes with instances for nodes won't work right without creating an instance of it
 		if (main && type == "PackedScene"){
-			// packed scenes with instances for nodes won't work right without creating an instance of it
 			Ref<PackedScene> ps;
 			ps.instance();
 			String valstring;
@@ -444,24 +468,6 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 	return get_ustring(f);
 }
 
-RES ResourceLoaderBinaryCompat::set_dummy_ext(const String& path, const String& exttype){
-	for (int i = 0; i < external_resources.size(); i++){
-		if (external_resources[i].path == path){
-			if (external_resources[i].cache.is_valid()){
-				return external_resources[i].cache;
-			}
-			return set_dummy_ext(i);
-		}
-	}
-	//If not found in cache...
-	ExtResource er;
-	er.path = path;
-	er.type = exttype;
-	er.cache = make_dummy(path, exttype, external_resources.size()+1);
-	external_resources.push_back(er);
-	
-	return er.cache;
-}
 
 RES ResourceLoaderBinaryCompat::make_dummy(const String& path, const String& type, const uint32_t subidx){
 	String realtypename = type;
@@ -483,6 +489,26 @@ RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex){
 	
 	return dummy;
 }
+
+RES ResourceLoaderBinaryCompat::set_dummy_ext(const String& path, const String& exttype){
+	for (int i = 0; i < external_resources.size(); i++){
+		if (external_resources[i].path == path){
+			if (external_resources[i].cache.is_valid()){
+				return external_resources[i].cache;
+			}
+			return set_dummy_ext(i);
+		}
+	}
+	//If not found in cache...
+	ExtResource er;
+	er.path = path;
+	er.type = exttype;
+	er.cache = make_dummy(path, exttype, external_resources.size()+1);
+	external_resources.push_back(er);
+	
+	return er.cache;
+}
+
 void ResourceLoaderBinaryCompat::advance_padding(FileAccess * f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
@@ -526,9 +552,9 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	}
 
 	Error err;
-	f = FileAccess::open(dest_path, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V_MSG(err, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
-	FileAccessRef _fref(f);
+	FileAccess * wf = FileAccess::open(dest_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
+
 	String main_res_path = internal_resources[internal_resources.size()-1].path;
 	String main_type = internal_type_cache[main_res_path];
 	int text_format_version = 1;
@@ -549,17 +575,17 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		}
 		title += "format=" + itos(text_format_version) + "";
 
-		f->store_string(title);
-		f->store_line("]\n"); //one empty line
+		wf->store_string(title);
+		wf->store_line("]\n"); //one empty line
 	}
 
 	for (int i = 0; i < external_resources.size(); i++) {
 		String p = external_resources[i].path;
-		f->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type + "\" id=" + itos(i + 1) + "]\n"); //bundled
+		wf->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type + "\" id=" + itos(i + 1) + "]\n"); //bundled
 	}
 
 	if (external_resources.size()) {
-		f->store_line(String()); //separate
+		wf->store_line(String()); //separate
 	}
 
 	for (int i = 0; i < internal_resources.size(); i++) {
@@ -571,7 +597,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		}
 
 		if (main) {
-			f->store_line("[resource]");
+			wf->store_line("[resource]");
 		} else {
 			String line = "[sub_resource ";
 			String type = internal_type_cache[path];
@@ -581,7 +607,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 				// Godot 2.x quirk: newline between subresource and properties
 				line+="\n";
 			}
-			f->store_line(line);
+			wf->store_line(line);
 		}
 
 		List<ResourceProperty> properties = internal_index_cached_properties[path];
@@ -589,11 +615,11 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			ResourceProperty pe = PE->get();
 			String vars;
 			VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_fake_resources, this);
-			f->store_string(pe.name.property_name_encode() + " = " + vars + "\n");
+			wf->store_string(pe.name.property_name_encode() + " = " + vars + "\n");
 		}
 
 		if (i < internal_resources.size() - 1) {
-			f->store_line(String());
+			wf->store_line(String());
 		}
 	}
 
@@ -637,43 +663,43 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 				header += sgroups;
 			}
 
-			f->store_string(header);
+			wf->store_string(header);
 
 			if (instance_placeholder != String()) {
 				String vars;
-				f->store_string(" instance_placeholder=");
+				wf->store_string(" instance_placeholder=");
 				VariantWriterCompat::write_to_string(instance_placeholder, vars, engine_ver_major, _write_fake_resources, this);
-				f->store_string(vars);
+				wf->store_string(vars);
 			}
 
 			if (instance.is_valid()) {
 				String vars;
-				f->store_string(" instance=");
+				wf->store_string(" instance=");
 				VariantWriterCompat::write_to_string(instance, vars, engine_ver_major, _write_fake_resources, this);
-				f->store_string(vars);
+				wf->store_string(vars);
 			}
 
-			f->store_line("]");
+			wf->store_line("]");
 			if (text_format_version == 1 && state->get_node_property_count(i) != 0) {
 				// Godot 2.x quirk: newline between header and properties
-				f->store_line("");
+				wf->store_line("");
 			}
 
 			for (int j = 0; j < state->get_node_property_count(i); j++) {
 				String vars;
 				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars,2, _write_fake_resources, this);
 
-				f->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
+				wf->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
 			}
 
 			if (i < state->get_node_count() - 1) {
-				f->store_line(String());
+				wf->store_line(String());
 			}
 		}
 
 		for (int i = 0; i < state->get_connection_count(); i++) {
 			if (i == 0) {
-				f->store_line("");
+				wf->store_line("");
 			}
 
 			String connstr = "[connection";
@@ -687,35 +713,35 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			}
 
 			Array binds = state->get_connection_binds(i);
-			f->store_string(connstr);
+			wf->store_string(connstr);
 			if (binds.size()) {
 				String vars;
 				VariantWriterCompat::write_to_string(binds, vars, engine_ver_major, _write_fake_resources, this);
-				f->store_string(" binds= " + vars);
+				wf->store_string(" binds= " + vars);
 			}
 
-			f->store_line("]");
+			wf->store_line("]");
 			if (text_format_version == 1) {
 				// Godot 2.x has this particular quirk, don't know why
-				f->store_line("");
+				wf->store_line("");
 			}
 		}
 
 		Vector<NodePath> editable_instances = state->get_editable_instances();
 		for (int i = 0; i < editable_instances.size(); i++) {
 			if (i == 0) {
-				f->store_line("");
+				wf->store_line("");
 			}
-			f->store_line("[editable path=\"" + editable_instances[i].operator String() + "\"]");
+			wf->store_line("[editable path=\"" + editable_instances[i].operator String() + "\"]");
 		}
 	}
 
-	if (f->get_error() != OK && f->get_error() != ERR_FILE_EOF) {
-		f->close();
+	if (wf->get_error() != OK && wf->get_error() != ERR_FILE_EOF) {
+		wf->close();
 		return ERR_CANT_CREATE;
 	}
 
-	f->close();
+	wf->close();
 
 	return OK;
 }
@@ -876,7 +902,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		//Old Godot 2.x Image variant, convert into an object
 		case VariantBin::VARIANT_IMAGE: {
 			//Have to parse Image here
-			if (ImageParserV2::parse_image_v2(f, r_v, true, convert_v2image_indexed) != OK){
+			if (ImageParserV2::parse_image_v2(f, r_v, hacks_for_deprecated_v2img_formats, convert_v2image_indexed) != OK){
 				WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
 			}
 		} break;
@@ -1424,12 +1450,18 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 				f->store_32(string_map.find(np.get_name(i)));
 			for (int i = 0; i < np.get_subname_count(); i++)
 				f->store_32(string_map.find(np.get_subname(i)));
-			// If ver_format 1-2 (i.e. godot 2.x), store an empty string for property field
+			// If ver_format 1-2 (i.e. godot 2.x), store the property field
 			if (ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
-				// 0x80000000 will resolve to a zero length string in the binary parser
-				f->store_32(0x80000000);
+				// 0x80000000 will resolve to a zero length string in the binary parser for any version
+				uint32_t zlen = 0x80000000;
+				// If there are concatenated subnames, the last subname string will be the property
+				if (np.get_subname_count() > 1 && 
+						String(np.get_concatenated_subnames()).split(":").size() >= 2){
+					f->store_32(string_map.find(np.get_subname(np.get_subname_count() - 1)));
+				} else {
+					f->store_32(zlen);
+				}
 			}
-
 		} break;
 		case Variant::RID: {
 			f->store_32(VariantBin::VARIANT_RID);
@@ -1439,12 +1471,11 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 		} break;
 		case Variant::OBJECT: {
 			RES res = p_property;
-			// This will only be triggered on version 2, where the image variant is loaded as an image object vs. a resource
+			// This will only be triggered on godot 2.x, where the image variant is loaded as an image object vs. a resource
 			if (ver_format == 1 && res->is_class("Image")){
 				f->store_32(VariantBin::VARIANT_IMAGE);
 				ImageParserV2::write_v2image_to_bin(f, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
-			}
-			else{
+			} else {
 				f->store_32(VariantBin::VARIANT_OBJECT);
 				if (res.is_null()) {
 					f->store_32(VariantBin::OBJECT_EMPTY);
@@ -1596,28 +1627,14 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 
 		} break;
 		default: {
-
 			ERR_FAIL_V_MSG(ERR_CANT_CREATE,"Invalid variant type");
 		}
 	}
 	return OK;
 }
-Error ResourceLoaderBinaryCompat::write_variant_bin(const Variant &p_property, const PropertyInfo &p_hint) {
-	return write_variant_bin(f, p_property, internal_index_cache, internal_resources, external_resources, string_map, ver_format, p_hint);
+Error ResourceLoaderBinaryCompat::write_variant_bin( FileAccess * fa, const Variant &p_property, const PropertyInfo &p_hint) {
+	return write_variant_bin(fa, p_property, internal_index_cache, internal_resources, external_resources, string_map, ver_format, p_hint);
 }
-
-
-ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat(){}
-ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){
-	if (f && f->is_open()){
-		f->close();	
-	}
-	if (f) {
-		memdelete(f);
-	}
-}
-
-
 
 Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
 
@@ -1630,21 +1647,14 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		err = fac->_open(p_path, FileAccess::WRITE);
 		if (err)
 			memdelete(fw);
-
 	} else {
 		fw = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	}
 
 	ERR_FAIL_COND_V(err, err);
-	FileAccessRef _fref(fw);
-	
-	/*relative_paths = p_flags & ResourceSaver::FLAG_RELATIVE_PATHS;
-	skip_editor = p_flags & ResourceSaver::FLAG_OMIT_EDITOR_PROPERTIES;
-	bundle_resources = p_flags & ResourceSaver::FLAG_BUNDLE_RESOURCES;
-	big_endian = p_flags & ResourceSaver::FLAG_SAVE_BIG_ENDIAN;
-	takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;*/
-	bool takeover_paths = false;
-	bool big_endian = false;
+		
+	bool takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
+	bool big_endian = p_flags & ResourceSaver::FLAG_SAVE_BIG_ENDIAN || stored_big_endian;
 	if (!p_path.begins_with("res://"))
 		takeover_paths = false;
 
@@ -1662,11 +1672,9 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	} else {
 		fw->store_32(0);
 	}
-	if (stored_use_real64) {
-		fw->store_32(1); //64 bits file, false for now
-	} else {
-		fw->store_32(0);
-	}
+	
+	fw->store_32(stored_use_real64 ? 1 : 0); //64 bits file
+	
 	
 	fw->store_32(engine_ver_major);
 	fw->store_32(engine_ver_minor);
@@ -1728,7 +1736,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		for (List<ResourceProperty>::Element *F = lrp.front(); F; F = F->next()) {
 			ResourceProperty &p = F->get();
 			fw->store_32(string_map.find(p.name));
-			write_variant_bin(fw, p.value, internal_index_cache, internal_resources, external_resources, string_map, ver_format);
+			write_variant_bin(fw, p.value);
 		}
 	}
 
@@ -1737,7 +1745,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->store_64(ofs_table[i]);
 	}
 	fw->seek_end();
-	print_line("Saving: " + p_path);
+	//print_line("Saving: " + p_path);
 	if (imd.is_valid()) {
 		uint64_t md_pos = fw->get_position();
 		save_ustring(fw, imd->get_editor());
@@ -1751,7 +1759,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->store_32(options.size());
 		for (List<String>::Element *E = options.front(); E; E = E->next()) {
 			save_ustring(fw, E->get());
-			write_variant_bin(fw, imd->get_option(E->get()), internal_index_cache, internal_resources, external_resources, string_map, ver_format);
+			write_variant_bin(fw, imd->get_option(E->get()));
 		}
 
 		fw->seek(md_at);
@@ -1763,9 +1771,18 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 
 	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
 		fw->close();
+		memdelete(fw);
 		return ERR_CANT_CREATE;
 	}
 
 	fw->close();
+	memdelete(fw);
 	return OK;
+}
+
+ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat(){}
+ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){
+	if (f != nullptr){
+		memdelete(f);
+	}
 }
