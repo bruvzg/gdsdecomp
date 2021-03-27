@@ -1482,22 +1482,36 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 			NodePath np = p_property;
 			f->store_16(np.get_name_count());
 			uint16_t snc = np.get_subname_count();
-			if (np.is_absolute())
-				snc |= 0x8000;
-			f->store_16(snc);
-			for (int i = 0; i < np.get_name_count(); i++)
-				f->store_32(string_map.find(np.get_name(i)));
-			for (int i = 0; i < np.get_subname_count(); i++)
-				f->store_32(string_map.find(np.get_subname(i)));
-			// If ver_format 1-2 (i.e. godot 2.x), store the property field
+			// If ver_format 1-2 (i.e. godot 2.x)
+			int property_idx = -1;
 			if (ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
-				// 0x80000000 will resolve to a zero length string in the binary parser for any version
-				uint32_t zlen = 0x80000000;
-				// If there are concatenated subnames, the last subname string will be the property
+				// If there is a property, decrement the subname counter and store the property idx.
 				if (np.get_subname_count() > 1 && 
 						String(np.get_concatenated_subnames()).split(":").size() >= 2){
-					f->store_32(string_map.find(np.get_subname(np.get_subname_count() - 1)));
+						property_idx = np.get_subname_count() - 1;
+						snc--;
+				}
+			}
+
+			if (np.is_absolute()){
+				f->store_16(snc |= 0x8000);
+			} else {
+				f->store_16(snc);
+			}
+			
+			for (int i = 0; i < np.get_name_count(); i++)
+				f->store_32(string_map.find(np.get_name(i)));
+			// store all subnames minus any property fields if need be
+			for (int i = 0; i < snc; i++)
+				f->store_32(string_map.find(np.get_subname(i)));
+			// If ver_format 1-2 (i.e. godot 2.x)
+			if (ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
+				// If there's a property, store it
+				if (property_idx > -1){
+					f->store_32(string_map.find(np.get_subname(property_idx)));
+				// 0x80000000 will resolve to a zero length string in the binary parser for any version
 				} else {
+					uint32_t zlen = 0x80000000;
 					f->store_32(zlen);
 				}
 			}
