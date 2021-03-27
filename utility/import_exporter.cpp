@@ -12,6 +12,8 @@
 #include "stream_texture_v3.h"
 #include "scene/resources/audio_stream_sample.h"
 #include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
+#include "modules/minimp3/audio_stream_mp3.h"
+#include "thirdparty/minimp3/minimp3_ex.h"
 
 Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards, const bool absolute = true, const String rel = ""){
 	Vector<String> ret;
@@ -57,30 +59,31 @@ Array ImportExporter::get_import_files(){
 	return files;
 }
 
-Error ImportExporter::load_v2_converted_file(const String& p_path) {
+Error ImportExporter::load_import_file_v2(const String& p_path) {
 	String dest;
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
 	Ref<ResourceImportMetadatav2> metadata;
-	//This is a converted file, no metadata
-	if (p_path.get_file().find(".converted.") != -1) {
-		if (spl.size() != 4) {
-			// this doesn't match "filename.ext.converted.newext"
-			return ERR_CANT_RESOLVE;
+	Ref<ImportInfo> iinfo;
+	iinfo.instance();
+
+	// This is an import file, possibly has import metadata
+	ResourceFormatLoaderBinaryCompat rlc;
+	Error err = rlc.get_import_info(p_path, project_dir, iinfo);
+	if (err == OK ) {
+		// If this is a "converted" file, then it won't have import metadata...
+		if (iinfo->has_import_data()) {
+			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
+			if (iinfo->get_source_file().is_abs_path() || iinfo->get_source_file().begins_with("../")){
+				dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(iinfo->get_source_file().get_file()));
+				iinfo->source_file = dest;
+			}
+			files.push_back(iinfo);
+			return OK;
 		}
-		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
-	} else {
-		// This is an import file, possibly has import metadata
-		// Going to have to rewrite the import metadata in the resource file to make this work
-		// Just get it into the import info for now
-		ResourceFormatLoaderBinaryCompat rlc;
-		//
-		if (rlc.get_v2_import_metadata(p_path, base_dir, metadata) == OK) {
-			//print_line("loaded metadata!");
-		} else {
-			//print_line("could not load metadata!");
-		}
-		//Assume that it's loaded from the assets dir in the base dir
+	// The file loaded, but there was no metadata and it was not a ".converted." file
+	} else if (err == ERR_PRINTER_ON_FIRE) {
+		WARN_PRINT("Could not load metadata from " + p_path);
 		String new_ext;
 		if (p_path.get_extension() == "tex") {
 			new_ext = "png";
@@ -88,46 +91,87 @@ Error ImportExporter::load_v2_converted_file(const String& p_path) {
 			new_ext = "wav";
 		}
 		dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
+	// File either didn't load or metadata was corrupt
+	} else {
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open imported file " + p_path);
+	}
+
+	//This is a converted file
+	if (p_path.get_file().find(".converted.") != -1) {
+		// if this doesn't match "filename.ext.converted.newext"
+		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
+		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
+	}
+
+	// either it's an import file without metadata or a converted file
+
+	iinfo->source_file = dest;
+
+	if (iinfo->importer == "") {
+		if (p_path.get_extension() == "scn") {
+			iinfo->importer = "scene";
+		} else if (p_path.get_extension() == "res") {
+			iinfo->importer = "resource";
+		} else if (p_path.get_extension() == "tex") {
+			iinfo->importer = "texture";
+		} else if (p_path.get_extension() == "smp") {
+			iinfo->importer = "sample";
+		} else if (p_path.get_extension() == "fnt") {
+			iinfo->importer = "font";
+		} else if (p_path.get_extension() == "msh") {
+			iinfo->importer = "mesh";
+		} else if (p_path.get_extension() == "xl") {
+			iinfo->importer = "translation";
+		} else if (p_path.get_extension() == "pbm") {
+			iinfo->importer = "bitmask";
+		} else {
+			iinfo->importer = "none";
+		}
 	}
 	
-	Dictionary iinfo;
-	iinfo["path"] = p_path;
-	iinfo["source_file"] = dest;
-	if (p_path.get_extension() == "scn") {
-		iinfo["type"] = "PackedScene";
-	} else if (p_path.get_extension() == "res") {
-		iinfo["type"] = "Resource";
-	} else if (p_path.get_extension() == "tex") {
-		iinfo["type"] = "ImageTexture";
-	} else if (p_path.get_extension() == "smp") {
-		iinfo["type"] = "Sample";
-	} else if (dest.get_extension() == "fnt") {
-		iinfo["type"] = "Font";
-	}//Others??
-	Vector<String> dest_files;
-	dest_files.push_back(p_path);
-	iinfo["dest_files"] = dest_files;
-	iinfo["metadata"] = metadata;
-	iinfo["group_file"] = "";
-	iinfo["importer"] = "";
 	files.push_back(iinfo);
 
 	return OK;
 }
 
+bool check_if_dir_is_v2(const String &dir){
+	
+	Vector<String> wildcards;
+	// these are files that will only show up in version 2
+	wildcards.push_back("*.converted.*");
+	wildcards.push_back("*.tex");
+	wildcards.push_back("*.smp");
+	if (get_recursive_dir_list(dir, wildcards, false).size() > 0){
+		return true;
+	} else {
+		return false;
+	}
+}
+
 Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_major){
-	base_dir = dir;
+	project_dir = dir;
 	Vector<String> wildcards;
 	Vector<String> file_names;
-	// We instead look for file names with ".converted." in the name
-	// Like "filename.tscn.converted.scn"
-	if (ver_major <= 2) {
+	int version = ver_major;
+	if (version == 0) {
+		version = check_if_dir_is_v2(dir) ? 2 : 3;
+	}
+	if (version <= 2) {
+		// We look for file names with ".converted." in the name
+		// Like "filename.tscn.converted.scn"
 		wildcards.push_back("*.converted.*");
+		// The rest of these are imported resources
 		wildcards.push_back("*.tex");
+		wildcards.push_back("*.fnt");
+		wildcards.push_back("*.msh");
+		wildcards.push_back("*.scn");
+		wildcards.push_back("*.res");
+		wildcards.push_back("*.smp");
+		wildcards.push_back("*.xl");
+		wildcards.push_back("*.pbm");
 		file_names = get_recursive_dir_list(dir, wildcards, false);
-		
 		for (int i = 0; i < file_names.size(); i++) {
-			if (load_v2_converted_file(file_names[i]) != OK) {
+			if (load_import_file_v2(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
 			}
 		}
@@ -146,8 +190,9 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 Error ImportExporter::load_import_file(const String &p_path){
 	Error err;
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
-	//ImportInfo * i_info = memnew(ImportInfo);
-	Dictionary iinfo;
+	Ref<ImportInfo> i_info;
+	i_info.instance();
+	Dictionary im_data;
 	if (!f) {
 		return err;
 	}
@@ -159,62 +204,66 @@ Error ImportExporter::load_import_file(const String &p_path){
 	String assign;
 	Variant value;
 	VariantParser::Tag next_tag;
-
+	
 	int lines = 0;
 	String error_text;
 	bool path_found = false; //first match must have priority
+	i_info->import_md_path = p_path;
+	i_info->version = 3;
+	String currentName;
 	while (true) {
 		assign = Variant();
 		next_tag.fields.clear();
 		next_tag.name = String();
-
 		err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
 		if (err == ERR_FILE_EOF) {
-			memdelete(f);
-			return OK;
+			break;
 		} else if (err != OK) {
 			ERR_PRINT("ResourceFormatImporter::load - " + p_path + ".import:" + itos(lines) + " error: " + error_text);
 			memdelete(f);
 			return err;
 		}
-
+		if (next_tag.name != String()){
+			currentName = next_tag.name;
+			if (!im_data.has(next_tag.name)){
+				im_data[next_tag.name] = Dictionary();
+			}
+		}
+		
 		if (assign != String()) {
-			if (!path_found && assign.begins_with("path.") && iinfo["path"] == String()) {
+			if (!path_found && assign.begins_with("path.") && i_info->import_path == String()) {
 				String feature = assign.get_slicec('.', 1);
 				if (OS::get_singleton()->has_feature(feature)) {
-					iinfo["path"] = value;
+					i_info->import_path = value;
 					path_found = true; //first match must have priority
 				}
-
 			} else if (!path_found && assign == "path") {
-				iinfo["path"] = value;
+				i_info->import_path = value;
 				path_found = true; //first match must have priority
 			} else if (assign == "type") {
-				iinfo["type"] = ClassDB::get_compatibility_remapped_class(value);
+				i_info->type = ClassDB::get_compatibility_remapped_class(value);
 			} else if (assign == "importer") {
-				iinfo["importer"] = value;
-			} else if (assign == "group_file") {
-				iinfo["group_file"] = value;
-			} else if (assign == "metadata") {
-				iinfo["metadata"] = value;
+				i_info->importer = value;
 			} else if (assign == "source_file") {
-				iinfo["source_file"] = value;
+				i_info->source_file = value;
 			} else if (assign == "dest_files") {
-				iinfo["dest_files"] = value;
+				i_info->dest_files = value;
 			}
-
-		} else if (next_tag.name != "remap" && next_tag.name != "deps") {
-			break;
+			((Dictionary)im_data[currentName])[assign] = value;
 		}
 	}
-
+	
 	memdelete(f);
-
-	if (iinfo["path"] == String() || iinfo["type"] == String()) {
+	
+	if (i_info->import_path == String() || i_info->type == String()) {
 		return ERR_FILE_CORRUPT;
-	} else {
-		files.push_back(iinfo);
+	} 
+	if (im_data.has("params")){
+		i_info->params = im_data["params"];
 	}
+	i_info->import_data = im_data;	
+	files.push_back(i_info);
+	
 	return OK;
 }
 
@@ -276,9 +325,23 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
 	Error err;
 	Ref<AudioStreamOGGVorbis> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE,&err);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
 	FileAccess * f = FileAccess::open(dst_path, FileAccess::WRITE);
 
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
+	PackedByteArray data = sample->get_data();
+	f->store_buffer(data.ptr(), data.size());
+	print_line("Converted " + src_path + " to " + dst_path);
+	return OK;
+
+}
+Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst){
+	String src_path = output_dir.plus_file(p_path.replace("res://",""));
+	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
+	Error err;
+	Ref<AudioStreamMP3> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE,&err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load mp3str file " + p_path);
+	FileAccess * f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
 	PackedByteArray data = sample->get_data();
 	f->store_buffer(data.ptr(), data.size());
@@ -295,5 +358,6 @@ void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("convert_v3stex_to_png"), &ImportExporter::convert_v3stex_to_png);
 	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
 	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
+	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }

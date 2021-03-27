@@ -74,7 +74,7 @@ String ImageParserV2::ImageV2_to_string(const Variant &r_v){
             case Image::FORMAT_PVRTC1_4: subimgstr += "PVRTC4"; break;
             case Image::FORMAT_PVRTC1_4A: subimgstr += "PVRTC4_ALPHA"; break;
             case Image::FORMAT_ETC: subimgstr += "ETC"; break;
-            //Hacks for no-longer supported iamge formats
+            //Hacks for no-longer supported image formats
             //the mipmap counts for these formats match the deprecated formats
             case Image::FORMAT_ETC2_R11:
                 //reset substr
@@ -145,7 +145,6 @@ Error ImageParserV2::write_v2image_to_bin(FileAccess* f, const Variant &r_v, con
         int mipmaps = val->get_mipmap_count();
         
         V2Image::Type fmt;
-        bool hacks_for_dropped_fmt = true;
         switch (val->get_format()) {
             //convert old image format types to new ones
 			case Image::FORMAT_L8: {
@@ -190,38 +189,38 @@ Error ImageParserV2::write_v2image_to_bin(FileAccess* f, const Variant &r_v, con
 			case Image::FORMAT_ETC: {
 				fmt = V2Image::IMAGE_FORMAT_ETC;
 			} break;
-            if (hacks_for_dropped_fmt){
-                //Hacks for no-longer supported image formats
-                //These formats do not match up, so when saving, we have to set mipmaps manually
-                case Image::FORMAT_ETC2_R11: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-					fmt = V2Image::IMAGE_FORMAT_INTENSITY;
-                } break;
-                case Image::FORMAT_ETC2_R11S: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-					fmt = V2Image::IMAGE_FORMAT_INDEXED;
-                } break;
-                case Image::FORMAT_ETC2_RG11: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-					fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
-                } break;
-                case Image::FORMAT_ETC2_RG11S: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
-					fmt = V2Image::IMAGE_FORMAT_ATC;
-                } break;
-                case Image::FORMAT_ETC2_RGB8: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
-					fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
-                } break;
-                case Image::FORMAT_ETC2_RGB8A1: {
-                    mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
-					fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED;
-                } break;
-                case Image::FORMAT_ETC2_RA_AS_RG: {
-                    mipmaps = 0;
-					fmt = V2Image::IMAGE_FORMAT_CUSTOM;
-                } break;
-            }
+            //Hacks for no-longer supported image formats
+            //set in parse_image_v2()
+            //this maps to the required mipmaps
+            case Image::FORMAT_ETC2_R11: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+                fmt = V2Image::IMAGE_FORMAT_INTENSITY;
+            } break;
+            case Image::FORMAT_ETC2_R11S: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+                fmt = V2Image::IMAGE_FORMAT_INDEXED;
+            } break;
+            case Image::FORMAT_ETC2_RG11: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
+                fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
+            } break;
+            case Image::FORMAT_ETC2_RG11S: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
+                fmt = V2Image::IMAGE_FORMAT_ATC;
+            } break;
+            case Image::FORMAT_ETC2_RGB8: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
+                fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
+            } break;
+            case Image::FORMAT_ETC2_RGB8A1: {
+                mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
+                fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED;
+            } break;
+            case Image::FORMAT_ETC2_RA_AS_RG: {
+                mipmaps = 0;
+                fmt = V2Image::IMAGE_FORMAT_CUSTOM;
+            } break;
+            
 			default: {
 				ERR_FAIL_V(ERR_FILE_CORRUPT);
 			}
@@ -311,6 +310,8 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
 			} break;
             if (hacks_for_dropped_fmt){
                 //Hacks for no-longer supported image formats
+                //This is basically just for converting a bin resource to a text resource.
+                //It gets handled in the above converters
                 //These formats do not match up, so when saving, we have to set mipmaps manually
                 case V2Image::IMAGE_FORMAT_INTENSITY: {
                     fmt = Image::FORMAT_ETC2_R11;
@@ -366,10 +367,10 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
                 if (format == V2Image::IMAGE_FORMAT_INDEXED) {
                     fmt = Image::FORMAT_RGB8;
                     p_width = 3;
-                } else if (format == V2Image::IMAGE_FORMAT_INDEXED_ALPHA) {
+                } else { //V2Image::IMAGE_FORMAT_INDEXED_ALPHA
                     fmt = Image::FORMAT_RGBA8;
                     p_width = 4;
-                }
+                } 
 
                 Vector<Vector<uint8_t> > palette;
 

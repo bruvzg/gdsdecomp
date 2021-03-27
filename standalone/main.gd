@@ -48,23 +48,24 @@ func export_imports(output_dir:String):
 	importer.load_import_files(output_dir, ver_major)
 	var arr = importer.get_import_files()
 	var failed_files = []
-	for ifo in arr:
+	for i in arr:
+		var ifo:ImportInfo = i;
 		#the path to the imported file
-		var path:String
+		var path:String = ifo.get_path()
 		# check if there's a single path
-		if ifo.has("path") && ifo.get("path"):
-			path = ifo.get("path")
 		# If there isn't one, that means we likely have two imported resources from one source
 		# Just use the first "dest_file" in "dest_files"
-		elif ifo.has("dest_files") && ifo.get("dest_files"):
-			var paths:PackedStringArray = ifo.get("dest_files")
+		if ifo.get_dest_files().size() > 1:
+			var paths:PackedStringArray = ifo.get_dest_files()
 			path = paths[0]
 		
 		#the original source file that we will convert the imported file to
-		var source_file:String = ifo.get("source_file")
-		var ext:String = ifo.get("source_file").get_extension();
-		if ext == "wav":
+		var source_file:String = ifo.get_source_file();
+		var ext:String = source_file.get_extension();
+		if ext == "wav" && ver_major >= 3:
 			importer.convert_sample_to_wav(output_dir, path, source_file)
+		elif ext == "mp3":
+			importer.convert_mp3str_to_mp3(output_dir, path, source_file)
 		elif ext == "ogg":
 			importer.convert_oggstr_to_ogg(output_dir, path, source_file)
 		elif ext == "png" && ver_major == 3:
@@ -135,7 +136,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 					if gdfile.open(output_dir.plus_file(f.replace(".gdc",".gd")), File.WRITE) == OK:
 						gdfile.store_string(text)
 						gdfile.close()
-						#da.remove(f)
+						da.remove(f)
 						if da.file_exists(f.replace(".gdc",".gd.remap")):
 							da.remove(f.replace(".gdc",".gd.remap"))
 						print("successfully decompiled " + f)
@@ -151,10 +152,16 @@ func normalize_path(path: String):
 func print_import_info(output_dir: String):
 	print("stuff")
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, ver_major)
+	importer.load_import_files(output_dir, 0)
 	var arr = importer.get_import_files()
+	print("size is " + str(arr.size()))
 	for ifo in arr:
-		print(ifo)
+		var s:String = ifo.get_source_file() + " is "
+		if ifo.is_lossless_import():
+			print(s + "not a lossy import")
+		else:
+			print(s + "A LOSSY IMPORT!!!!")
+		print((ifo as ImportInfo).to_string())
 
 func handle_cli():
 	var args = OS.get_cmdline_args()
@@ -178,13 +185,8 @@ func handle_cli():
 		if output_dir == "":
 			print("Error: use --output-dir=<dir> when using --extract")
 		else:
+			
 			#print_import_info(output_dir)
 			dump_files(exe_file, output_dir, enc_key)
 			export_imports(output_dir)
 		get_tree().quit()
-
-
-
-		
-			
-		

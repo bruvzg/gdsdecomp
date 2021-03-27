@@ -17,10 +17,10 @@ Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path,
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
-	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 
 	error = loader->fake_load();
-	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 
 	error = loader->save_as_text_unloaded(dst_path);
 
@@ -38,12 +38,12 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
-	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot open file '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open file '" + p_path + "'.", loader);
 	
 	loader->convert_v2image_indexed = true;
 	loader->hacks_for_deprecated_v2img_formats = false;
 	error = loader->fake_load();
-	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 	
 	Ref<Image> img;
 	String name;
@@ -59,10 +59,10 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 			img = pe.value;
 		}
 	}
-	ERR_RFLBC_MSG_CLEANUP(img.is_null(), error, "failed to load image from '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(img.is_null(), error, "failed to load image from '" + p_path + "'.", loader);
 
 	error = img->save_png(dst_path);
-	ERR_RFLBC_MSG_CLEANUP(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.", loader);
 
 	if (rewrite_metadata){
 		error = _rewrite_import_metadata(loader, name, rel_dst_path);
@@ -170,6 +170,45 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const Strin
 	}
 
 	return loader;
+}
+
+Error ResourceFormatLoaderBinaryCompat::get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
+	
+	Error error = OK;
+	//Relative path
+	ResourceLoaderBinaryCompat * loader = _open(p_path, base_dir, true, &error, nullptr);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
+	if (i_info == nullptr){
+		i_info.instance();
+	}
+
+	i_info->import_path = loader->local_path;
+	i_info->type = loader->type;
+	i_info->version = loader->engine_ver_major;
+	if (loader->engine_ver_major == 2){
+		i_info->dest_files.push_back(p_path);
+		i_info->import_md_path = loader->res_path;
+		//these do not have any metadata info in them
+		if(i_info->import_path.find(".converted.") != -1)
+		{
+			memdelete(loader);
+			return OK;
+		}
+		error = loader->load_import_metadata();
+		ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + p_path + "'", loader);
+		
+		if (loader->imd->get_source_count() > 1){
+			WARN_PRINT("More than one source?!?!");
+		}
+		ERR_RFLBC_COND_V_MSG_CLEANUP(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + p_path + "'", loader);
+		i_info->v2metadata = loader->imd;
+		i_info->source_file = loader->imd->get_source_path(0);
+		i_info->importer = loader->imd->get_editor();
+		i_info->params = loader->imd->get_options_as_dictionary();
+		i_info->import_data = loader->imd->get_as_dictionary();
+	}
+	memdelete(loader);	
+	return OK;
 }
 
 Error ResourceFormatLoaderBinaryCompat::get_v2_import_metadata(const String &p_path, const String &base_dir, Ref<ResourceImportMetadatav2> &r_var) {

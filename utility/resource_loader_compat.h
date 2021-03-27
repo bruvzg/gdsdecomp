@@ -8,6 +8,7 @@
 #include "core/io/resource_format_binary.h"
 #include "scene/resources/packed_scene.h"
 #include "resource_import_metadatav2.h"
+#include "import_info.h"
 
 #ifdef TOOLS_ENABLED
 #define print_bl(m_what) (void)(m_what)
@@ -107,13 +108,21 @@ namespace VariantBin{
  * If checking for null use ERR_FAIL_NULL_V_MSG instead.
  * If checking index bounds use ERR_FAIL_INDEX_V_MSG instead.
  */
-#define ERR_RFLBC_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                                              \
+#define ERR_RFLBC_COND_V_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                                              \
 	if (unlikely(m_cond)) {                                                                                                                         \
 	    if (loader != nullptr) memdelete(loader);                                                                                                   \
 		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), DEBUG_STR(m_msg)); \
 		return m_retval;                                                                                                                            \
 	} else                                                                                                                                          \
 		((void)0)
+
+#define ERR_RFLBC_COND_V_CLEANUP(m_cond, m_retval, loader)                                                                                              \
+	if (unlikely(m_cond)) {                                                                                                                         \
+	    if (loader != nullptr) memdelete(loader);                                                                                                   \
+		return m_retval;                                                                                                                            \
+	} else                                                                                                                                          \
+		((void)0)
+
 
 struct ResourceProperty{
 	String name;
@@ -227,6 +236,7 @@ private:
 	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
 	Error _rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path);
 public:
+	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
 	Error get_v2_import_metadata(const String &p_path, const String &base_dir, Ref<ResourceImportMetadatav2> &r_var);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);

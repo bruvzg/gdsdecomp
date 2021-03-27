@@ -40,16 +40,16 @@ class ProjectConfigLoader : public Reference {
 	String cfb_path;
 	int last_builtin_order;
 
-    public:
-        Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
-		Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
-		Error _load_settings_binary(const String &p_path, uint32_t ver_major);
-		
-		Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
-		Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props, const uint32_t ver_major, const uint32_t ver_minor);
-		Error _save_settings_text(const String &p_file);
-		bool has_setting(String p_var) const;
-		Variant g_set(const String &p_var, const Variant &p_default, bool p_restart_if_changed = false);
+public:
+	Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
+	Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
+	Error _load_settings_binary(const String &p_path, uint32_t ver_major);
+	
+	Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
+	Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props, const uint32_t ver_major, const uint32_t ver_minor);
+	Error _save_settings_text(const String &p_file);
+	bool has_setting(String p_var) const;
+	Variant g_set(const String &p_var, const Variant &p_default, bool p_restart_if_changed = false);
     ProjectConfigLoader();
     ~ProjectConfigLoader();
 };

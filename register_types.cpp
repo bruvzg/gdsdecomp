@@ -27,7 +27,7 @@ void register_gdsdecomp_types() {
 
 	ClassDB::register_class<GodotREEditorStandalone>();
 	ClassDB::register_class<PckDumper>();
-	//ClassDB::register_class<ImportInfo>();
+	ClassDB::register_class<ImportInfo>();
 	ClassDB::register_class<ImportExporter>();
 	ClassDB::register_class<StreamTextureV3>();
 
