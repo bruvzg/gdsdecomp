@@ -1494,7 +1494,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 			}
 
 			if (np.is_absolute()){
-				f->store_16(snc |= 0x8000);
+				f->store_16(snc | 0x8000);
 			} else {
 				f->store_16(snc);
 			}
