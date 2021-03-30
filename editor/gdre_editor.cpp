@@ -48,10 +48,10 @@ void ProgressDialog::_popup() {
 
 	Ref<StyleBox> style = get_theme_stylebox("panel", "PopupMenu");
 	ms += style->get_minimum_size();
-	main->set_margin(MARGIN_LEFT, style->get_margin(MARGIN_LEFT));
-	main->set_margin(MARGIN_RIGHT, -style->get_margin(MARGIN_RIGHT));
-	main->set_margin(MARGIN_TOP, style->get_margin(MARGIN_TOP));
-	main->set_margin(MARGIN_BOTTOM, -style->get_margin(MARGIN_BOTTOM));
+	main->set_offset(SIDE_LEFT, style->get_margin(SIDE_LEFT));
+	main->set_offset(SIDE_RIGHT, -style->get_margin(SIDE_RIGHT));
+	main->set_offset(SIDE_TOP, style->get_margin(SIDE_TOP));
+	main->set_offset(SIDE_BOTTOM, -style->get_margin(SIDE_BOTTOM));
 
 	popup_centered(ms);
 }
@@ -142,7 +142,7 @@ ProgressDialog::ProgressDialog() {
 
 	main = memnew(VBoxContainer);
 	add_child(main);
-	main->set_anchors_and_margins_preset(Control::PRESET_WIDE);
+	main->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
 	set_exclusive(true);
 	last_progress_tick = 0;
 	singleton = this;
@@ -887,7 +887,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 
-	for (int i = 0; i < file_count; i++) {
+	for (uint32_t i = 0; i < file_count; i++) {
 
 		uint32_t sl = pck->get_32();
 		CharString cs;
@@ -1345,7 +1345,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 			continue;
 		}
 
-		Ref<Image> img = stex->get_data();
+		Ref<Image> img = stex->get_image();
 		if (img.is_null()) {
 			failed_files += res_files[i] + " (invalid texture data)\n";
 			continue;

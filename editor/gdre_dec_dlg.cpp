@@ -143,14 +143,6 @@ void ScriptDecompDialog::_remove_file_pressed() {
 
 void ScriptDecompDialog::_validate_input() {
 
-	bool need_key = false;
-
-	for (int i = 0; i < file_list->get_item_count(); i++) {
-		if (file_list->get_item_text(i).ends_with(".gde")) {
-			need_key = true;
-		}
-	}
-
 	bool ok = true;
 	String error_message;
 
