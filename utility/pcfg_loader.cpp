@@ -9,12 +9,17 @@
 #include "bytecode/bytecode_base.h"
 #include "utility/variant_writer_compat.h"
 
-
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor){
 
     cfb_path = path;
-    return _load_settings_binary(path, ver_major);
+	Error err;
+	FileAccess *f = FileAccess::open(path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + path);
+	err = _load_settings_binary(f, path, ver_major);
+	memdelete(f);
+    return err;
 }
+
 Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor){
 	String file;
 	if (ver_major > 2) {
@@ -26,19 +31,13 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 	return save_custom(dir.plus_file(file), ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_load_settings_binary(const String &p_path, uint32_t ver_major) {
+Error ProjectConfigLoader::_load_settings_binary(FileAccess * f, const String &p_path, uint32_t ver_major) {
 
 	Error err;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (err != OK) {
-		return err;
-	}
-
 	uint8_t hdr[4];
 	f->get_buffer(hdr, 4);
 	if (hdr[0] != 'E' || hdr[1] != 'C' || hdr[2] != 'F' || hdr[3] != 'G') {
 
-		memdelete(f);
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Corrupted header in binary project.binary (not ECFG).");
 	}
 
@@ -71,8 +70,6 @@ Error ProjectConfigLoader::_load_settings_binary(const String &p_path, uint32_t 
 		props[key] = VariantContainer(value, last_builtin_order++, true);
 	}
 
-	f->close();
-	memdelete(f);
 	return OK;
 }
 

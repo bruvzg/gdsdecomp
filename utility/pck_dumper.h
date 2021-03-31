@@ -7,25 +7,36 @@
 #include "core/os/file_access.h"
 #include "core/object/reference.h"
 #include "core/io/resource_importer.h"
+#include "core/io/file_access_pack.h"
 
 
-
-class PackedFile {
+class PackedFileInfo {
 
 public:
 	String name;
 	String path;
 	String raw_path;
+	String pack; // absolute path to pack file
 	uint64_t offset;
 	uint64_t size;
 	uint8_t md5[16];
 	bool malformed_path;
 	bool md5_match;
 	uint32_t flags;
-	bool encrypted;
+	bool encrypted = false;
+	PackedData::PackedFile to_struct(){
+		PackedData::PackedFile s;
+		s.encrypted = encrypted;
+		s.offset = offset;
+		s.src = nullptr;
+		s.pack = pack;
+		s.encrypted = encrypted;
+		memcpy(s.md5, md5, 16);
+		return s;
+	}
 
 	void set_stuff(const String path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16]);
-	PackedFile() {
+	PackedFileInfo() {
 		name = "";
 		path = "";
 		raw_path = "";
@@ -34,25 +45,16 @@ public:
 		malformed_path = false;
 		md5_match = false;
 	}
-
-	PackedFile(uint64_t p_offset, uint64_t p_size) {
-		path = "";
-		raw_path = "";
-		offset = p_offset;
-		size = p_size;
-		malformed_path = false;
-		md5_match = false;
-	}
-	PackedFile(const String p_path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16], const uint32_t fl = 0) {
+	PackedFileInfo(const String &pck_path, const String &p_path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16], const uint32_t fl = 0) {
+		pack = pck_path;
 		raw_path = p_path;
 		offset = ofs;
 		size = sz;
-		for (int i = 0; i < 16; i++) {
-			md5[i] = md5arr[i];
-		}
+		memcpy(md5, md5arr, 16);
 		malformed_path = false;
 		md5_match = false;
 		flags = fl;
+		encrypted = flags & PACK_FILE_ENCRYPTED;
 		fix_path();
 		name = path.get_file();
 	}
@@ -66,7 +68,7 @@ class PckDumper : public Reference {
 	String script_key;
 	String path;
 	uint32_t pck_ver;
-	Vector<PackedFile> files;
+	Vector<PackedFileInfo> files;
 	uint32_t ver_major;
 	uint32_t ver_minor;
 	uint32_t ver_rev;
@@ -76,7 +78,7 @@ class PckDumper : public Reference {
 	int file_count;
 	bool loaded = false;
 	bool _get_magic_number(FileAccess *pck);
-	bool _pck_file_check_md5(const PackedFile & f);
+	bool _pck_file_check_md5(PackedFileInfo & f);
 	Vector<String> dumped_files;
 protected:
 	static void _bind_methods();
@@ -85,11 +87,13 @@ public:
 	
 	bool skip_malformed_paths = false;
 	bool skip_failed_md5 = false;
-	void PckDumper::set_key(const String &s);
-	Vector<uint8_t> PckDumper::get_key() const;
+	void set_key(const String &s);
+	Vector<uint8_t> get_key() const;
+	FileAccess *get_file_access(const String &p_path, PackedFileInfo *p_file);
 
 	Error load_pck(const String &p_path);
 	bool check_md5_all_files();
+	Error pck_dump_to_dir2(const String &dir);
 	Error pck_dump_to_dir(const String &dir);
 	Error pck_load_and_dump(const String &p_path, const String &dir);
 	bool is_loaded();

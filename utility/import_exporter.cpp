@@ -15,7 +15,7 @@
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 
-Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards, const bool absolute = true, const String rel = ""){
+Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = ""){
 	Vector<String> ret;
 	DirAccess *da = DirAccess::open(dir.plus_file(rel));
 	String base = absolute ? dir : "res://";
@@ -48,18 +48,26 @@ Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wi
 	return ret;
 }
 
-Vector<String> get_recursive_dir_list(const String dir){
-	Vector<String> temp;
-	return get_recursive_dir_list(dir, temp);
-}
-
-
-
 Array ImportExporter::get_import_files(){
 	return files;
 }
 
 Error ImportExporter::load_import_file_v2(const String& p_path) {
+	Error err;
+	String path = p_path;
+	if (project_dir != ""){
+		path = project_dir.plus_file(p_path.replace_first("res://", ""));
+	}
+	FileAccess * f = FileAccess::open(path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(!f, err, "Can't open file " + path);
+	err = load_import_v2(f, p_path); //local path
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Can't load import data for " + path);
+	// RLC handles closing the file
+	return OK;
+}
+
+
+Error ImportExporter::load_import_v2(FileAccess * f, const String& p_path){
 	String dest;
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
@@ -69,7 +77,8 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 
 	// This is an import file, possibly has import metadata
 	ResourceFormatLoaderBinaryCompat rlc;
-	Error err = rlc.get_import_info(p_path, project_dir, iinfo);
+	Error err = rlc.get_import_info(f, p_path, project_dir, iinfo);
+	//Error err = rlc.get_import_info_from_file(p_path, project_dir, iinfo);
 	if (err == OK ) {
 		// If this is a "converted" file, then it won't have import metadata...
 		if (iinfo->has_import_data()) {
@@ -106,7 +115,8 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 	// either it's an import file without metadata or a converted file
 
 	iinfo->source_file = dest;
-
+	// If it's a converted file without metadata, it won't have this, and we need it for checking if the file is lossy or not
+	// checking if it's a lossy or lossless import
 	if (iinfo->importer == "") {
 		if (p_path.get_extension() == "scn") {
 			iinfo->importer = "scene";
@@ -135,7 +145,6 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 }
 
 bool check_if_dir_is_v2(const String &dir){
-	
 	Vector<String> wildcards;
 	// these are files that will only show up in version 2
 	wildcards.push_back("*.converted.*");
@@ -148,34 +157,40 @@ bool check_if_dir_is_v2(const String &dir){
 	}
 }
 
+Vector<String> get_v2_wildcards(){
+	Vector<String> wildcards;
+	// We look for file names with ".converted." in the name
+	// Like "filename.tscn.converted.scn"
+	wildcards.push_back("*.converted.*");
+	// The rest of these are imported resources
+	wildcards.push_back("*.tex");
+	wildcards.push_back("*.fnt");
+	wildcards.push_back("*.msh");
+	wildcards.push_back("*.scn");
+	wildcards.push_back("*.res");
+	wildcards.push_back("*.smp");
+	wildcards.push_back("*.xl");
+	wildcards.push_back("*.pbm");
+
+	return wildcards;
+}
+
 Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_major){
 	project_dir = dir;
-	Vector<String> wildcards;
 	Vector<String> file_names;
 	int version = ver_major;
 	if (version == 0) {
 		version = check_if_dir_is_v2(dir) ? 2 : 3;
 	}
 	if (version <= 2) {
-		// We look for file names with ".converted." in the name
-		// Like "filename.tscn.converted.scn"
-		wildcards.push_back("*.converted.*");
-		// The rest of these are imported resources
-		wildcards.push_back("*.tex");
-		wildcards.push_back("*.fnt");
-		wildcards.push_back("*.msh");
-		wildcards.push_back("*.scn");
-		wildcards.push_back("*.res");
-		wildcards.push_back("*.smp");
-		wildcards.push_back("*.xl");
-		wildcards.push_back("*.pbm");
-		file_names = get_recursive_dir_list(dir, wildcards, false);
+		file_names = get_recursive_dir_list(dir, get_v2_wildcards(), false);
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_import_file_v2(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
 			}
 		}
 	} else {
+		Vector<String> wildcards;
 		wildcards.push_back("*.import");
 		file_names = get_recursive_dir_list(dir, wildcards);
 		for (int i = 0; i < file_names.size(); i++) {
@@ -190,12 +205,17 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 Error ImportExporter::load_import_file(const String &p_path){
 	Error err;
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + p_path);
+	err = load_import(f, p_path);
+	memdelete(f);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + p_path);
+	return OK;
+}
+
+Error ImportExporter::load_import(FileAccess * f, const String &p_path) {
 	Ref<ImportInfo> i_info;
 	i_info.instance();
 	Dictionary im_data;
-	if (!f) {
-		return err;
-	}
 	Dictionary thing;
 
 	VariantParser::StreamFile stream;
@@ -215,14 +235,12 @@ Error ImportExporter::load_import_file(const String &p_path){
 		assign = Variant();
 		next_tag.fields.clear();
 		next_tag.name = String();
-		err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
+		Error err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
 		if (err == ERR_FILE_EOF) {
 			break;
-		} else if (err != OK) {
-			ERR_PRINT("ResourceFormatImporter::load - " + p_path + ".import:" + itos(lines) + " error: " + error_text);
-			memdelete(f);
-			return err;
 		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Parsing Error: " + p_path + ":" + itos(lines) + ": " + error_text);
+
 		if (next_tag.name != String()){
 			currentName = next_tag.name;
 			if (!im_data.has(next_tag.name)){
@@ -252,18 +270,12 @@ Error ImportExporter::load_import_file(const String &p_path){
 			((Dictionary)im_data[currentName])[assign] = value;
 		}
 	}
-	
-	memdelete(f);
-	
-	if (i_info->import_path == String() || i_info->type == String()) {
-		return ERR_FILE_CORRUPT;
-	} 
+	ERR_FAIL_COND_V_MSG(i_info->import_path == String() || i_info->type == String(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
 	if (im_data.has("params")){
 		i_info->params = im_data["params"];
 	}
 	i_info->import_data = im_data;	
 	files.push_back(i_info);
-	
 	return OK;
 }
 
@@ -284,7 +296,8 @@ Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const Strin
 	memdelete(da);
 	Error err = rlc.convert_v2tex_to_png(p_path, p_dst, output_dir, true);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	DirAccess *dr = DirAccess::open(output_dir.plus_file(p_path.get_base_dir().replace("res://", "")));
+	DirAccess *dr = DirAccess::open(output_dir.plus_file(p_path.get_base_dir().replace("res://", "")), &err);
+	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
 	dr->remove(orig_file);
 	dr->rename(orig_file + ".tmp", orig_file);
 	print_line("Converted " + p_path + " to " + p_dst);

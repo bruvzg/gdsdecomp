@@ -233,11 +233,14 @@ class FakeResource : public PackedScene {
 
 class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
 private:
-	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
+	ResourceLoaderBinaryCompat * _open_file(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
+	ResourceLoaderBinaryCompat * _open(FileAccess * f, const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
 	Error _rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path);
+	Error _get_import_info(ResourceLoaderBinaryCompat * loader, Ref<ImportInfo> i_info);
 public:
-	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
-	Error get_v2_import_metadata(const String &p_path, const String &base_dir, Ref<ResourceImportMetadatav2> &r_var);
+	Error get_import_info_from_file(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
+	Error get_import_info(FileAccess * f, const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
+
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);
 };

@@ -6,6 +6,7 @@
 #include <core/object/object.h>
 #include "core/object/class_db.h"
 #include "core/object/reference.h"
+#include <core/os/file_access.h>
 
 typedef Map<String, Variant> CustomMap;
 
@@ -43,7 +44,7 @@ class ProjectConfigLoader : public Reference {
 public:
 	Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
 	Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
-	Error _load_settings_binary(const String &p_path, uint32_t ver_major);
+	Error _load_settings_binary(FileAccess * f, const String &p_path, uint32_t ver_major);
 	
 	Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
 	Error _save_settings_text(const String &p_file, const Map<String, List<String> > &props, const uint32_t ver_major, const uint32_t ver_minor);

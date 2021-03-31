@@ -58,6 +58,8 @@ namespace V2ImportEnums{
 	};
 }
 
+
+
 class ImportInfo: public Reference {
 	GDCLASS(ImportInfo, Reference)
 private:
@@ -84,6 +86,13 @@ private:
 	};
 
 public:
+	enum LossType {
+		UNKNOWN = -1,
+		LOSSLESS = 0,
+		STORED_LOSSY = 1,
+		IMPORTED_LOSSY = 2,
+		STORED_AND_IMPORTED_LOSSY = 3,
+	};
 	int get_version() {return version;}
 	String get_path() {return import_path;}
 	String get_import_md_path() {return import_md_path;}
@@ -125,58 +134,46 @@ public:
 		s += "\n\t}\n}";
 		return s;
 	}
-	bool is_lossless_import() {
+	int get_import_loss_type() {
 		if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj"){
 			//These are always imported as either native files or losslessly
-			return true;
+			return LOSSLESS;
 		}
-		if (!has_import_data()){
-			ERR_FAIL_COND_V_MSG(!has_import_data(), false, "DOESNT HAVE IMPORT METADATA!!!!");
+		if (!has_import_data()) {
+			return UNKNOWN;
 		}
-		if (version == 2) {
-			if (importer == "texture") {
-				if (source_file != ""){
-					String ext = source_file.get_extension();
-					// These are always imported in such a way that it is impossible to recover the original file
-					// SVG in particular is converted to raster from vector
-					if (ext == "svg" || ext == "jpg" || ext == "webp"){
-						return false;
-					}
-				}
-				if (params.has("format") && params["format"].is_num()){
-					return (int)params["format"] <= V2ImportEnums::TextureFormat::IMAGE_FORMAT_COMPRESS_DISK_LOSSLESS;
-				}
+
+		if (importer == "texture") {
+			int stat = 0;
+			String ext = source_file.get_extension();
+			// These are always imported in such a way that it is impossible to recover the original file
+			// SVG in particular is converted to raster from vector
+			// However, you can convert these and rewrite the imports such that they will be imported losslessly next time
+			if (ext == "svg" || ext == "jpg" || ext == "webp"){
+				stat |= IMPORTED_LOSSY;
 			}
-			else if (importer == "sample") {
-				if (params.has("compress/mode") && params["compress/mode"].is_num()){
-					return (int)params["compress/mode"] == V2ImportEnums::SampleCompressMode::COMPRESS_MODE_DISABLED;
-				}
+			// Not possible to recover asset used to import losslessly
+			if (params.has("compress/mode") && params["compress/mode"].is_num()){
+				stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
 			}
-			else if (importer == "font") {
-				if (params.has("mode/mode") && params["mode/mode"].is_num()) {
-					return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD;
-				}
-			}
-		} else if (version > 2 && version < 4) {
-			if (importer == "texture") {
-				String ext = source_file.get_extension();
-				// These are always imported in such a way that it is impossible to recover the original file
-				// SVG in particular is converted to raster from vector
-				if (ext == "svg" || ext == "jpg" || ext == "webp"){
-					return false;
-				}
-				if (params.has("compress/mode") && params["compress/mode"].is_num()){
-					return (int)params["compress/mode"] <= 1;
-				}
-			}
-			else if (importer == "wav") {
-				if (params.has("compress/mode") && params["compress/mode"].is_num()){
-					return (int)params["compress/mode"] == 0;
-				}
+			return LossType(stat);
+		}
+		else if (importer == "wav" || version == 2 && importer == "sample") {
+			// Not possible to recover asset used to import losslessly
+			if (params.has("compress/mode") && params["compress/mode"].is_num()){
+				return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
 			}
 		}
+
+		if (version == 2 && importer == "font") {
+			// Not possible to recover asset used to import losslessly
+			if (params.has("mode/mode") && params["mode/mode"].is_num()) {
+				return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD ? LOSSLESS : STORED_LOSSY;
+			}
+		}
+		
 		// We can't say for sure
-		return false;
+		return UNKNOWN;
 	}
 protected:
 	static void _bind_methods(){
@@ -189,7 +186,7 @@ protected:
 		ClassDB::bind_method(D_METHOD("get_import_data"), &ImportInfo::get_import_data);
 		ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
 		ClassDB::bind_method(D_METHOD("set_import_data"), &ImportInfo::set_import_data);
-		ClassDB::bind_method(D_METHOD("is_lossless_import"), &ImportInfo::is_lossless_import);
+		ClassDB::bind_method(D_METHOD("get_import_loss_type"), &ImportInfo::get_import_loss_type);
 	}
 };
 

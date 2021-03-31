@@ -15,7 +15,9 @@ class ImportExporter: public Reference {
 	Array files;
 	String project_dir;
 	Error load_import_file(const String &p_path);
+	Error load_import(FileAccess * f, const String &p_path);
 	Error load_import_file_v2(const String &p_path);
+	Error load_import_v2(FileAccess * f, const String& p_path);
 protected:
 	static void _bind_methods();
 

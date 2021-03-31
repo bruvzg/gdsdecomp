@@ -9,7 +9,7 @@
 #include "core/variant/variant_parser.h"
 #include "resource_loader_compat.h"
 #include "modules/regex/regex.h"
-
+#include "file_access_pack_compat.h"
 #if (VERSION_MAJOR == 4)
 #include "core/crypto/crypto_core.h"
 #else
@@ -41,24 +41,13 @@ bool PckDumper::_get_magic_number(FileAccess * pck) {
 	return true;
 }
 
-bool PckDumper::_pck_file_check_md5(const PackedFile & file) {
-	FileAccess *pck_f = FileAccess::open(path, FileAccess::READ);
-	pck_f->seek(file.offset);
-	if (file.flags & (1<<0)){
-		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-		ERR_FAIL_COND_V_MSG(!fae, false, "Can't open encrypted pack-referenced file '" + String(file.path) + "'.");
-
-		Error err = fae->open_and_parse(pck_f, get_key(), FileAccessEncrypted::MODE_READ, false);
-		memdelete(fae);
-		pck_f->close();
-		memdelete(pck_f);
-		if (err != OK) {
-			if (err == ERR_FILE_UNRECOGNIZED){
-				ERR_FAIL_COND_V_MSG(err != OK, false, "Failed to decrypt '" + String(file.path) + "'.");
-			} else if (err == ERR_FILE_CORRUPT){
-				ERR_FAIL_COND_V_MSG(err != OK, false, "MD5 check failed for '" + String(file.path) + "'.");
-			}
-		}
+bool PckDumper::_pck_file_check_md5(PackedFileInfo & file) {
+	FileAccess *pck_f = get_file_access(file.path, &file);
+	if (!pck_f){
+		return false;
+	}
+	// Loading an encrypted file automatically checks the md5
+	if (file.encrypted){
 		return true;
 	}
 #if (VERSION_MAJOR == 4)
@@ -170,7 +159,6 @@ Error PckDumper::load_pck(const String& p_path) {
 		pck = fae;
 	}
 
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	files.clear();
 	for (int i = 0; i < file_count; i++) {
 		uint32_t sl = pck->get_32();
@@ -179,10 +167,10 @@ Error PckDumper::load_pck(const String& p_path) {
 		pck->get_buffer((uint8_t *)cs.ptr(), sl);
 		cs[sl] = 0;
 
-		String path;
-		path.parse_utf8(cs.ptr());
+		String f_path;
+		f_path.parse_utf8(cs.ptr());
 
-		path = path.replace("res://", "");
+		f_path = f_path.replace("res://", "");
 		uint64_t ofs = pck->get_64();
 		uint64_t size = pck->get_64();
 		uint8_t md5_saved[16];
@@ -191,7 +179,7 @@ Error PckDumper::load_pck(const String& p_path) {
 		if (pck_ver == 2) {
 			flags = pck->get_32();
 		}
-		PackedFile p_file = PackedFile(path, ofs, size, md5_saved, flags);
+		PackedFileInfo p_file = PackedFileInfo(p_path, f_path, ofs, size, md5_saved, flags);
 		files.push_back(p_file);
 	}
 	loaded = true;
@@ -215,43 +203,17 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	}
 	String failed_files;
 	for (int i = 0; i < files.size(); i++) {
-		FileAccess *pck_f = FileAccess::open(path, FileAccess::READ);
+		FileAccess *pck_f = get_file_access(files.get(i).path, &files.get(i));
 		if (!pck_f){
 			failed_files += files.get(i).path + " (FileAccess error)\n";
 			continue;
 		}
-		
 		String target_name = dir.plus_file(files.get(i).path);
-
 		da->make_dir_recursive(target_name.get_base_dir());
-
-		//print_warning("extracting " + files[i], RTR("Read PCK"));
-
-		pck_f->seek(files.get(i).offset);
-		
-		if (files.get(i).flags & (1 << 0)) {
-			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-			if (!fae) {
-				pck_f->close();
-				memdelete(pck_f);
-				failed_files += files.get(i).path + " (FileAccess error)\n";
-				continue;
-			}
-
-			Error err = fae->open_and_parse(pck_f, key, FileAccessEncrypted::MODE_READ, false);
-			if (err) {
-				pck_f->close();
-				memdelete(pck_f);
-				memdelete(fae);
-				failed_files += files.get(i).path + " (FileAccess error)\n";
-				continue;
-			}
-			pck_f = fae;
-		}
-
 		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (!fa) {
 			failed_files += files.get(i).path + " (FileWrite error)\n";
+			memdelete(pck_f);
 			continue;
 		}
 
@@ -270,6 +232,8 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			Error e1 = pcfgldr->load_cfb(target_name, ver_major, ver_minor);
 			if (e1 != OK) {
 				WARN_PRINT("Failed to load cfb");
+				memdelete(pcfgldr);
+				continue;
 			}
 			Error e2 = pcfgldr->save_cfb(target_name.get_base_dir(), ver_major, ver_minor);
 			if (e2 != OK) {
@@ -281,12 +245,14 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	memdelete(da);
 
 	if (failed_files.length() > 0) {
+		print_error(failed_files);
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
 		//show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
 	}
 	return OK;
 }
+
 
 Error PckDumper::pck_load_and_dump(const String &p_path, const String &dir) {
 	Error result = load_pck(p_path);
@@ -309,16 +275,19 @@ void PckDumper::set_key(const String &s){
 	script_key = s;
 }
 
+FileAccess *PckDumper::get_file_access(const String &p_path, PackedFileInfo *p_file){
+	return memnew(FileAccessPackCompat(p_path, p_file->to_struct(), get_key()));
+}
 
 Vector<uint8_t> PckDumper::get_key() const {
 
 	Vector<uint8_t> key;
+	key.resize(32);
 
 	if (script_key.is_empty() || !script_key.is_valid_hex_number(false) || script_key.length() != 64) {
 		return key;
 	}
 
-	key.resize(32);
 	for (int i = 0; i < 32; i++) {
 		int v = 0;
 		if (i * 2 < script_key.length()) {
@@ -344,7 +313,7 @@ Vector<uint8_t> PckDumper::get_key() const {
 }
 
 
-void PackedFile::set_stuff(const String path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16]) {
+void PackedFileInfo::set_stuff(const String path, const uint64_t ofs, const uint64_t sz, const uint8_t md5arr[16]) {
 	raw_path = path;
 	offset = ofs;
 	size = sz;
@@ -356,7 +325,7 @@ void PackedFile::set_stuff(const String path, const uint64_t ofs, const uint64_t
 	fix_path();
 }
 
-void PackedFile::fix_path() {
+void PackedFileInfo::fix_path() {
 	path = raw_path;
 	malformed_path = false;
 	while (path.begins_with("~")) {
