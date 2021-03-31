@@ -116,7 +116,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 		if version.begins_with("2.1"):
 			print("Version 2.1.x detected")
 			decomp = GDScriptDecomp_ed80f45.new()
-		elif version.begins_with("3.2"):
+		elif version.begins_with("3.2" ) || version.begins_with("3.3"):
 			print("Version 3.2.x detected")
 			decomp = GDScriptDecomp_5565f55.new()
 		else:
