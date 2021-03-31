@@ -48,6 +48,7 @@ func export_imports(output_dir:String):
 	importer.load_import_files(output_dir, ver_major)
 	var arr = importer.get_import_files()
 	var failed_files = []
+	print("import files: " + str(arr.size()))
 	for i in arr:
 		var ifo:ImportInfo = i;
 		#the path to the imported file
@@ -113,16 +114,31 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 			return
 		
 		var decomp;
-		if version.begins_with("2.1"):
-			print("Version 2.1.x detected")
+
+		# TODO: instead of doing this, run the detect bytecode script
+		if version.begins_with("1.0"):
+			decomp = GDScriptDecomp_e82dc40.new()
+		elif version.begins_with("1.1"):
+			decomp = GDScriptDecomp_65d48d6.new()
+		elif version.begins_with("2.0"):
+			decomp = GDScriptDecomp_23441ec.new()
+		elif version.begins_with("2.1"):
 			decomp = GDScriptDecomp_ed80f45.new()
-		elif version.begins_with("3.2" ) || version.begins_with("3.3"):
-			print("Version 3.2.x detected")
+		elif version.begins_with("3.0"):
+			decomp = GDScriptDecomp_054a2ac.new()
+		elif version.begins_with("3.1"):
+			decomp = GDScriptDecomp_514a3fb.new()
+		elif version.begins_with("3.2"):
+			decomp = GDScriptDecomp_5565f55.new()
+		# Did 3.3 add new GDScript featues?
+		elif version.begins_with("3.3"):
 			decomp = GDScriptDecomp_5565f55.new()
 		else:
-			print("unknown version, no decomp")
+			print("Unknown version, no decomp")
 			return
-		
+
+		print("Script version "+ version.substr(0,3)+".x detected")
+
 		for f in thing.get_loaded_files():
 			var da:Directory = Directory.new()
 			da.open(output_dir)
@@ -150,7 +166,6 @@ func normalize_path(path: String):
 	return path.replace("\\","/")
 
 func print_import_info(output_dir: String):
-	print("stuff")
 	var importer:ImportExporter = ImportExporter.new()
 	importer.load_import_files(output_dir, 0)
 	var arr = importer.get_import_files()
@@ -163,6 +178,20 @@ func print_import_info(output_dir: String):
 			print(s + "A LOSSY IMPORT!!!!")
 		print((ifo as ImportInfo).to_string())
 
+func print_usage():
+	print("Godot Reverse Engineering Tools")
+	print("")
+	print("Without any CLI options, the tool will start in GUI mode")
+	print("\nGeneral options:")
+	print("  -h, --help: Display this help message")
+	print("\nExport to Project options:")
+	print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR> [--key=<KEY>]")
+	print("")
+	print("--extract=<PAK_OR_EXE>\t\tThe Pak or EXE to extract")
+	print("--output-dir=<DIR>\t\tOutput directory")
+	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted")
+	#print("View Godot assets, extract Godot PAK files, and export Godot projects")
+
 func handle_cli():
 	var args = OS.get_cmdline_args()
 	#var args = ["--no-window", "--verbose", "--path", ".\\modules\\gdsdecomp\\standalone", "--extract=C:\\workspace\\godot-decomps\\d\\PandemicHero_v10.pck", "--output-dir=C:\\workspace\\godot-decomps\\ph-decomp"]
@@ -173,7 +202,7 @@ func handle_cli():
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
-			print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR>")
+			print_usage()
 			get_tree().quit()
 		if arg.begins_with("--extract"):
 			exe_file = normalize_path(get_arg_value(arg))
@@ -184,6 +213,8 @@ func handle_cli():
 	if exe_file != "":
 		if output_dir == "":
 			print("Error: use --output-dir=<dir> when using --extract")
+			print("")
+			print_usage()
 		else:
 			
 			#print_import_info(output_dir)
