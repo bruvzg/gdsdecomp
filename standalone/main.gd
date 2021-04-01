@@ -99,17 +99,17 @@ func test_decomp(fname):
 
 	
 func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
-	var thing = PckDumper.new()
+	var pckdump = PckDumper.new()
 	print(exe_file)
 	if (enc_key != ""):
-		thing.set_key(enc_key)
-	if thing.load_pck(exe_file) == OK:
+		pckdump.set_key(enc_key)
+	if pckdump.load_pck(exe_file) == OK:
 		print("Successfully loaded PCK!")
-		ver_major = thing.get_engine_version().split(".")[0].to_int()
-		var version:String = thing.get_engine_version()
+		ver_major = pckdump.get_engine_version().split(".")[0].to_int()
+		var version:String = pckdump.get_engine_version()
 		print("Version: " + version)
-		#thing.check_md5_all_files()
-		if thing.pck_dump_to_dir(output_dir) != OK:
+		#pckdump.check_md5_all_files()
+		if pckdump.pck_dump_to_dir(output_dir) != OK:
 			print("error dumping to dir")
 			return
 		
@@ -130,7 +130,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 			decomp = GDScriptDecomp_514a3fb.new()
 		elif version.begins_with("3.2"):
 			decomp = GDScriptDecomp_5565f55.new()
-		# Did 3.3 add new GDScript featues?
+		# Did 3.3 add new GDScript features?
 		elif version.begins_with("3.3"):
 			decomp = GDScriptDecomp_5565f55.new()
 		else:
@@ -139,9 +139,10 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 
 		print("Script version "+ version.substr(0,3)+".x detected")
 
-		for f in thing.get_loaded_files():
+		for f in pckdump.get_loaded_files():
 			var da:Directory = Directory.new()
 			da.open(output_dir)
+			f = f.replace("res://", "")
 			if f.get_extension() == "gdc":
 				print("decompiling " + f)
 				if decomp.decompile_byte_code(output_dir.plus_file(f)) != OK: 
@@ -161,10 +162,29 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 		decomp.free()
 	else:
 		print("ERROR: failed to load exe")
+	thing.clear_data()
 
 func normalize_path(path: String):
 	return path.replace("\\","/")
 
+func print_import_info_from_pak(pak_file: String):
+	var pckdump = PckDumper.new()
+	pckdump.load_pck(pak_file)
+	var importer:ImportExporter = ImportExporter.new()
+	importer.load_import_files("res://", 0)
+	var arr = importer.get_import_files()
+	print("size is " + str(arr.size()))
+	for ifo in arr:
+		var s:String = ifo.get_source_file() + " is "
+		if ifo.get_import_loss_type() == 0:
+			print(s + "not a lossy import")
+		elif ifo.get_import_loss_type() == -1:
+			print(s + "UNKNOWN!??!!?")
+		else:
+			print(s + "A LOSSY IMPORT!!!!")
+		print((ifo as ImportInfo).to_string())
+	pckdump.clear_data()
+	
 func print_import_info(output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
 	importer.load_import_files(output_dir, 0)
@@ -172,8 +192,10 @@ func print_import_info(output_dir: String):
 	print("size is " + str(arr.size()))
 	for ifo in arr:
 		var s:String = ifo.get_source_file() + " is "
-		if ifo.is_lossless_import():
+		if ifo.get_import_loss_type() == 0:
 			print(s + "not a lossy import")
+		elif ifo.get_import_loss_type() == -1:
+			print(s + "UNKNOWN!??!!?")
 		else:
 			print(s + "A LOSSY IMPORT!!!!")
 		print((ifo as ImportInfo).to_string())
@@ -189,7 +211,7 @@ func print_usage():
 	print("")
 	print("--extract=<PAK_OR_EXE>\t\tThe Pak or EXE to extract")
 	print("--output-dir=<DIR>\t\tOutput directory")
-	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted")
+	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted (hex string)")
 	#print("View Godot assets, extract Godot PAK files, and export Godot projects")
 
 func handle_cli():
@@ -216,8 +238,9 @@ func handle_cli():
 			print("")
 			print_usage()
 		else:
-			
+			#debugging
 			#print_import_info(output_dir)
+			#print_import_info_from_pak(exe_file)
 			dump_files(exe_file, output_dir, enc_key)
 			export_imports(output_dir)
 		get_tree().quit()

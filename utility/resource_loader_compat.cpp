@@ -8,6 +8,7 @@
 #include "core/os/dir_access.h"
 #include "core/variant/variant_parser.h"
 #include "core/crypto/crypto_core.h"
+#include "gdre_packed_data.h"
 
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
@@ -16,7 +17,7 @@ Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path,
 	if (!output_dir.is_empty()) {
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
-	ResourceLoaderBinaryCompat * loader = _open_file(p_path, output_dir, true, &error, r_progress);
+	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 
 	error = loader->fake_load();
@@ -37,7 +38,7 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 	if (!output_dir.is_empty() && !dst_path.is_abs_path()) {
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
-	ResourceLoaderBinaryCompat * loader = _open_file(p_path, output_dir, true, &error, r_progress);
+	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open file '" + p_path + "'.", loader);
 	
 	loader->convert_v2image_indexed = true;
@@ -74,7 +75,7 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 }
 
 Error get_md5_hash(const String &path, String &hash_str){
-	FileAccess *file = FileAccess::open(path, FileAccess::READ);
+	FileAccess *file = FileAccessGDRE::open(path, FileAccess::READ);
 	if (!file){
 		return ERR_FILE_CANT_OPEN;
 	}
@@ -140,30 +141,26 @@ Error ResourceFormatLoaderBinaryCompat::_rewrite_import_metadata(ResourceLoaderB
 	return loader->save_to_bin(loader->res_path + ".tmp");
 }
 
-ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open_file(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
+ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
 
 	Error error = OK;
 	String path = p_path;
 	if (!base_dir.is_empty()) {
 		path = base_dir.plus_file(p_path.replace_first("res://", ""));
 	}
-	FileAccess *f = FileAccess::open(path, FileAccess::READ, &error);
+	FileAccess *f = FileAccessGDRE::open(path, FileAccess::READ, &error);
+	
+	// try it again with the local path
+	// TODO: Don't do this
+	if (!f){
+		f = FileAccessGDRE::open(p_path, FileAccess::READ, &error);
+	}
 	if (r_error) {
 		*r_error = error;
 	}
 
-	ERR_FAIL_COND_V_MSG(error != OK, nullptr, "Cannot open file '" + path + "'.");
-	ResourceLoaderBinaryCompat *loader = _open(f, p_path, base_dir, no_ext_load, &error, r_progress);
-	if (r_error) {
-		*r_error = error;
-	}
-	ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot load resource '" + path + "'.");
-
-	return loader;
-}
-
-ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(FileAccess * f, const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
-	Error error = OK;
+	ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + path + "'.");
+	
 	String path = p_path;
 	if (!base_dir.is_empty()) {
 		path = base_dir.plus_file(p_path.replace_first("res://", ""));
@@ -173,6 +170,11 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(FileAccess 
 	loader->progress = r_progress;
 	loader->no_ext_load = no_ext_load;
 	loader->local_path = p_path; // Local path
+	
+	// TODO: make this cleaner, support other cases like "user://"(?)
+	if (!p_path.begins_with("res://")){
+		loader->local_path = "res://" + p_path;
+	}
 	loader->res_path = path; // Absolute path
 	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
 	error = loader->open(f);
@@ -187,7 +189,12 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(FileAccess 
 	return loader;
 }
 
-Error ResourceFormatLoaderBinaryCompat::_get_import_info(ResourceLoaderBinaryCompat * loader, Ref<ImportInfo> i_info){
+Error ResourceFormatLoaderBinaryCompat::get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
+	Error error = OK;
+	//Relative path
+	ResourceLoaderBinaryCompat * loader = _open(p_path, base_dir, true, &error, nullptr);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
+
 	if (i_info == nullptr){
 		i_info.instance();
 	}
@@ -201,46 +208,26 @@ Error ResourceFormatLoaderBinaryCompat::_get_import_info(ResourceLoaderBinaryCom
 		//these do not have any metadata info in them
 		if(i_info->import_path.find(".converted.") != -1)
 		{
+			memdelete(loader);
 			return OK;
 		}
 		Error error = loader->load_import_metadata();
-		ERR_FAIL_COND_V_MSG(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + loader->res_path + "'");
+		ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + loader->res_path + "'",loader);
 		
 		if (loader->imd->get_source_count() > 1){
 			WARN_PRINT("More than one source?!?!");
 		}
-		ERR_FAIL_COND_V_MSG(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + loader->res_path + "'");
+		ERR_RFLBC_COND_V_MSG_CLEANUP(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + loader->res_path + "'", loader);
 		i_info->v2metadata = loader->imd;
 		i_info->source_file = loader->imd->get_source_path(0);
 		i_info->importer = loader->imd->get_editor();
 		i_info->params = loader->imd->get_options_as_dictionary();
 		i_info->import_data = loader->imd->get_as_dictionary();
 	}
-	
+	memdelete(loader);
 	return OK;
 }
 
-Error ResourceFormatLoaderBinaryCompat::get_import_info_from_file(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
-	Error error = OK;
-	//Relative path
-	ResourceLoaderBinaryCompat * loader = _open_file(p_path, base_dir, true, &error, nullptr);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
-	error = _get_import_info(loader, i_info);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to get import info for '" + p_path + "'.", loader);
-	memdelete(loader);	
-	return OK;
-}
-
-Error ResourceFormatLoaderBinaryCompat::get_import_info(FileAccess * f, const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info){
-	Error error = OK;
-	//Relative path
-	ResourceLoaderBinaryCompat * loader = _open(f, p_path, base_dir, true, &error, nullptr);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
-	error = _get_import_info(loader, i_info);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to get import info for '" + p_path + "'.", loader);
-	memdelete(loader);	
-	return OK;
-}
 
 Error ResourceLoaderBinaryCompat::load_import_metadata() {
 	if (!f) {

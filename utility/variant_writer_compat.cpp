@@ -233,6 +233,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 					//try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
 				} else if (res->is_class("FakeResource")){
+					//this is really just for debugging
 					res_text = "Resource( \"" + ((Ref<FakeResource>)res)->get_real_path() + "\")";
 				}
 

@@ -14,15 +14,18 @@
 #include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
+#include "gdre_packed_data.h"
 
 Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = ""){
 	Vector<String> ret;
-	DirAccess *da = DirAccess::open(dir.plus_file(rel));
-	String base = absolute ? dir : "res://";
+	Error err;
+	DirAccess *da = DirAccessGDRE::open(dir.plus_file(rel), &err);
+	ERR_FAIL_COND_V_MSG(!da, ret, "Failed to open directory " + dir);
 
 	if (!da) {
 		return ret;
 	}
+	String base = absolute ? dir : "";
 	da->list_dir_begin();
 	String f;
 	while ((f = da->get_next()) != "") {
@@ -41,7 +44,6 @@ Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wi
 			} else {
 				ret.append(base.plus_file(rel).plus_file(f));
 			}
-			
 		}
 	}
 	memdelete(da);
@@ -58,16 +60,6 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 	if (project_dir != ""){
 		path = project_dir.plus_file(p_path.replace_first("res://", ""));
 	}
-	FileAccess * f = FileAccess::open(path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!f, err, "Can't open file " + path);
-	err = load_import_v2(f, p_path); //local path
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Can't load import data for " + path);
-	// RLC handles closing the file
-	return OK;
-}
-
-
-Error ImportExporter::load_import_v2(FileAccess * f, const String& p_path){
 	String dest;
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
@@ -77,7 +69,7 @@ Error ImportExporter::load_import_v2(FileAccess * f, const String& p_path){
 
 	// This is an import file, possibly has import metadata
 	ResourceFormatLoaderBinaryCompat rlc;
-	Error err = rlc.get_import_info(f, p_path, project_dir, iinfo);
+	Error err = rlc.get_import_info(p_path, project_dir, iinfo);
 	//Error err = rlc.get_import_info_from_file(p_path, project_dir, iinfo);
 	if (err == OK ) {
 		// If this is a "converted" file, then it won't have import metadata...
@@ -150,7 +142,7 @@ bool check_if_dir_is_v2(const String &dir){
 	wildcards.push_back("*.converted.*");
 	wildcards.push_back("*.tex");
 	wildcards.push_back("*.smp");
-	if (get_recursive_dir_list(dir, wildcards, false).size() > 0){
+	if (get_recursive_dir_list(dir, wildcards).size() > 0){
 		return true;
 	} else {
 		return false;
@@ -183,7 +175,7 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 		version = check_if_dir_is_v2(dir) ? 2 : 3;
 	}
 	if (version <= 2) {
-		file_names = get_recursive_dir_list(dir, get_v2_wildcards(), false);
+		file_names = get_recursive_dir_list(dir, get_v2_wildcards());
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_import_file_v2(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
@@ -204,7 +196,7 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 
 Error ImportExporter::load_import_file(const String &p_path){
 	Error err;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + p_path);
 	err = load_import(f, p_path);
 	memdelete(f);

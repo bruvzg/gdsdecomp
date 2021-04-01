@@ -20,19 +20,6 @@ namespace V2ImportEnums{
 		FONT_DISTANCE_FIELD
 	};
 
-	enum ImageFlags {
-		IMAGE_FLAG_STREAM_FORMAT = 1,
-		IMAGE_FLAG_FIX_BORDER_ALPHA = 2,
-		IMAGE_FLAG_ALPHA_BIT = 4, //hint for compressions that use a bit for alpha
-		IMAGE_FLAG_COMPRESS_EXTRA = 8, // used for pvrtc2
-		IMAGE_FLAG_NO_MIPMAPS = 16, //normal for 2D games
-		IMAGE_FLAG_REPEAT = 32, //usually disabled in 2D
-		IMAGE_FLAG_FILTER = 64, //almost always enabled
-		IMAGE_FLAG_PREMULT_ALPHA = 128, //almost always enabled
-		IMAGE_FLAG_CONVERT_TO_LINEAR = 256, //convert image to linear
-		IMAGE_FLAG_CONVERT_NORMAL_TO_XY = 512, //convert image to linear
-		IMAGE_FLAG_USE_ANISOTROPY = 1024, //convert image to linear
-	};
 	enum TextureMode {
 		MODE_TEXTURE_2D,
 		MODE_TEXTURE_3D,
