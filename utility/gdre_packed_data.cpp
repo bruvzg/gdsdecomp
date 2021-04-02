@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  file_access_pack.cpp                                                 */
+/*  gdre_packed_data.cpp                                                 */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -407,16 +407,11 @@ FileAccess *FileAccessGDRE::open(const String &p_path, int p_mode_flags, Error *
 		}
 	}
 
-	ret = create_for_path(p_path);
 	Error err;
-	ret->open(p_path, p_mode_flags, &err);
+	ret = FileAccess::open(p_path, p_mode_flags, &err);
 
 	if (r_error) {
 		*r_error = err;
-	}
-	if (err != OK) {
-		memdelete(ret);
-		ret = nullptr;
 	}
 
 	return ret;

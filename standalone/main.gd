@@ -162,7 +162,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 		decomp.free()
 	else:
 		print("ERROR: failed to load exe")
-	thing.clear_data()
+	pckdump.clear_data()
 
 func normalize_path(path: String):
 	return path.replace("\\","/")

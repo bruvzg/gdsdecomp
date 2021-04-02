@@ -54,9 +54,7 @@ String ImageParserV2::ImageV2_to_string(const Variant &r_v){
         String imgstr = "Image( ";
         imgstr += itos(img->get_width());
         imgstr += ", " + itos(img->get_height());
-        String subimgstr;
-        subimgstr += ", " + itos(img->get_mipmap_count());
-        subimgstr += ", ";
+        String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";
 
         switch (img->get_format()) {
 

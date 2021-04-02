@@ -29,7 +29,7 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<PckDumper>();
 	ClassDB::register_class<ImportInfo>();
 	ClassDB::register_class<ImportExporter>();
-	ClassDB::register_class<StreamTextureV3>();
+	ClassDB::register_class<ResourceFormatLoaderCompatTexture>();
 
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();

@@ -19,6 +19,11 @@ namespace V2ImportEnums{
 		FONT_BITMAP,
 		FONT_DISTANCE_FIELD
 	};
+	enum Storage {
+		STORAGE_RAW,
+		STORAGE_COMPRESS_LOSSY,
+		STORAGE_COMPRESS_LOSSLESS
+	};
 
 	enum TextureMode {
 		MODE_TEXTURE_2D,
@@ -142,6 +147,8 @@ public:
 			// Not possible to recover asset used to import losslessly
 			if (params.has("compress/mode") && params["compress/mode"].is_num()){
 				stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
+			} else if (params.has("storage") && params["storage"].is_num()){
+				stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
 			}
 			return LossType(stat);
 		}

@@ -31,9 +31,9 @@ namespace VariantBin{
 		VARIANT_PLANE = 13,
 		VARIANT_QUAT = 14,
 		VARIANT_AABB = 15,
-		VARIANT_MATRIX3 = 16,
+		VARIANT_MATRIX3 = 16, // Old name for Basis
 		VARIANT_TRANSFORM = 17,
-		VARIANT_MATRIX32 = 18,
+		VARIANT_MATRIX32 = 18, // Old name for Transform2D
 		VARIANT_COLOR = 20,
 		VARIANT_IMAGE = 21,
 		VARIANT_NODE_PATH = 22,
@@ -146,6 +146,7 @@ class ResourceLoaderBinaryCompat {
 	bool stored_use_real64 = false;
 	bool convert_v2image_indexed = false;
 	bool hacks_for_deprecated_v2img_formats = true;
+	bool no_abort_on_ext_load_fail = true;
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
@@ -179,6 +180,7 @@ class ResourceLoaderBinaryCompat {
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
 	static void save_ustring(FileAccess * f, const String &p_string);
+	
 
 	String get_unicode_string();
 	static void advance_padding(FileAccess * f, uint32_t p_len);
@@ -188,7 +190,7 @@ class ResourceLoaderBinaryCompat {
 	Error error = OK;
 
 	friend class ResourceFormatLoaderBinaryCompat;
-
+	friend class ResourceFormatLoaderCompatTexture;
 	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
@@ -196,24 +198,36 @@ class ResourceLoaderBinaryCompat {
 	RES set_dummy_ext(const uint32_t erindex);
 	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
-	Error load_ext_resources(const uint32_t i);
+	
+	Error load_ext_resource(const uint32_t i);
+	RES get_external_resource(const int subindex);
+	RES get_external_resource(const String &path);
+	bool has_external_resource(const String &path);
 
+	RES instance_internal_resource(const String &path, const String &type, const int subindex);
+	RES get_internal_resource(const int subindex);
+	RES get_internal_resource(const String &path);
+	String get_internal_resource_type(const String &path);
+	bool has_internal_resource(const String &path);
+
+	static String get_resource_path(const RES &res);
+	
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
 	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
+	Error parse_variant(Variant &r_v);
 	Map<String, RES> dependency_cache;
     public:
 		static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 		Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
         static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
         Error open(FileAccess *p_f);
-		Error fake_load();
+		Error load();
 		static String get_ustring(FileAccess *f);
 		Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
-		static String _write_fake_resources(void *ud, const RES &p_resource);
-		String _write_fake_resource(const RES &res);
-		Error parse_variant(Variant &r_v);
+		static String _write_rlc_resources(void *ud, const RES &p_resource);
+		String _write_rlc_resource(const RES &res);
 		Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
 		ResourceLoaderBinaryCompat();
 		~ResourceLoaderBinaryCompat();
@@ -240,6 +254,7 @@ public:
 
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);
+	RES load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };
 
 

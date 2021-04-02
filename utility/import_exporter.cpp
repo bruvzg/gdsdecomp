@@ -69,8 +69,8 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 
 	// This is an import file, possibly has import metadata
 	ResourceFormatLoaderBinaryCompat rlc;
-	Error err = rlc.get_import_info(p_path, project_dir, iinfo);
-	//Error err = rlc.get_import_info_from_file(p_path, project_dir, iinfo);
+	err = rlc.get_import_info(p_path, project_dir, iinfo);
+	
 	if (err == OK ) {
 		// If this is a "converted" file, then it won't have import metadata...
 		if (iinfo->has_import_data()) {
@@ -175,7 +175,8 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 		version = check_if_dir_is_v2(dir) ? 2 : 3;
 	}
 	if (version <= 2) {
-		file_names = get_recursive_dir_list(dir, get_v2_wildcards());
+		
+		file_names = get_recursive_dir_list(dir, get_v2_wildcards(), dir == "res://" ? true : false);
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_import_file_v2(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
@@ -300,9 +301,9 @@ Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const Strin
 Error ImportExporter::convert_v3stex_to_png(const String &output_dir, const String &p_path, const String &p_dst){
 	String src_path = output_dir.plus_file(p_path.replace("res://",""));
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
-	StreamTextureV3 st;
+	RFLCTexture st;
 	Error err;
-	Ref<Image> img = st.load_image(src_path, err);
+	Ref<Image> img = st.load_image_from_tex(src_path, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load stex file " + p_path);
 
 	err = img->save_png(dst_path);

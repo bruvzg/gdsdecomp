@@ -1514,10 +1514,8 @@ void GodotREEditor::_res_stxt_2_png_process() {
 		}
 		else if (err == ERR_FILE_CORRUPT) {
 			//This may be because we tried to load the old format
-			Ref<StreamTextureV3> stex3;
-			stex3.instance();
-			err = stex3->load(res_files[i]);	
-			if (err == OK) img = stex3->get_image();
+			ResourceFormatLoaderCompatTexture stex3;
+			img = stex3.load_image_from_tex(res_files[i], &err);
 		}
 		if (err != OK) {
 			failed_files += res_files[i] + " (load StreamTexture error)\n";
