@@ -30,6 +30,8 @@ public:
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
 	Error load_import_files(const String &dir, const uint32_t ver_major);
 	Array get_import_files();
+	Error test_functions();
+	
 	int convert_imports(const String &output_dir = "");
 };
 

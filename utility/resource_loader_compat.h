@@ -165,7 +165,10 @@ class ResourceLoaderBinaryCompat {
 	bool use_sub_threads = false;
 	float *progress = nullptr;
 	Vector<ExtResource> external_resources;
-
+	struct PropPair {
+		StringName name;
+		Variant value;
+	};
 	struct IntResource {
 		String path;
 		uint64_t offset;
@@ -180,7 +183,7 @@ class ResourceLoaderBinaryCompat {
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
 	static void save_ustring(FileAccess * f, const String &p_string);
-	
+	Error repair_property(const String &rtype, StringName &name, Variant &value);
 
 	String get_unicode_string();
 	static void advance_padding(FileAccess * f, uint32_t p_len);
@@ -254,7 +257,7 @@ public:
 
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);
-	RES load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
+	RES load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };
 
 

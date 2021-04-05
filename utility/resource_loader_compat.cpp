@@ -8,7 +8,7 @@
 #include "core/variant/variant_parser.h"
 #include "core/crypto/crypto_core.h"
 #include "gdre_packed_data.h"
-
+#include "stream_texture_v3.h"
 Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
 	String dst_path = dst;
@@ -75,13 +75,17 @@ Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_pat
 }
 
 ///This is really only for loading a viewing, this is not suitable for conversion of resources
-RES ResourceFormatLoaderBinaryCompat::load(const String & p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode){
+RES ResourceFormatLoaderBinaryCompat::load(const String & p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode){
 	if (r_error) {
 		*r_error = ERR_FILE_CANT_OPEN;
 	}
-
+	String path = project_dir != "" ? project_dir.plus_file(p_path.replace("res://","")) : p_path;
+	if (path.get_extension() == "tex" || path.get_extension() == "stex"){
+		ResourceFormatLoaderCompatTexture rflct;
+		return rflct.load_texture2d(path, r_error);
+	}
 	Error err;
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
+	FileAccess *f = FileAccessGDRE::open(path, FileAccess::READ, &err);
 
 	ERR_FAIL_COND_V_MSG(err != OK, RES(), "Cannot open file '" + p_path + "'.");
 
@@ -90,9 +94,9 @@ RES ResourceFormatLoaderBinaryCompat::load(const String & p_path, const String &
 	loader->use_sub_threads = p_use_sub_threads;
 	loader->progress = r_progress;
 	loader->no_ext_load = false;
-	String path = p_original_path != "" ? p_original_path : p_path;
-	loader->local_path = path;
-	loader->res_path = p_path;
+	loader->project_dir = project_dir;
+	loader->local_path = p_path;
+	loader->res_path = path;
 	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
 	err = loader->open(f);
 	if (r_error) {
@@ -439,16 +443,18 @@ Error ResourceLoaderBinaryCompat::load_ext_resource(const uint32_t i){
 	}
 	ResourceFormatLoaderBinaryCompat rl;
 	Error err;
-	external_resources.write[i].cache = rl.load(external_resources[i].path, "", &err);
-	if (!no_abort_on_ext_load_fail){
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load external resource " + external_resources[i].path);
-	} else {
-		if (external_resources.write[i].cache.is_null()){
-			// just do a dummy resource and hope this works anyway
-			set_dummy_ext(i);
+	external_resources.write[i].cache = rl.load(external_resources[i].path, project_dir, &err);
+	if (external_resources.write[i].cache.is_null()){
+		if (!no_abort_on_ext_load_fail){
+			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load external resource " + external_resources[i].path);
+		} else {
+			if (external_resources.write[i].cache.is_null()){
+				// just do a dummy resource and hope this works anyway
+				set_dummy_ext(i);
+			}
 		}
 	}
-	
+
 	return OK;
 }
 
@@ -493,9 +499,9 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 		res = make_dummy(path, type, subindex);
 		return res;
 	}
-
+	// TODO: rename godot v2 resources to godot v3 resources
 	
-	// we don't populate the cache, so we won't hit this
+	// we don't populate the cache by default, so we likely won't hit this (?)
 	if (cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE && ResourceCache::has(path)) {
 		//use the existing one
 		Resource *r = ResourceCache::get(path);
@@ -567,6 +573,199 @@ String ResourceLoaderBinaryCompat::get_resource_path(const RES &res){
 		return res->get_path();
 	}
 }
+bool check_old_type_name(Variant::Type type, int ver_major, String &old_name){
+	if (4 == VERSION_MAJOR){
+		return true;
+	}
+	String new_name = Variant::get_type_name(type);
+	if (new_name.begins_with("Packed")){
+		old_name = new_name.replace_first("Packed", "");
+		return false;
+	}
+	if (ver_major == 2){ 
+		if( new_name == "Transform2D"){
+			old_name = "Matrix32";
+			return false;
+		}
+		if( new_name == "Basis"){
+			old_name = "Matrix3";
+			return false;
+		}
+	}
+	return true;
+}
+
+void print_class_prop_list(const StringName &cltype){
+	List<PropertyInfo> * listpinfo = memnew(List<PropertyInfo>);
+
+	ClassDB::get_property_list(StringName(cltype),listpinfo);
+	if (!listpinfo || listpinfo->size() == 0){
+		if (listpinfo){
+			memdelete(listpinfo);
+		}
+		ERR_FAIL_COND_MSG((!listpinfo || listpinfo->size() == 0), "No properties in class of type " + cltype + " ?!!??!");
+	}
+	print_line("List of valid properties in class" + cltype + " : \n[");
+	for (auto I = listpinfo->front(); I; I->next()){
+		auto p = I->get();
+		print_line("\t{");
+		print_line("\t\tname:        " + p.name);
+		print_line("\t\ttype:        " + p.type);
+		print_line("\t\thint_string: " + p.hint_string);
+		print_line("\t}");
+	}
+	print_line("]");
+	memdelete(listpinfo);
+}
+
+/* 
+ * Convert properties of old stored resources to new resource properties
+ * 
+ * Primarily for debugging; as development continues, we'll likely have special handlers
+ * for old resources we care about.
+ * 
+ * Common failures like properties that no longer exist, or changed type (like String to StringName),
+ * can be fixed. Otherwise we return an error so that we stop attempting to load the resource.
+ * 
+ * This is a recursive function; if the property value is a resource,
+ * we iterate through all ITS properties and attempt repairs.
+ */
+Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, StringName &name, Variant &value){
+
+	bool class_exists = ClassDB::class_exists(StringName(rtype));
+	ERR_FAIL_COND_V_MSG(!class_exists, ERR_UNAVAILABLE, "Class does not exist in ClassDB");
+
+	PropertyInfo * pinfo = memnew(PropertyInfo);
+	Error err = OK;
+	bool has_property = ClassDB::get_property_info(StringName(rtype), name, pinfo);
+
+	// If it just doesn't have the property, this isn't fatal
+	if (!has_property){
+		// handle this below
+		memdelete(pinfo);
+		return ERR_CANT_RESOLVE;
+	} else {
+		List<PropertyInfo> * listpinfo = memnew(List<PropertyInfo>);
+		#define ERR_EXIT_REPAIR_PROPERTY(err, errmsg) \
+				if (pinfo)\
+					memdelete(pinfo);\
+				if (listpinfo)\
+					memdelete(listpinfo);\
+				ERR_PRINT(errmsg);\
+				print_class_prop_list(rtype); \
+		return err;
+
+		// Check that the property type matches the one we have
+		String class_prop_type = Variant::get_type_name(pinfo->type);
+		String value_type = Variant::get_type_name(value.get_type());
+
+		// If type values don't match
+		if (pinfo->type != value.get_type()){
+			//easy fixes for String/StringName swaps
+			if (pinfo->type == Variant::STRING_NAME && value.get_type() == Variant::STRING){
+				value = StringName(value);
+			} else if (pinfo->type == Variant::STRING && value.get_type() == Variant::STRING_NAME){
+				value = String(value);
+
+			// Arrays of different bitsize
+			} else if (pinfo->type == Variant::PACKED_INT64_ARRAY && value.get_type() == Variant::PACKED_INT32_ARRAY){
+				PackedInt64Array arr;
+				PackedInt32Array srcarr = value;
+				for (int i = 0; i < srcarr.size(); i++){
+					arr.push_back(srcarr[i]);
+				}
+				value = srcarr;
+			//TODO: rest of 32/64 byte type diffs
+
+			// Convert old vector floats into vector integers
+			} else if (pinfo->type == Variant::VECTOR2I && value.get_type() == Variant::VECTOR2){
+				Vector2i ret;
+				Vector2 val = value;
+				ret.x = val.x;
+				ret.y = val.y;
+			} else if (pinfo->type == Variant::VECTOR3I && value.get_type() == Variant::VECTOR3){
+				Vector3i ret;
+				Vector3 val = value;
+				ret.x = val.x;
+				ret.y = val.y;
+				ret.z = val.z;
+			} else {
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" + 
+										"\n\tclass prop type:          " + class_prop_type + 
+										"\n\tattempted set value type: " + value_type);
+			}
+
+		// TODO: implement these
+		} else if (pinfo->type == Variant::ARRAY){
+			WARN_PRINT("Property '" + name + "' type is a array (?)");
+			print_class_prop_list(StringName(rtype));
+			err = ERR_PRINTER_ON_FIRE;
+		} else if (pinfo->type == Variant::DICTIONARY){
+			WARN_PRINT("Property '" + name + "' type is a dictionary (?)");
+			print_class_prop_list(StringName(rtype));
+			err = ERR_PRINTER_ON_FIRE;
+
+		// If this is an object, we have to load the cached resource and walk the property list
+		} else if (pinfo->type == Variant::OBJECT){
+			//let us hope that this is the name of the object class
+			String hint = pinfo->class_name;
+			//String hint = pinfo->hint_string;
+			if (hint.is_empty()){
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Possible type difference in property " + name + 
+					"\nclass property type is of an unknown object, attempted set value type is " + value_type);
+			}
+			ClassDB::get_property_list(StringName(hint),listpinfo);
+			if (!listpinfo || listpinfo->size() == 0) {
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_CANT_OPEN, "Failed to get list of properties for property " + name + " of object type " + hint);
+			}
+			RES res = value;
+			if (res.is_null()){
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_MISSING_DEPENDENCIES, "Property " + name + " is not a resource of type " + hint);				
+			}
+			String path = get_resource_path(res);
+			StringName res_type = res->get_class_name();
+
+			// If it's not a converted v2 image, AND we don't have the resource cached...
+			if (String(res_type) != "Image" && !has_external_resource(path) && !has_internal_resource(path)){
+				ERR_EXIT_REPAIR_PROPERTY(ERR_CANT_ACQUIRE_RESOURCE, "We do not have resource " + path + " cached!");
+			}
+
+			// Can't handle classes of different types
+			if (hint != res_type){
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" + 
+										"\n\tclass prop type:          " + hint + 
+										"\n\tattempted set value type: " + res_type);
+			}
+			// Walk the property list
+			for (auto I = listpinfo->front(); I; I->next()){
+				auto spinfo = I->get();
+				bool valid;
+				Variant val_value = res->get(spinfo.name, &valid);
+				// doesn't have the property, which is often the case because the editor
+				// puts a bunch of garbage properties that never get set when saved
+				// just continue
+				if (!valid || !val_value){
+					continue;
+				}
+				err = repair_property(res_type, StringName(spinfo.name), val_value);
+				// Worst error was that the value had an extra property, we continue on
+				if (err == ERR_CANT_RESOLVE){
+					WARN_PRINT("Property " + name + " value of type " + res_type + " had an extra property in " + spinfo.name);
+					continue;
+				} else if (err != OK){
+					//otherwise, fail
+					ERR_EXIT_REPAIR_PROPERTY(err, "lol i dunno");
+				}
+			}
+		} else {
+			ERR_EXIT_REPAIR_PROPERTY(ERR_BUG, "Property '" + name + "' failed to be set for some unknown reason");
+			// Unknown why this failed, just report it
+		}
+		memdelete(listpinfo);
+	}
+	memdelete(pinfo);
+	return err;
+}
 
 Error ResourceLoaderBinaryCompat::load(){
 	if (error != OK) {
@@ -581,7 +780,8 @@ Error ResourceLoaderBinaryCompat::load(){
 		stage++;
 	}
 
-	// We don't instance the internal resources here; We instead store the name, type and properties
+	// On a fake load, we don't instance the internal resources here. 
+	// We instead store the name, type and properties
 	for (int i = 0; i < internal_resources.size(); i++) {
 		bool main = i == (internal_resources.size() - 1);
 
@@ -632,12 +832,22 @@ Error ResourceLoaderBinaryCompat::load(){
 			rp.value = value;
 			rp.type = value.get_type();
 			lrp.push_back(rp);
-			// load the properties
+			// not a fake_load, set the properties
 			if (!no_ext_load){
+				//TODO: Translate V2 resource names into V3 resource names
 				bool valid;
 				res->set(name, value, &valid);
 				if (!valid) {
-					WARN_PRINT("Got error trying to set property " + name + " on " + type + " resource " + path);
+					Error rerr = repair_property(rtype, name, value);
+					// worst case was an extra property, we can continue on
+					if (rerr == ERR_CANT_RESOLVE){
+						WARN_PRINT("Got error trying to set extra property " + name + " on " + type + " resource " + path);
+					} else {
+						ERR_FAIL_COND_V_MSG(rerr != OK, ERR_CANT_ACQUIRE_RESOURCE, "Can't load internal resource " + path);
+						// otherwise, property repair was successful
+						res->set(name, value, &valid);
+						ERR_FAIL_COND_V_MSG(!valid, ERR_CANT_ACQUIRE_RESOURCE, "Can't load resource, property repair failed for " + path);
+					}
 				}
 			}
 		}

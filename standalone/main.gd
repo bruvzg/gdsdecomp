@@ -4,7 +4,10 @@ var ver_major = 2;
 
 func _ready():
 	$menu_background/version_lbl.text = $re_editor_standalone.get_version()
-	handle_cli()
+	test_functions()
+	get_tree().quit()
+
+	#handle_cli()
 
 func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
@@ -12,6 +15,14 @@ func _on_re_editor_standalone_write_log_message(message):
 
 func _on_version_lbl_pressed():
 	OS.shell_open("https://github.com/bruvzg/gdsdecomp")
+
+func test_get_props():
+	var thing = Animation.new()
+	print(thing.get_property_list())
+
+func test_functions():
+	var thing = ImportExporter.new()	
+	thing.test_functions()
 
 func get_arg_value(arg):
 	var split_args = arg.split("=")
@@ -241,6 +252,6 @@ func handle_cli():
 			#debugging
 			#print_import_info(output_dir)
 			#print_import_info_from_pak(exe_file)
-			dump_files(exe_file, output_dir, enc_key)
+			#dump_files(exe_file, output_dir, enc_key)
 			export_imports(output_dir)
 		get_tree().quit()

@@ -319,3 +319,7 @@ platform/windows/godot_res.res
 
 # godot imports
 standalone/.godot/
+
+# test files
+standalone/spriteTest.*
+standalone/character*

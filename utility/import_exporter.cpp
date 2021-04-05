@@ -341,6 +341,8 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	return OK;
 
 }
+
+
 Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst){
 	String src_path = output_dir.plus_file(p_path.replace("res://",""));
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
@@ -356,6 +358,12 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 
 }
 
+Error ImportExporter::test_functions(){
+	ResourceFormatLoaderBinaryCompat rlc;
+	rlc.load("res://apt1_room1.tscn.converted.scn", "C:/workspace/godot-decomps/hc-test-another");
+	return OK;
+}
+
 void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
 	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
@@ -365,5 +373,6 @@ void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
 	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
 	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
+	ClassDB::bind_method(D_METHOD("test_functions"), &ImportExporter::test_functions);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }
