@@ -15,6 +15,8 @@
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 #include "gdre_packed_data.h"
+#include "gdre_settings.h"
+#include "core/crypto/crypto_core.h"
 
 Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = ""){
 	Vector<String> ret;
@@ -56,10 +58,6 @@ Array ImportExporter::get_import_files(){
 
 Error ImportExporter::load_import_file_v2(const String& p_path) {
 	Error err;
-	String path = p_path;
-	if (project_dir != ""){
-		path = project_dir.plus_file(p_path.replace_first("res://", ""));
-	}
 	String dest;
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
@@ -68,7 +66,7 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 	iinfo.instance();
 
 	// This is an import file, possibly has import metadata
-	ResourceFormatLoaderBinaryCompat rlc;
+	ResourceFormatLoaderCompat rlc;
 	err = rlc.get_import_info(p_path, project_dir, iinfo);
 	
 	if (err == OK ) {
@@ -90,7 +88,7 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 			new_ext = "png";
 		} else if (p_path.get_extension() == "smp") {
 			new_ext = "wav";
-		}
+		} //others??
 		dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
 	// File either didn't load or metadata was corrupt
 	} else {
@@ -105,10 +103,8 @@ Error ImportExporter::load_import_file_v2(const String& p_path) {
 	}
 
 	// either it's an import file without metadata or a converted file
-
 	iinfo->source_file = dest;
 	// If it's a converted file without metadata, it won't have this, and we need it for checking if the file is lossy or not
-	// checking if it's a lossy or lossless import
 	if (iinfo->importer == "") {
 		if (p_path.get_extension() == "scn") {
 			iinfo->importer = "scene";
@@ -171,12 +167,18 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 	project_dir = dir;
 	Vector<String> file_names;
 	int version = ver_major;
+	if (dir != "" && !dir.begins_with("res://")){
+		GDRESettings::get_singleton()->set_project_path(dir);
+	}
 	if (version == 0) {
 		version = check_if_dir_is_v2(dir) ? 2 : 3;
 	}
 	if (version <= 2) {
-		
-		file_names = get_recursive_dir_list(dir, get_v2_wildcards(), dir == "res://" ? true : false);
+		if ((dir == "" || dir.begins_with("res://") )&& GDRESettings::get_singleton()->is_pack_loaded()){
+			file_names = GDRESettings::get_singleton()->get_file_list(get_v2_wildcards());
+		} else {
+			file_names = get_recursive_dir_list(dir, get_v2_wildcards(), false);
+		}
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_import_file_v2(file_names[i]) != OK) {
 				WARN_PRINT("Can't load V2 converted file: " + file_names[i]);
@@ -185,7 +187,11 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 	} else {
 		Vector<String> wildcards;
 		wildcards.push_back("*.import");
-		file_names = get_recursive_dir_list(dir, wildcards);
+		if ((dir == "" || dir.begins_with("res://") )&& GDRESettings::get_singleton()->is_pack_loaded()){
+			file_names = GDRESettings::get_singleton()->get_file_list(wildcards);
+		} else {
+			file_names = get_recursive_dir_list(dir, wildcards, false);
+		}
 		for (int i = 0; i < file_names.size(); i++) {
 			if (load_import_file(file_names[i]) != OK) {
 				WARN_PRINT("Can't load import file: " + file_names[i]);
@@ -197,11 +203,12 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 
 Error ImportExporter::load_import_file(const String &p_path){
 	Error err;
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + p_path);
-	err = load_import(f, p_path);
+	String path = GDRESettings::get_singleton()->get_res_path(p_path);
+	FileAccess *f = FileAccessGDRE::open(path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + path);
+	err = load_import(f, path);
 	memdelete(f);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + p_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
 	return OK;
 }
 
@@ -273,29 +280,141 @@ Error ImportExporter::load_import(FileAccess * f, const String &p_path) {
 }
 
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
-	ResourceFormatLoaderBinaryCompat rlc;
+	ResourceFormatLoaderCompat rlc;
 	Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
 	print_line("Converted " + p_path + " to " + p_dst);
 	return err;
 }
 
-Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
-	ResourceFormatLoaderBinaryCompat rlc;
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
+	Ref<ImportInfo> iinfo;
+	for (int i = 0; i < files.size(); i++){
+		iinfo = files[i];
+		if (iinfo->get_path() == p_path){
+			return iinfo;
+		}
+	}
+	// not found
+	return Ref<ImportInfo>();
+}
+
+Error get_md5_hash(const String &path, String &hash_str){
+	FileAccess *file = FileAccessGDRE::open(path, FileAccess::READ);
+	if (!file){
+		return ERR_FILE_CANT_OPEN;
+	}
+	CryptoCore::MD5Context ctx;
+	ctx.start();
+
+	int64_t rq_size = file->get_len();
+	uint8_t buf[32768];
+
+	while (rq_size > 0) {
+		int got = file->get_buffer(buf, MIN(32768, rq_size));
+		if (got > 0) {
+			ctx.update(buf, got);
+		}
+		if (got < 4096)
+			break;
+		rq_size -= 32768;
+	}
+	unsigned char hash[16];
+	ctx.finish(hash);
+	hash_str = String::md5(hash);
+	file->close();
+	memdelete(file);
+	return OK;
+}
+
+Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension){
+	Ref<ResourceImportMetadatav2> imd;
+	auto iinfo = get_import_info(p_path);
+	if (iinfo.is_null()){
+		return imd;
+	}
+	// copy
+	imd = Ref<ResourceImportMetadatav2>(iinfo->v2metadata);
+	if (imd->get_source_count() > 1){
+		WARN_PRINT("multiple import sources detected!?");
+	}
+	int i;
+	for (i = 0; i < imd->get_source_count(); i++) {
+		// case insensitive windows paths...
+		String src_file_name = imd->get_source_path(i).get_file().to_lower();
+		String res_name = p_res_name.to_lower();
+		if (change_extension){
+			src_file_name = src_file_name.get_basename();
+			res_name = res_name.get_basename();
+		}
+		if (src_file_name == res_name) {
+			String md5 = imd->get_source_md5(i);
+			String dst_path = rel_dest_path;
+			if (output_dir != "") {
+				dst_path = output_dir.plus_file(rel_dest_path.replace("res://", ""));
+			}
+			String new_hash;
+			if (get_md5_hash(dst_path, new_hash) != OK){
+				WARN_PRINT("Can't open exported file to calculate hash");
+			} else {
+				md5 = new_hash;
+			}
+			imd->remove_source(i);
+			imd->add_source(rel_dest_path, md5);
+			break;
+		}
+	}
+	if (i == imd->get_source_count()){
+		WARN_PRINT("Can't find resource name!");
+	}
+	return imd;
+}
+
+Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &orig_file, const String &p_res_name, const String &output_dir){
+	Error err;
+	auto imd = change_v2import_data(p_path, p_dst, p_res_name, output_dir, false);
+	ERR_FAIL_COND_V_MSG(imd.is_null(), ERR_FILE_NOT_FOUND, "Failed to get metadata for " + p_path);
+
+	ResourceFormatLoaderCompat rlc;
+	err = rlc.rewrite_v2_import_metadata(p_path, orig_file + ".tmp", imd);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to rewrite metadata for " + orig_file);
+
+	DirAccess *dr = DirAccess::open(orig_file.get_base_dir(), &err);
+	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
+	// this may fail, we don't care
+	dr->remove(orig_file);
+	err = dr->rename(orig_file + ".tmp", orig_file);
+	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
+
+	print_line("Rewrote import metadata for " + p_path);
+	memdelete(dr);
+	return OK;
+}
+
+Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, const bool rewrite_metadata) {
+	ResourceFormatLoaderCompat rlc;
 	String dst_dir = output_dir.plus_file(p_dst.get_base_dir().replace("res://", ""));
 	String orig_file = output_dir.plus_file(p_path.replace("res://",""));
-	da->make_dir_recursive(dst_dir);
+	String dest_path = output_dir.plus_file(p_dst.replace("res://",""));
+	Error err;
+	RFLCTexture tl;
+
+	Ref<Image> img = tl.load_image_from_tex(p_path, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
+
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	err = da->make_dir_recursive(dst_dir);
 	memdelete(da);
-	Error err = rlc.convert_v2tex_to_png(p_path, p_dst, output_dir, true);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	DirAccess *dr = DirAccess::open(output_dir.plus_file(p_path.get_base_dir().replace("res://", "")), &err);
-	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
-	dr->remove(orig_file);
-	dr->rename(orig_file + ".tmp", orig_file);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
+	
+	err = img->save_png(dest_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path);
+
 	print_line("Converted " + p_path + " to " + p_dst);
-	memdelete(dr);
-	return err;
+	if (!rewrite_metadata){
+		return OK;
+	}
+	return rewrite_v2_import_metadata(p_path, p_dst, orig_file, img->get_name(), output_dir);
 }
 
 Error ImportExporter::convert_v3stex_to_png(const String &output_dir, const String &p_path, const String &p_dst){
@@ -359,7 +478,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 }
 
 Error ImportExporter::test_functions(){
-	ResourceFormatLoaderBinaryCompat rlc;
+	ResourceFormatLoaderCompat rlc;
 	rlc.load("res://apt1_room1.tscn.converted.scn", "C:/workspace/godot-decomps/hc-test-another");
 	return OK;
 }

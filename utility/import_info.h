@@ -56,10 +56,10 @@ class ImportInfo: public Reference {
 	GDCLASS(ImportInfo, Reference)
 private:
 	friend class ImportExporter;
-	friend class ResourceFormatLoaderBinaryCompat;
+	friend class ResourceFormatLoaderCompat;
 	String import_path; // path to the imported file
 	String import_md_path; // path to the ".import" file
-	int version; //2, 3
+	int version; //2, 3, 4
 	String type;
 	String importer;
 	String source_file; // file to import

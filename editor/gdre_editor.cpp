@@ -1616,7 +1616,7 @@ void GodotREEditor::_res_bin_2_txt_process() {
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
 	
 	ResourceLoader::set_abort_on_missing_resources(false);
-	Ref<ResourceFormatLoaderBinaryCompat> rl = memnew(ResourceFormatLoaderBinaryCompat);
+	Ref<ResourceFormatLoaderCompat> rl = memnew(ResourceFormatLoaderCompat);
 	//Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
 	//RES res = rl->load(p_src_path);
 	Error err = rl->convert_bin_to_txt(p_src_path, p_dst_path);

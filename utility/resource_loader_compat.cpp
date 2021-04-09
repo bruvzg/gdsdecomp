@@ -9,11 +9,13 @@
 #include "core/crypto/crypto_core.h"
 #include "gdre_packed_data.h"
 #include "stream_texture_v3.h"
-Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
+#include "gdre_settings.h"
+
+Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
 	String dst_path = dst;
 	//Relative path
-	if (!output_dir.is_empty()) {
+	if (!output_dir.is_empty() && GDRESettings::get_singleton()) {
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
@@ -29,208 +31,58 @@ Error ResourceFormatLoaderBinaryCompat::convert_bin_to_txt(const String &p_path,
 	return OK;
 }
 
-Error ResourceFormatLoaderBinaryCompat::convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir, const bool rewrite_metadata, float *r_progress) {
-	Error error = OK;
-	String rel_dst_path = dst.replace_first("res://", "");
-	String dst_path = dst;
-
-	//Relative path
-	if (!output_dir.is_empty() && !dst_path.is_abs_path()) {
-		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
-	}
-	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open file '" + p_path + "'.", loader);
-	
-	loader->convert_v2image_indexed = true;
-	loader->hacks_for_deprecated_v2img_formats = false;
-	error = loader->load();
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
-	
-	Ref<Image> img;
-	String name;
-	
-	//Load the main resource, which should be the ImageTexture
-	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceProperty pe = PE->get();
-		if (pe.name == "resource/name") {
-			name = pe.value;
-		}
-		else if (pe.name == "image") {
-			img = pe.value;
-		}
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(img.is_null(), error, "failed to load image from '" + p_path + "'.", loader);
-
-	error = img->save_png(dst_path);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to save resource '" + p_path + "' as '" + dst + "'.", loader);
-
-	if (rewrite_metadata){
-		error = _rewrite_import_metadata(loader, name, rel_dst_path);
-	}
-	memdelete(loader);
-	ERR_FAIL_COND_V_MSG(error == ERR_UNAVAILABLE, error, "Unable to read import metadata, did not save new import metadata");
-	ERR_FAIL_COND_V_MSG(error != OK, error, "failed to save resource '" + p_path + "' with rewritten import metadata.");
-	return OK;
-}
 
 ///This is really only for loading a viewing, this is not suitable for conversion of resources
-RES ResourceFormatLoaderBinaryCompat::load(const String & p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode){
-	if (r_error) {
-		*r_error = ERR_FILE_CANT_OPEN;
-	}
-	String path = project_dir != "" ? project_dir.plus_file(p_path.replace("res://","")) : p_path;
-	if (path.get_extension() == "tex" || path.get_extension() == "stex"){
-		ResourceFormatLoaderCompatTexture rflct;
-		return rflct.load_texture2d(path, r_error);
-	}
-	Error err;
-	FileAccess *f = FileAccessGDRE::open(path, FileAccess::READ, &err);
-
-	ERR_FAIL_COND_V_MSG(err != OK, RES(), "Cannot open file '" + p_path + "'.");
-
-	ResourceLoaderBinaryCompat * loader = memnew(ResourceLoaderBinaryCompat);
-	loader->cache_mode = p_cache_mode;
-	loader->use_sub_threads = p_use_sub_threads;
-	loader->progress = r_progress;
-	loader->no_ext_load = false;
-	loader->project_dir = project_dir;
-	loader->local_path = p_path;
-	loader->res_path = path;
-	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
-	err = loader->open(f);
-	if (r_error) {
+RES ResourceFormatLoaderCompat::load(const String & p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode){
+	Error err = ERR_FILE_CANT_OPEN;
+	if (!r_error) {
+		r_error = &err;
+	} else {
 		*r_error = err;
 	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, RES(), "Failed to open resource file '" + p_path + "'.", loader);
+	if (p_path.get_extension() == "tex" || p_path.get_extension() == "stex"){
+		ResourceFormatLoaderCompatTexture rflct;
+		return rflct.load_texture2d(p_path, r_error);
+	}
+	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
+	ResourceLoaderBinaryCompat * loader = _open(p_path,project_dir, false, r_error, r_progress);
+	ERR_FAIL_COND_V_MSG(*r_error != OK, RES(), "Cannot open file '" + p_path + "'.");
+	loader->cache_mode = p_cache_mode;
+	loader->use_sub_threads = p_use_sub_threads;
 	if (loader->engine_ver_major != VERSION_MAJOR){
 		WARN_PRINT(p_path + ": Doing real load on incompatible version " + itos(loader->engine_ver_major));
 	}
-	err = loader->load();
 
-	if (r_error) {
-		*r_error = err;
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, RES(), "failed to load resource '" + p_path + "'.", loader);
+	*r_error = loader->load();
+	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, RES(), "failed to load resource '" + p_path + "'.", loader);
 
 	RES ret = loader->resource;
 	memdelete(loader);
 	return ret;
 }
 
-Error get_md5_hash(const String &path, String &hash_str){
-	FileAccess *file = FileAccessGDRE::open(path, FileAccess::READ);
-	if (!file){
-		return ERR_FILE_CANT_OPEN;
-	}
-	CryptoCore::MD5Context ctx;
-	ctx.start();
-
-	int64_t rq_size = file->get_len();
-	uint8_t buf[32768];
-
-	while (rq_size > 0) {
-		int got = file->get_buffer(buf, MIN(32768, rq_size));
-		if (got > 0) {
-			ctx.update(buf, got);
-		}
-		if (got < 4096)
-			break;
-		rq_size -= 32768;
-	}
-	unsigned char hash[16];
-	ctx.finish(hash);
-	hash_str = String::md5(hash);
-	file->close();
-	memdelete(file);
-	return OK;
-}
-
-Error ResourceFormatLoaderBinaryCompat::_rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path){
-	bool rewrite_md5 = true;
-	//Rewrite the metadata
-	if(!loader->imd.is_valid() || loader->imd->get_source_count() <= 0){
-		return ERR_UNAVAILABLE;
-	}
-	if (loader->imd->get_source_count() > 1){
-		WARN_PRINT("multiple import sources detected!?");
-	}
-	int i;
-	for (i = 0; i < loader->imd->get_source_count(); i++) {
-		// case insensitive windows paths...
-		if (loader->imd->get_source_path(i).get_file().to_lower() == name.to_lower()){
-			String md5 = loader->imd->get_source_md5(i);
-			// We won't recalculate here, to force a re-import upon load
-			if (rewrite_md5){
-				String dst_path = rel_dst_path;
-				if (!loader->project_dir.is_empty()){
-					dst_path = loader->project_dir.plus_file(rel_dst_path);
-				}
-				String new_hash;
-				if (get_md5_hash(dst_path, new_hash) != OK){
-					WARN_PRINT("Can't open exported file to calculate hash");
-				} else {
-					md5 = new_hash;
-				}
-			}
-			loader->imd->remove_source(i);
-			loader->imd->add_source(rel_dst_path, md5);
-			break;
-		}
-	}
-	// Did not find the file name in the metadata sources
-	if (i == loader->imd->get_source_count()) {
-		return ERR_CANT_RESOLVE;
-	}
-	return loader->save_to_bin(loader->res_path + ".tmp");
-}
-
-ResourceLoaderBinaryCompat * ResourceFormatLoaderBinaryCompat::_open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress){
-
+Error ResourceFormatLoaderCompat::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd){
 	Error error = OK;
-	String path = p_path;
-	//disabled
-	if (!base_dir.is_empty())
-	{
-		if (GDREPackedData::get_singleton()->get_file_count() == 0 || !p_path.is_abs_path()){
-			path = base_dir.plus_file(p_path.replace_first("res://", ""));
-		}
-	}
-	FileAccess *f = FileAccessGDRE::open(path, FileAccess::READ, &error);
-	
-	if (r_error) {
-		*r_error = error;
-	}
+	float prog;
+	auto loader = _open(p_path, "", true, &error, &prog);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(loader->engine_ver_major != 2, ERR_INVALID_DATA, "Not a V2 Resource: '" + p_path + "'.", loader);
+	// In case this is a imageTexture resource, we have to set this
+	loader->convert_v2image_indexed = true;
+	loader->hacks_for_deprecated_v2img_formats = false;
 
-	ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + path + "'.");
-	
-	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
-	loader->project_dir = base_dir;
-	loader->progress = r_progress;
-	loader->no_ext_load = no_ext_load;
-	loader->local_path = p_path; // Local path
-	
-	// TODO: make this cleaner, support other cases like "user://"(?)
-	if (!p_path.begins_with("res://")) {
-		loader->local_path = "res://" + p_path;
-	}
-	loader->res_path = path; // Absolute path
-	//loader.set_local_path( Globals::get_singleton()->localize_path(p_path) );
-	error = loader->open(f);
-	if (r_error) {
-		*r_error = error;
-	}
-
-	if (error != OK){
-		ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot load resource '" + path + "'.");
-	}
-
-	return loader;
+	error = loader->load();
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
+	loader->imd = imd;
+	error = loader->save_to_bin(p_dst);
+	memdelete(loader);
+	ERR_FAIL_COND_V_MSG(error != OK, error, "Cannot save resource to '" + p_dst + "'.");
+	return error;
 }
 
-Error ResourceFormatLoaderBinaryCompat::get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
+Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
 	Error error = OK;
-	//Relative path
+
 	ResourceLoaderBinaryCompat * loader = _open(p_path, base_dir, true, &error, nullptr);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
 
@@ -252,7 +104,7 @@ Error ResourceFormatLoaderBinaryCompat::get_import_info(const String &p_path, co
 		}
 		Error error = loader->load_import_metadata();
 		ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + loader->res_path + "'",loader);
-		
+
 		if (loader->imd->get_source_count() > 1){
 			WARN_PRINT("More than one source?!?!");
 		}
@@ -267,6 +119,36 @@ Error ResourceFormatLoaderBinaryCompat::get_import_info(const String &p_path, co
 	return OK;
 }
 
+
+ResourceLoaderBinaryCompat * ResourceFormatLoaderCompat::_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress){
+	Error error = OK;
+	if (!r_error) {
+		r_error = &error;
+	}
+	String res_path = GDRESettings::get_singleton()->get_res_path(p_path, base_dir);
+	FileAccess *f = nullptr;
+	if (res_path != ""){
+		f = FileAccessGDRE::open(res_path, FileAccess::READ, r_error);
+	} else {
+		*r_error = ERR_FILE_NOT_FOUND;
+		ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "'.");
+	}
+	// TODO: remove this extra check
+	ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "' (Even after get_res_path() returned a path????).");
+	
+	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
+	loader->project_dir = base_dir;
+	loader->progress = r_progress;
+	loader->fake_load = fake_load;
+	loader->local_path = GDRESettings::get_singleton()->localize_path(p_path, base_dir);
+	loader->res_path = res_path;
+	
+	*r_error = loader->open(f);
+
+	ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot open resource '" + p_path + "'.");
+
+	return loader;
+}
 
 Error ResourceLoaderBinaryCompat::load_import_metadata() {
 	if (!f) {
@@ -437,15 +319,22 @@ void ResourceLoaderBinaryCompat::debug_print_properties(String res_name, String 
 // so that we can convert the currently loading resource to binary/text without potentially loading an
 // unavailable or incompatible resource
 Error ResourceLoaderBinaryCompat::load_ext_resource(const uint32_t i){
-	if (no_ext_load){
+	if (fake_load){
 		set_dummy_ext(i);
 		return OK;
 	}
-	ResourceFormatLoaderBinaryCompat rl;
+	ResourceFormatLoaderCompat rl;
 	Error err;
+	// We never load scripts, because they are likely incompatible and it's a security issue
+	if (external_resources[i].type.find("Script") != -1){
+		ERR_FAIL_COND_V_MSG(!no_abort_on_ext_load_fail, ERR_CANT_ACQUIRE_RESOURCE, "Refusing to load external script " + external_resources[i].path);
+		set_dummy_ext(i);
+		return OK;
+	}
+
 	external_resources.write[i].cache = rl.load(external_resources[i].path, project_dir, &err);
 	if (external_resources.write[i].cache.is_null()){
-		if (!no_abort_on_ext_load_fail){
+		if (!no_abort_on_ext_load_fail) {
 			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load external resource " + external_resources[i].path);
 		} else {
 			if (external_resources.write[i].cache.is_null()){
@@ -491,11 +380,11 @@ bool ResourceLoaderBinaryCompat::has_external_resource(const String &path)
 
 // by default, we don't instance an internal resource class.  
 // This is done for compatibility reasons, constructors have changed between versions
-// So we instead just keep a list of properties, which would all be Variants
+// So we instead just make a dummy resource and keep a list of properties, which would all be Variants
 RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const int subindex){
 	RES res;
 	// if not instancing, create a dummy instead
-	if (no_ext_load){
+	if (fake_load){
 		res = make_dummy(path, type, subindex);
 		return res;
 	}
@@ -539,40 +428,53 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 
 
 RES ResourceLoaderBinaryCompat::get_internal_resource(const int subindex){
-	for (auto R = internal_index_cache.front(); R; R->next() ){
+	for (auto R = internal_index_cache.front(); R; R = R->next()){
 		if (R->value()->get_subindex() == subindex){
 			return R->value();
 		}
 	}
 	return RES();
-	
 }
 
 RES ResourceLoaderBinaryCompat::get_internal_resource(const String &path){
-	if (internal_index_cache.has(path)){
+	if (has_internal_resource(path)){
 		return internal_index_cache[path];
 	}
 	return RES();
 }
 
 String ResourceLoaderBinaryCompat::get_internal_resource_type(const String &path) {
-	if (internal_index_cache.has(path)){
+	if (has_internal_resource(path)){
 		return internal_type_cache[path];
 	}
 	return "None";
 }
+
+List<ResourceProperty> ResourceLoaderBinaryCompat::get_internal_resource_properties(const String &path){
+	if (has_internal_resource(path)){
+		return internal_index_cached_properties[path];
+	}
+	return List<ResourceProperty>();
+}
+
 
 bool ResourceLoaderBinaryCompat::has_internal_resource(const String &path){
 	return internal_index_cache.has(path);
 }
 
 String ResourceLoaderBinaryCompat::get_resource_path(const RES &res){
-	if (res->is_class("FakeResource")){
+	if (res.is_null()){
+		return "";
+	}
+	if (res->is_class("FakeResource")) {
 		return ((Ref<FakeResource>)res)->get_real_path();
-	} else {
+	} else if (res->is_class("FakeScript")) {
+		return ((Ref<FakeScript>)res)->get_real_path();
+	} else{
 		return res->get_path();
 	}
 }
+
 bool check_old_type_name(Variant::Type type, int ver_major, String &old_name){
 	if (4 == VERSION_MAJOR){
 		return true;
@@ -758,8 +660,8 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, StringNam
 				}
 			}
 		} else {
-			ERR_EXIT_REPAIR_PROPERTY(ERR_BUG, "Property '" + name + "' failed to be set for some unknown reason");
 			// Unknown why this failed, just report it
+			ERR_EXIT_REPAIR_PROPERTY(ERR_BUG, "Property '" + name + "' failed to be set for some unknown reason");
 		}
 		memdelete(listpinfo);
 	}
@@ -793,10 +695,10 @@ Error ResourceLoaderBinaryCompat::load(){
 			if (path.begins_with("local://")) {
 				path = path.replace_first("local://", "");
 				subindex = path.to_int();
-				path = res_path + "::" + path;
+				path = local_path + "::" + path;
 			}
 		} else {
-			path = res_path;
+			path = local_path;
 		}
 		internal_resources.write[i].path = path;
 
@@ -833,7 +735,7 @@ Error ResourceLoaderBinaryCompat::load(){
 			rp.type = value.get_type();
 			lrp.push_back(rp);
 			// not a fake_load, set the properties
-			if (!no_ext_load){
+			if (!fake_load){
 				//TODO: Translate V2 resource names into V3 resource names
 				bool valid;
 				res->set(name, value, &valid);
@@ -859,7 +761,7 @@ Error ResourceLoaderBinaryCompat::load(){
 		
 		// packed scenes with instances for nodes won't work right without creating an instance of it
 		// So we always instance them regardless if this is a fake load or not
-		if (main && no_ext_load && type == "PackedScene"){
+		if (main && fake_load && type == "PackedScene"){
 			Ref<PackedScene> ps;
 			ps.instance();
 			String valstring;
@@ -867,7 +769,7 @@ Error ResourceLoaderBinaryCompat::load(){
 			// debug_print_properties(path, rtype, lrp);
 			ps->set(lrp.front()->get().name, lrp.front()->get().value);
 			resource = ps;
-		} else if (main && !no_ext_load){
+		} else if (main && !fake_load){
 			resource = res;
 		}
 
@@ -1391,16 +1293,12 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 				} break;
 				case VariantBin::OBJECT_INTERNAL_RESOURCE: {
 					uint32_t index = f->get_32();
-					String path = res_path + "::" + itos(index);
-
+					String path = local_path + "::" + itos(index);
 					//always use internal cache for loading internal resources
-					if (!internal_index_cache.has(path)) {
-						WARN_PRINT(String("Couldn't load resource (no cache): " + path).utf8().get_data());
-						r_v = Variant();
-					} else {
-						r_v = internal_index_cache[path];
+					r_v = get_internal_resource(index);
+					if (!r_v) {
+						WARN_PRINT(String("Couldn't load internal resource (no cache): Subresource " + itos(index)).utf8().get_data());	
 					}
-
 				} break;
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE: {
 					//old file format, still around for compatibility
@@ -1408,39 +1306,17 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 					String exttype = get_unicode_string();
 					String path = get_unicode_string();
 
-					if (no_ext_load){
-						r_v = set_dummy_ext(path,exttype);
-						break;
-					}
-
-					if (path.find("://") == -1 && path.is_rel_path()) {
-						// path is relative to file being loaded, so convert to a resource path
-						path = ProjectSettings::get_singleton()->localize_path(res_path.get_base_dir().plus_file(path));
-					}
-
-					if (remaps.find(path)) {
-						path = remaps[path];
-					}
-
-					RES res = ResourceLoader::load(path, exttype);
-
-					if (res.is_null()) {
-						WARN_PRINT(String("Couldn't load resource: " + path).utf8().get_data());
-					}
-					r_v = res;
+					// don't bother setting it, just try and find it and fail if we can't
+					r_v = get_external_resource(path);
+					ERR_FAIL_COND_V_MSG(r_v.is_null(), ERR_FILE_MISSING_DEPENDENCIES, "Can't load dependency: " + path + ".");
 
 				} break;
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX: {
 					//new file format, just refers to an index in the external list
 					int erindex = f->get_32();
 
-					if (erindex < 0 || erindex >= external_resources.size()) {
-						WARN_PRINT("Broken external resource! (index out of size)");
-						r_v = Variant();
-					} else {
-						r_v = get_external_resource(erindex + 1);
-						ERR_FAIL_COND_V_MSG(r_v.is_null(), ERR_FILE_MISSING_DEPENDENCIES, "Can't load dependency: " + external_resources[erindex].path + ".");
-					}
+					r_v = get_external_resource(erindex + 1);
+					ERR_FAIL_COND_V_MSG(r_v.is_null(), ERR_FILE_MISSING_DEPENDENCIES, "Can't load dependency: " + external_resources[erindex].path + ".");
 				} break;
 				default: {
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
@@ -1695,171 +1571,160 @@ void ResourceLoaderBinaryCompat::save_ustring(FileAccess * f, const String &p_st
 }
 
 void ResourceLoaderBinaryCompat::save_unicode_string(const String &p_string) {
-	CharString utf8 = p_string.utf8();
-	f->store_32(utf8.length() + 1);
-	f->store_buffer((const uint8_t *)utf8.get_data(), utf8.length() + 1);
+	save_ustring(f, p_string);
 }
 
-Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
-													const Variant &p_property,
-													Map<String, RES> internal_index_cache,
-													Vector<IntResource> &internal_resources,
-													Vector<ExtResource> &external_resources,
-													Vector<StringName> &string_map,
-													const uint32_t ver_format,
-													const PropertyInfo &p_hint) {
-	
+Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess * fa, const Variant &p_property, const PropertyInfo &p_hint) {
 	switch (p_property.get_type()) {
-
 		case Variant::NIL: {
 
-			f->store_32(VariantBin::VARIANT_NIL);
+			fa->store_32(VariantBin::VARIANT_NIL);
 			// don't store anything
 		} break;
 		case Variant::BOOL: {
 
-			f->store_32(VariantBin::VARIANT_BOOL);
+			fa->store_32(VariantBin::VARIANT_BOOL);
 			bool val = p_property;
-			f->store_32(val);
+			fa->store_32(val);
 		} break;
 		case Variant::INT: {
 
-			f->store_32(VariantBin::VARIANT_INT);
+			fa->store_32(VariantBin::VARIANT_INT);
 			int val = p_property;
-			f->store_32(val);
+			fa->store_32(val);
 		} break;
 		case Variant::FLOAT: {
 
-			f->store_32(VariantBin::VARIANT_REAL);
+			fa->store_32(VariantBin::VARIANT_REAL);
 			real_t val = p_property;
-			f->store_real(val);
+			fa->store_real(val);
 
 		} break;
 		case Variant::STRING: {
 
-			f->store_32(VariantBin::VARIANT_STRING);
+			fa->store_32(VariantBin::VARIANT_STRING);
 			String val = p_property;
-			save_ustring(f, val);
+			save_ustring(fa, val);
 
 		} break;
 		case Variant::VECTOR2: {
 
-			f->store_32(VariantBin::VARIANT_VECTOR2);
+			fa->store_32(VariantBin::VARIANT_VECTOR2);
 			Vector2 val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
+			fa->store_real(val.x);
+			fa->store_real(val.y);
 
 		} break;
 		case Variant::RECT2: {
 
-			f->store_32(VariantBin::VARIANT_RECT2);
+			fa->store_32(VariantBin::VARIANT_RECT2);
 			Rect2 val = p_property;
-			f->store_real(val.position.x);
-			f->store_real(val.position.y);
-			f->store_real(val.size.x);
-			f->store_real(val.size.y);
+			fa->store_real(val.position.x);
+			fa->store_real(val.position.y);
+			fa->store_real(val.size.x);
+			fa->store_real(val.size.y);
 
 		} break;
 		case Variant::VECTOR3: {
 
-			f->store_32(VariantBin::VARIANT_VECTOR3);
+			fa->store_32(VariantBin::VARIANT_VECTOR3);
 			Vector3 val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
-			f->store_real(val.z);
+			fa->store_real(val.x);
+			fa->store_real(val.y);
+			fa->store_real(val.z);
 
 		} break;
 		case Variant::PLANE: {
 
-			f->store_32(VariantBin::VARIANT_PLANE);
+			fa->store_32(VariantBin::VARIANT_PLANE);
 			Plane val = p_property;
-			f->store_real(val.normal.x);
-			f->store_real(val.normal.y);
-			f->store_real(val.normal.z);
-			f->store_real(val.d);
+			fa->store_real(val.normal.x);
+			fa->store_real(val.normal.y);
+			fa->store_real(val.normal.z);
+			fa->store_real(val.d);
 
 		} break;
 		case Variant::QUAT: {
 
-			f->store_32(VariantBin::VARIANT_QUAT);
+			fa->store_32(VariantBin::VARIANT_QUAT);
 			Quat val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
-			f->store_real(val.z);
-			f->store_real(val.w);
+			fa->store_real(val.x);
+			fa->store_real(val.y);
+			fa->store_real(val.z);
+			fa->store_real(val.w);
 
 		} break;
 		case Variant::AABB: {
 
-			f->store_32(VariantBin::VARIANT_AABB);
+			fa->store_32(VariantBin::VARIANT_AABB);
 			AABB val = p_property;
-			f->store_real(val.position.x);
-			f->store_real(val.position.y);
-			f->store_real(val.position.z);
-			f->store_real(val.size.x);
-			f->store_real(val.size.y);
-			f->store_real(val.size.z);
+			fa->store_real(val.position.x);
+			fa->store_real(val.position.y);
+			fa->store_real(val.position.z);
+			fa->store_real(val.size.x);
+			fa->store_real(val.size.y);
+			fa->store_real(val.size.z);
 
 		} break;
 		case Variant::TRANSFORM2D: {
 
-			f->store_32(VariantBin::VARIANT_MATRIX32);
+			fa->store_32(VariantBin::VARIANT_MATRIX32);
 			Transform2D val = p_property;
-			f->store_real(val.elements[0].x);
-			f->store_real(val.elements[0].y);
-			f->store_real(val.elements[1].x);
-			f->store_real(val.elements[1].y);
-			f->store_real(val.elements[2].x);
-			f->store_real(val.elements[2].y);
+			fa->store_real(val.elements[0].x);
+			fa->store_real(val.elements[0].y);
+			fa->store_real(val.elements[1].x);
+			fa->store_real(val.elements[1].y);
+			fa->store_real(val.elements[2].x);
+			fa->store_real(val.elements[2].y);
 
 		} break;
 		case Variant::BASIS: {
 
-			f->store_32(VariantBin::VARIANT_MATRIX3);
+			fa->store_32(VariantBin::VARIANT_MATRIX3);
 			Basis val = p_property;
-			f->store_real(val.elements[0].x);
-			f->store_real(val.elements[0].y);
-			f->store_real(val.elements[0].z);
-			f->store_real(val.elements[1].x);
-			f->store_real(val.elements[1].y);
-			f->store_real(val.elements[1].z);
-			f->store_real(val.elements[2].x);
-			f->store_real(val.elements[2].y);
-			f->store_real(val.elements[2].z);
+			fa->store_real(val.elements[0].x);
+			fa->store_real(val.elements[0].y);
+			fa->store_real(val.elements[0].z);
+			fa->store_real(val.elements[1].x);
+			fa->store_real(val.elements[1].y);
+			fa->store_real(val.elements[1].z);
+			fa->store_real(val.elements[2].x);
+			fa->store_real(val.elements[2].y);
+			fa->store_real(val.elements[2].z);
 
 		} break;
 		case Variant::TRANSFORM: {
 
-			f->store_32(VariantBin::VARIANT_TRANSFORM);
+			fa->store_32(VariantBin::VARIANT_TRANSFORM);
 			Transform val = p_property;
-			f->store_real(val.basis.elements[0].x);
-			f->store_real(val.basis.elements[0].y);
-			f->store_real(val.basis.elements[0].z);
-			f->store_real(val.basis.elements[1].x);
-			f->store_real(val.basis.elements[1].y);
-			f->store_real(val.basis.elements[1].z);
-			f->store_real(val.basis.elements[2].x);
-			f->store_real(val.basis.elements[2].y);
-			f->store_real(val.basis.elements[2].z);
-			f->store_real(val.origin.x);
-			f->store_real(val.origin.y);
-			f->store_real(val.origin.z);
+			fa->store_real(val.basis.elements[0].x);
+			fa->store_real(val.basis.elements[0].y);
+			fa->store_real(val.basis.elements[0].z);
+			fa->store_real(val.basis.elements[1].x);
+			fa->store_real(val.basis.elements[1].y);
+			fa->store_real(val.basis.elements[1].z);
+			fa->store_real(val.basis.elements[2].x);
+			fa->store_real(val.basis.elements[2].y);
+			fa->store_real(val.basis.elements[2].z);
+			fa->store_real(val.origin.x);
+			fa->store_real(val.origin.y);
+			fa->store_real(val.origin.z);
 
 		} break;
 		case Variant::COLOR: {
 
-			f->store_32(VariantBin::VARIANT_COLOR);
+			fa->store_32(VariantBin::VARIANT_COLOR);
 			Color val = p_property;
-			f->store_real(val.r);
-			f->store_real(val.g);
-			f->store_real(val.b);
-			f->store_real(val.a);
+			fa->store_real(val.r);
+			fa->store_real(val.g);
+			fa->store_real(val.b);
+			fa->store_real(val.a);
 
 		} break;
 		case Variant::NODE_PATH: {
-			f->store_32(VariantBin::VARIANT_NODE_PATH);
+			fa->store_32(VariantBin::VARIANT_NODE_PATH);
 			NodePath np = p_property;
-			f->store_16(np.get_name_count());
+			fa->store_16(np.get_name_count());
 			uint16_t snc = np.get_subname_count();
 			// If ver_format 1-2 (i.e. godot 2.x)
 			int property_idx = -1;
@@ -1873,181 +1738,171 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 			}
 
 			if (np.is_absolute()){
-				f->store_16(snc | 0x8000);
+				fa->store_16(snc | 0x8000);
 			} else {
-				f->store_16(snc);
+				fa->store_16(snc);
 			}
 			
 			for (int i = 0; i < np.get_name_count(); i++)
-				f->store_32(string_map.find(np.get_name(i)));
+				fa->store_32(string_map.find(np.get_name(i)));
 			// store all subnames minus any property fields if need be
 			for (int i = 0; i < snc; i++)
-				f->store_32(string_map.find(np.get_subname(i)));
+				fa->store_32(string_map.find(np.get_subname(i)));
 			// If ver_format 1-2 (i.e. godot 2.x)
 			if (ver_format < VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY) {
-				// If there's a property, store it
+				// If we found a property, store it
 				if (property_idx > -1){
-					f->store_32(string_map.find(np.get_subname(property_idx)));
-				// 0x80000000 will resolve to a zero length string in the binary parser for any version
+					fa->store_32(string_map.find(np.get_subname(property_idx)));
+				// otherwise, store zero-length string
 				} else {
+					// 0x80000000 will resolve to a zero length string in the binary parser for any version
 					uint32_t zlen = 0x80000000;
-					f->store_32(zlen);
+					fa->store_32(zlen);
 				}
 			}
 		} break;
 		case Variant::RID: {
-			f->store_32(VariantBin::VARIANT_RID);
+			fa->store_32(VariantBin::VARIANT_RID);
 			WARN_PRINT("Can't save RIDs");
 			RID val = p_property;
-			f->store_32(val.get_id());
+			fa->store_32(val.get_id());
 		} break;
 		case Variant::OBJECT: {
 			RES res = p_property;
 			// This will only be triggered on godot 2.x, where the image variant is loaded as an image object vs. a resource
 			if (ver_format == 1 && res->is_class("Image")){
-				f->store_32(VariantBin::VARIANT_IMAGE);
-				ImageParserV2::write_v2image_to_bin(f, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
+				fa->store_32(VariantBin::VARIANT_IMAGE);
+				// storing lossless compressed by default
+				ImageParserV2::write_v2image_to_bin(fa, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
 			} else {
-				f->store_32(VariantBin::VARIANT_OBJECT);
+				fa->store_32(VariantBin::VARIANT_OBJECT);
 				if (res.is_null()) {
-					f->store_32(VariantBin::OBJECT_EMPTY);
+					fa->store_32(VariantBin::OBJECT_EMPTY);
 					return OK; // don't save it
 				}
 				String rpath = get_resource_path(res);
 				if (rpath.length() && rpath.find("::") == -1) {
-					int idx = -1;
-					for (int i = 0; i < external_resources.size(); i++){
-						if (external_resources[i].path == rpath){
-							idx = i+1;
-							break;
-						}
+					if (!has_external_resource(rpath)) {
+						fa->store_32(VariantBin::OBJECT_EMPTY);
+						ERR_FAIL_COND_V_MSG(!has_external_resource(rpath), ERR_BUG, "Cannot find external resource");
 					}
-					if (idx == -1){
-						f->store_32(VariantBin::OBJECT_EMPTY);
-						ERR_FAIL_COND_V_MSG(idx == -1, ERR_BUG, "Cannot find external resource");
-					}
-					
-					f->store_32(VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX);
-					f->store_32(idx);
+					//RES res = get_external_resource(rpath);					
+					fa->store_32(VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX);
+					fa->store_32(res->get_subindex());
 				} else {
-					if (!internal_index_cache.has(rpath)) {
-						f->store_32(VariantBin::OBJECT_EMPTY);
+					if (!has_internal_resource(rpath)) {
+						fa->store_32(VariantBin::OBJECT_EMPTY);
 						ERR_FAIL_V_MSG(ERR_BUG, "Resource was not pre cached for the resource section, bug?");
 					}
 
-					f->store_32(VariantBin::OBJECT_INTERNAL_RESOURCE);
-					f->store_32(res->get_subindex());
+					fa->store_32(VariantBin::OBJECT_INTERNAL_RESOURCE);
+					fa->store_32(res->get_subindex());
 				}
 			}
 		} break;
 		case Variant::DICTIONARY: {
-
-			f->store_32(VariantBin::VARIANT_DICTIONARY);
+			fa->store_32(VariantBin::VARIANT_DICTIONARY);
 			Dictionary d = p_property;
-			f->store_32(uint32_t(d.size()) | (p_property.is_shared() ? 0x80000000 : 0));
+			fa->store_32(uint32_t(d.size()) | (p_property.is_shared() ? 0x80000000 : 0));
 
 			List<Variant> keys;
 			d.get_key_list(&keys);
 
 			for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
-
-				//if (!_check_type(dict[E->get()]))
-				//	continue;
-
-				write_variant_bin(f, E->get(), internal_index_cache, internal_resources, external_resources, string_map, ver_format);
-				write_variant_bin(f, d[E->get()], internal_index_cache, internal_resources, external_resources, string_map, ver_format);
+				write_variant_bin(fa, E->get(), p_hint);
+				write_variant_bin(fa, d[E->get()], p_hint);
 			}
 
 		} break;
 		case Variant::ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_ARRAY);
+			fa->store_32(VariantBin::VARIANT_ARRAY);
 			Array a = p_property;
-			f->store_32(uint32_t(a.size()) | (p_property.is_shared() ? 0x80000000 : 0));
+			fa->store_32(uint32_t(a.size()) | (p_property.is_shared() ? 0x80000000 : 0));
 			for (int i = 0; i < a.size(); i++) {
-				write_variant_bin(f, a[i], internal_index_cache, internal_resources, external_resources, string_map, ver_format);
+				write_variant_bin(fa, a[i], p_hint);
 			}
 
 		} break;
 		case Variant::PACKED_BYTE_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_RAW_ARRAY);
+			fa->store_32(VariantBin::VARIANT_RAW_ARRAY);
 			Vector<uint8_t> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
-			f->store_buffer(arr.ptr(), len);
-			advance_padding(f, len);
+			fa->store_32(len);
+			fa->store_buffer(arr.ptr(), len);
+			advance_padding(fa, len);
 
 		} break;
 		case Variant::PACKED_INT32_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_INT_ARRAY);
+			fa->store_32(VariantBin::VARIANT_INT_ARRAY);
 			Vector<int> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			for (int i = 0; i < len; i++)
-				f->store_32(arr.ptr()[i]);
+				fa->store_32(arr.ptr()[i]);
 
 		} break;
 		case Variant::PACKED_FLOAT32_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_REAL_ARRAY);
+			fa->store_32(VariantBin::VARIANT_REAL_ARRAY);
 			Vector<real_t> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			for (int i = 0; i < len; i++) {
-				f->store_real(arr.ptr()[i]);
+				fa->store_real(arr.ptr()[i]);
 			}
 
 		} break;
 		case Variant::PACKED_STRING_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_STRING_ARRAY);
+			fa->store_32(VariantBin::VARIANT_STRING_ARRAY);
 			Vector<String> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			for (int i = 0; i < len; i++) {
-				save_ustring(f, arr.ptr()[i]);
+				save_ustring(fa, arr.ptr()[i]);
 			}
 
 		} break;
 		case Variant::PACKED_VECTOR3_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_VECTOR3_ARRAY);
+			fa->store_32(VariantBin::VARIANT_VECTOR3_ARRAY);
 			Vector<Vector3> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			
 			for (int i = 0; i < len; i++) {
-				f->store_real(arr.ptr()[i].x);
-				f->store_real(arr.ptr()[i].y);
-				f->store_real(arr.ptr()[i].z);
+				fa->store_real(arr.ptr()[i].x);
+				fa->store_real(arr.ptr()[i].y);
+				fa->store_real(arr.ptr()[i].z);
 			}
 
 		} break;
 		case Variant::PACKED_VECTOR2_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_VECTOR2_ARRAY);
+			fa->store_32(VariantBin::VARIANT_VECTOR2_ARRAY);
 			Vector<Vector2> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			for (int i = 0; i < len; i++) {
-				f->store_real(arr.ptr()[i].x);
-				f->store_real(arr.ptr()[i].y);
+				fa->store_real(arr.ptr()[i].x);
+				fa->store_real(arr.ptr()[i].y);
 			}
 
 		} break;
 		case Variant::PACKED_COLOR_ARRAY: {
 
-			f->store_32(VariantBin::VARIANT_COLOR_ARRAY);
+			fa->store_32(VariantBin::VARIANT_COLOR_ARRAY);
 			Vector<Color> arr = p_property;
 			int len = arr.size();
-			f->store_32(len);
+			fa->store_32(len);
 			for (int i = 0; i < len; i++) {
-				f->store_real(arr.ptr()[i].r);
-				f->store_real(arr.ptr()[i].g);
-				f->store_real(arr.ptr()[i].b);
-				f->store_real(arr.ptr()[i].a);
+				fa->store_real(arr.ptr()[i].r);
+				fa->store_real(arr.ptr()[i].g);
+				fa->store_real(arr.ptr()[i].b);
+				fa->store_real(arr.ptr()[i].a);
 			}
 
 		} break;
@@ -2056,9 +1911,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *f,
 		}
 	}
 	return OK;
-}
-Error ResourceLoaderBinaryCompat::write_variant_bin( FileAccess * fa, const Variant &p_property, const PropertyInfo &p_hint) {
-	return write_variant_bin(fa, p_property, internal_index_cache, internal_resources, external_resources, string_map, ver_format, p_hint);
 }
 
 Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
@@ -2076,8 +1928,8 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	}
 
-	ERR_FAIL_COND_V(err, err);
-		
+	ERR_FAIL_COND_V_MSG(err != OK, err, "can't open " + p_path + " for writing");
+
 	bool takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
 	bool big_endian = p_flags & ResourceSaver::FLAG_SAVE_BIG_ENDIAN || stored_big_endian;
 	if (!p_path.begins_with("res://"))
@@ -2114,9 +1966,9 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	save_ustring(fw, type);
 	uint64_t md_at = fw->get_position();
 	fw->store_64(0); //offset to impoty metadata
-	for (int i = 0; i < 14; i++)
+	for (int i = 0; i < 14; i++){
 		fw->store_32(0); // reserved
-
+	}
 
 	fw->store_32(string_map.size()); //string table size
 	for (int i = 0; i < string_map.size(); i++) {
@@ -2136,28 +1988,30 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	Vector<uint64_t> ofs_pos;
 
 	for (int i = 0; i < internal_resources.size(); i++) {
-		IntResource r = internal_resources[i];
-		int subidx = internal_index_cache[r.path]->get_subindex();
-		if (r.path == "" || r.path.find("::") != -1) {
-			save_ustring(fw, "local://" + itos(subidx));
-		} else if (r.path == res_path || r.path == local_path) {
-			save_ustring(fw, local_path); //actual external
+		RES re = get_internal_resource(internal_resources[i].path);
+		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
+		String path = get_resource_path(re);
+		if (path == "" || path.find("::") != -1) {
+			save_ustring(fw, "local://" + itos(re->get_subindex()));
+		} else if (path == local_path) {
+			save_ustring(fw, local_path); // main resource
 		} else {
-			WARN_PRINT("Possible malformed path: " + r.path);
-			save_ustring(fw, r.path);
+			WARN_PRINT("Possible malformed path: " + path);
+			save_ustring(fw, path);
 		}
 		ofs_pos.push_back(fw->get_position());
 		fw->store_64(0); //offset in 64 bits
 	}
 
 	Vector<uint64_t> ofs_table;
-	//	int saved_idx=0;
 	//now actually save the resources
 	for (int i = 0; i < internal_resources.size(); i++) {
-		IntResource r = internal_resources[i];
-		int subidx = internal_index_cache[r.path]->get_subindex();
-		String rtype = internal_type_cache[r.path];
-		List<ResourceProperty> lrp = internal_index_cached_properties[r.path];
+		RES re = get_internal_resource(internal_resources[i].path);
+		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
+		int subidx = re->get_subindex();
+		String path = get_resource_path(re);
+		String rtype = get_internal_resource_type(path);
+		List<ResourceProperty> lrp = get_internal_resource_properties(path);
 		ofs_table.push_back(fw->get_position());
 		save_ustring(fw, rtype);
 		fw->store_32(lrp.size());
@@ -2212,5 +2066,22 @@ ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat(){}
 ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat(){
 	if (f != nullptr){
 		memdelete(f);
+	}
+}
+
+void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types) {
+	open(p_f);
+	if (error) {
+		return;
+	}
+
+	for (int i = 0; i < external_resources.size(); i++) {
+		String dep = external_resources[i].path;
+
+		if (p_add_types && external_resources[i].type != String()) {
+			dep += "::" + external_resources[i].type;
+		}
+
+		p_dependencies->push_back(dep);
 	}
 }

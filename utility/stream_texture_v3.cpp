@@ -2,6 +2,7 @@
 #include "core/os/file_access.h"
 #include "gdre_packed_data.h"
 #include "resource_loader_compat.h"
+#include "gdre_settings.h"
 
 enum FormatBits {
     FORMAT_MASK_IMAGE_FORMAT = (1 << 20) - 1,
@@ -48,7 +49,7 @@ ResourceFormatLoaderCompatTexture::TextureVersionType ResourceFormatLoaderCompat
 	} else if (header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C' ||
 				header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C') {
 		//check if this is a V2 texture
-		ResourceFormatLoaderBinaryCompat rlc;
+		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
 		*r_err = rlc.get_import_info(p_path, "", i_info);
 		ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
@@ -243,7 +244,7 @@ Error ResourceFormatLoaderCompatTexture::_load_data_tex_v2(const String &p_path,
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
 
 	ResourceLoaderBinaryCompat * loader = memnew(ResourceLoaderBinaryCompat);
-	loader->no_ext_load = true;
+	loader->fake_load = true;
 	loader->local_path = p_path;
 	loader->res_path = p_path;
 	loader->convert_v2image_indexed = true;
@@ -562,7 +563,9 @@ Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::_load_texture_layer
 
 Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::load_texture_layered(const String p_path, Error * r_err){
 	Error err;
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(p_path, &err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -587,13 +590,13 @@ Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::load_texture_layere
 			if (r_err){
 				*r_err = ERR_INVALID_PARAMETER;
 			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a layered texture: " + p_path);
+			ERR_FAIL_V_MSG(Ref<Image>(), "Not a layered texture: " + res_path);
 			break;
 	}
 	Ref<StreamTexture3D> texture;
 	Vector<Ref<Image>> r_data;
 	int type;
-	texture = _load_texture_layered(p_path, r_data, type, &err, ver_major);
+	texture = _load_texture_layered(res_path, r_data, type, &err, ver_major);
 	if (r_err){
 		*r_err = err;
 	}
@@ -601,13 +604,16 @@ Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::load_texture_layere
 	// put the texture into the rendering server
 	RID	texture_rid = RS::get_singleton()->texture_2d_layered_create(r_data,RS::TextureLayeredType(type));
 	texture->set("texture", texture_rid);
-	RS::get_singleton()->texture_set_path(texture_rid, p_path);
+	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
+	RS::get_singleton()->texture_set_path(texture_rid, local_path);
+	texture->set_path(local_path, false);
 	return texture;
 }
 
 Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::load_texture3d(const String p_path, Error * r_err){
 	Error err;
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(p_path, &err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -651,13 +657,16 @@ Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::load_texture3d(const Str
 															texture->has_mipmaps(),
 															r_data);
 	texture->set("texture", texture_rid);
-	RS::get_singleton()->texture_set_path(texture_rid, p_path);
+	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
+	RS::get_singleton()->texture_set_path(texture_rid, local_path);
+	texture->set_path(local_path, false);
 	return texture;
 }
 
 Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::load_texture2d(const String p_path, Error * r_err){
 	Error err;
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(p_path, &err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -681,23 +690,26 @@ Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::load_texture2d(const Str
 			if (r_err){
 				*r_err = ERR_INVALID_PARAMETER;
 			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + p_path);
+			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + res_path);
 			break;
 	}
 	Ref<StreamTexture2D> texture;
 	Ref<Image> image;
 	bool size_override = false;
-	texture = _load_texture2d(p_path, image, size_override, ver_major, &err);
+	texture = _load_texture2d(res_path, image, size_override, ver_major, &err);
 	if (r_err){
 		*r_err = err;
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + p_path);
+	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
 	// put the texture into the rendering server
 	RID	texture_rid = RS::get_singleton()->texture_2d_create(image);
 	texture->set("texture", texture_rid);
 	if (size_override){
 		RS::get_singleton()->texture_set_size_override(texture_rid, texture->get_width(), texture->get_height());
 	}
+	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
+	RS::get_singleton()->texture_set_path(texture_rid, local_path);
+	texture->set_path(local_path, false);
 	return texture;
 }
 
@@ -705,12 +717,14 @@ Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::load_texture2d(const Str
 Vector<Ref<Image>> ResourceFormatLoaderCompatTexture::load_images_from_layered_tex(const String p_path, Error * r_err){
 	Error err;
 	Vector<Ref<Image>> data;
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(p_path, &err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+
+	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
 		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, data, "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, data, "File " + res_path + " is not a texture.");
 		ERR_FAIL_COND_V(err != OK, data);
 	}
 	int type;
@@ -718,42 +732,43 @@ Vector<Ref<Image>> ResourceFormatLoaderCompatTexture::load_images_from_layered_t
 	switch(t){
 		// TODO: what the hell does v2 use for 3d textures?
 		case FORMAT_V2_TEXTURE:
-			_load_texture3d(p_path, data, &err, 2);
+			_load_texture3d(res_path, data, &err, 2);
 			break;
 		case FORMAT_V3_STREAM_TEXTURE3D:
-			_load_texture3d(p_path, data, &err, 3);
+			_load_texture3d(res_path, data, &err, 3);
 			break;
 		case FORMAT_V4_STREAM_TEXTURE3D:
-			_load_texture3d(p_path, data, &err, 4);
+			_load_texture3d(res_path, data, &err, 4);
 			break;
 		case FORMAT_V2_LARGE_TEXTURE:
 		case FORMAT_V2_CUBEMAP:
-			_load_texture_layered(p_path, data, type, &err, 2);
+			_load_texture_layered(res_path, data, type, &err, 2);
 			break;
 		case FORMAT_V3_STREAM_TEXTUREARRAY:
-			_load_texture_layered(p_path, data, type, &err, 3);
+			_load_texture_layered(res_path, data, type, &err, 3);
 			break;
 		case FORMAT_V4_STREAM_TEXTURELAYERED:
-			_load_texture_layered(p_path, data, type, &err, 4);
+			_load_texture_layered(res_path, data, type, &err, 4);
 			break;
 		default:
 			if (r_err){
 				*r_err = ERR_INVALID_PARAMETER;
 			}
-			ERR_FAIL_V_MSG(data, "Not a 3d image texture: " + p_path);
+			ERR_FAIL_V_MSG(data, "Not a 3d image texture: " + res_path);
 			break;
 	}
 
 	if (r_err){
 		*r_err = err;
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, data, "Texture " + p_path + " could not be loaded");
+	ERR_FAIL_COND_V_MSG(err != OK, data, "Texture " + res_path + " could not be loaded");
 	return data;
 }
 
 Ref<Image> ResourceFormatLoaderCompatTexture::load_image_from_tex(const String p_path, Error * r_err){
 	Error err;
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(p_path, &err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -777,14 +792,14 @@ Ref<Image> ResourceFormatLoaderCompatTexture::load_image_from_tex(const String p
 			if (r_err){
 				*r_err = ERR_INVALID_PARAMETER;
 			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + p_path);
+			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + res_path);
 			break;
 	}
 	Ref<Image> image;
 	image.instance();
 	bool size_override;
 
-	_load_texture2d(p_path, image, size_override, ver_major, r_err);
+	_load_texture2d(res_path, image, size_override, ver_major, r_err);
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
 }

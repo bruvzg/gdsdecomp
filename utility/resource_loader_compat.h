@@ -132,9 +132,12 @@ struct ResourceProperty{
 
 class ResourceLoaderBinaryCompat {
     bool translation_remapped = false;
-	bool no_ext_load = false;
+	bool fake_load = false;
+	// The localized (i.e. res://) path to the resource
 	String local_path;
+	// The actual path to the resource (either "res://" in pack or file system)
 	String res_path;
+
 	String type;
 	String project_dir;
 	Ref<Resource> resource;
@@ -192,7 +195,7 @@ class ResourceLoaderBinaryCompat {
 	Map<String, String> remaps;
 	Error error = OK;
 
-	friend class ResourceFormatLoaderBinaryCompat;
+	friend class ResourceFormatLoaderCompat;
 	friend class ResourceFormatLoaderCompatTexture;
 	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
@@ -212,6 +215,7 @@ class ResourceLoaderBinaryCompat {
 	RES get_internal_resource(const String &path);
 	String get_internal_resource_type(const String &path);
 	bool has_internal_resource(const String &path);
+	List<ResourceProperty> get_internal_resource_properties(const String &path);
 
 	static String get_resource_path(const RES &res);
 	
@@ -222,6 +226,7 @@ class ResourceLoaderBinaryCompat {
 	Error parse_variant(Variant &r_v);
 	Map<String, RES> dependency_cache;
     public:
+		void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types);
 		static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 		Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
         static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
@@ -236,6 +241,8 @@ class ResourceLoaderBinaryCompat {
 		~ResourceLoaderBinaryCompat();
 };
 
+
+//this is derived from PackedScene because node instances in PackedScene cannot be returned otherwise
 class FakeResource : public PackedScene {
 	GDCLASS(FakeResource, PackedScene);
 	String real_path;
@@ -248,15 +255,25 @@ class FakeResource : public PackedScene {
 		void set_real_path(const String &p){real_path = p;}
 };
 
-class ResourceFormatLoaderBinaryCompat: public ResourceFormatLoader {
+class FakeScript : public Script {
+	GDCLASS(FakeScript, Script);
+	String real_path;
+	String real_type;
+	public:
+		String get_path() const {return real_path;}
+		String get_real_path(){return real_path;}
+		String get_real_type(){return real_type;}
+		void set_real_type(const String &t){real_type = t;}
+		void set_real_path(const String &p){real_path = p;}
+};
+
+class ResourceFormatLoaderCompat: public ResourceFormatLoader {
 private:
-	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool no_ext_load, Error *r_error, float *r_progress);
-	Error _rewrite_import_metadata(ResourceLoaderBinaryCompat * loader, const String &name, const String& rel_dst_path);
+	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
 public:
 	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
-
+	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
-	Error convert_v2tex_to_png(const String &p_path, const String &dst, const String &output_dir = "", const bool rewrite_metadata = false, float *r_progress = nullptr);
 	RES load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };
 

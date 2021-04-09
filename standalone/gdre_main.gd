@@ -4,10 +4,10 @@ var ver_major = 2;
 
 func _ready():
 	$menu_background/version_lbl.text = $re_editor_standalone.get_version()
-	test_functions()
-	get_tree().quit()
+	# test_functions()
+	# get_tree().quit()
 
-	#handle_cli()
+	handle_cli()
 
 func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
@@ -83,7 +83,7 @@ func export_imports(output_dir:String):
 		elif ext == "png" && ver_major == 3:
 			importer.convert_v3stex_to_png(output_dir, path, source_file)
 		elif ext == "png" && ver_major == 2:
-			importer.convert_v2tex_to_png(output_dir, path, source_file)
+			importer.convert_v2tex_to_png(output_dir, path, source_file, true)
 		elif ext == "tscn" || ext == "escn":
 			importer.convert_res_bin_2_txt(output_dir, path, source_file)
 			
@@ -252,6 +252,6 @@ func handle_cli():
 			#debugging
 			#print_import_info(output_dir)
 			#print_import_info_from_pak(exe_file)
-			#dump_files(exe_file, output_dir, enc_key)
+			dump_files(exe_file, output_dir, enc_key)
 			export_imports(output_dir)
 		get_tree().quit()

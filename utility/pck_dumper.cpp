@@ -11,6 +11,7 @@
 #include "modules/regex/regex.h"
 
 #include "core/crypto/crypto_core.h"
+#include "gdre_settings.h"
 
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
 	Error err;
@@ -48,7 +49,6 @@ bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
 
 	bool md5_match = true;
 	for (int j = 0; j < 16; j++) {
-
 		md5_match &= (hash[j] == p_md5[j]);
 		file_md5 += String::num_uint64(hash[j], 16);
 		saved_md5 += String::num_uint64(p_md5[j], 16);
@@ -58,12 +58,12 @@ bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
 }
 
 Error PckDumper::load_pck(const String& p_path) {
-	return GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	return GDRESettings::get_singleton()->load_pack(p_path);
 }
 
 bool PckDumper::check_md5_all_files() {
 	int bad_checksums = 0;
-	auto files = GDREPackedData::get_singleton()->get_file_info_list();
+	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	for (int i = 0; i < files.size(); i++) {
 		files.get(i)->set_md5_match(_pck_file_check_md5(files.get(i)));
 	}
@@ -72,7 +72,7 @@ bool PckDumper::check_md5_all_files() {
 
 Error PckDumper::pck_dump_to_dir(const String &dir) {
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	auto files = GDREPackedData::get_singleton()->get_file_info_list();
+	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	Vector<uint8_t> key = get_key();
 	if (!da) {
 		return ERR_FILE_CANT_WRITE;
@@ -105,8 +105,8 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 		memdelete(pck_f);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader * pcfgldr = memnew(ProjectConfigLoader);
-			uint32_t ver_major = GDREPackedData::get_singleton()->get_ver_major();
-			uint32_t ver_minor = GDREPackedData::get_singleton()->get_ver_minor();
+			uint32_t ver_major = GDRESettings::get_singleton()->get_ver_major();
+			uint32_t ver_minor = GDRESettings::get_singleton()->get_ver_minor();
 			Error e1 = pcfgldr->load_cfb(target_name, ver_major, ver_minor);
 			if (e1 != OK) {
 				WARN_PRINT("Failed to load cfb");
@@ -150,28 +150,28 @@ bool PckDumper::is_loaded() {
 }
 
 void PckDumper::set_key(const String &key) {
-	GDREPackedData::get_singleton()->set_encryption_key(key);
+	GDRESettings::get_singleton()->set_encryption_key(key);
 }
 
 Vector<uint8_t> PckDumper::get_key() const {
-	return GDREPackedData::get_singleton()->get_encryption_key();
+	return GDRESettings::get_singleton()->get_encryption_key();
 }
 
 String PckDumper::get_key_str() const{
-	return GDREPackedData::get_singleton()->get_encryption_key_string();
+	return GDRESettings::get_singleton()->get_encryption_key_string();
 }
 
 int PckDumper::get_file_count(){
-	return GDREPackedData::get_singleton()->get_file_count();
+	return GDRESettings::get_singleton()->get_file_count();
 }
 
 void PckDumper::clear_data(){
-	GDREPackedData::get_singleton()->clear();
+	GDRESettings::get_singleton()->unload_pack();
 }
 
 Vector<String> PckDumper::get_loaded_files(){
 	Vector<String> filenames;
-	auto files = GDREPackedData::get_singleton()->get_file_info_list();
+	auto files = GDRESettings::get_singleton()->get_file_info_list();
 
 	for (int i = 0; i < files.size(); i++){
 		String p = files.get(i)->get_path();
@@ -181,7 +181,7 @@ Vector<String> PckDumper::get_loaded_files(){
 }
 
 String PckDumper::get_engine_version(){
-	return GDREPackedData::get_singleton()->get_version_string();
+	return GDRESettings::get_singleton()->get_version_string();
 }
 
 void PckDumper::_bind_methods() {
