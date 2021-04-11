@@ -6,6 +6,53 @@
 #include "core/templates/set.h"
 #include "packed_file_info.h"
 #include "gdre_packed_data.h"
+#include "core/io/logger.h"
+#include "core/os/os.h"
+#ifdef WINDOWS_ENABLED
+#include "platform/windows/os_windows.h"
+#endif
+#ifdef X11_ENABLED
+#include "platform/linuxbsd/os_linuxbsd.h"
+#endif
+#ifdef OSX_ENABLED
+#include "platform/osx/os_osx.h"
+#endif
+#ifdef UWP_ENABLED
+#include "platform/uwp/os_uwp.h"
+#endif
+#ifdef JAVASCRIPT_ENABLED
+#include "platform/javascript/os_javascript.h"
+#endif
+#if defined(__ANDROID__)
+#include "platform/android/os_android.h"
+#endif
+#ifdef IPHONE_ENABLED
+#include "platform/iphone/os_iphone.h"
+#endif
+// A hack to add another logger to the OS singleton
+template <class T>
+class GDREOS : public T{
+	static_assert(std::is_base_of<OS, T>::value, "T must derive from OS");
+public: 
+	void _add_logger(Logger *p_logger) {add_logger(p_logger);}
+};
+
+
+class GDRELogger : public Logger {
+	String base_path;
+	bool is_open;
+
+	FileAccess *file = nullptr;
+public:
+	GDRELogger();
+	Error open_file(const String &p_base_path);
+	void close_file();
+	virtual void logv(const char *p_format, va_list p_list, bool p_err) _PRINTF_FORMAT_ATTRIBUTE_2_0;
+
+	virtual ~GDRELogger();
+};
+
+
 
 class GDRESettings : public Object {
 	GDCLASS(GDRESettings, Object);
@@ -39,7 +86,8 @@ private:
     PackInfo * current_pack = nullptr;
     PackedData * old_pack_data_singleton = nullptr;
     PackedData * new_singleton = nullptr;
-
+	GDRELogger * logger;
+	void * gdre_os;
     String current_project_path = "";
 
 	uint8_t old_key[32] ={0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0};
@@ -53,11 +101,13 @@ private:
     static GDRESettings *singleton;
     void remove_current_pack();
 	Vector<Ref<PackedFileInfo>> files;
+	String _get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors);
+	void add_logger();
 
 public:
 	
-    Error GDRESettings::load_pack(const String& p_path);
-	Error GDRESettings::unload_pack();
+    Error load_pack(const String& p_path);
+	Error unload_pack();
 
     Vector<uint8_t> get_encryption_key(){return enc_key;}
 	String get_encryption_key_string(){return enc_key_str;}
@@ -79,8 +129,11 @@ public:
 	String localize_path(const String &p_path, const String &resource_path = "") const;
 	void set_project_path(const String & p_path){project_path = p_path;}
 	String get_project_path(){return project_path;}
-	String GDRESettings::get_res_path(const String &p_path, const String &resource_dir = "");
+	String get_res_path(const String &p_path, const String &resource_dir = "");
+	bool has_res_path(const String &p_path, const String &resource_dir = "");
+	Error open_log_file(const String &output_dir);
 	bool is_fs_path(const String &p_path);
+	Error close_log_file();
 
     static GDRESettings *get_singleton() {
 		// TODO: remove this hack
@@ -96,6 +149,8 @@ public:
 			memdelete(new_singleton);
 		}
         singleton = nullptr;
+		// logger doesn't get memdeleted because the OS singleton will do so
+		// gdre_os doesn't get deleted because it's the OS singleton
     }
 };
 #endif

@@ -1,14 +1,17 @@
 #include "gdre_settings.h"
 #include "core/config/project_settings.h"
 #include "core/config/engine.h"
-#include "core/os/os.h"
 #include "core/io/file_access_zip.h"
 #include "modules/regex/regex.h"
+
+
 
 GDRESettings * GDRESettings::singleton = nullptr;
 
 GDRESettings::GDRESettings(){
     singleton = this;
+	logger = memnew(GDRELogger);
+	add_logger();
 }
 
 
@@ -159,6 +162,7 @@ Vector<String> GDRESettings::get_file_list(const Vector<String> &filters){
 	}
     return ret;
 }
+
 Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String> &filters){
     if (filters.size() == 0){
         return files;
@@ -289,7 +293,7 @@ bool GDRESettings::is_fs_path(const String &p_path){
 // If a pack is loaded, it will try to find it in the pack and fail if it can't
 // If not, it will look for it in the file system and fail if it can't
 // If it fails to find it, it returns an empty string
-String GDRESettings::get_res_path(const String &p_path, const String &resource_dir){
+String GDRESettings::_get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors){
     String res_dir = resource_dir != "" ? resource_dir : project_path;
 	String res_path;
 	// Try and find it in the packed data
@@ -309,19 +313,159 @@ String GDRESettings::get_res_path(const String &p_path, const String &resource_d
 			}
 		}
 		// Can't find it
-		ERR_FAIL_V_MSG("", "Can't find " + res_path + " in PackedData");
+		ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Can't find " + res_path + " in PackedData");
+		return "";
 	}
 	//try and find it on the file system
 	res_path = p_path;
 	if (res_path.is_abs_path() && is_fs_path(res_path)) {
-		ERR_FAIL_COND_V_MSG(!FileAccess::exists(res_path), "", "Resource " + res_path + " does not exist");
+		if (!FileAccess::exists(res_path)){
+			ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Resource " + res_path + " does not exist");
+			return "";
+		}
 		return res_path;
 	}
-
-	ERR_FAIL_COND_V_MSG((res_dir == ""), "", "Can't find resource without project dir set");
+	
+	if(res_dir == ""){
+		ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Can't find resource without project dir set");
+		return "";
+	}
 	
 	res_path = globalize_path(res_path, res_dir);
-	ERR_FAIL_COND_V_MSG(!FileAccess::exists(res_path), "", "Resource " + res_path + " does not exist");
-
+	if (!FileAccess::exists(res_path)){
+		ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Resource " + res_path + " does not exist");
+		return "";
+	}
 	return res_path;
+}
+bool GDRESettings::has_res_path(const String &p_path, const String &resource_dir){
+	return _get_res_path(p_path, resource_dir, true) != "";
+}
+
+String GDRESettings::get_res_path(const String &p_path, const String &resource_dir){
+	return _get_res_path(p_path, resource_dir, false);
+}
+
+void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
+	if (!should_log(p_err)) {
+		return;
+	}
+
+	if (file) {
+		const int static_buf_size = 512;
+		char static_buf[static_buf_size];
+		char *buf = static_buf;
+		va_list list_copy;
+		va_copy(list_copy, p_list);
+		int len = vsnprintf(buf, static_buf_size, p_format, p_list);
+		if (len >= static_buf_size) {
+			buf = (char *)Memory::alloc_static(len + 1);
+			vsnprintf(buf, len + 1, p_format, list_copy);
+		}
+		va_end(list_copy);
+		file->store_buffer((uint8_t *)buf, len);
+
+		if (len >= static_buf_size) {
+			Memory::free_static(buf);
+		}
+
+		if (p_err || _flush_stdout_on_print) {
+			// Don't always flush when printing stdout to avoid performance
+			// issues when `print()` is spammed in release builds.
+			file->flush();
+		}
+	}
+}
+
+Error GDRESettings::open_log_file(const String& output_dir) {
+	String logfile = output_dir.plus_file("gdre_export.log");
+	Error err = logger->open_file(logfile);
+	ERR_FAIL_COND_V_MSG(err == ERR_ALREADY_IN_USE, err, "Already logging to another file");
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open log file " + logfile);
+	return OK;
+}
+
+Error GDRESettings::close_log_file() {
+	logger->close_file();
+	return OK;
+}
+
+Error GDRELogger::open_file(const String &base_path) {
+	if (file) {
+		return ERR_ALREADY_IN_USE;
+	}
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_USERDATA);
+	if (da) {
+		da->make_dir_recursive(base_path.get_base_dir());
+		memdelete(da);
+	}
+	Error err;
+	file = FileAccess::open(base_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(!file, err, "Failed to open log file " + base_path + " for writing.");
+	return OK;
+}
+
+void GDRELogger::close_file() {
+	if (file) {
+		memdelete(file);
+		file = nullptr;
+	}
+	
+}
+
+GDRELogger::GDRELogger() {}
+GDRELogger::~GDRELogger() {
+	close_file();
+}
+
+// *highway to the danger zone*
+void GDRESettings::add_logger(){
+	OS * os_singleton = OS::get_singleton();
+	String os_name = os_singleton->get_name();
+
+	if (os_name == "Windows"){
+		#ifdef WINDOWS_ENABLED
+		GDREOS<OS_Windows> *_gdre_os = static_cast<GDREOS<OS_Windows>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+		#endif
+	} 
+	#ifdef X11_ENABLED
+	else if (os_name == "Linux" || os_name.find("BSD") == -1 ){
+		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	#ifdef OSX_ENABLED
+	else if (os_name == "macOS"){
+		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	#ifdef UWP_ENABLED
+	else if (os_name == "UWP"){
+		GDREOS<OS_UWP> *_gdre_os = static_cast<GDREOS<OS_UWP>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	#ifdef JAVASCRIPT_ENABLED
+	else if (os_name == "Javascript"){
+		GDREOS<OS_JavaScript> *_gdre_os = static_cast<GDREOS<OS_JavaScript>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	#if defined(__ANDROID__)
+	else if (os_name == "Android"){
+		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	#ifdef IPHONE_ENABLED
+	else if (os_name == "iOS"){
+		GDREOS<OSIPhone> *_gdre_os = static_cast<GDREOS<OSIPhone>*>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+	#endif
+	else {
+		WARN_PRINT("No logger being set, there will be no logs!");
+	}
 }
