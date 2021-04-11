@@ -14,10 +14,12 @@
 Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
 	Error error = OK;
 	String dst_path = dst;
+
 	//Relative path
 	if (!output_dir.is_empty() && GDRESettings::get_singleton()) {
 		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
 	}
+
 	ResourceLoaderBinaryCompat * loader = _open(p_path, output_dir, true, &error, r_progress);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 
@@ -32,7 +34,8 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 }
 
 
-///This is really only for loading a viewing, this is not suitable for conversion of resources
+// This is really only for loading certain resources to view them, and debugging.
+// This is not suitable for conversion of resources
 RES ResourceFormatLoaderCompat::load(const String & p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode){
 	Error err = ERR_FILE_CANT_OPEN;
 	if (!r_error) {
@@ -49,7 +52,7 @@ RES ResourceFormatLoaderCompat::load(const String & p_path, const String &projec
 	ERR_FAIL_COND_V_MSG(*r_error != OK, RES(), "Cannot open file '" + p_path + "'.");
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
-	if (loader->engine_ver_major != VERSION_MAJOR){
+	if (loader->engine_ver_major != VERSION_MAJOR) {
 		WARN_PRINT(p_path + ": Doing real load on incompatible version " + itos(loader->engine_ver_major));
 	}
 
@@ -135,7 +138,7 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderCompat::_open(const String &p_p
 	}
 	// TODO: remove this extra check
 	ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "' (Even after get_res_path() returned a path????).");
-	
+
 	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
 	loader->project_dir = base_dir;
 	loader->progress = r_progress;
@@ -249,7 +252,6 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 				"Unsupported engine version " + itos(engine_ver_major) + " used to create resource '" + res_path + "'.");
 	ERR_FAIL_COND_V_MSG(ver_format > 4, ERR_FILE_UNRECOGNIZED, 
 				"Unsupported binary resource format '" + res_path + "'.");
-	
 
 	type = get_unicode_string();
 
@@ -309,20 +311,21 @@ void ResourceLoaderBinaryCompat::debug_print_properties(String res_name, String 
 		String vars;
 		VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_rlc_resources, this);
 		Vector<String> vstrs = vars.split("\n");
-		for (int i = 0; i < vstrs.size(); i++){
+		for (int i = 0; i < vstrs.size(); i++) {
 			print_bl(vstrs[i]);
 		}
 	}
 }
 
-// By default we do not load the external resources, we just load a "dummy" resource that has the path and the type
-// so that we can convert the currently loading resource to binary/text without potentially loading an
-// unavailable or incompatible resource
+// By default we do not load the external resources, we just load a "dummy" resource that has the path and the type.
+// This is so we can convert the currently loading resource to binary/text without potentially loading an
+// unavailable and/or incompatible resource
 Error ResourceLoaderBinaryCompat::load_ext_resource(const uint32_t i){
 	if (fake_load){
 		set_dummy_ext(i);
 		return OK;
 	}
+	// If this is a real load...
 	ResourceFormatLoaderCompat rl;
 	Error err;
 	// We never load scripts, because they are likely incompatible and it's a security issue
@@ -378,18 +381,19 @@ bool ResourceLoaderBinaryCompat::has_external_resource(const String &path)
 }
 
 
-// by default, we don't instance an internal resource class.  
-// This is done for compatibility reasons, constructors have changed between versions
+// by default, we don't instance an internal resource.  
+// This is done for compatibility reasons. Class names and constructors, and their properties, have changed between versions.
 // So we instead just make a dummy resource and keep a list of properties, which would all be Variants
 RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const int subindex){
 	RES res;
-	// if not instancing, create a dummy instead
+	// if this is a fake load, create a dummy instead
 	if (fake_load){
 		res = make_dummy(path, type, subindex);
 		return res;
 	}
+	// If this is a real load...
+
 	// TODO: rename godot v2 resources to godot v3 resources
-	
 	// we don't populate the cache by default, so we likely won't hit this (?)
 	if (cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE && ResourceCache::has(path)) {
 		//use the existing one
@@ -682,7 +686,7 @@ Error ResourceLoaderBinaryCompat::load(){
 		stage++;
 	}
 
-	// On a fake load, we don't instance the internal resources here. 
+	// On a fake load, we don't instance the internal resources here.
 	// We instead store the name, type and properties
 	for (int i = 0; i < internal_resources.size(); i++) {
 		bool main = i == (internal_resources.size() - 1);
@@ -708,13 +712,16 @@ Error ResourceLoaderBinaryCompat::load(){
 		String rtype = get_unicode_string();
 		internal_type_cache[path] = rtype;
 
-		int pc = f->get_32();
-		//set properties
+		// set properties
 		List<ResourceProperty> lrp;
 
+		// if this a fake load, this is a dummy
+		// if it's a real load, it's an instance of the resource class
 		RES res = instance_internal_resource(path, rtype, subindex);
 		ERR_FAIL_COND_V_MSG(res.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't load internal resource " + path);
+		int pc = f->get_32();
 
+		// Now we iterate though all the properties of this resource
 		for (int j = 0; j < pc; j++) {
 			StringName name = _get_string();
 
@@ -734,42 +741,42 @@ Error ResourceLoaderBinaryCompat::load(){
 			rp.value = value;
 			rp.type = value.get_type();
 			lrp.push_back(rp);
-			// not a fake_load, set the properties
+			// If not a fake_load, set the properties of the instanced resource
 			if (!fake_load){
-				//TODO: Translate V2 resource names into V3 resource names
+				// TODO: Translate V2 resource names into V3 resource names
 				bool valid;
 				res->set(name, value, &valid);
 				if (!valid) {
 					Error rerr = repair_property(rtype, name, value);
-					// worst case was an extra property, we can continue on
+					// Worst case was an extra property, we can continue on
 					if (rerr == ERR_CANT_RESOLVE){
 						WARN_PRINT("Got error trying to set extra property " + name + " on " + type + " resource " + path);
 					} else {
 						ERR_FAIL_COND_V_MSG(rerr != OK, ERR_CANT_ACQUIRE_RESOURCE, "Can't load internal resource " + path);
-						// otherwise, property repair was successful
+						// Otherwise, property repair was successful
 						res->set(name, value, &valid);
+						// Dammit...
 						ERR_FAIL_COND_V_MSG(!valid, ERR_CANT_ACQUIRE_RESOURCE, "Can't load resource, property repair failed for " + path);
 					}
 				}
 			}
 		}
-		// we keep a list of the properties loaded (which are only variants) in case of a fake load
+		// We keep a list of the properties loaded (which are only variants) in case of a fake load
 		internal_index_cached_properties[path] = lrp;
-		// if fake_load, this is a FakeResource		
+		// If fake_load, this is a FakeResource
 		internal_index_cache[path] = res;
 
 		
 		// packed scenes with instances for nodes won't work right without creating an instance of it
-		// So we always instance them regardless if this is a fake load or not
+		// So we always instance them regardless if this is a fake load or not.
 		if (main && fake_load && type == "PackedScene"){
 			Ref<PackedScene> ps;
 			ps.instance();
 			String valstring;
-			// Debug print
-			// debug_print_properties(path, rtype, lrp);
+			// this is the "_embedded" prop
 			ps->set(lrp.front()->get().name, lrp.front()->get().value);
 			resource = ps;
-		} else if (main && !fake_load){
+		} else if (main){
 			resource = res;
 		}
 
@@ -783,6 +790,7 @@ Error ResourceLoaderBinaryCompat::load(){
 			// Get the import metadata, if we're able to
 			if (engine_ver_major == 2){
 				Error limperr = load_import_metadata();
+				// if this was an error other than the metadata being unavailable...
 				if (limperr != OK && limperr != ERR_UNAVAILABLE){
 					error = limperr;
 					ERR_FAIL_V_MSG(error, "Failed to load");
@@ -1027,6 +1035,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			wf->store_line("]");
 			if (text_format_version == 1 && state->get_node_property_count(i) != 0) {
 				// Godot 2.x quirk: newline between header and properties
+				// We're emulating these whitespace quirks to enable easy diffs for regression testing
 				wf->store_line("");
 			}
 
@@ -1248,7 +1257,8 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		case VariantBin::VARIANT_IMAGE: {
 			//Have to parse Image here
 			if (ImageParserV2::parse_image_v2(f, r_v, hacks_for_deprecated_v2img_formats, convert_v2image_indexed) != OK){
-				WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
+				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Couldn't load resource: embedded image");
+				//WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
 			}
 		} break;
 		case VariantBin::VARIANT_NODE_PATH: {
@@ -1561,7 +1571,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		} break;
 	}
 
-	return OK; //never reach anyway
+	return OK;
 }
 
 void ResourceLoaderBinaryCompat::save_ustring(FileAccess * f, const String &p_string){
