@@ -46,9 +46,5 @@ public:
 	static bool exists(const String &pname);
 };
 
-class DirAccessGDRE : public DirAccess {
-public:
-	static DirAccess * open(const String &p_path, Error *r_error = nullptr);
-};
 
 #endif // GDRE_PACKED_DATA

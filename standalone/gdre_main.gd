@@ -56,36 +56,37 @@ func list_dir_rel(root: String, filter:String="", rel:String ="") -> Array:
 
 func export_imports(output_dir:String):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, ver_major)
+	importer.load_import_files(output_dir, 0)
 	var arr = importer.get_import_files()
 	var failed_files = []
-	print("import files: " + str(arr.size()))
-	for i in arr:
-		var ifo:ImportInfo = i;
-		#the path to the imported file
-		var path:String = ifo.get_path()
-		# check if there's a single path
-		# If there isn't one, that means we likely have two imported resources from one source
-		# Just use the first "dest_file" in "dest_files"
-		if ifo.get_dest_files().size() > 1:
-			var paths:PackedStringArray = ifo.get_dest_files()
-			path = paths[0]
+	print("Number of import files: " + str(arr.size()))
+	importer.export_imports(output_dir)
+	# for i in arr:
+	# 	var ifo:ImportInfo = i;
+	# 	#the path to the imported file
+	# 	var path:String = ifo.get_path()
+	# 	# check if there's a single path
+	# 	# If there isn't one, that means we likely have two imported resources from one source
+	# 	# Just use the first "dest_file" in "dest_files"
+	# 	if ifo.get_dest_files().size() > 1:
+	# 		var paths:PackedStringArray = ifo.get_dest_files()
+	# 		path = paths[0]
 		
-		#the original source file that we will convert the imported file to
-		var source_file:String = ifo.get_source_file();
-		var ext:String = source_file.get_extension();
-		if ext == "wav" && ver_major >= 3:
-			importer.convert_sample_to_wav(output_dir, path, source_file)
-		elif ext == "mp3":
-			importer.convert_mp3str_to_mp3(output_dir, path, source_file)
-		elif ext == "ogg":
-			importer.convert_oggstr_to_ogg(output_dir, path, source_file)
-		elif ext == "png" && ver_major == 3:
-			importer.convert_v3stex_to_png(output_dir, path, source_file)
-		elif ext == "png" && ver_major == 2:
-			importer.convert_v2tex_to_png(output_dir, path, source_file, true)
-		elif ext == "tscn" || ext == "escn":
-			importer.convert_res_bin_2_txt(output_dir, path, source_file)
+	# 	#the original source file that we will convert the imported file to
+	# 	var source_file:String = ifo.get_source_file();
+	# 	var ext:String = source_file.get_extension();
+	# 	if ext == "wav" && ver_major >= 3:
+	# 		importer.convert_sample_to_wav(output_dir, path, source_file)
+	# 	elif ext == "mp3":
+	# 		importer.convert_mp3str_to_mp3(output_dir, path, source_file)
+	# 	elif ext == "ogg":
+	# 		importer.convert_oggstr_to_ogg(output_dir, path, source_file)
+	# 	elif ext == "png" && ver_major == 3:
+	# 		importer.convert_tex_to_png(output_dir, path, source_file)
+	# 	elif ext == "png" && ver_major == 2:
+	# 		importer.convert_v2tex_to_png(output_dir, path, source_file, true)
+	# 	elif ext == "tscn" || ext == "escn":
+	# 		importer.convert_res_bin_2_txt(output_dir, path, source_file)
 			
 
 func test_decomp(fname):

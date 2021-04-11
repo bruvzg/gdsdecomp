@@ -23,7 +23,8 @@ ResourceFormatLoaderCompatTexture::TextureVersionType ResourceFormatLoaderCompat
 	if (!r_err){
 		r_err = &err;
 	}
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, r_err);
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	FileAccess *f = FileAccessGDRE::open(res_path, FileAccess::READ, r_err);
 	
 	ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
@@ -51,7 +52,7 @@ ResourceFormatLoaderCompatTexture::TextureVersionType ResourceFormatLoaderCompat
 		//check if this is a V2 texture
 		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
-		*r_err = rlc.get_import_info(p_path, "", i_info);
+		*r_err = rlc.get_import_info(res_path, "", i_info);
 		ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
 		String type = i_info->get_type();

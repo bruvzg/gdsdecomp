@@ -90,14 +90,14 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
     uint32_t pack_flags = 0;
 	uint64_t file_base = 0;
-    
+
     if (version == 2){
         pack_flags = f->get_32();
 	    file_base = f->get_64();
     }
 
 	bool enc_directory = (pack_flags & PACK_DIR_ENCRYPTED);
-	
+
 	for (int i = 0; i < 16; i++) {
 		//reserved
 		f->get_32();
@@ -185,28 +185,5 @@ FileAccess *FileAccessGDRE::open(const String &p_path, int p_mode_flags, Error *
 }
 
 bool FileAccessGDRE::exists(const String &p_name) {
-	return FileAccessPack::exists(p_name);
-}
-
-DirAccess *DirAccessGDRE::open(const String &p_path, Error *r_error) {
-	DirAccess *da;
-	if (PackedData::get_singleton() && !PackedData::get_singleton()->is_disabled()){
-		da = PackedData::get_singleton()->try_open_directory(p_path);
-		if (da){
-			return da;
-		}
-	}
-	da = create_for_path(p_path);
-
-	ERR_FAIL_COND_V_MSG(!da, nullptr, "Cannot create DirAccess for path '" + p_path + "'.");
-	Error err = da->change_dir(p_path);
-	if (r_error) {
-		*r_error = err;
-	}
-	if (err != OK) {
-		memdelete(da);
-		return nullptr;
-	}
-
-	return da;
+	return FileAccess::exists(p_name);
 }

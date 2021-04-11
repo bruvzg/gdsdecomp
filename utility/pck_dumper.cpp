@@ -103,19 +103,22 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 		}
 		memdelete(fa);
 		memdelete(pck_f);
+		print_line("Extracted " + target_name);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader * pcfgldr = memnew(ProjectConfigLoader);
 			uint32_t ver_major = GDRESettings::get_singleton()->get_ver_major();
 			uint32_t ver_minor = GDRESettings::get_singleton()->get_ver_minor();
 			Error e1 = pcfgldr->load_cfb(target_name, ver_major, ver_minor);
 			if (e1 != OK) {
-				WARN_PRINT("Failed to load cfb");
+				WARN_PRINT("Failed to load project file");
 				memdelete(pcfgldr);
 				continue;
 			}
 			Error e2 = pcfgldr->save_cfb(target_name.get_base_dir(), ver_major, ver_minor);
 			if (e2 != OK) {
-				WARN_PRINT("Failed to save cfb");
+				WARN_PRINT("Failed to save project file");
+			} else{
+				print_line("Exported project file " + target_name);
 			}
 			memdelete(pcfgldr);
 		}
@@ -123,7 +126,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	memdelete(da);
 
 	if (failed_files.length() > 0) {
-		print_error("at least one error was detected!\n" + failed_files);
+		print_error("At least one error was detected while extracting pack!\n" + failed_files);
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
 		print_line("No errors detected!");

@@ -66,9 +66,10 @@ private:
 	Vector<String> dest_files;
 	String preferred_dest;
 	Dictionary params; // import options (like compression mode, lossy quality, etc.)
-	Dictionary import_data; // Raw import metadata
+	Dictionary import_data; // Raw import data
+	Ref<ConfigFile> cf; // loop
 	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
-
+	Dictionary v3metadata_prop; // 'metadata' property of "remap" tag in an import file
 	void _init() {
 		import_path = "";
 		type = "";
@@ -85,15 +86,15 @@ public:
 		IMPORTED_LOSSY = 2,
 		STORED_AND_IMPORTED_LOSSY = 3,
 	};
-	int get_version() {return version;}
-	String get_path() {return import_path;}
-	String get_import_md_path() {return import_md_path;}
-	String get_type() {return type;}
-	String get_source_file() {return source_file;}
-	Vector<String> get_dest_files() {return dest_files;}
-	bool has_import_data() {return !import_data.is_empty();}
-	Dictionary get_params() { return params;}
-	Dictionary get_import_data() {return import_data;}
+	int get_version() const {return version;}
+	String get_path() const {return import_path;}
+	String get_import_md_path() const {return import_md_path;}
+	String get_type() const {return type;}
+	String get_source_file() const {return source_file;}
+	Vector<String> get_dest_files() const {return dest_files;}
+	bool has_import_data() const {return !import_data.is_empty();}
+	Dictionary get_params() const { return params;}
+	Dictionary get_import_data() const {return import_data;}
 	void set_import_data(const Dictionary &data) { import_data = data; }
 	virtual String to_string() override {
 		String s = "ImportInfo: {";
@@ -126,7 +127,7 @@ public:
 		s += "\n\t}\n}";
 		return s;
 	}
-	int get_import_loss_type() {
+	int get_import_loss_type() const{
 		if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj"){
 			//These are always imported as either native files or losslessly
 			return LOSSLESS;

@@ -17,11 +17,12 @@
 #include "gdre_packed_data.h"
 #include "gdre_settings.h"
 #include "core/crypto/crypto_core.h"
+#include "core/io/config_file.h"
 
 Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = ""){
 	Vector<String> ret;
 	Error err;
-	DirAccess *da = DirAccessGDRE::open(dir.plus_file(rel), &err);
+	DirAccess *da = DirAccess::open(dir.plus_file(rel), &err);
 	ERR_FAIL_COND_V_MSG(!da, ret, "Failed to open directory " + dir);
 
 	if (!da) {
@@ -56,82 +57,6 @@ Array ImportExporter::get_import_files(){
 	return files;
 }
 
-Error ImportExporter::load_import_file_v2(const String& p_path) {
-	Error err;
-	String dest;
-	String type;
-	Vector<String> spl = p_path.get_file().split(".");
-	Ref<ResourceImportMetadatav2> metadata;
-	Ref<ImportInfo> iinfo;
-	iinfo.instance();
-
-	// This is an import file, possibly has import metadata
-	ResourceFormatLoaderCompat rlc;
-	err = rlc.get_import_info(p_path, project_dir, iinfo);
-	
-	if (err == OK ) {
-		// If this is a "converted" file, then it won't have import metadata...
-		if (iinfo->has_import_data()) {
-			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
-			if (iinfo->get_source_file().is_abs_path() || iinfo->get_source_file().begins_with("../")){
-				dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(iinfo->get_source_file().get_file()));
-				iinfo->source_file = dest;
-			}
-			files.push_back(iinfo);
-			return OK;
-		}
-	// The file loaded, but there was no metadata and it was not a ".converted." file
-	} else if (err == ERR_PRINTER_ON_FIRE) {
-		WARN_PRINT("Could not load metadata from " + p_path);
-		String new_ext;
-		if (p_path.get_extension() == "tex") {
-			new_ext = "png";
-		} else if (p_path.get_extension() == "smp") {
-			new_ext = "wav";
-		} //others??
-		dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
-	// File either didn't load or metadata was corrupt
-	} else {
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open imported file " + p_path);
-	}
-
-	//This is a converted file
-	if (p_path.get_file().find(".converted.") != -1) {
-		// if this doesn't match "filename.ext.converted.newext"
-		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
-		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
-	}
-
-	// either it's an import file without metadata or a converted file
-	iinfo->source_file = dest;
-	// If it's a converted file without metadata, it won't have this, and we need it for checking if the file is lossy or not
-	if (iinfo->importer == "") {
-		if (p_path.get_extension() == "scn") {
-			iinfo->importer = "scene";
-		} else if (p_path.get_extension() == "res") {
-			iinfo->importer = "resource";
-		} else if (p_path.get_extension() == "tex") {
-			iinfo->importer = "texture";
-		} else if (p_path.get_extension() == "smp") {
-			iinfo->importer = "sample";
-		} else if (p_path.get_extension() == "fnt") {
-			iinfo->importer = "font";
-		} else if (p_path.get_extension() == "msh") {
-			iinfo->importer = "mesh";
-		} else if (p_path.get_extension() == "xl") {
-			iinfo->importer = "translation";
-		} else if (p_path.get_extension() == "pbm") {
-			iinfo->importer = "bitmask";
-		} else {
-			iinfo->importer = "none";
-		}
-	}
-	
-	files.push_back(iinfo);
-
-	return OK;
-}
-
 bool check_if_dir_is_v2(const String &dir){
 	Vector<String> wildcards;
 	// these are files that will only show up in version 2
@@ -149,6 +74,7 @@ Vector<String> get_v2_wildcards(){
 	Vector<String> wildcards;
 	// We look for file names with ".converted." in the name
 	// Like "filename.tscn.converted.scn"
+	// These are resources converted to binary format upon project export by the editor
 	wildcards.push_back("*.converted.*");
 	// The rest of these are imported resources
 	wildcards.push_back("*.tex");
@@ -158,12 +84,14 @@ Vector<String> get_v2_wildcards(){
 	wildcards.push_back("*.res");
 	wildcards.push_back("*.smp");
 	wildcards.push_back("*.xl");
+	wildcards.push_back("*.cbm");
 	wildcards.push_back("*.pbm");
 
 	return wildcards;
 }
 
 Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_major){
+	GDRESettings::get_singleton()->open_log_file(dir);
 	project_dir = dir;
 	Vector<String> file_names;
 	int version = ver_major;
@@ -201,6 +129,91 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t ver_ma
 	return OK;
 }
 
+Error ImportExporter::load_import_file_v2(const String& p_path) {
+	Error err;
+	String dest;
+	String type;
+	Vector<String> spl = p_path.get_file().split(".");
+	Ref<ResourceImportMetadatav2> metadata;
+	Ref<ImportInfo> iinfo;
+	iinfo.instance();
+
+	// This is an import file, possibly has import metadata
+	ResourceFormatLoaderCompat rlc;
+	err = rlc.get_import_info(p_path, project_dir, iinfo);
+	
+	if ( err == OK ) {
+		// If this is a "converted" file, then it won't have import metadata...
+		if (iinfo->has_import_data()) {
+			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
+			if (iinfo->get_source_file().begins_with("../") ||
+				iinfo->get_source_file().is_abs_path() && GDRESettings::get_singleton()->is_fs_path(iinfo->get_source_file())){
+
+				dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(iinfo->get_source_file().get_file()));
+				iinfo->source_file = dest;
+			}
+			files.push_back(iinfo);
+			return OK;
+		}
+	// The file loaded, but there was no metadata and it was not a ".converted." file
+	} else if (err == ERR_PRINTER_ON_FIRE) {
+		WARN_PRINT("Could not load metadata from " + p_path);
+		String new_ext;
+		if (p_path.get_extension() == "tex") {
+			new_ext = "png";
+		} else if (p_path.get_extension() == "smp") {
+			new_ext = "wav";
+		} else if (p_path.get_extension() == "cbm") {
+			new_ext = "cube";
+		} else {
+			new_ext = "fixme";
+		}
+		//others??
+		dest = String(".assets").plus_file(p_path.replace("res://","").get_base_dir().plus_file(spl[0] + "." + new_ext));
+	// File either didn't load or metadata was corrupt
+	} else {
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open imported file " + p_path);
+	}
+
+	//This is a converted file
+	if (p_path.get_file().find(".converted.") != -1) {
+		// if this doesn't match "filename.ext.converted.newext"
+		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
+		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
+	}
+
+	// either it's an import file without metadata or a converted file
+	iinfo->source_file = dest;
+	// If it's a converted file without metadata, it won't have this, and we need it for checking if the file is lossy or not
+	if (iinfo->importer == "") {
+		if (p_path.get_extension() == "scn") {
+			iinfo->importer = "scene";
+		} else if (p_path.get_extension() == "res") {
+			iinfo->importer = "resource";
+		} else if (p_path.get_extension() == "tex") {
+			iinfo->importer = "texture";
+		} else if (p_path.get_extension() == "smp") {
+			iinfo->importer = "sample";
+		} else if (p_path.get_extension() == "fnt") {
+			iinfo->importer = "font";
+		} else if (p_path.get_extension() == "msh") {
+			iinfo->importer = "mesh";
+		} else if (p_path.get_extension() == "xl") {
+			iinfo->importer = "translation";
+		} else if (p_path.get_extension() == "pbm") {
+			iinfo->importer = "bitmask";
+		} else if (p_path.get_extension() == "cbm") {
+			iinfo->importer = "cubemap";
+		} else {
+			iinfo->importer = "none";
+		}
+	}
+	
+	files.push_back(iinfo);
+
+	return OK;
+}
+
 Error ImportExporter::load_import_file(const String &p_path){
 	Error err;
 	String path = GDRESettings::get_singleton()->get_res_path(p_path);
@@ -231,6 +244,8 @@ Error ImportExporter::load_import(FileAccess * f, const String &p_path) {
 	i_info->import_md_path = p_path;
 	i_info->version = 3;
 	String currentName;
+	Dictionary metadata; // metadata property in "remap"
+
 	while (true) {
 		assign = Variant();
 		next_tag.fields.clear();
@@ -249,15 +264,9 @@ Error ImportExporter::load_import(FileAccess * f, const String &p_path) {
 		}
 		
 		if (assign != String()) {
-			if (!path_found && assign.begins_with("path.") && i_info->import_path == String()) {
-				String feature = assign.get_slicec('.', 1);
-				if (OS::get_singleton()->has_feature(feature)) {
-					i_info->import_path = value;
-					path_found = true; //first match must have priority
-				}
-			} else if (!path_found && assign == "path") {
+			if (!path_found && assign == "path") {
 				i_info->import_path = value;
-				path_found = true; //first match must have priority
+				path_found = true;
 			} else if (assign == "type") {
 				i_info->type = ClassDB::get_compatibility_remapped_class(value);
 			} else if (assign == "importer") {
@@ -266,16 +275,211 @@ Error ImportExporter::load_import(FileAccess * f, const String &p_path) {
 				i_info->source_file = value;
 			} else if (assign == "dest_files") {
 				i_info->dest_files = value;
+			} else if (assign == "metadata") {
+				i_info->v3metadata_prop = value;
 			}
 			((Dictionary)im_data[currentName])[assign] = value;
 		}
 	}
-	ERR_FAIL_COND_V_MSG(i_info->import_path == String() || i_info->type == String(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
+
+	// we may have multiple paths
+	if (!path_found){
+		bool lossy_texture = false;
+		i_info->import_path = String();
+		// check metadata first
+		if (i_info->v3metadata_prop.size() != 0 && i_info->v3metadata_prop.has("imported_formats")){
+			Array fmts = i_info->v3metadata_prop["imported_formats"];
+			String f_fmt = fmts[0];
+			Dictionary remap = ((Dictionary)im_data["remap"]);
+			if (remap.has("path." + f_fmt)){
+				i_info->import_path = remap["path." + f_fmt];
+				path_found = true;
+				// if it's a texture that's vram compressed, there's a chance that it may have a ghost .stex file
+				if (i_info->v3metadata_prop.get("vram_texture", false)){
+					lossy_texture = true;
+				}
+			}
+		}
+		//otherwise, check destination files
+		if (!path_found && i_info->dest_files.size() != 0){
+			i_info->import_path = i_info->dest_files[0];
+			path_found = true;
+		}
+
+		// special case for textures: if we have multiple formats, and it's a lossy import,
+		// we look to see if there's a ghost .stex file with the same prefix.
+		// Godot 3.x and 4.x will often import it as a lossless stex first, then imports it 
+		// as lossy textures, and this sometimes ends up in the exported project.
+		// It's just not listed in the .import file. 
+		if (path_found && lossy_texture){
+			String basedir = i_info->import_path.get_base_dir();
+			Vector<String> split = i_info->import_path.get_file().split(".");
+			if (split.size() == 4){
+				// for example, "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.s3tc.stex"
+				// will become "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.stex"
+				String new_path = basedir.plus_file(split[0] + "." + split[1] + "." + split[3]);
+				// if we have the ghost .stex, set it to be the import path
+				if (GDRESettings::get_singleton()->has_res_path(new_path)) {
+					i_info->import_path = new_path;
+				}
+			}
+		}
+	}
+
+	ERR_FAIL_COND_V_MSG(!path_found || i_info->type == String(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
 	if (im_data.has("params")){
 		i_info->params = im_data["params"];
 	}
 	i_info->import_data = im_data;	
 	files.push_back(i_info);
+	return OK;
+}
+
+// export all the imported resources
+Error ImportExporter::export_imports(const String &output_dir){
+	String out_dir = output_dir == "" ? output_dir : GDRESettings::get_singleton()->get_project_path();
+	Error err = OK;
+
+	if (opt_lossy){
+		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
+	}
+
+	for (int i = 0; i < files.size(); i++){
+		Ref<ImportInfo> iinfo = files[i];
+		String path = iinfo->get_path();
+		String source = iinfo->get_source_file();
+		String type = iinfo->get_type();
+		String importer = iinfo->importer;
+		if (opt_export_textures && importer == "texture"){
+			//right now we only convert 2d image textures
+			auto tex_type = RFLCTexture::recognize(path, &err);
+			switch (tex_type){
+				case RFLCTexture::FORMAT_V2_IMAGE_TEXTURE:
+				case RFLCTexture::FORMAT_V3_STREAM_TEXTURE2D:
+				case RFLCTexture::FORMAT_V4_STREAM_TEXTURE2D:{
+					//export texture
+					export_texture(out_dir, iinfo);
+				} break;
+				case RFLCTexture::FORMAT_NOT_TEXTURE:
+					if (err == ERR_FILE_UNRECOGNIZED) {
+						WARN_PRINT("Import of type " + type + " is not a texture(?): " + path);
+					} else {
+						WARN_PRINT("Failed to load texture " + type + " " + path);
+					}
+					break;
+				default:
+					WARN_PRINT_ONCE("Conversion for " + type + " not yet implemented");
+					WARN_PRINT("Did not convert " + type + " resource " + path);
+					break;
+			}
+		} else if (opt_export_samples && importer == "sample" || importer == "wav") {
+			if (iinfo->get_import_loss_type() == ImportInfo::LOSSLESS) {
+				export_sample(output_dir, iinfo);
+			} else {
+				// Godot doesn't support saving ADPCM samples as waves, nor converting them to PCM16
+				WARN_PRINT_ONCE("Conversion for samples stored in IMA ADPCM format not yet implemented");
+				WARN_PRINT("Did not convert Sample " + path);
+			}
+		} else if (opt_export_ogg && importer == "ogg_vorbis") {
+			convert_oggstr_to_ogg(output_dir, iinfo->import_path, iinfo->source_file);
+		} else if (opt_export_mp3 && importer == "mp3") {
+			convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->source_file);
+		} else if (opt_bin2text && iinfo->import_path.get_extension() == "res" || 
+					importer == "scene" && iinfo->source_file.get_extension() == "tscn" || 
+											iinfo->source_file.get_extension() == "escn") {
+			convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->source_file);
+		} else {
+			WARN_PRINT_ONCE("Conversion for " + type + " not implemented");
+			WARN_PRINT("Did not convert " + type + " resource " + path);
+		}
+	}
+	return OK;
+}
+
+Error ImportExporter::export_texture(const String &output_dir, const Ref<ImportInfo> &iinfo){
+	String path = iinfo->get_path();
+	String source = iinfo->get_source_file();
+	String dest = source;
+	auto loss_type = iinfo->get_import_loss_type();
+	bool rewrite_metadata = false;
+
+	if (loss_type != ImportInfo::LOSSLESS){
+		if (opt_lossy){
+			WARN_PRINT("Converting lossy import: " + path);
+		} else {
+			WARN_PRINT("Not converting lossy import " + path);
+			return OK;
+		}
+	}
+
+	// We currently only rewrite the metadata for v2
+	// This is essentially mandatory for v2 resources because they can be imported outside the
+	// project directory tree and the import metadata often points to locations that don't exist.
+	if (iinfo->version == 2){
+	 	if(opt_rewrite_imd){
+			rewrite_metadata = true;
+			WARN_PRINT("Exporting " + path + " as " + dest + " and rewriting import metadata");
+		} else {
+			WARN_PRINT("Exporting " + path + " as " + dest + " but not rewriting import metadata");
+			WARN_PRINT_ONCE("These assets will not be re-imported when loading the project");
+		}
+	}
+
+	// We only convert textures to png, so we need to rename the destination
+	if (source.get_extension() != "png") {
+		dest = source.get_basename() + ".png";
+		// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
+		// version 3-4 import rewrite not yet implemented
+		// Instead...
+		if (iinfo->version > 2) {
+			// save it under .assets, which won't be picked up for import by the godot editor
+			if (!dest.replace("res://","").begins_with(".assets")){
+				String prefix = ".assets";
+				if (dest.begins_with("res://")){
+					prefix = "res://.assets";
+				}
+				dest = prefix.plus_file(dest.replace("res://", ""));
+			}
+			WARN_PRINT_ONCE("Godot 3.x/4.x import data rewrite not yet implemented");
+			WARN_PRINT("Exporting " + path + " as " + dest + " but not rewriting import metadata");
+			WARN_PRINT_ONCE("These assets will not be re-imported when loading the project");
+		}
+	}
+	String r_name;
+	Error err = _convert_tex_to_png(output_dir, path, dest, &r_name);
+	if (!rewrite_metadata || err != OK){
+		return err;
+	} else if (iinfo->version == 2){
+		return rewrite_v2_import_metadata(path, dest, r_name, output_dir);
+	} else {
+		// ! version 3-4 import rewrite not yet implemented
+		//Error err = rewrite_import_data(dest, output_dir, iinfo);
+		//ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to rewrite import metadata " + iinfo->import_md_path);
+		//print_line("rewrote metadata file " + iinfo->import_md_path);
+	}
+	return err;
+}
+
+Error ImportExporter::export_sample(const String &output_dir, const Ref<ImportInfo> &iinfo){
+	String path = iinfo->get_path();
+	String source = iinfo->get_source_file();
+	String dest = source;
+	auto loss_type = iinfo->get_import_loss_type();
+	bool rewrite_metadata = false;
+	if (iinfo->version == 2){
+		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
+		WARN_PRINT("Not converting sample " + path);
+		return OK;
+	}
+	if (loss_type != ImportInfo::LOSSLESS) {
+		if (opt_lossy){
+			WARN_PRINT("Converting lossy import: " + path);
+		} else {
+			WARN_PRINT("Not converting lossy import " + path);
+			return OK;
+		}
+	}
+	convert_sample_to_wav(output_dir, path, dest);
 	return OK;
 }
 
@@ -327,6 +531,65 @@ Error get_md5_hash(const String &path, String &hash_str){
 	return OK;
 }
 
+// Godot v3-v4 import data rewriting
+// TODO: rethink this, this isn't going to work by itself
+// currently only needed for v3-v4 textures that were imported from something other than PNGs
+// i.e. ground.jpg -> ground.png
+// Need to either:
+// 1) Implement renaming dependencies in the RFLC and load every other resource type after textures
+// and rewrite the resource if necessary,
+// 2) do remapping trickery,
+// 3) just save them as lossy files?
+Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo){
+	String new_source = rel_dest_path;
+	String new_import_file = iinfo->import_md_path.get_base_dir().plus_file(rel_dest_path.get_file() + ".import");
+    Array new_dest_files;
+	ERR_FAIL_COND_V_MSG(iinfo->dest_files.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
+	for (int i = 0; i < iinfo->dest_files.size(); i++){
+		String old_dest = iinfo->dest_files[i];
+		String new_dest = old_dest.replace(iinfo->source_file.get_file(), new_source.get_file());
+		ERR_FAIL_COND_V_MSG(old_dest == new_dest, ERR_BUG, "Failed to change import data for " + rel_dest_path);
+		new_dest_files.append(new_dest);
+	}
+	Ref<ConfigFile> import_file;
+	import_file.instance();
+	Error err = import_file->load(iinfo->import_md_path);
+	ERR_FAIL_COND_V_MSG(err, ERR_BUG, "Failed to load import file " + iinfo->import_md_path);
+
+	import_file->set_value("deps", "source_file", new_source);
+	import_file->set_value("deps", "dest_files", new_dest_files);
+	if (new_dest_files.size() > 1){
+		List<String> remap_keys; 
+		import_file->get_section_keys("remap", &remap_keys);
+		ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
+		// we likely have multiple paths
+		if (iinfo->v3metadata_prop.has("imported_formats")){
+			Vector<String> fmts = iinfo->v3metadata_prop["imported_formats"];
+			for (int i = 0; i < fmts.size(); i++){
+				auto E = remap_keys.find("path." + fmts[i]);
+				if (E)
+				{
+					String path_prop = E->get();
+					String old_path = import_file->get_value("remap", path_prop, String());
+					String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
+					ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
+					import_file->set_value("remap", path_prop, new_path);
+				} else {
+					ERR_FAIL_V_MSG(ERR_BUG, "Expected to see path for import format" + fmts[i]);
+				}
+			}
+		}
+	} else {
+		String old_path = iinfo->import_path;
+		String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
+		ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
+		import_file->set_value("remap", "path", new_path);
+	}
+	
+	return import_file->save(iinfo->import_md_path);
+}
+
+// Makes a copy of the import metadata and changes the source to the new path
 Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension){
 	Ref<ResourceImportMetadatav2> imd;
 	auto iinfo = get_import_info(p_path);
@@ -370,8 +633,9 @@ Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String 
 	return imd;
 }
 
-Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &orig_file, const String &p_res_name, const String &output_dir){
+Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir){
 	Error err;
+	String orig_file = output_dir.plus_file(p_path.replace("res://",""));
 	auto imd = change_v2import_data(p_path, p_dst, p_res_name, output_dir, false);
 	ERR_FAIL_COND_V_MSG(imd.is_null(), ERR_FILE_NOT_FOUND, "Failed to get metadata for " + p_path);
 
@@ -381,6 +645,7 @@ Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const Str
 
 	DirAccess *dr = DirAccess::open(orig_file.get_base_dir(), &err);
 	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
+
 	// this may fail, we don't care
 	dr->remove(orig_file);
 	err = dr->rename(orig_file + ".tmp", orig_file);
@@ -391,55 +656,45 @@ Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const Str
 	return OK;
 }
 
-Error ImportExporter::convert_v2tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, const bool rewrite_metadata) {
+Error ImportExporter::_convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String * r_name) {
 	ResourceFormatLoaderCompat rlc;
 	String dst_dir = output_dir.plus_file(p_dst.get_base_dir().replace("res://", ""));
-	String orig_file = output_dir.plus_file(p_path.replace("res://",""));
 	String dest_path = output_dir.plus_file(p_dst.replace("res://",""));
 	Error err;
 	RFLCTexture tl;
 
 	Ref<Image> img = tl.load_image_from_tex(p_path, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
-
+	if (r_name){
+		*r_name = String(img->get_name());
+	}
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	err = da->make_dir_recursive(dst_dir);
 	memdelete(da);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
-	
+
 	err = img->save_png(dest_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path);
 
 	print_line("Converted " + p_path + " to " + p_dst);
-	if (!rewrite_metadata){
-		return OK;
-	}
-	return rewrite_v2_import_metadata(p_path, p_dst, orig_file, img->get_name(), output_dir);
+	return OK;
 }
 
-Error ImportExporter::convert_v3stex_to_png(const String &output_dir, const String &p_path, const String &p_dst){
-	String src_path = output_dir.plus_file(p_path.replace("res://",""));
-	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
-	RFLCTexture st;
-	Error err;
-	Ref<Image> img = st.load_image_from_tex(src_path, &err);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load stex file " + p_path);
-
-	err = img->save_png(dst_path);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);
-	print_line("Converted " + src_path + " to " + dst_path);
-	return OK;
+Error ImportExporter::convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst){
+	return _convert_tex_to_png(output_dir, p_path, p_dst, nullptr);
 }
 
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst){
 	String src_path = output_dir.plus_file(p_path.replace("res://",""));
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
 	Error err;
+
 	Ref<AudioStreamSample> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE,&err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
-		err = sample->save_to_wav(dst_path);
 
+	err = sample->save_to_wav(dst_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);
+
 	print_line("Converted " + src_path + " to " + dst_path);
 	return OK;
 
@@ -449,13 +704,16 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	String src_path = output_dir.plus_file(p_path.replace("res://",""));
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
 	Error err;
-	Ref<AudioStreamOGGVorbis> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE,&err);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
-	FileAccess * f = FileAccess::open(dst_path, FileAccess::WRITE);
 
+	Ref<AudioStreamOGGVorbis> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
+
+	FileAccess * f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
+
 	PackedByteArray data = sample->get_data();
 	f->store_buffer(data.ptr(), data.size());
+
 	print_line("Converted " + src_path + " to " + dst_path);
 	return OK;
 
@@ -466,32 +724,48 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	String src_path = output_dir.plus_file(p_path.replace("res://",""));
 	String dst_path = output_dir.plus_file(p_dst.replace("res://",""));
 	Error err;
+
 	Ref<AudioStreamMP3> sample = ResourceLoader::load(src_path,"",ResourceFormatLoader::CACHE_MODE_IGNORE,&err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load mp3str file " + p_path);
+
 	FileAccess * f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
+
 	PackedByteArray data = sample->get_data();
 	f->store_buffer(data.ptr(), data.size());
+	
 	print_line("Converted " + src_path + " to " + dst_path);
 	return OK;
 
 }
 
-Error ImportExporter::test_functions(){
-	ResourceFormatLoaderCompat rlc;
-	rlc.load("res://apt1_room1.tscn.converted.scn", "C:/workspace/godot-decomps/hc-test-another");
-	return OK;
-}
-
 void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
 	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
+	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports);
 	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
-	ClassDB::bind_method(D_METHOD("convert_v2tex_to_png"), &ImportExporter::convert_v2tex_to_png);
-	ClassDB::bind_method(D_METHOD("convert_v3stex_to_png"), &ImportExporter::convert_v3stex_to_png);
+	ClassDB::bind_method(D_METHOD("convert_tex_to_png"), &ImportExporter::convert_tex_to_png);
 	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
 	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
 	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
-	ClassDB::bind_method(D_METHOD("test_functions"), &ImportExporter::test_functions);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
+}
+
+void ImportExporter::reset() {
+	files.clear();
+	opt_bin2text = true;
+	opt_export_textures = true;
+	opt_export_samples = true;
+	opt_export_ogg = true;
+	opt_export_mp3 = true;
+	opt_lossy = true;
+	bool opt_rewrite_imd = true;
+	GDRESettings::get_singleton()->set_project_path("");
+	files_lossy_exported.clear();
+	files_rewrote_metadata.clear();
+}
+
+ImportExporter::ImportExporter(){}
+ImportExporter::~ImportExporter(){
+	reset();
 }

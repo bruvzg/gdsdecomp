@@ -57,7 +57,6 @@ String ImageParserV2::ImageV2_to_string(const Variant &r_v){
         String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";
 
         switch (img->get_format()) {
-
             case Image::FORMAT_L8: subimgstr += "GRAYSCALE"; break;
             case Image::FORMAT_LA8: subimgstr += "GRAYSCALE_ALPHA"; break;
             case Image::FORMAT_RGB8: subimgstr += "RGB"; break;
@@ -72,29 +71,31 @@ String ImageParserV2::ImageV2_to_string(const Variant &r_v){
             case Image::FORMAT_PVRTC1_4: subimgstr += "PVRTC4"; break;
             case Image::FORMAT_PVRTC1_4A: subimgstr += "PVRTC4_ALPHA"; break;
             case Image::FORMAT_ETC: subimgstr += "ETC"; break;
-            //Hacks for no-longer supported image formats
-            //the mipmap counts for these formats match the deprecated formats
+            // Hacks for no-longer supported image formats
+            // If hacks_for_dropped_fmt is true in parse_image_v2():
+            // The mipmap counts for these will not be correct in the img data
+            // the v4 formats in "get_image_required_mipmaps" map to the required mipmaps for the deprecated formats
             case Image::FORMAT_ETC2_R11:
                 //reset substr
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
                 subimgstr += "INTENSITY"; 
                 break;
-            case Image::FORMAT_ETC2_R11S: 
+            case Image::FORMAT_ETC2_R11S:
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
                 subimgstr += "INDEXED"; break;
-            case Image::FORMAT_ETC2_RG11: 
+            case Image::FORMAT_ETC2_RG11:
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
                 subimgstr += "INDEXED_ALPHA"; break;
-            case Image::FORMAT_ETC2_RG11S: 
+            case Image::FORMAT_ETC2_RG11S:
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_PVRTC1_4A)) + ", ";
                 subimgstr += "ATC"; break;
-            case Image::FORMAT_ETC2_RGB8: 
+            case Image::FORMAT_ETC2_RGB8:
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
                 subimgstr += "ATC_ALPHA_EXPLICIT"; break;
-            case Image::FORMAT_ETC2_RGB8A1: 
+            case Image::FORMAT_ETC2_RGB8A1:
                 subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
                 subimgstr += "ATC_ALPHA_INTERPOLATED"; break;
-            case Image::FORMAT_ETC2_RA_AS_RG: 
+            case Image::FORMAT_ETC2_RA_AS_RG:
                 subimgstr = ", " + itos(1) + ", ";
                 subimgstr += "CUSTOM"; break;
             default: {
@@ -187,9 +188,9 @@ Error ImageParserV2::write_v2image_to_bin(FileAccess* f, const Variant &r_v, con
 			case Image::FORMAT_ETC: {
 				fmt = V2Image::IMAGE_FORMAT_ETC;
 			} break;
-            //Hacks for no-longer supported image formats
-            //set in parse_image_v2()
-            //this maps to the required mipmaps
+            // Hacks for no-longer supported image formats
+            // If hacks_for_dropped_fmt is true in parse_image_v2()
+            // the v4 formats in "get_image_required_mipmaps" map to the required mipmaps for the deprecated formats
             case Image::FORMAT_ETC2_R11: {
                 mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
                 fmt = V2Image::IMAGE_FORMAT_INTENSITY;
@@ -307,10 +308,10 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
 				fmt = Image::FORMAT_ETC;
 			} break;
             if (hacks_for_dropped_fmt){
-                //Hacks for no-longer supported image formats
-                //This is basically just for converting a bin resource to a text resource.
-                //It gets handled in the above converters
-                //These formats do not match up, so when saving, we have to set mipmaps manually
+                // Hacks for no-longer supported image formats
+                // We change the format to something that V2 didn't have support for as a placeholder
+                // This is just in the case of converting a bin resource to a text resource
+                // It gets handled in the above converters
                 case V2Image::IMAGE_FORMAT_INTENSITY: {
                     fmt = Image::FORMAT_ETC2_R11;
                 } break;
@@ -334,6 +335,7 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
                 } break;
                 // We can't convert YUV format
             }
+            // If this is a deprecated or unsupported format...
 			default: {
                 // We'll error out after we've skipped over the data
                 fmt = Image::FORMAT_MAX;
@@ -347,7 +349,7 @@ Error ImageParserV2::parse_image_v2(FileAccess * f, Variant &r_v, bool hacks_for
 		uint8_t * w = imgdata.ptrw();
 		f->get_buffer(w, datalen);
 		_advance_padding(f, datalen);
-		
+		// This is for if we're saving the image as a png.
 		if (convert_indexed && (format == 5 || format == 6 || format == 1 )) {
             Vector<uint8_t> new_imgdata;
 
