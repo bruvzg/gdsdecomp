@@ -61,13 +61,20 @@ Error PckDumper::load_pck(const String& p_path) {
 	return GDRESettings::get_singleton()->load_pack(p_path);
 }
 
-bool PckDumper::check_md5_all_files() {
+Error PckDumper::check_md5_all_files() {
+	Error err = OK;
 	int bad_checksums = 0;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	for (int i = 0; i < files.size(); i++) {
-		files.get(i)->set_md5_match(_pck_file_check_md5(files.get(i)));
+		files.write[i]->set_md5_match(_pck_file_check_md5(files.get(i)));
+		if (files[i]->md5_passed){
+			print_line("Verified " + files[i]->path);
+		} else {
+			print_error("Checksum failed for " + files[i]->path);
+			err = ERR_BUG;
+		}
 	}
-	return true;
+	return err;
 }
 
 Error PckDumper::pck_dump_to_dir(const String &dir) {

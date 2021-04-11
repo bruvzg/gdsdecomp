@@ -7,6 +7,7 @@
 #include "core/object/reference.h"
 #include "core/io/resource_importer.h"
 #include "resource_import_metadatav2.h"
+#include "core/io/config_file.h"
 
 namespace V2ImportEnums{
 	enum TextureFormat {
@@ -66,8 +67,7 @@ private:
 	Vector<String> dest_files;
 	String preferred_dest;
 	Dictionary params; // import options (like compression mode, lossy quality, etc.)
-	Dictionary import_data; // Raw import data
-	Ref<ConfigFile> cf; // loop
+	Ref<ConfigFile> cf; // raw v3-v4 import data
 	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
 	Dictionary v3metadata_prop; // 'metadata' property of "remap" tag in an import file
 	void _init() {
@@ -92,10 +92,14 @@ public:
 	String get_type() const {return type;}
 	String get_source_file() const {return source_file;}
 	Vector<String> get_dest_files() const {return dest_files;}
-	bool has_import_data() const {return !import_data.is_empty();}
+	bool has_import_data() const {
+		if (version == 2){
+			return v2metadata.is_valid();
+		} else {
+			return cf.is_valid();
+		}
+	}
 	Dictionary get_params() const { return params;}
-	Dictionary get_import_data() const {return import_data;}
-	void set_import_data(const Dictionary &data) { import_data = data; }
 	virtual String to_string() override {
 		String s = "ImportInfo: {";
 		s += "\n\timport_md_path: " + import_md_path;
@@ -178,9 +182,7 @@ protected:
 		ClassDB::bind_method(D_METHOD("get_type"), &ImportInfo::get_type);
 		ClassDB::bind_method(D_METHOD("get_source_file"), &ImportInfo::get_source_file);
 		ClassDB::bind_method(D_METHOD("get_dest_files"), &ImportInfo::get_dest_files);
-		ClassDB::bind_method(D_METHOD("get_import_data"), &ImportInfo::get_import_data);
 		ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
-		ClassDB::bind_method(D_METHOD("set_import_data"), &ImportInfo::set_import_data);
 		ClassDB::bind_method(D_METHOD("get_import_loss_type"), &ImportInfo::get_import_loss_type);
 	}
 };

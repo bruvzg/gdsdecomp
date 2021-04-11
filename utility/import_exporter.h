@@ -21,15 +21,15 @@ class ImportExporter: public Reference {
 	bool opt_export_mp3 = true;
 	bool opt_lossy = true;
 	bool opt_rewrite_imd = true;
+	int ver_major = 0;
 	Vector<String> files_lossy_exported;
 	Vector<String> files_rewrote_metadata;
 
 	Error load_import_file(const String &p_path);
-	Error load_import(FileAccess * f, const String &p_path);
 	Error load_import_file_v2(const String &p_path);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir);
-	Error export_texture(const String &output_dir, const Ref<ImportInfo> &iinfo);
-	Error export_sample(const String &output_dir, const Ref<ImportInfo> &iinfo);
+	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
+	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error _convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String * r_name);
 	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
@@ -47,7 +47,14 @@ public:
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
 	Error export_imports(const String &output_dir = "");
-	
+	void print_report(int import_count,
+					Vector<Ref<ImportInfo>> lossy_imports, 	
+					Vector<Ref<ImportInfo>> rewrote_metadata,
+					Vector<Ref<ImportInfo>> failed_rewrite_md,
+					Vector<Ref<ImportInfo>> failed,
+					Vector<Ref<ImportInfo>> success,
+					Vector<Ref<ImportInfo>> not_converted);
+
 	void reset();
 	ImportExporter();
 	~ImportExporter();

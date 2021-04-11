@@ -31,7 +31,7 @@ public:
 	FileAccess *get_file_access(const String &p_path, PackedFileInfo *p_file);
 
 	Error load_pck(const String &p_path);
-	bool check_md5_all_files();
+	Error check_md5_all_files();
 	Error pck_dump_to_dir2(const String &dir);
 	Error pck_dump_to_dir(const String &dir);
 	Error pck_load_and_dump(const String &p_path, const String &dir);

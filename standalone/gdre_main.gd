@@ -1,6 +1,6 @@
 extends Control
 
-var ver_major = 2;
+var ver_major = 0;
 
 func _ready():
 	$menu_background/version_lbl.text = $re_editor_standalone.get_version()
@@ -16,14 +16,6 @@ func _on_re_editor_standalone_write_log_message(message):
 func _on_version_lbl_pressed():
 	OS.shell_open("https://github.com/bruvzg/gdsdecomp")
 
-func test_get_props():
-	var thing = Animation.new()
-	print(thing.get_property_list())
-
-func test_functions():
-	var thing = ImportExporter.new()	
-	thing.test_functions()
-
 func get_arg_value(arg):
 	var split_args = arg.split("=")
 	if split_args.size() < 2:
@@ -31,62 +23,14 @@ func get_arg_value(arg):
 		$root.quit()
 	return split_args[1]
 
-func list_dir_rel(root: String, filter:String="", rel:String ="") -> Array:
-	var list:Array = []
-	var dir = Directory.new()
-	var filters = filter.split(",")
-	var subdirs = []
-	if (dir.open(root.plus_file(rel)) == OK):
-		dir.list_dir_begin()
-		var fname:String = dir.get_next()
-		while (fname != ""):
-			if dir.current_is_dir() && !(fname == "." || fname == ".."):
-				subdirs.push_back(fname)
-			elif filter == "":
-				list.push_back(rel.plus_file(fname))
-			else:
-				for fil in filters:
-					if fname.get_extension() == fil:
-						list.push_back(rel.plus_file(fname))
-						break
-			fname = dir.get_next()
-	for subdir in subdirs:
-		list.append_array(list_dir_rel(root, filter, rel.plus_file(subdir)))
-	return list
 
 func export_imports(output_dir:String):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, 0)
+	importer.load_import_files(output_dir, ver_major)
 	var arr = importer.get_import_files()
 	var failed_files = []
 	print("Number of import files: " + str(arr.size()))
 	importer.export_imports(output_dir)
-	# for i in arr:
-	# 	var ifo:ImportInfo = i;
-	# 	#the path to the imported file
-	# 	var path:String = ifo.get_path()
-	# 	# check if there's a single path
-	# 	# If there isn't one, that means we likely have two imported resources from one source
-	# 	# Just use the first "dest_file" in "dest_files"
-	# 	if ifo.get_dest_files().size() > 1:
-	# 		var paths:PackedStringArray = ifo.get_dest_files()
-	# 		path = paths[0]
-		
-	# 	#the original source file that we will convert the imported file to
-	# 	var source_file:String = ifo.get_source_file();
-	# 	var ext:String = source_file.get_extension();
-	# 	if ext == "wav" && ver_major >= 3:
-	# 		importer.convert_sample_to_wav(output_dir, path, source_file)
-	# 	elif ext == "mp3":
-	# 		importer.convert_mp3str_to_mp3(output_dir, path, source_file)
-	# 	elif ext == "ogg":
-	# 		importer.convert_oggstr_to_ogg(output_dir, path, source_file)
-	# 	elif ext == "png" && ver_major == 3:
-	# 		importer.convert_tex_to_png(output_dir, path, source_file)
-	# 	elif ext == "png" && ver_major == 2:
-	# 		importer.convert_v2tex_to_png(output_dir, path, source_file, true)
-	# 	elif ext == "tscn" || ext == "escn":
-	# 		importer.convert_res_bin_2_txt(output_dir, path, source_file)
 			
 
 func test_decomp(fname):
@@ -110,23 +54,30 @@ func test_decomp(fname):
 				print("error failed to save "+ f)
 
 	
-func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
+func dump_files(exe_file:String, output_dir:String, enc_key:String = "") -> int:
+	var err:int = OK;
 	var pckdump = PckDumper.new()
 	print(exe_file)
 	if (enc_key != ""):
 		pckdump.set_key(enc_key)
-	if pckdump.load_pck(exe_file) == OK:
+	err = pckdump.load_pck(exe_file)
+	if err == OK:
 		print("Successfully loaded PCK!")
 		ver_major = pckdump.get_engine_version().split(".")[0].to_int()
 		var version:String = pckdump.get_engine_version()
 		print("Version: " + version)
-		#pckdump.check_md5_all_files()
-		if pckdump.pck_dump_to_dir(output_dir) != OK:
+		err = pckdump.check_md5_all_files()
+		if err != OK:
+			print("Error md5")
+			pckdump.clear_data()
+			return err
+		err = pckdump.pck_dump_to_dir(output_dir)
+		if err != OK:
 			print("error dumping to dir")
-			return
-		
-		var decomp;
+			pckdump.clear_data()
+			return err
 
+		var decomp;
 		# TODO: instead of doing this, run the detect bytecode script
 		if version.begins_with("1.0"):
 			decomp = GDScriptDecomp_e82dc40.new()
@@ -147,7 +98,8 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 			decomp = GDScriptDecomp_5565f55.new()
 		else:
 			print("Unknown version, no decomp")
-			return
+			pckdump.clear_data()
+			return err
 
 		print("Script version "+ version.substr(0,3)+".x detected")
 
@@ -175,6 +127,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = ""):
 	else:
 		print("ERROR: failed to load exe")
 	pckdump.clear_data()
+	return err;
 
 func normalize_path(path: String):
 	return path.replace("\\","/")
@@ -189,13 +142,14 @@ func print_import_info_from_pak(pak_file: String):
 	for ifo in arr:
 		var s:String = ifo.get_source_file() + " is "
 		if ifo.get_import_loss_type() == 0:
-			print(s + "not a lossy import")
+			print(s + "lossless")
 		elif ifo.get_import_loss_type() == -1:
-			print(s + "UNKNOWN!??!!?")
+			print(s + "unknown")
 		else:
-			print(s + "A LOSSY IMPORT!!!!")
+			print(s + "lossy")
 		print((ifo as ImportInfo).to_string())
 	pckdump.clear_data()
+	importer.reset()
 	
 func print_import_info(output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -205,12 +159,13 @@ func print_import_info(output_dir: String):
 	for ifo in arr:
 		var s:String = ifo.get_source_file() + " is "
 		if ifo.get_import_loss_type() == 0:
-			print(s + "not a lossy import")
+			print(s + "lossless")
 		elif ifo.get_import_loss_type() == -1:
-			print(s + "UNKNOWN!??!!?")
+			print(s + "unknown")
 		else:
-			print(s + "A LOSSY IMPORT!!!!")
+			print(s + "lossy")
 		print((ifo as ImportInfo).to_string())
+	importer.reset()
 
 func print_usage():
 	print("Godot Reverse Engineering Tools")
@@ -219,16 +174,16 @@ func print_usage():
 	print("\nGeneral options:")
 	print("  -h, --help: Display this help message")
 	print("\nExport to Project options:")
-	print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR> [--key=<KEY>]")
+	print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR> [options]")
 	print("")
 	print("--extract=<PAK_OR_EXE>\t\tThe Pak or EXE to extract")
 	print("--output-dir=<DIR>\t\tOutput directory")
+	print("\nOptions:\n")
 	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted (hex string)")
 	#print("View Godot assets, extract Godot PAK files, and export Godot projects")
 
 func handle_cli():
 	var args = OS.get_cmdline_args()
-	#var args = ["--no-window", "--verbose", "--path", ".\\modules\\gdsdecomp\\standalone", "--extract=C:\\workspace\\godot-decomps\\d\\PandemicHero_v10.pck", "--output-dir=C:\\workspace\\godot-decomps\\ph-decomp"]
 
 	var exe_file:String = ""
 	var output_dir: String = ""
@@ -250,9 +205,15 @@ func handle_cli():
 			print("")
 			print_usage()
 		else:
+			var main = GDRECLIMain.new()
+			main.open_log(output_dir)
 			#debugging
 			#print_import_info(output_dir)
 			#print_import_info_from_pak(exe_file)
-			dump_files(exe_file, output_dir, enc_key)
-			export_imports(output_dir)
+			var err = dump_files(exe_file, output_dir, enc_key)
+			if (err == OK):
+				export_imports(output_dir)
+			else:
+				print("Error: failed to extract PAK file, not exporting assets")
+			main.close_log()
 		get_tree().quit()

@@ -116,7 +116,6 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 		i_info->source_file = loader->imd->get_source_path(0);
 		i_info->importer = loader->imd->get_editor();
 		i_info->params = loader->imd->get_options_as_dictionary();
-		i_info->import_data = loader->imd->get_as_dictionary();
 	}
 	memdelete(loader);
 	return OK;
