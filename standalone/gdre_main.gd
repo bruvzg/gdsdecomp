@@ -31,6 +31,7 @@ func export_imports(output_dir:String):
 	var failed_files = []
 	print("Number of import files: " + str(arr.size()))
 	importer.export_imports(output_dir)
+	importer.reset()
 			
 
 func test_decomp(fname):
