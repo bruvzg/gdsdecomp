@@ -340,7 +340,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	txt_res_file_selection = memnew(FileDialog);
 	txt_res_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	txt_res_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
+	txt_res_file_selection->add_filter("*.escn,*.tscn,*.tres;Text resource files");
 	txt_res_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_txt_2_bin_request));
 	txt_res_file_selection->set_show_hidden_files(true);
 	p_control->add_child(txt_res_file_selection);
@@ -348,7 +348,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	stex_file_selection = memnew(FileDialog);
 	stex_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	stex_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	stex_file_selection->add_filter("*.stex;Stream texture files");
+	stex_file_selection->add_filter("*.stex,*.tex;Stream texture files");
 	stex_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_stex_2_png_request));
 	stex_file_selection->set_show_hidden_files(true);
 	p_control->add_child(stex_file_selection);
@@ -1465,7 +1465,6 @@ void GodotREEditor::_res_bin_2_txt_process() {
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
 	
-	ResourceLoader::set_abort_on_missing_resources(false);
 	ResourceFormatLoaderCompat rl;
 	Error err = rl.convert_bin_to_txt(p_src_path, p_dst_path);
 	return err;
