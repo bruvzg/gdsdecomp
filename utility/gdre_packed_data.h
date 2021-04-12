@@ -10,11 +10,4 @@ public:
 	virtual FileAccess *get_file(const String &p_path, PackedData::PackedFile *p_file);
 };
 
-class FileAccessGDRE : public FileAccess {
-public:
-	static FileAccess *open(const String &p_path, int p_mode_flags, Error *r_error = nullptr); /// Create a file access (for the current platform) this is the only portable way of accessing files.
-	static bool exists(const String &pname);
-};
-
-
 #endif // GDRE_PACKED_DATA

@@ -130,7 +130,7 @@ ResourceLoaderBinaryCompat * ResourceFormatLoaderCompat::_open(const String &p_p
 	String res_path = GDRESettings::get_singleton()->get_res_path(p_path, base_dir);
 	FileAccess *f = nullptr;
 	if (res_path != ""){
-		f = FileAccessGDRE::open(res_path, FileAccess::READ, r_error);
+		f = FileAccess::open(res_path, FileAccess::READ, r_error);
 	} else {
 		*r_error = ERR_FILE_NOT_FOUND;
 		ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "'.");

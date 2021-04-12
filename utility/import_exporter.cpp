@@ -479,7 +479,7 @@ Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
 }
 
 Error ImportExporter::get_md5_hash(const String &path, String &hash_str) {
-	FileAccess *file = FileAccessGDRE::open(path, FileAccess::READ);
+	FileAccess *file = FileAccess::open(path, FileAccess::READ);
 	if (!file){
 		return ERR_FILE_CANT_OPEN;
 	}

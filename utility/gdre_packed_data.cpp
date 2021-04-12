@@ -148,11 +148,3 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 FileAccess *GDREPackedSource::get_file(const String &p_path, PackedData::PackedFile *p_file) {
 	return memnew(FileAccessPack(p_path, *p_file));
 }
-
-FileAccess *FileAccessGDRE::open(const String &p_path, int p_mode_flags, Error *r_error) {
-	return FileAccess::open(p_path, p_mode_flags, r_error);
-}
-
-bool FileAccessGDRE::exists(const String &p_name) {
-	return FileAccess::exists(p_name);
-}

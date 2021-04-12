@@ -15,7 +15,7 @@
 
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
 	Error err;
-	FileAccess *pck_f = FileAccessGDRE::open(file->get_path(), FileAccess::READ, &err);
+	FileAccess *pck_f = FileAccess::open(file->get_path(), FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!pck_f, false, "Can't open file '" + file->get_path() + "'.");
 	
 	// Loading an encrypted file automatically checks the md5
@@ -87,7 +87,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	String failed_files;
 	Error err;
 	for (int i = 0; i < files.size(); i++) {
-		FileAccess *pck_f = FileAccessGDRE::open(files.get(i)->get_path(), FileAccess::READ, &err);
+		FileAccess *pck_f = FileAccess::open(files.get(i)->get_path(), FileAccess::READ, &err);
 		if (!pck_f){
 			failed_files += files.get(i)->get_path() + " (FileAccess error)\n";
 			continue;

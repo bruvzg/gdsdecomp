@@ -24,7 +24,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		r_err = &err;
 	}
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	FileAccess *f = FileAccessGDRE::open(res_path, FileAccess::READ, r_err);
+	FileAccess *f = FileAccess::open(res_path, FileAccess::READ, r_err);
 	
 	ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
@@ -240,7 +240,7 @@ Ref<StreamTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, 
 
 Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const{
 	Error err;
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
 
@@ -292,7 +292,7 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
 	Error err;
 	
-	FileAccess * f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
+	FileAccess * f = FileAccess::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Can't open image file for loading: " + p_path);
 	uint8_t header[4];
 	f->get_buffer(header, 4);
@@ -324,7 +324,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 
 Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const
 {
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ);
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
 	uint8_t header[4];
 	f->get_buffer(header, 4);
 	// already checked
@@ -356,7 +356,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 
 Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
 	Error err;
-	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Cannot open file '" + p_path + "'.");
 
 	uint8_t header[5] = { 0, 0, 0, 0, 0 };
@@ -449,7 +449,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 }
 
 Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const{
-	FileAccessRef f = FileAccessGDRE::open(p_path, FileAccess::READ);
+	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
 	uint8_t header[4];
