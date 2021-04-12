@@ -41,7 +41,14 @@ String get_standalone_pck_path(){
 
 }
 
-// This is VERY hacky. TODO: Consider submitting a PR to refactor PackedData to add and remove packs and sources
+// This loads the pack into PackedData so that the paths are globally accessible with FileAccess.
+// This is VERY hacky. We have to make a new PackedData singleton when loading a pack, and then 
+// delete it and make another new one while unloading.
+// A side-effect of this approach is that the standalone files will be in the path when running
+// standalone, which is why they were renamed with the prefix "gdre_" to avoid collision.
+// This also means that directory listings on the pack will include the standalone files, but we
+// specifically avoid doing that.
+// TODO: Consider submitting a PR to refactor PackedData to add and remove packs and sources
 Error GDRESettings::load_pack(const String& p_path){
     if (is_pack_loaded()){
         return ERR_ALREADY_IN_USE;
@@ -206,12 +213,6 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 
 		memdelete(dir);
 
-		// Ensure that we end with a '/'.
-		// This is important to ensure that we do not wrongly localize the resource path
-		// in an absolute path that just happens to contain this string but points to a
-		// different folder (e.g. "/my/project" as resource_path would be contained in
-		// "/my/project_data", even though the latter is not part of res://.
-		// `plus_file("")` is an easy way to ensure we have a trailing '/'.
 		res_path = res_path.plus_file("");
 
 		// DirAccess::get_current_dir() is not guaranteed to return a path that with a trailing '/',
@@ -338,6 +339,7 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 	}
 	return res_path;
 }
+
 bool GDRESettings::has_res_path(const String &p_path, const String &resource_dir){
 	return _get_res_path(p_path, resource_dir, true) != "";
 }
@@ -418,7 +420,10 @@ GDRELogger::~GDRELogger() {
 	close_file();
 }
 
-// *highway to the danger zone*
+// This adds another logger to the global composite logger so that we can write
+// export logs to project directories.
+// main.cpp is apparently the only class that can add these, but "add_logger" is
+// only protected, so we can cast the singleton to a child class pointer and then call it.
 void GDRESettings::add_logger(){
 	OS * os_singleton = OS::get_singleton();
 	String os_name = os_singleton->get_name();
@@ -447,6 +452,7 @@ void GDRESettings::add_logger(){
 		_gdre_os->_add_logger(logger);
 	}
 	#endif
+	// the rest of these are probably unnecessary
 	#ifdef JAVASCRIPT_ENABLED
 	else if (os_name == "Javascript"){
 		GDREOS<OS_JavaScript> *_gdre_os = static_cast<GDREOS<OS_JavaScript>*>(os_singleton);

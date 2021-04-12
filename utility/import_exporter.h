@@ -24,15 +24,30 @@ class ImportExporter: public Reference {
 	int ver_major = 0;
 	Vector<String> files_lossy_exported;
 	Vector<String> files_rewrote_metadata;
+	int import_count;
+	Vector<Ref<ImportInfo>> lossy_imports;
+	Vector<Ref<ImportInfo>> rewrote_metadata;
+	Vector<Ref<ImportInfo>> failed_rewrite_md;
+	Vector<Ref<ImportInfo>> failed;
+	Vector<Ref<ImportInfo>> success;
+	Vector<Ref<ImportInfo>> not_converted;
 
 	Error load_import_file(const String &p_path);
 	Error load_import_file_v2(const String &p_path);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir);
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
-	Error _convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String * r_name);
+	
+	Error _convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String *r_name);
 	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
+
+	static Error ensure_dir(String &dst_dir);
+	static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards, const bool absolute, const String rel);
+	static bool check_if_dir_is_v2(const String &dir);
+	static Vector<String> get_v2_wildcards();
+	static Error get_md5_hash(const String &path, String &hash_str);
+	String _get_path(const String &output_dir, const String &p_path);
 
 protected:
 	static void _bind_methods();
@@ -47,13 +62,7 @@ public:
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
 	Error export_imports(const String &output_dir = "");
-	void print_report(int import_count,
-					Vector<Ref<ImportInfo>> lossy_imports, 	
-					Vector<Ref<ImportInfo>> rewrote_metadata,
-					Vector<Ref<ImportInfo>> failed_rewrite_md,
-					Vector<Ref<ImportInfo>> failed,
-					Vector<Ref<ImportInfo>> success,
-					Vector<Ref<ImportInfo>> not_converted);
+	void print_report();
 
 	void reset();
 	ImportExporter();
@@ -61,3 +70,4 @@ public:
 };
 
 #endif
+

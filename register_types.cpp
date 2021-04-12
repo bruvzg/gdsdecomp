@@ -8,7 +8,7 @@
 #include "bytecode/bytecode_versions.h"
 #include "editor/gdre_editor.h"
 #include "utility/pck_dumper.h"
-#include "utility/stream_texture_v3.h"
+#include "utility/texture_loader_compat.h"
 #include "utility/import_exporter.h"
 #include "utility/gdre_cli_main.h"
 #include "utility/gdre_settings.h"
@@ -31,7 +31,7 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<PckDumper>();
 	ClassDB::register_class<ImportInfo>();
 	ClassDB::register_class<ImportExporter>();
-	ClassDB::register_class<ResourceFormatLoaderCompatTexture>();
+	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRECLIMain>();
 
 	ClassDB::register_class<PackDialog>();

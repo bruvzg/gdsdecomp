@@ -8,7 +8,7 @@
 #include "core/variant/variant_parser.h"
 #include "core/crypto/crypto_core.h"
 #include "gdre_packed_data.h"
-#include "stream_texture_v3.h"
+#include "texture_loader_compat.h"
 #include "gdre_settings.h"
 
 Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir , float *r_progress){
@@ -44,7 +44,7 @@ RES ResourceFormatLoaderCompat::load(const String & p_path, const String &projec
 		*r_error = err;
 	}
 	if (p_path.get_extension() == "tex" || p_path.get_extension() == "stex"){
-		ResourceFormatLoaderCompatTexture rflct;
+		TextureLoaderCompat rflct;
 		return rflct.load_texture2d(p_path, r_error);
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
@@ -1782,7 +1782,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess * fa, const Varia
 			if (ver_format == 1 && res->is_class("Image")){
 				fa->store_32(VariantBin::VARIANT_IMAGE);
 				// storing lossless compressed by default
-				ImageParserV2::write_v2image_to_bin(fa, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
+				ImageParserV2::write_image_v2_to_bin(fa, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
 			} else {
 				fa->store_32(VariantBin::VARIANT_OBJECT);
 				if (res.is_null()) {

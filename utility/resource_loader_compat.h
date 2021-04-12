@@ -196,7 +196,7 @@ class ResourceLoaderBinaryCompat {
 	Error error = OK;
 
 	friend class ResourceFormatLoaderCompat;
-	friend class ResourceFormatLoaderCompatTexture;
+	friend class TextureLoaderCompat;
 	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);

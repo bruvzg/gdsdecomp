@@ -6,11 +6,11 @@
 #include "core/templates/vector.h"
 #include "core/os/file_access.h"
 #include "scene/resources/texture.h"
-#ifndef STREAM_TEXTURE_V3_H
-#define STREAM_TEXTURE_V3_H
+#ifndef TEXTURE_LOADER_COMPAT_H
+#define TEXTURE_LOADER_COMPAT_H
 
-class ResourceFormatLoaderCompatTexture : public Reference{
-    GDCLASS(ResourceFormatLoaderCompatTexture, Reference);
+class TextureLoaderCompat : public Reference{
+    GDCLASS(TextureLoaderCompat, Reference);
     
     Error _load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const;
     Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const;
@@ -51,11 +51,7 @@ public:
     
     Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error * r_err);
     Ref<Image> load_image_from_tex(const String p_path, Error * r_err);
-
-    Error load(const String &p_path);
 };
-// alias because I made this name too long :<
-#define RFLCTexture ResourceFormatLoaderCompatTexture
 
 
-#endif
+#endif // TEXTURE_LOADER_COMPAT_H

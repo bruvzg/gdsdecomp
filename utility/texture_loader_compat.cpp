@@ -1,4 +1,4 @@
-#include "stream_texture_v3.h"
+#include "texture_loader_compat.h"
 #include "core/os/file_access.h"
 #include "gdre_packed_data.h"
 #include "resource_loader_compat.h"
@@ -16,9 +16,9 @@ enum FormatBits {
     FORMAT_BIT_DETECT_ROUGNESS = 1 << 27,
 };
 
-void ResourceFormatLoaderCompatTexture::_bind_methods(){}
+void TextureLoaderCompat::_bind_methods(){}
 
-ResourceFormatLoaderCompatTexture::TextureVersionType ResourceFormatLoaderCompatTexture::recognize(const String &p_path, Error * r_err){
+TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const String &p_path, Error * r_err){
 	Error err;
 	if (!r_err){
 		r_err = &err;
@@ -72,7 +72,7 @@ ResourceFormatLoaderCompatTexture::TextureVersionType ResourceFormatLoaderCompat
 	return FORMAT_NOT_TEXTURE;
 }
 
-Error ResourceFormatLoaderCompatTexture::load_image_from_fileV3(FileAccess * f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
+Error TextureLoaderCompat::load_image_from_fileV3(FileAccess * f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
 
 	if (!(df & FORMAT_BIT_STREAM)) {
     // do something??
@@ -214,7 +214,7 @@ Error ResourceFormatLoaderCompatTexture::load_image_from_fileV3(FileAccess * f, 
 	return OK;	
 }
 
-Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error * r_err) const{
+Ref<StreamTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error * r_err) const{
 	int lw, lh, lwc, lhc, lflags;
 	Error err;
 	Ref<StreamTexture2D> texture;
@@ -238,7 +238,7 @@ Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::_load_texture2d(const St
 	return texture;
 }
 
-Error ResourceFormatLoaderCompatTexture::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const{
+Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const{
 	Error err;
 	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
 
@@ -289,7 +289,7 @@ Error ResourceFormatLoaderCompatTexture::_load_data_tex_v2(const String &p_path,
 	return OK;
 }
 
-Error ResourceFormatLoaderCompatTexture::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
+Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
 	Error err;
 	
 	FileAccess * f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
@@ -322,7 +322,7 @@ Error ResourceFormatLoaderCompatTexture::_load_data_stex2d_v3(const String &p_pa
 	return OK;
 }
 
-Error ResourceFormatLoaderCompatTexture::_load_data_stex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const
+Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const
 {
 	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ);
 	uint8_t header[4];
@@ -354,7 +354,7 @@ Error ResourceFormatLoaderCompatTexture::_load_data_stex2d_v4(const String &p_pa
 	return OK;
 }
 
-Error ResourceFormatLoaderCompatTexture::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
 	Error err;
 	FileAccess *f = FileAccessGDRE::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Cannot open file '" + p_path + "'.");
@@ -448,7 +448,7 @@ Error ResourceFormatLoaderCompatTexture::_load_layered_texture_v3(const String &
 	return OK;
 }
 
-Error ResourceFormatLoaderCompatTexture::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const{
+Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const{
 	FileAccessRef f = FileAccessGDRE::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
@@ -496,7 +496,7 @@ Error ResourceFormatLoaderCompatTexture::_load_data_stexlayered_v4(const String 
 	return OK;
 }
 
-Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error * r_err, int ver_major) const{
+Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error * r_err, int ver_major) const{
 	int lw, lh, ld, ltype;
 	bool mipmaps;
 	Image::Format fmt;
@@ -523,7 +523,7 @@ Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::_load_texture3d(const St
 	return texture;
 }
 
-Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error * r_err, int ver_major) const{
+Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error * r_err, int ver_major) const{
 	int lw, lh, ld;
 
 	bool mipmaps;
@@ -562,10 +562,10 @@ Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::_load_texture_layer
 	return texture;
 }
 
-Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::load_texture_layered(const String p_path, Error * r_err){
+Ref<StreamTextureLayered> TextureLoaderCompat::load_texture_layered(const String p_path, Error * r_err){
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
@@ -611,10 +611,10 @@ Ref<StreamTextureLayered> ResourceFormatLoaderCompatTexture::load_texture_layere
 	return texture;
 }
 
-Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::load_texture3d(const String p_path, Error * r_err){
+Ref<StreamTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Error * r_err){
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -664,10 +664,10 @@ Ref<StreamTexture3D> ResourceFormatLoaderCompatTexture::load_texture3d(const Str
 	return texture;
 }
 
-Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::load_texture2d(const String p_path, Error * r_err){
+Ref<StreamTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Error * r_err){
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -715,12 +715,12 @@ Ref<StreamTexture2D> ResourceFormatLoaderCompatTexture::load_texture2d(const Str
 }
 
 // TODO: What to do with this?
-Vector<Ref<Image>> ResourceFormatLoaderCompatTexture::load_images_from_layered_tex(const String p_path, Error * r_err){
+Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error * r_err){
 	Error err;
 	Vector<Ref<Image>> data;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;
@@ -766,10 +766,10 @@ Vector<Ref<Image>> ResourceFormatLoaderCompatTexture::load_images_from_layered_t
 	return data;
 }
 
-Ref<Image> ResourceFormatLoaderCompatTexture::load_image_from_tex(const String p_path, Error * r_err){
+Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error * r_err){
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	ResourceFormatLoaderCompatTexture::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE){
 		if (r_err){
 			*r_err = err;

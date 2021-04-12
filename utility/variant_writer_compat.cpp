@@ -228,7 +228,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 				String res_text;
 				//Hack for V2 Images
 				if (ver_major == 2 && res->is_class("Image")) {
-					res_text = ImageParserV2::ImageV2_to_string(res);
+					res_text = ImageParserV2::image_v2_to_string(res);
 				} else if (p_encode_res_func) {
 					//try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);

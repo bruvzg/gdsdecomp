@@ -43,7 +43,7 @@ void _advance_padding(FileAccess * f, uint32_t p_len) {
 	}
 }
 
-String ImageParserV2::ImageV2_to_string(const Variant &r_v){
+String ImageParserV2::image_v2_to_string(const Variant &r_v){
     
         Ref<Image> img = r_v;
 
@@ -118,7 +118,7 @@ String ImageParserV2::ImageV2_to_string(const Variant &r_v){
         return imgstr;
 }
 
-Error ImageParserV2::write_v2image_to_bin(FileAccess* f, const Variant &r_v, const PropertyHint p_hint){
+Error ImageParserV2::write_image_v2_to_bin(FileAccess* f, const Variant &r_v, const PropertyHint p_hint){
     Ref<Image> val = r_v;
     if (val.is_null() || val->is_empty()) {
         f->store_32(V2Image::IMAGE_ENCODING_EMPTY);

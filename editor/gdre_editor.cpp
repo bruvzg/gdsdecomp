@@ -23,7 +23,7 @@
 
 #include "core/version_generated.gen.h"
 #include "utility/pcfg_loader.h"
-#include "utility/stream_texture_v3.h"
+#include "utility/texture_loader_compat.h"
 #include "utility/resource_loader_compat.h"
 
 
@@ -1514,7 +1514,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 		}
 		else if (err == ERR_FILE_CORRUPT) {
 			//This may be because we tried to load the old format
-			ResourceFormatLoaderCompatTexture stex3;
+			TextureLoaderCompat stex3;
 			img = stex3.load_image_from_tex(res_files[i], &err);
 		}
 		if (err != OK) {
