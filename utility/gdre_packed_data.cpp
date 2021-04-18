@@ -6,7 +6,7 @@
 #include "gdre_settings.h"
 
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, size_t p_offset) {
-	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack","");
+	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
 	FileAccess *f = FileAccess::open(pck_path, FileAccess::READ);
 	if (!f) {
 		return false;
@@ -45,7 +45,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 			return false;
 		}
 	}
-    
+
 	uint32_t version = f->get_32();
 	uint32_t ver_major = f->get_32();
 	uint32_t ver_minor = f->get_32();
@@ -53,17 +53,17 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 	if (version > PACK_FORMAT_VERSION) {
 		f->close();
-	 	memdelete(f);
-	 	ERR_FAIL_V_MSG(false, "Pack version unsupported: " + itos(version) + ".");
+		memdelete(f);
+		ERR_FAIL_V_MSG(false, "Pack version unsupported: " + itos(version) + ".");
 	}
 
-    uint32_t pack_flags = 0;
+	uint32_t pack_flags = 0;
 	uint64_t file_base = 0;
 
-    if (version == 2){
-        pack_flags = f->get_32();
-	    file_base = f->get_64();
-    }
+	if (version == 2) {
+		pack_flags = f->get_32();
+		file_base = f->get_64();
+	}
 
 	bool enc_directory = (pack_flags & PACK_DIR_ENCRYPTED);
 
@@ -121,7 +121,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		uint8_t md5[16];
 		uint32_t flags = 0;
 		f->get_buffer(md5, 16);
-	    if (version == 2){
+		if (version == 2) {
 			flags = f->get_32();
 		}
 		// add the file info to settings
@@ -138,7 +138,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		GDRESettings::get_singleton()->add_pack_file(pf_info);
 		// use the corrected path, not the raw path
 		path = pf_info->get_path();
-		PackedData::get_singleton()->add_path( pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
+		PackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
 	}
 
 	f->close();

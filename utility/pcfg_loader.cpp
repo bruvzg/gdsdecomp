@@ -1,26 +1,26 @@
 #include "pcfg_loader.h"
-#include <core/input/input_event.h>
-#include <core/config/engine.h>
-#include <core/os/keyboard.h>
-#include <core/io/compression.h>
-#include <core/os/file_access.h>
-#include <core/io/marshalls.h>
-#include <core/variant/variant_parser.h>
 #include "bytecode/bytecode_base.h"
 #include "utility/variant_writer_compat.h"
+#include <core/config/engine.h>
+#include <core/input/input_event.h>
+#include <core/io/compression.h>
+#include <core/io/marshalls.h>
+#include <core/os/file_access.h>
+#include <core/os/keyboard.h>
+#include <core/variant/variant_parser.h>
 
-Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor){
+Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 
-    cfb_path = path;
+	cfb_path = path;
 	Error err;
 	FileAccess *f = FileAccess::open(path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + path);
 	err = _load_settings_binary(f, path, ver_major);
 	memdelete(f);
-    return err;
+	return err;
 }
 
-Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor){
+Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor) {
 	String file;
 	if (ver_major > 2) {
 		file = "project.godot";
@@ -31,7 +31,7 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 	return save_custom(dir.plus_file(file), ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_load_settings_binary(FileAccess * f, const String &p_path, uint32_t ver_major) {
+Error ProjectConfigLoader::_load_settings_binary(FileAccess *f, const String &p_path, uint32_t ver_major) {
 
 	Error err;
 	uint8_t hdr[4];
@@ -58,13 +58,12 @@ Error ProjectConfigLoader::_load_settings_binary(FileAccess * f, const String &p
 		d.resize(vlen);
 		f->get_buffer(d.ptrw(), vlen);
 		Variant value;
-		if (ver_major == 4){
+		if (ver_major == 4) {
 			err = decode_variant(value, d.ptr(), d.size(), NULL, true);
-		} else if (ver_major == 3){
+		} else if (ver_major == 3) {
 			err = GDScriptDecomp::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
-		} else if (ver_major == 2){
+		} else if (ver_major == 2) {
 			err = GDScriptDecomp::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
-
 		}
 		ERR_CONTINUE_MSG(err != OK, "Error decoding property: " + key + ".");
 		props[key] = VariantContainer(value, last_builtin_order++, true);
@@ -134,7 +133,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 	FileAccess *file = FileAccess::open(p_file, FileAccess::WRITE, &err);
 	uint32_t config_version = 2;
 	if (ver_major > 2) {
-		if (ver_major == 3 && ver_minor == 0){
+		if (ver_major == 3 && ver_minor == 0) {
 			config_version = 3;
 		} else {
 			config_version = 4;
@@ -145,7 +144,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Couldn't save project.godot - " + p_file + ".");
 
-	if (config_version > 2){
+	if (config_version > 2) {
 		file->store_line("; Engine configuration file.");
 		file->store_line("; It's best edited using the editor UI and not directly,");
 		file->store_line("; since the parameters that go here are not all obvious.");
@@ -190,5 +189,5 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 ProjectConfigLoader::ProjectConfigLoader() {
 }
 
-ProjectConfigLoader::~ProjectConfigLoader(){
+ProjectConfigLoader::~ProjectConfigLoader() {
 }

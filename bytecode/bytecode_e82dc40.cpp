@@ -3,8 +3,8 @@
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
-#include "core/templates/map.h"
 #include "core/string/print_string.h"
+#include "core/templates/map.h"
 
 #include "bytecode_e82dc40.h"
 
@@ -409,7 +409,7 @@ Error GDScriptDecomp_e82dc40::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				_ensure_space(line);
 				line += "if ";
 			} break;
@@ -417,7 +417,7 @@ Error GDScriptDecomp_e82dc40::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				_ensure_space(line);
 				line += "else ";
 			} break;

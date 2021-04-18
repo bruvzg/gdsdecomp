@@ -3,103 +3,103 @@
 #ifndef RESOURCE_LOADER_COMPAT_H
 #define RESOURCE_LOADER_COMPAT_H
 #include "core/io/resource.h"
+#include "core/io/resource_format_binary.h"
 #include "core/os/file_access.h"
 #include "core/variant/variant.h"
-#include "core/io/resource_format_binary.h"
-#include "scene/resources/packed_scene.h"
-#include "resource_import_metadatav2.h"
 #include "import_info.h"
+#include "resource_import_metadatav2.h"
+#include "scene/resources/packed_scene.h"
 
 #ifdef TOOLS_ENABLED
 #define print_bl(m_what) (void)(m_what)
 //#define print_bl(m_what) print_line(m_what)
-#else 
+#else
 #define print_bl(m_what) (void)(m_what)
 #endif
-namespace VariantBin{	
-	enum Type {
-		//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
-		VARIANT_NIL = 1,
-		VARIANT_BOOL = 2,
-		VARIANT_INT = 3,
-		VARIANT_REAL = 4, //Old name for VARIANT_FLOAT
-		VARIANT_FLOAT = 4,
-		VARIANT_STRING = 5,
-		VARIANT_VECTOR2 = 10,
-		VARIANT_RECT2 = 11,
-		VARIANT_VECTOR3 = 12,
-		VARIANT_PLANE = 13,
-		VARIANT_QUAT = 14,
-		VARIANT_AABB = 15,
-		VARIANT_MATRIX3 = 16, // Old name for Basis
-		VARIANT_TRANSFORM = 17,
-		VARIANT_MATRIX32 = 18, // Old name for Transform2D
-		VARIANT_COLOR = 20,
-		VARIANT_IMAGE = 21,
-		VARIANT_NODE_PATH = 22,
-		VARIANT_RID = 23,
-		VARIANT_OBJECT = 24,
-		VARIANT_INPUT_EVENT = 25,
-		VARIANT_DICTIONARY = 26,
-		VARIANT_ARRAY = 30,
-		VARIANT_RAW_ARRAY = 31,
-		VARIANT_INT_ARRAY = 32, //Old name for VARIANT_INT32_ARRAY
-		VARIANT_INT32_ARRAY = 32,
-		VARIANT_REAL_ARRAY = 33, //Old name for VARIANT_FLOAT32_ARRAY
-		VARIANT_FLOAT32_ARRAY = 33,
-		VARIANT_STRING_ARRAY = 34,
-		VARIANT_VECTOR3_ARRAY = 35,
-		VARIANT_COLOR_ARRAY = 36,
-		VARIANT_VECTOR2_ARRAY = 37,
-		VARIANT_INT64 = 40,
-		VARIANT_DOUBLE = 41,
-		VARIANT_CALLABLE = 42,
-		VARIANT_SIGNAL = 43,
-		VARIANT_STRING_NAME = 44,
-		VARIANT_VECTOR2I = 45,
-		VARIANT_RECT2I = 46,
-		VARIANT_VECTOR3I = 47,
-		VARIANT_INT64_ARRAY = 48,
-		VARIANT_FLOAT64_ARRAY = 49,
-		OBJECT_EMPTY = 0,
-		OBJECT_EXTERNAL_RESOURCE = 1,
-		OBJECT_INTERNAL_RESOURCE = 2,
-		OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
+namespace VariantBin {
+enum Type {
+	//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
+	VARIANT_NIL = 1,
+	VARIANT_BOOL = 2,
+	VARIANT_INT = 3,
+	VARIANT_REAL = 4, //Old name for VARIANT_FLOAT
+	VARIANT_FLOAT = 4,
+	VARIANT_STRING = 5,
+	VARIANT_VECTOR2 = 10,
+	VARIANT_RECT2 = 11,
+	VARIANT_VECTOR3 = 12,
+	VARIANT_PLANE = 13,
+	VARIANT_QUAT = 14,
+	VARIANT_AABB = 15,
+	VARIANT_MATRIX3 = 16, // Old name for Basis
+	VARIANT_TRANSFORM = 17,
+	VARIANT_MATRIX32 = 18, // Old name for Transform2D
+	VARIANT_COLOR = 20,
+	VARIANT_IMAGE = 21,
+	VARIANT_NODE_PATH = 22,
+	VARIANT_RID = 23,
+	VARIANT_OBJECT = 24,
+	VARIANT_INPUT_EVENT = 25,
+	VARIANT_DICTIONARY = 26,
+	VARIANT_ARRAY = 30,
+	VARIANT_RAW_ARRAY = 31,
+	VARIANT_INT_ARRAY = 32, //Old name for VARIANT_INT32_ARRAY
+	VARIANT_INT32_ARRAY = 32,
+	VARIANT_REAL_ARRAY = 33, //Old name for VARIANT_FLOAT32_ARRAY
+	VARIANT_FLOAT32_ARRAY = 33,
+	VARIANT_STRING_ARRAY = 34,
+	VARIANT_VECTOR3_ARRAY = 35,
+	VARIANT_COLOR_ARRAY = 36,
+	VARIANT_VECTOR2_ARRAY = 37,
+	VARIANT_INT64 = 40,
+	VARIANT_DOUBLE = 41,
+	VARIANT_CALLABLE = 42,
+	VARIANT_SIGNAL = 43,
+	VARIANT_STRING_NAME = 44,
+	VARIANT_VECTOR2I = 45,
+	VARIANT_RECT2I = 46,
+	VARIANT_VECTOR3I = 47,
+	VARIANT_INT64_ARRAY = 48,
+	VARIANT_FLOAT64_ARRAY = 49,
+	OBJECT_EMPTY = 0,
+	OBJECT_EXTERNAL_RESOURCE = 1,
+	OBJECT_INTERNAL_RESOURCE = 2,
+	OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
 
-		//Old variant image enums
-		IMAGE_ENCODING_EMPTY = 0,
-		IMAGE_ENCODING_RAW = 1,
-		IMAGE_ENCODING_LOSSLESS = 2,
-		IMAGE_ENCODING_LOSSY = 3,
+	//Old variant image enums
+	IMAGE_ENCODING_EMPTY = 0,
+	IMAGE_ENCODING_RAW = 1,
+	IMAGE_ENCODING_LOSSLESS = 2,
+	IMAGE_ENCODING_LOSSY = 3,
 
-		IMAGE_FORMAT_GRAYSCALE = 0,
-		IMAGE_FORMAT_INTENSITY = 1,
-		IMAGE_FORMAT_GRAYSCALE_ALPHA = 2,
-		IMAGE_FORMAT_RGB = 3,
-		IMAGE_FORMAT_RGBA = 4,
-		IMAGE_FORMAT_INDEXED = 5,
-		IMAGE_FORMAT_INDEXED_ALPHA = 6,
-		IMAGE_FORMAT_BC1 = 7,
-		IMAGE_FORMAT_BC2 = 8,
-		IMAGE_FORMAT_BC3 = 9,
-		IMAGE_FORMAT_BC4 = 10,
-		IMAGE_FORMAT_BC5 = 11,
-		IMAGE_FORMAT_PVRTC2 = 12,
-		IMAGE_FORMAT_PVRTC2_ALPHA = 13,
-		IMAGE_FORMAT_PVRTC4 = 14,
-		IMAGE_FORMAT_PVRTC4_ALPHA = 15,
-		IMAGE_FORMAT_ETC = 16,
-		IMAGE_FORMAT_ATC = 17,
-		IMAGE_FORMAT_ATC_ALPHA_EXPLICIT = 18,
-		IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED = 19,
-		IMAGE_FORMAT_CUSTOM = 30,
+	IMAGE_FORMAT_GRAYSCALE = 0,
+	IMAGE_FORMAT_INTENSITY = 1,
+	IMAGE_FORMAT_GRAYSCALE_ALPHA = 2,
+	IMAGE_FORMAT_RGB = 3,
+	IMAGE_FORMAT_RGBA = 4,
+	IMAGE_FORMAT_INDEXED = 5,
+	IMAGE_FORMAT_INDEXED_ALPHA = 6,
+	IMAGE_FORMAT_BC1 = 7,
+	IMAGE_FORMAT_BC2 = 8,
+	IMAGE_FORMAT_BC3 = 9,
+	IMAGE_FORMAT_BC4 = 10,
+	IMAGE_FORMAT_BC5 = 11,
+	IMAGE_FORMAT_PVRTC2 = 12,
+	IMAGE_FORMAT_PVRTC2_ALPHA = 13,
+	IMAGE_FORMAT_PVRTC4 = 14,
+	IMAGE_FORMAT_PVRTC4_ALPHA = 15,
+	IMAGE_FORMAT_ETC = 16,
+	IMAGE_FORMAT_ATC = 17,
+	IMAGE_FORMAT_ATC_ALPHA_EXPLICIT = 18,
+	IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED = 19,
+	IMAGE_FORMAT_CUSTOM = 30,
 
-		//version 2: added 64 bits support for float and int
-		//version 3: changed nodepath encoding
-		FORMAT_VERSION = 3,
-		FORMAT_VERSION_CAN_RENAME_DEPS = 1,
-		FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
-	};
+	//version 2: added 64 bits support for float and int
+	//version 3: changed nodepath encoding
+	FORMAT_VERSION = 3,
+	FORMAT_VERSION_CAN_RENAME_DEPS = 1,
+	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
+};
 }
 /**
  * Ensures `m_cond` is false.
@@ -108,30 +108,29 @@ namespace VariantBin{
  * If checking for null use ERR_FAIL_NULL_V_MSG instead.
  * If checking index bounds use ERR_FAIL_INDEX_V_MSG instead.
  */
-#define ERR_RFLBC_COND_V_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                                              \
+#define ERR_RFLBC_COND_V_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                               \
 	if (unlikely(m_cond)) {                                                                                                                         \
-	    if (loader != nullptr) memdelete(loader);                                                                                                   \
+		if (loader != nullptr) memdelete(loader);                                                                                                   \
 		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), DEBUG_STR(m_msg)); \
 		return m_retval;                                                                                                                            \
 	} else                                                                                                                                          \
 		((void)0)
 
-#define ERR_RFLBC_COND_V_CLEANUP(m_cond, m_retval, loader)                                                                                              \
-	if (unlikely(m_cond)) {                                                                                                                         \
-	    if (loader != nullptr) memdelete(loader);                                                                                                   \
-		return m_retval;                                                                                                                            \
-	} else                                                                                                                                          \
+#define ERR_RFLBC_COND_V_CLEANUP(m_cond, m_retval, loader) \
+	if (unlikely(m_cond)) {                                \
+		if (loader != nullptr) memdelete(loader);          \
+		return m_retval;                                   \
+	} else                                                 \
 		((void)0)
 
-
-struct ResourceProperty{
+struct ResourceProperty {
 	String name;
 	Variant::Type type;
 	Variant value;
 };
 
 class ResourceLoaderBinaryCompat {
-    bool translation_remapped = false;
+	bool translation_remapped = false;
 	bool fake_load = false;
 	// The localized (i.e. res://) path to the resource
 	String local_path;
@@ -177,19 +176,18 @@ class ResourceLoaderBinaryCompat {
 		uint64_t offset;
 	};
 
-
 	Vector<IntResource> internal_resources;
 	Map<String, RES> internal_index_cache;
 	Map<String, String> internal_type_cache;
-	Map<String, List<ResourceProperty>> internal_index_cached_properties;
+	Map<String, List<ResourceProperty> > internal_index_cached_properties;
 
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
-	static void save_ustring(FileAccess * f, const String &p_string);
-	Error repair_property(const String &rtype, StringName &name, Variant &value);
+	static void save_ustring(FileAccess *f, const String &p_string);
+	Error repair_property(const String &rtype, const StringName &name, Variant &value);
 
 	String get_unicode_string();
-	static void advance_padding(FileAccess * f, uint32_t p_len);
+	static void advance_padding(FileAccess *f, uint32_t p_len);
 	void _advance_padding(uint32_t p_len);
 
 	Map<String, String> remaps;
@@ -197,14 +195,14 @@ class ResourceLoaderBinaryCompat {
 
 	friend class ResourceFormatLoaderCompat;
 	friend class TextureLoaderCompat;
-	static Map<String,String> _get_file_info(FileAccess *f, Error *r_error);
+	static Map<String, String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
-	RES set_dummy_ext(const String& path, const String& exttype);
+	RES set_dummy_ext(const String &path, const String &exttype);
 	RES set_dummy_ext(const uint32_t erindex);
-	RES make_dummy(const String& path, const String& type, const uint32_t subidx);
+	RES make_dummy(const String &path, const String &type, const uint32_t subidx);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
-	
+
 	Error load_ext_resource(const uint32_t i);
 	RES get_external_resource(const int subindex);
 	RES get_external_resource(const String &path);
@@ -218,64 +216,66 @@ class ResourceLoaderBinaryCompat {
 	List<ResourceProperty> get_internal_resource_properties(const String &path);
 
 	static String get_resource_path(const RES &res);
-	
+
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
 	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
 	Map<String, RES> dependency_cache;
-    public:
-		void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types);
-		static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
-		Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
-        static Map<String,String> get_version_and_type(const String &p_path, Error *r_error);
-        Error open(FileAccess *p_f);
-		Error load();
-		static String get_ustring(FileAccess *f);
-		Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
-		static String _write_rlc_resources(void *ud, const RES &p_resource);
-		String _write_rlc_resource(const RES &res);
-		Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
-		ResourceLoaderBinaryCompat();
-		~ResourceLoaderBinaryCompat();
-};
 
+public:
+	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types);
+	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
+	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
+	static Map<String, String> get_version_and_type(const String &p_path, Error *r_error);
+	Error open(FileAccess *p_f);
+	Error load();
+	static String get_ustring(FileAccess *f);
+	Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
+	static String _write_rlc_resources(void *ud, const RES &p_resource);
+	String _write_rlc_resource(const RES &res);
+	Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
+	ResourceLoaderBinaryCompat();
+	~ResourceLoaderBinaryCompat();
+};
 
 //this is derived from PackedScene because node instances in PackedScene cannot be returned otherwise
 class FakeResource : public PackedScene {
 	GDCLASS(FakeResource, PackedScene);
 	String real_path;
 	String real_type;
-	public:
-		String get_path() const {return real_path;}
-		String get_real_path(){return real_path;}
-		String get_real_type(){return real_type;}
-		void set_real_type(const String &t){real_type = t;}
-		void set_real_path(const String &p){real_path = p;}
+
+public:
+	String get_path() const { return real_path; }
+	String get_real_path() { return real_path; }
+	String get_real_type() { return real_type; }
+	void set_real_type(const String &t) { real_type = t; }
+	void set_real_path(const String &p) { real_path = p; }
 };
 
 class FakeScript : public Script {
 	GDCLASS(FakeScript, Script);
 	String real_path;
 	String real_type;
-	public:
-		String get_path() const {return real_path;}
-		String get_real_path(){return real_path;}
-		String get_real_type(){return real_type;}
-		void set_real_type(const String &t){real_type = t;}
-		void set_real_path(const String &p){real_path = p;}
+
+public:
+	String get_path() const { return real_path; }
+	String get_real_path() { return real_path; }
+	String get_real_type() { return real_type; }
+	void set_real_type(const String &t) { real_type = t; }
+	void set_real_path(const String &p) { real_path = p; }
 };
 
-class ResourceFormatLoaderCompat: public ResourceFormatLoader {
+class ResourceFormatLoaderCompat : public ResourceFormatLoader {
 private:
-	ResourceLoaderBinaryCompat * _open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+	ResourceLoaderBinaryCompat *_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+
 public:
 	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	RES load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };
-
 
 #endif // RESOURCE_LOADER_COMPAT_H

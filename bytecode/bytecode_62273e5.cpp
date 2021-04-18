@@ -3,8 +3,8 @@
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
-#include "core/templates/map.h"
 #include "core/string/print_string.h"
+#include "core/templates/map.h"
 
 #include "bytecode_62273e5.h"
 
@@ -434,14 +434,14 @@ Error GDScriptDecomp_62273e5::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "if ";
 			} break;
 			case TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "else ";
 			} break;
 			case TK_CF_FOR: {

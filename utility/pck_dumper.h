@@ -1,13 +1,13 @@
 #ifndef RE_PCK_DUMPER_H
 #define RE_PCK_DUMPER_H
 
-#include "core/templates/map.h"
-#include "core/io/resource.h"
-#include "core/object/object.h"
-#include "core/os/file_access.h"
-#include "core/object/reference.h"
-#include "core/io/resource_importer.h"
 #include "core/io/file_access_pack.h"
+#include "core/io/resource.h"
+#include "core/io/resource_importer.h"
+#include "core/object/object.h"
+#include "core/object/reference.h"
+#include "core/os/file_access.h"
+#include "core/templates/map.h"
 
 #include "gdre_packed_data.h"
 
@@ -18,12 +18,12 @@ class PckDumper : public Reference {
 	bool should_check_md5 = false;
 	bool loaded = false;
 	bool _get_magic_number(FileAccess *pck);
-	bool _pck_file_check_md5(Ref<PackedFileInfo> & file);
+	bool _pck_file_check_md5(Ref<PackedFileInfo> &file);
+
 protected:
 	static void _bind_methods();
 
 public:
-	
 	void set_key(const String &s);
 	Vector<uint8_t> get_key() const;
 	String get_key_str() const;
@@ -39,7 +39,6 @@ public:
 	String get_engine_version();
 	int get_file_count();
 	Vector<String> get_loaded_files();
-
 };
 
 #endif //RE_PCK_DUMPER_H

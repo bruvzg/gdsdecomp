@@ -1,29 +1,26 @@
 #include "gdre_settings.h"
-#include "core/config/project_settings.h"
 #include "core/config/engine.h"
+#include "core/config/project_settings.h"
 #include "core/io/file_access_zip.h"
 #include "modules/regex/regex.h"
 
+GDRESettings *GDRESettings::singleton = nullptr;
 
-
-GDRESettings * GDRESettings::singleton = nullptr;
-
-GDRESettings::GDRESettings(){
-    singleton = this;
+GDRESettings::GDRESettings() {
+	singleton = this;
 	logger = memnew(GDRELogger);
 	add_logger();
 }
 
-
-void GDRESettings::remove_current_pack(){
-    current_pack = nullptr;
-    packs.clear();
+void GDRESettings::remove_current_pack() {
+	current_pack = nullptr;
+	packs.clear();
 	files.clear();
 	reset_encryption_key();
 }
 
-void GDRESettings::reset_encryption_key(){
-	if (set_key){
+void GDRESettings::reset_encryption_key() {
+	if (set_key) {
 		memcpy(script_encryption_key, old_key, 32);
 		set_key = false;
 		enc_key_str = "";
@@ -31,96 +28,95 @@ void GDRESettings::reset_encryption_key(){
 	}
 }
 
-String get_standalone_pck_path(){
-    String exec_path = OS::get_singleton()->get_executable_path();
-    String exec_dir = exec_path.get_base_dir();
-    String exec_filename = exec_path.get_file();
-    String exec_basename = exec_filename.get_basename();
+String get_standalone_pck_path() {
+	String exec_path = OS::get_singleton()->get_executable_path();
+	String exec_dir = exec_path.get_base_dir();
+	String exec_filename = exec_path.get_file();
+	String exec_basename = exec_filename.get_basename();
 
-    return exec_dir.plus_file(exec_basename + ".pck");
-
+	return exec_dir.plus_file(exec_basename + ".pck");
 }
 
 // This loads the pack into PackedData so that the paths are globally accessible with FileAccess.
-// This is VERY hacky. We have to make a new PackedData singleton when loading a pack, and then 
+// This is VERY hacky. We have to make a new PackedData singleton when loading a pack, and then
 // delete it and make another new one while unloading.
 // A side-effect of this approach is that the standalone files will be in the path when running
 // standalone, which is why they were renamed with the prefix "gdre_" to avoid collision.
 // This also means that directory listings on the pack will include the standalone files, but we
 // specifically avoid doing that.
 // TODO: Consider submitting a PR to refactor PackedData to add and remove packs and sources
-Error GDRESettings::load_pack(const String& p_path){
-    if (is_pack_loaded()){
-        return ERR_ALREADY_IN_USE;
-    }
-    // So that we don't use PackedSourcePCK when we load this
-    String pack_path = p_path + "_GDRE_a_really_dumb_hack";
+Error GDRESettings::load_pack(const String &p_path) {
+	if (is_pack_loaded()) {
+		return ERR_ALREADY_IN_USE;
+	}
+	// So that we don't use PackedSourcePCK when we load this
+	String pack_path = p_path + "_GDRE_a_really_dumb_hack";
 
-    old_pack_data_singleton=PackedData::get_singleton();
-    // if packeddata is disabled, we're in the editor
-    in_editor = PackedData::get_singleton()->is_disabled();
-    // the PackedData constructor will set the singleton to the newly instanced one
-    new_singleton = memnew(PackedData);
-    GDREPackedSource * src = memnew(GDREPackedSource);
-    new_singleton->add_pack_source(src);
-    new_singleton->set_disabled(false);
-    // main.cpp normally adds this
-    #ifdef MINIZIP_ENABLED
+	old_pack_data_singleton = PackedData::get_singleton();
+	// if packeddata is disabled, we're in the editor
+	in_editor = PackedData::get_singleton()->is_disabled();
+	// the PackedData constructor will set the singleton to the newly instanced one
+	new_singleton = memnew(PackedData);
+	GDREPackedSource *src = memnew(GDREPackedSource);
+	new_singleton->add_pack_source(src);
+	new_singleton->set_disabled(false);
+// main.cpp normally adds this
+#ifdef MINIZIP_ENABLED
 	// We have to create a new one instead of a singleton because the old one will still be around as a pointer in PackedData
 	// which will cause a double free if we use that and then memdelete the new PackedData
-    new_singleton->add_pack_source(memnew(ZipArchive));
-    #endif
+	new_singleton->add_pack_source(memnew(ZipArchive));
+#endif
 
-    // If we're not in the editor, we have to add project pack back
-    if (!in_editor){
-        // using the base PackedSourcePCK here
-        new_singleton->add_pack(get_standalone_pck_path(), false, 0);
-    }
-    // set replace to true so that project.binary gets overwritten in case its loaded
-    // Project settings have already been loaded by this point and this won't affect them,
-    // so it's fine
-    new_singleton->add_pack(pack_path, true, 0);
+	// If we're not in the editor, we have to add project pack back
+	if (!in_editor) {
+		// using the base PackedSourcePCK here
+		new_singleton->add_pack(get_standalone_pck_path(), false, 0);
+	}
+	// set replace to true so that project.binary gets overwritten in case its loaded
+	// Project settings have already been loaded by this point and this won't affect them,
+	// so it's fine
+	new_singleton->add_pack(pack_path, true, 0);
 
-    // If we're in a first load, the old PackedData singleton is still held by main.cpp
-    // If we delete it, we'll cause a double free when the program closes because main.cpp deletes it
-    if (!first_load){
-        memdelete(old_pack_data_singleton);
-    } else {
-        first_load = false;
-    }
-    
-    return OK;
+	// If we're in a first load, the old PackedData singleton is still held by main.cpp
+	// If we delete it, we'll cause a double free when the program closes because main.cpp deletes it
+	if (!first_load) {
+		memdelete(old_pack_data_singleton);
+	} else {
+		first_load = false;
+	}
+
+	return OK;
 }
 
-Error GDRESettings::unload_pack(){
-    if (!is_pack_loaded()){
-        return ERR_DOES_NOT_EXIST;
-    }
-    remove_current_pack();
-    // we have to re-init PackedData to clear the paths
-    PackedData * new_old_singleton = memnew(PackedData);
-    new_old_singleton->set_disabled(in_editor);
-    if (!in_editor){
-        new_old_singleton->add_pack(get_standalone_pck_path(), false, 0);
-        // main.cpp normally adds this
-        #ifdef MINIZIP_ENABLED
+Error GDRESettings::unload_pack() {
+	if (!is_pack_loaded()) {
+		return ERR_DOES_NOT_EXIST;
+	}
+	remove_current_pack();
+	// we have to re-init PackedData to clear the paths
+	PackedData *new_old_singleton = memnew(PackedData);
+	new_old_singleton->set_disabled(in_editor);
+	if (!in_editor) {
+		new_old_singleton->add_pack(get_standalone_pck_path(), false, 0);
+// main.cpp normally adds this
+#ifdef MINIZIP_ENABLED
 		// instead of the singleton
-        new_old_singleton->add_pack_source(memnew(ZipArchive));
-        #endif
-    }
-    memdelete(new_singleton);
-    new_singleton = nullptr;
-    return OK;
+		new_old_singleton->add_pack_source(memnew(ZipArchive));
+#endif
+	}
+	memdelete(new_singleton);
+	new_singleton = nullptr;
+	return OK;
 }
 
-void GDRESettings::add_pack_info(Ref<PackInfo> packinfo){
-    packs.push_back(packinfo);
-    current_pack = packinfo.ptr();
+void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
+	packs.push_back(packinfo);
+	current_pack = packinfo.ptr();
 }
 
-void GDRESettings::set_encryption_key(const String &key_str){
+void GDRESettings::set_encryption_key(const String &key_str) {
 
-	String skey = key_str.replace_first("0x","");
+	String skey = key_str.replace_first("0x", "");
 	ERR_FAIL_COND_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, "not a valid key");
 
 	Vector<uint8_t> key;
@@ -149,10 +145,9 @@ void GDRESettings::set_encryption_key(const String &key_str){
 	set_encryption_key(key);
 }
 
-
 void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 	ERR_FAIL_COND_MSG(key.size() < 32, "key size incorrect!");
-	if (!set_key){
+	if (!set_key) {
 		memcpy(old_key, script_encryption_key, 32);
 	}
 	memcpy(script_encryption_key, key.ptr(), 32);
@@ -161,37 +156,36 @@ void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 	enc_key_str = String::hex_encode_buffer(key.ptr(), 32);
 }
 
-Vector<String> GDRESettings::get_file_list(const Vector<String> &filters){
-    Vector<String> ret;
-	Vector<Ref<PackedFileInfo>> flist = get_file_info_list(filters);
+Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
+	Vector<String> ret;
+	Vector<Ref<PackedFileInfo> > flist = get_file_info_list(filters);
 	for (int i = 0; i < flist.size(); i++) {
-        ret.push_back(flist[i]->path);
+		ret.push_back(flist[i]->path);
 	}
-    return ret;
+	return ret;
 }
 
-Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String> &filters){
-    if (filters.size() == 0){
-        return files;
-    }
-	Vector<Ref<PackedFileInfo>> ret;
+Vector<Ref<PackedFileInfo> > GDRESettings::get_file_info_list(const Vector<String> &filters) {
+	if (filters.size() == 0) {
+		return files;
+	}
+	Vector<Ref<PackedFileInfo> > ret;
 	for (int i = 0; i < files.size(); i++) {
-        for (int j = 0; j < filters.size(); j++)
-        {
-            if (files.get(i)->get_path().get_file().match(filters[j])){
-                ret.push_back(files.get(i));
-            }
-        }
+		for (int j = 0; j < filters.size(); j++) {
+			if (files.get(i)->get_path().get_file().match(filters[j])) {
+				ret.push_back(files.get(i));
+			}
+		}
 	}
 	return ret;
 }
 
 String GDRESettings::localize_path(const String &p_path, const String &resource_dir) const {
-    String res_path = resource_dir != "" ? resource_dir : project_path;
+	String res_path = resource_dir != "" ? resource_dir : project_path;
 
 	if (res_path == "") {
 		//not initialized yet
-		if (!p_path.is_abs_path()){
+		if (!p_path.is_abs_path()) {
 			//just tack on a "res://" here
 			return "res://" + p_path;
 		}
@@ -260,31 +254,31 @@ String GDRESettings::globalize_path(const String &p_path, const String &resource
 			return p_path.replace("user:/", data_dir);
 		}
 		return p_path.replace("user://", "");
-	} else if (!p_path.is_abs_path()){
-        return res_path.plus_file(p_path);
-    }
+	} else if (!p_path.is_abs_path()) {
+		return res_path.plus_file(p_path);
+	}
 
 	return p_path;
 }
 
-bool GDRESettings::is_fs_path(const String &p_path){
-	if (!p_path.is_abs_path()){
+bool GDRESettings::is_fs_path(const String &p_path) {
+	if (!p_path.is_abs_path()) {
 		return true;
 	}
 	if (p_path.find("://") == -1 || p_path.begins_with("file://")) {
 		return true;
 	}
 	//windows
-	if (OS::get_singleton()->get_name().begins_with("Win")){
+	if (OS::get_singleton()->get_name().begins_with("Win")) {
 
 		auto reg = RegEx("^[A-Za-z]:\\/");
-		if (reg.search(p_path).is_valid()){
+		if (reg.search(p_path).is_valid()) {
 			return true;
 		}
 		return false;
 	}
 	// unix
-	if (p_path.begins_with("/")){
+	if (p_path.begins_with("/")) {
 		return true;
 	}
 	return false;
@@ -294,11 +288,11 @@ bool GDRESettings::is_fs_path(const String &p_path){
 // If a pack is loaded, it will try to find it in the pack and fail if it can't
 // If not, it will look for it in the file system and fail if it can't
 // If it fails to find it, it returns an empty string
-String GDRESettings::_get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors){
-    String res_dir = resource_dir != "" ? resource_dir : project_path;
+String GDRESettings::_get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors) {
+	String res_dir = resource_dir != "" ? resource_dir : project_path;
 	String res_path;
 	// Try and find it in the packed data
-	if (is_pack_loaded()){
+	if (is_pack_loaded()) {
 		if (PackedData::get_singleton()->has_path(p_path)) {
 			return p_path;
 		}
@@ -309,7 +303,7 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 		// localize_path did nothing
 		if (!res_path.is_abs_path()) {
 			res_path = "res://" + res_path;
-			if (PackedData::get_singleton()->has_path(res_path)){
+			if (PackedData::get_singleton()->has_path(res_path)) {
 				return res_path;
 			}
 		}
@@ -320,31 +314,31 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 	//try and find it on the file system
 	res_path = p_path;
 	if (res_path.is_abs_path() && is_fs_path(res_path)) {
-		if (!FileAccess::exists(res_path)){
+		if (!FileAccess::exists(res_path)) {
 			ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Resource " + res_path + " does not exist");
 			return "";
 		}
 		return res_path;
 	}
-	
-	if(res_dir == ""){
+
+	if (res_dir == "") {
 		ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Can't find resource without project dir set");
 		return "";
 	}
-	
+
 	res_path = globalize_path(res_path, res_dir);
-	if (!FileAccess::exists(res_path)){
+	if (!FileAccess::exists(res_path)) {
 		ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Resource " + res_path + " does not exist");
 		return "";
 	}
 	return res_path;
 }
 
-bool GDRESettings::has_res_path(const String &p_path, const String &resource_dir){
+bool GDRESettings::has_res_path(const String &p_path, const String &resource_dir) {
 	return _get_res_path(p_path, resource_dir, true) != "";
 }
 
-String GDRESettings::get_res_path(const String &p_path, const String &resource_dir){
+String GDRESettings::get_res_path(const String &p_path, const String &resource_dir) {
 	return _get_res_path(p_path, resource_dir, false);
 }
 
@@ -379,7 +373,7 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	}
 }
 
-Error GDRESettings::open_log_file(const String& output_dir) {
+Error GDRESettings::open_log_file(const String &output_dir) {
 	String logfile = output_dir.plus_file("gdre_export.log");
 	Error err = logger->open_file(logfile);
 	ERR_FAIL_COND_V_MSG(err == ERR_ALREADY_IN_USE, err, "Already logging to another file");
@@ -412,7 +406,6 @@ void GDRELogger::close_file() {
 		memdelete(file);
 		file = nullptr;
 	}
-	
 }
 
 GDRELogger::GDRELogger() {}
@@ -424,53 +417,53 @@ GDRELogger::~GDRELogger() {
 // export logs to project directories.
 // main.cpp is apparently the only class that can add these, but "add_logger" is
 // only protected, so we can cast the singleton to a child class pointer and then call it.
-void GDRESettings::add_logger(){
-	OS * os_singleton = OS::get_singleton();
+void GDRESettings::add_logger() {
+	OS *os_singleton = OS::get_singleton();
 	String os_name = os_singleton->get_name();
 
-	if (os_name == "Windows"){
-		#ifdef WINDOWS_ENABLED
-		GDREOS<OS_Windows> *_gdre_os = static_cast<GDREOS<OS_Windows>*>(os_singleton);
+	if (os_name == "Windows") {
+#ifdef WINDOWS_ENABLED
+		GDREOS<OS_Windows> *_gdre_os = static_cast<GDREOS<OS_Windows> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
-		#endif
-	} 
-	#ifdef X11_ENABLED
-	else if (os_name == "Linux" || os_name.find("BSD") == -1 ){
-		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD>*>(os_singleton);
+#endif
+	}
+#ifdef X11_ENABLED
+	else if (os_name == "Linux" || os_name.find("BSD") == -1) {
+		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
-	#ifdef OSX_ENABLED
-	else if (os_name == "macOS"){
-		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX>*>(os_singleton);
+#endif
+#ifdef OSX_ENABLED
+	else if (os_name == "macOS") {
+		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
-	#ifdef UWP_ENABLED
-	else if (os_name == "UWP"){
-		GDREOS<OS_UWP> *_gdre_os = static_cast<GDREOS<OS_UWP>*>(os_singleton);
+#endif
+#ifdef UWP_ENABLED
+	else if (os_name == "UWP") {
+		GDREOS<OS_UWP> *_gdre_os = static_cast<GDREOS<OS_UWP> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
-	// the rest of these are probably unnecessary
-	#ifdef JAVASCRIPT_ENABLED
-	else if (os_name == "Javascript"){
-		GDREOS<OS_JavaScript> *_gdre_os = static_cast<GDREOS<OS_JavaScript>*>(os_singleton);
+#endif
+// the rest of these are probably unnecessary
+#ifdef JAVASCRIPT_ENABLED
+	else if (os_name == "Javascript") {
+		GDREOS<OS_JavaScript> *_gdre_os = static_cast<GDREOS<OS_JavaScript> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
-	#if defined(__ANDROID__)
-	else if (os_name == "Android"){
-		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android>*>(os_singleton);
+#endif
+#if defined(__ANDROID__)
+	else if (os_name == "Android") {
+		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
-	#ifdef IPHONE_ENABLED
-	else if (os_name == "iOS"){
-		GDREOS<OSIPhone> *_gdre_os = static_cast<GDREOS<OSIPhone>*>(os_singleton);
+#endif
+#ifdef IPHONE_ENABLED
+	else if (os_name == "iOS") {
+		GDREOS<OSIPhone> *_gdre_os = static_cast<GDREOS<OSIPhone> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
-	#endif
+#endif
 	else {
 		WARN_PRINT("No logger being set, there will be no logs!");
 	}

@@ -6,8 +6,8 @@
 
 #include "core/config/engine.h"
 #include "core/io/file_access_encrypted.h"
-#include "core/io/marshalls.h"
 #include "core/io/image.h"
+#include "core/io/marshalls.h"
 #include "core/os/file_access.h"
 
 #include <limits.h>
@@ -1281,7 +1281,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			}
 
 		} break;
-	
+
 		case 16: { // NODE_PATH
 			ERR_FAIL_COND_V(len < 4, ERR_INVALID_DATA);
 			int32_t strlen = decode_uint32(buf);

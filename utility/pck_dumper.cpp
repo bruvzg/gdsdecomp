@@ -1,25 +1,25 @@
 #include "pck_dumper.h"
-#include <core/os/file_access.h>
+#include "bytecode/bytecode_versions.h"
+#include "core/variant/variant_parser.h"
+#include "modules/regex/regex.h"
+#include "pcfg_loader.h"
+#include "resource_loader_compat.h"
 #include <core/io/file_access_encrypted.h>
 #include <core/os/dir_access.h>
+#include <core/os/file_access.h>
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
-#include "bytecode/bytecode_versions.h"
-#include "pcfg_loader.h"
-#include "core/variant/variant_parser.h"
-#include "resource_loader_compat.h"
-#include "modules/regex/regex.h"
 
 #include "core/crypto/crypto_core.h"
 #include "gdre_settings.h"
 
-bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
+bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
 	Error err;
 	FileAccess *pck_f = FileAccess::open(file->get_path(), FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!pck_f, false, "Can't open file '" + file->get_path() + "'.");
-	
+
 	// Loading an encrypted file automatically checks the md5
-	if (file->is_encrypted()){
+	if (file->is_encrypted()) {
 		return true;
 	}
 
@@ -57,17 +57,16 @@ bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> & file) {
 	return md5_match;
 }
 
-Error PckDumper::load_pck(const String& p_path) {
+Error PckDumper::load_pck(const String &p_path) {
 	return GDRESettings::get_singleton()->load_pack(p_path);
 }
 
 Error PckDumper::check_md5_all_files() {
 	Error err = OK;
-	int bad_checksums = 0;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	for (int i = 0; i < files.size(); i++) {
-		files.write[i]->set_md5_match(_pck_file_check_md5(files.get(i)));
-		if (files[i]->md5_passed){
+		files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
+		if (files[i]->md5_passed) {
 			print_line("Verified " + files[i]->path);
 		} else {
 			print_error("Checksum failed for " + files[i]->path);
@@ -88,7 +87,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 	Error err;
 	for (int i = 0; i < files.size(); i++) {
 		FileAccess *pck_f = FileAccess::open(files.get(i)->get_path(), FileAccess::READ, &err);
-		if (!pck_f){
+		if (!pck_f) {
 			failed_files += files.get(i)->get_path() + " (FileAccess error)\n";
 			continue;
 		}
@@ -112,7 +111,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 		memdelete(pck_f);
 		print_line("Extracted " + target_name);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
-			ProjectConfigLoader * pcfgldr = memnew(ProjectConfigLoader);
+			ProjectConfigLoader *pcfgldr = memnew(ProjectConfigLoader);
 			uint32_t ver_major = GDRESettings::get_singleton()->get_ver_major();
 			uint32_t ver_minor = GDRESettings::get_singleton()->get_ver_minor();
 			Error e1 = pcfgldr->load_cfb(target_name, ver_major, ver_minor);
@@ -124,7 +123,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			Error e2 = pcfgldr->save_cfb(target_name.get_base_dir(), ver_major, ver_minor);
 			if (e2 != OK) {
 				WARN_PRINT("Failed to save project file");
-			} else{
+			} else {
 				print_line("Exported project file " + target_name);
 			}
 			memdelete(pcfgldr);
@@ -167,30 +166,30 @@ Vector<uint8_t> PckDumper::get_key() const {
 	return GDRESettings::get_singleton()->get_encryption_key();
 }
 
-String PckDumper::get_key_str() const{
+String PckDumper::get_key_str() const {
 	return GDRESettings::get_singleton()->get_encryption_key_string();
 }
 
-int PckDumper::get_file_count(){
+int PckDumper::get_file_count() {
 	return GDRESettings::get_singleton()->get_file_count();
 }
 
-void PckDumper::clear_data(){
+void PckDumper::clear_data() {
 	GDRESettings::get_singleton()->unload_pack();
 }
 
-Vector<String> PckDumper::get_loaded_files(){
+Vector<String> PckDumper::get_loaded_files() {
 	Vector<String> filenames;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 
-	for (int i = 0; i < files.size(); i++){
+	for (int i = 0; i < files.size(); i++) {
 		String p = files.get(i)->get_path();
 		filenames.push_back(files.get(i)->get_path());
 	}
 	return filenames;
 }
 
-String PckDumper::get_engine_version(){
+String PckDumper::get_engine_version() {
 	return GDRESettings::get_singleton()->get_version_string();
 }
 

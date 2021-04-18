@@ -5,8 +5,8 @@
 #ifndef GODOT_RE_ENC_KEY_H
 #define GODOT_RE_ENC_KEY_H
 
-#include "core/templates/map.h"
 #include "core/io/resource.h"
+#include "core/templates/map.h"
 
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"

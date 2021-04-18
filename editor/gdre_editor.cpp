@@ -7,8 +7,8 @@
 #include "gdre_editor.h"
 
 #include "modules/gdscript/gdscript.h"
-#include "modules/gdscript/gdscript_utility_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
+#include "modules/gdscript/gdscript_utility_functions.h"
 
 #include "bytecode/bytecode_versions.h"
 
@@ -23,9 +23,8 @@
 
 #include "core/version_generated.gen.h"
 #include "utility/pcfg_loader.h"
-#include "utility/texture_loader_compat.h"
 #include "utility/resource_loader_compat.h"
-
+#include "utility/texture_loader_compat.h"
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -39,7 +38,6 @@
 #include "core/object/message_queue.h"
 #include "core/os/os.h"
 #include "main/main.h"
-
 
 ProgressDialog *ProgressDialog::singleton = NULL;
 
@@ -443,7 +441,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
-	
+
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -726,7 +724,7 @@ void GodotREEditor::_compile_files() {
 }
 
 void GodotREEditor::_compile_process() {
-/*
+	/*
 	Vector<String> files = script_dialog_c->get_file_list();
 	Vector<uint8_t> key = key_dialog->get_key(); = script_dialog_c->get_key();
 	String dir = script_dialog_c->get_target_dir();
@@ -1040,7 +1038,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			unsigned char hash[16];
 			ctx.finish(hash);
-			
+
 			f->close();
 			memdelete(f);
 
@@ -1085,7 +1083,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	pck_dialog->popup_centered();
 }
 
-
 void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	ProjectConfigLoader pcfgldr;
 	Error e1 = pcfgldr.load_cfb(path, ver_major, ver_minor);
@@ -1098,7 +1095,6 @@ void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint3
 		printf("Failed to save project config, no project file output.");
 	}
 }
-
 
 void GodotREEditor::_pck_extract_files() {
 
@@ -1152,7 +1148,7 @@ void GodotREEditor::_pck_extract_files_process() {
 			continue;
 		}
 		pck->seek(pck_files[files[i]].offset);
-		
+
 		if (pck_files[files[i]].flags & (1 << 0)) {
 			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
 			if (!fae) {
@@ -1397,7 +1393,7 @@ void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
 		String ext = p_files[i].get_extension().to_lower();
 		String new_ext = ".txt";
 		if (ext == "scn") {
-			if (p_files[i].to_lower().find(".escn.") != -1){
+			if (p_files[i].to_lower().find(".escn.") != -1) {
 				new_ext = ".escn";
 			} else {
 				new_ext = ".tscn";
@@ -1464,7 +1460,7 @@ void GodotREEditor::_res_bin_2_txt_process() {
 }
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
-	
+
 	ResourceFormatLoaderCompat rl;
 	Error err = rl.convert_bin_to_txt(p_src_path, p_dst_path);
 	return err;

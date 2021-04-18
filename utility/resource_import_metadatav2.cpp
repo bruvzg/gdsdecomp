@@ -1,6 +1,6 @@
 #include "resource_import_metadatav2.h"
-#include "core/object/class_db.h"
 #include "bytecode/bytecode_base.h"
+#include "core/object/class_db.h"
 
 void ResourceImportMetadatav2::set_editor(const String &p_editor) {
 

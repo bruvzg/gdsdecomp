@@ -1,46 +1,46 @@
 #include "variant_writer_compat.h"
 #include "core/input/input_event.h"
+#include "core/io/image.h"
 #include "core/io/resource_loader.h"
 #include "core/os/keyboard.h"
 #include "core/string/string_buffer.h"
-#include "core/io/image.h"
 #include "core/variant/variant_parser.h"
 #include "image_parser_v2.h"
 #include "resource_loader_compat.h"
 
-namespace ToV4{
+namespace ToV4 {
 
 enum Type {
 
-    NIL,
-    // atomic types
-    BOOL,
-    INT,
-    REAL,
-    STRING,
-    // math types
-	VECTOR2, 
+	NIL,
+	// atomic types
+	BOOL,
+	INT,
+	REAL,
+	STRING,
+	// math types
+	VECTOR2,
 	VECTOR2I, //Unused
 	RECT2,
-	RECT2I,   //Unused 
-	VECTOR3, 
-	VECTOR3I,  //Unused
+	RECT2I, //Unused
+	VECTOR3,
+	VECTOR3I, //Unused
 	TRANSFORM2D,
-    PLANE,
-    QUAT, // 10
-    _AABB, //sorry naming convention fail :( not like it's used often
-    BASIS,  //Basis
-    TRANSFORM,
-    // misc types
-    COLOR,
-    IMAGE, // 15
-    NODE_PATH,
-    _RID,
-    OBJECT,
-    INPUT_EVENT, // v2 struct which isn't mapped
+	PLANE,
+	QUAT, // 10
+	_AABB, //sorry naming convention fail :( not like it's used often
+	BASIS, //Basis
+	TRANSFORM,
+	// misc types
+	COLOR,
+	IMAGE, // 15
+	NODE_PATH,
+	_RID,
+	OBJECT,
+	INPUT_EVENT, // v2 struct which isn't mapped
 	SIGNAL, //Unused
-    DICTIONARY, // 20
-    ARRAY,
+	DICTIONARY, // 20
+	ARRAY,
 	// V3 arrays
 	POOL_BYTE_ARRAY = 26, // 20
 	POOL_INT_ARRAY = 27,
@@ -51,17 +51,17 @@ enum Type {
 	POOL_VECTOR2_ARRAY = 32,
 	POOL_VECTOR3_ARRAY = 33, // 25
 	POOL_COLOR_ARRAY = 34,
-    VARIANT_MAX = 35,
-    // V2 arrays
-    RAW_ARRAY = 26,//Byte array
-    INT_ARRAY = 27, 
+	VARIANT_MAX = 35,
+	// V2 arrays
+	RAW_ARRAY = 26, //Byte array
+	INT_ARRAY = 27,
 	INT64_ARRAY = 28, //unused
-    REAL_ARRAY = 29,
+	REAL_ARRAY = 29,
 	REAL64_ARRAY = 30, //Unused
-    STRING_ARRAY = 31, // 25
-    VECTOR2_ARRAY = 32,
-    VECTOR3_ARRAY = 33,
-    COLOR_ARRAY = 34,
+	STRING_ARRAY = 31, // 25
+	VECTOR2_ARRAY = 32,
+	VECTOR3_ARRAY = 33,
+	COLOR_ARRAY = 34,
 	// v2 name for transform2d
 	MATRIX32 = 11,
 	// v2 name for matrix3
@@ -80,14 +80,14 @@ static String rtosfix(double p_value) {
 		return rtoss(p_value);
 }
 
-Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud){
-	
+Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
+
 	// use the v4 write function instead for v4
-	if (ver_major == 4){
+	if (ver_major == 4) {
 		return VariantWriter::write(p_variant, p_store_string_func, p_encode_res_ud, p_encode_res_func, p_encode_res_ud);
 	}
-	
-	switch (p_variant.get_type()) {
+
+	switch ((ToV4::Type)p_variant.get_type()) {
 
 		case ToV4::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
@@ -232,7 +232,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 				} else if (p_encode_res_func) {
 					//try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
-				} else if (res->is_class("FakeResource")){
+				} else if (res->is_class("FakeResource")) {
 					//this is really just for debugging
 					res_text = "Resource( \"" + ((Ref<FakeResource>)res)->get_real_path() + "\")";
 				}
@@ -242,7 +242,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 					//external resource
 					String path = res->get_path();
 					res_text = "Resource( \"" + path + "\")";
-				}  
+				}
 
 				//could come up with some sort of text
 				if (res_text != String()) {
@@ -280,7 +280,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 		case ToV4::INPUT_EVENT: {
 			// binary resource formats don't support storing input events,
 			// so we don't bother writing them.
-			WARN_PRINT("Attempted to save Input Event!??!");
+			WARN_PRINT("Attempted to save Input Event!");
 		} break;
 		case ToV4::DICTIONARY: {
 
@@ -328,7 +328,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 			String s;
 			Vector<uint8_t> data = p_variant;
 			int len = data.size();
-			
+
 			const uint8_t *ptr = data.ptr();
 			for (int i = 0; i < len; i++) {
 
@@ -346,7 +346,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 			p_store_string_func(p_store_string_ud, ver_major == 2 ? "IntArray( " : "PoolIntArray( ");
 			Vector<int> data = p_variant;
 			int len = data.size();
-			
+
 			const int *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
@@ -360,7 +360,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		case ToV4::POOL_REAL_ARRAY: {// v2 FloatArray
+		case ToV4::POOL_REAL_ARRAY: { // v2 FloatArray
 
 			p_store_string_func(p_store_string_ud, ver_major == 2 ? "FloatArray( " : "PoolRealArray( ");
 			Vector<real_t> data = p_variant;
@@ -382,7 +382,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 			p_store_string_func(p_store_string_ud, ver_major == 2 ? "StringArray( " : "PoolStringArray( ");
 			Vector<String> data = p_variant;
 			int len = data.size();
-			
+
 			const String *ptr = data.ptr();
 			String s;
 			//write_string("\n");
@@ -417,7 +417,7 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 		} break;
 		case ToV4::POOL_VECTOR3_ARRAY: { // v2 Vector3Array
 
-			p_store_string_func(p_store_string_ud, ver_major == 2 ? "Vector3Array( " :"PoolVector3Array( ");
+			p_store_string_func(p_store_string_ud, ver_major == 2 ? "Vector3Array( " : "PoolVector3Array( ");
 			Vector<Vector3> data = p_variant;
 			int len = data.size();
 			const Vector3 *ptr = data.ptr();
@@ -434,11 +434,11 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 		} break;
 		case ToV4::POOL_COLOR_ARRAY: { // v2 ColorArray
 
-			p_store_string_func(p_store_string_ud, ver_major == 2 ? "ColorArray( " :"PoolColorArray( ");
+			p_store_string_func(p_store_string_ud, ver_major == 2 ? "ColorArray( " : "PoolColorArray( ");
 
 			Vector<Color> data = p_variant;
 			int len = data.size();
-			
+
 			const Color *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
@@ -451,12 +451,11 @@ Error VariantWriterCompat::write_compat( const Variant &p_variant, const uint32_
 			p_store_string_func(p_store_string_ud, " )");
 
 		} break;
-		default: {}
+		default: {
+		}
 	}
 	return OK;
 }
-
-
 
 static Error _write_to_str(void *ud, const String &p_string) {
 
