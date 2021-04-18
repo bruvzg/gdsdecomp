@@ -357,7 +357,7 @@ Error ImportExporter::export_imports(const String &output_dir) {
 		} else if (opt_export_mp3 && importer == "mp3") {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->source_file);
-		} else if (opt_bin2text && iinfo->import_path.get_extension() == "res" ||
+		} else if (opt_bin2text && (iinfo->import_path.get_extension() == "res") ||
 				   (importer == "scene" && (iinfo->source_file.get_extension() == "tscn" ||
 												   iinfo->source_file.get_extension() == "escn"))) {
 			iinfo->preferred_dest = iinfo->source_file;
@@ -453,7 +453,6 @@ Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &i
 	String path = iinfo->get_path();
 	String source = iinfo->get_source_file();
 	String dest = source;
-	auto loss_type = iinfo->get_import_loss_type();
 
 	iinfo->preferred_dest = dest;
 	if (iinfo->version == 2) {

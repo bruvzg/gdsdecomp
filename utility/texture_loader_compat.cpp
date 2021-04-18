@@ -47,8 +47,8 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		return TextureVersionType::FORMAT_V4_STREAM_TEXTURE3D;
 	} else if (header[0] == 'G' && header[1] == 'S' && header[2] == 'T' && header[3] == '2') {
 		return TextureVersionType::FORMAT_V4_STREAM_TEXTURE2D;
-	} else if (header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C' ||
-			   header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C') {
+	} else if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
+			   (header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		//check if this is a V2 texture
 		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
@@ -333,8 +333,8 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 	uint32_t df;
 
 	df = f->get_32();
-	// this doesn't get used?
-	int mipmap_limit = int(f->get_32());
+	// mipmap_limit, this doesn't get used?
+	f->get_32();
 	//reserved
 	f->get_32();
 	f->get_32();
@@ -463,8 +463,8 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 
 	r_depth = f->get_32(); //depth or layer count (StreamTextureLayered)
 	r_type = f->get_32(); //type
-	uint32_t df = f->get_32(); //data format
-	int mipmap_limit = f->get_32(); // mipmap limit, pretty sure it's ignored?
+	f->get_32(); //data format
+	f->get_32(); // mipmap limit, pretty sure it's ignored?
 	int mipmaps = f->get_32();
 	f->get_32(); //ignored
 	f->get_32(); //ignored

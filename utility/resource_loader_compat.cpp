@@ -2005,7 +2005,6 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	for (int i = 0; i < internal_resources.size(); i++) {
 		RES re = get_internal_resource(internal_resources[i].path);
 		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
-		int subidx = re->get_subindex();
 		String path = get_resource_path(re);
 		String rtype = get_internal_resource_type(path);
 		List<ResourceProperty> lrp = get_internal_resource_properties(path);
