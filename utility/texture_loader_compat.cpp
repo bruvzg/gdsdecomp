@@ -547,7 +547,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 	if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
 		res = Ref<StreamTexture2DArray>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
-		res == Ref<StreamCubemap>();
+		res = Ref<StreamCubemap>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
 		res = Ref<StreamCubemapArray>();
 	}
