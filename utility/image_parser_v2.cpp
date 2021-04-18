@@ -229,7 +229,8 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 				ERR_FAIL_V(ERR_FILE_CORRUPT);
 			}
 		}
-
+		f->store_32(mipmaps);
+		f->store_32(fmt);
 		int dlen = val->get_data().size();
 		f->store_32(dlen);
 		f->store_buffer(val->get_data().ptr(), dlen);
@@ -238,7 +239,6 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 		Vector<uint8_t> data;
 		if (encoding == V2Image::IMAGE_ENCODING_LOSSY) {
 			data = Image::lossy_packer(val, quality);
-
 		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS) {
 			data = Image::lossless_packer(val);
 		}
@@ -360,7 +360,7 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 			if (format == V2Image::IMAGE_FORMAT_INTENSITY) {
 				fmt = Image::FORMAT_RGBA8;
 				new_imgdata.resize(datalen * 4);
-				for (int i = 0; i < datalen; i++) {
+				for (uint32_t i = 0; i < datalen; i++) {
 					new_imgdata.write[i * 4] = 255;
 					new_imgdata.write[i * 4 + 1] = 255;
 					new_imgdata.write[i * 4 + 2] = 255;
@@ -383,7 +383,7 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 					palette.push_back(imgdata.subarray(dataidx, dataidx + p_width - 1));
 				}
 				//pixel data is index into palette
-				for (int i = 0; i < width * height; i++) {
+				for (uint32_t i = 0; i < width * height; i++) {
 					new_imgdata.append_array(palette[imgdata[i]]);
 				}
 			}
