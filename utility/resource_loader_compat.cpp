@@ -502,7 +502,7 @@ void print_class_prop_list(const StringName &cltype) {
 		ERR_FAIL_COND_MSG((!listpinfo || listpinfo->size() == 0), "No properties in class of type " + cltype + " ?");
 	}
 	print_line("List of valid properties in class" + cltype + " : \n[");
-	for (auto I = listpinfo->front(); I; I->next()) {
+	for (auto I = listpinfo->front(); I; I = I->next()) {
 		auto p = I->get();
 		print_line("\t{");
 		print_line("\t\tname:        " + p.name);

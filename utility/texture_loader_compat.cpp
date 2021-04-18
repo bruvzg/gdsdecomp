@@ -224,6 +224,8 @@ Ref<StreamTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, 
 		err = _load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
 	} else if (ver_major == 4) {
 		err = _load_data_stex2d_v4(p_path, lw, lh, lwc, lhc, image);
+	} else {
+		err = ERR_INVALID_PARAMETER;
 	}
 	if (r_err)
 		*r_err = err;
@@ -504,6 +506,8 @@ Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, V
 		err = _load_layered_texture_v3(p_path, r_data, fmt, lw, lh, ld, mipmaps);
 	} else if (ver_major == 4) {
 		err = _load_data_stexlayered_v4(p_path, r_data, fmt, lw, lh, ld, ltype, mipmaps);
+	} else {
+		err = ERR_INVALID_PARAMETER;
 	}
 	if (r_err)
 		*r_err = err;
@@ -532,6 +536,8 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 		type = 0;
 	} else if (ver_major == 4) {
 		err = _load_data_stexlayered_v4(p_path, r_data, fmt, lw, lh, ld, type, mipmaps);
+	} else {
+		err = ERR_INVALID_PARAMETER;
 	}
 	if (r_err)
 		*r_err = err;
@@ -543,7 +549,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
 		res == Ref<StreamCubemap>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
-		res == Ref<StreamCubemapArray>();
+		res = Ref<StreamCubemapArray>();
 	}
 
 	Ref<StreamTextureLayered> texture = res;

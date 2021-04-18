@@ -64,6 +64,8 @@ Error ProjectConfigLoader::_load_settings_binary(FileAccess *f, const String &p_
 			err = GDScriptDecomp::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
 		} else if (ver_major == 2) {
 			err = GDScriptDecomp::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
+		} else {
+			err = ERR_INVALID_PARAMETER; //or some other error code
 		}
 		ERR_CONTINUE_MSG(err != OK, "Error decoding property: " + key + ".");
 		props[key] = VariantContainer(value, last_builtin_order++, true);
