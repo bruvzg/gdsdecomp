@@ -193,7 +193,6 @@ void ScriptDecompDialog::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_file_list"), &ScriptDecompDialog::get_file_list);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &ScriptDecompDialog::get_target_dir);
-
 	ClassDB::bind_method(D_METHOD("_add_files_pressed"), &ScriptDecompDialog::_add_files_pressed);
 	ClassDB::bind_method(D_METHOD("_add_files_request", "files"), &ScriptDecompDialog::_add_files_request);
 	ClassDB::bind_method(D_METHOD("_remove_file_pressed"), &ScriptDecompDialog::_remove_file_pressed);

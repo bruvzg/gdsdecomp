@@ -5,8 +5,8 @@
 #ifndef GODOT_RE_EDITOR_H
 #define GODOT_RE_EDITOR_H
 
-#include "core/templates/map.h"
 #include "core/io/resource.h"
+#include "core/templates/map.h"
 
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
@@ -34,9 +34,9 @@
 
 #include "gdre_cmp_dlg.h"
 #include "gdre_dec_dlg.h"
+#include "gdre_enc_key.h"
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
-#include "gdre_enc_key.h"
 
 #ifndef TOOLS_ENABLED
 class ProgressDialog : public Popup {
@@ -210,9 +210,12 @@ private:
 	PackDialog *pck_dialog;
 	FileDialog *pck_file_selection;
 	String pck_file;
+	uint32_t pck_ver_major;
+	uint32_t pck_ver_minor;
+	uint32_t pck_ver_rev;
 	Map<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
-	
+
 	NewPackDialog *pck_save_dialog;
 	FileDialog *pck_source_folder;
 

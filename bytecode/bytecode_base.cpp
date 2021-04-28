@@ -6,8 +6,8 @@
 
 #include "core/config/engine.h"
 #include "core/io/file_access_encrypted.h"
-#include "core/io/marshalls.h"
 #include "core/io/image.h"
+#include "core/io/marshalls.h"
 #include "core/os/file_access.h"
 
 #include <limits.h>
@@ -128,6 +128,267 @@ String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t 
 		constString = constString.replace("\n", "\\n");
 	}
 	return constString;
+}
+
+String GDScriptDecomp::get_type_name_v2(int p_type) {
+	switch (p_type) {
+		case V2Type::Type::NIL: {
+
+			return "Nil";
+		} break;
+
+		// atomic types
+		case V2Type::Type::BOOL: {
+
+			return "bool";
+		} break;
+		case V2Type::Type::INT: {
+
+			return "int";
+
+		} break;
+		case V2Type::Type::REAL: {
+
+			return "float";
+
+		} break;
+		case V2Type::Type::STRING: {
+
+			return "String";
+		} break;
+
+		// math types
+		case V2Type::Type::VECTOR2: {
+
+			return "Vector2";
+		} break;
+		case V2Type::Type::RECT2: {
+
+			return "Rect2";
+		} break;
+		case V2Type::Type::MATRIX32: {
+
+			return "Matrix32";
+		} break;
+		case V2Type::Type::VECTOR3: {
+
+			return "Vector3";
+		} break;
+		case V2Type::Type::PLANE: {
+
+			return "Plane";
+
+		} break;
+		/*
+			case V2Type::Type::QUAT: {
+			} break;*/
+		case V2Type::Type::_AABB: {
+
+			return "AABB";
+		} break;
+		case V2Type::Type::QUAT: {
+
+			return "Quat";
+
+		} break;
+		case V2Type::Type::MATRIX3: {
+
+			return "Matrix3";
+
+		} break;
+		case V2Type::Type::TRANSFORM: {
+
+			return "Transform";
+
+		} break;
+
+		// misc types
+		case V2Type::Type::COLOR: {
+
+			return "Color";
+
+		} break;
+		case V2Type::Type::IMAGE: {
+
+			return "Image";
+
+		} break;
+		case V2Type::Type::_RID: {
+
+			return "RID";
+		} break;
+		case V2Type::Type::OBJECT: {
+
+			return "Object";
+		} break;
+		case V2Type::Type::NODE_PATH: {
+
+			return "NodePath";
+
+		} break;
+		case V2Type::Type::INPUT_EVENT: {
+
+			return "InputEvent";
+
+		} break;
+		case V2Type::Type::DICTIONARY: {
+
+			return "Dictionary";
+
+		} break;
+		case V2Type::Type::ARRAY: {
+
+			return "Array";
+
+		} break;
+
+		// arrays
+		case V2Type::Type::RAW_ARRAY: {
+
+			return "RawArray";
+
+		} break;
+		case V2Type::Type::INT_ARRAY: {
+
+			return "IntArray";
+
+		} break;
+		case V2Type::Type::REAL_ARRAY: {
+
+			return "RealArray";
+
+		} break;
+		case V2Type::Type::STRING_ARRAY: {
+
+			return "StringArray";
+		} break;
+		case V2Type::Type::VECTOR2_ARRAY: {
+
+			return "Vector2Array";
+
+		} break;
+		case V2Type::Type::VECTOR3_ARRAY: {
+
+			return "Vector3Array";
+
+		} break;
+		case V2Type::Type::COLOR_ARRAY: {
+
+			return "ColorArray";
+
+		} break;
+		default: {
+		}
+	}
+
+	return "";
+}
+
+String GDScriptDecomp::get_type_name_v3(int p_type) {
+
+	switch (p_type) {
+		case V3Type::Type::NIL: {
+			return "Nil";
+		} break;
+
+		// atomic types
+		case V3Type::Type::BOOL: {
+
+			return "bool";
+		} break;
+		case V3Type::Type::INT: {
+			return "int";
+		} break;
+		case V3Type::Type::REAL: {
+			return "float";
+		} break;
+		case V3Type::Type::STRING: {
+			return "String";
+		} break;
+
+		// math types
+		case V3Type::Type::VECTOR2: {
+			return "Vector2";
+		} break;
+		case V3Type::Type::RECT2: {
+			return "Rect2";
+		} break;
+		case V3Type::Type::TRANSFORM2D: {
+			return "Transform2D";
+		} break;
+		case V3Type::Type::VECTOR3: {
+			return "Vector3";
+		} break;
+		case V3Type::Type::PLANE: {
+			return "Plane";
+		} break;
+		/*
+			case V3Type::Type::QUAT: {
+			} break;*/
+		case V3Type::Type::AABB: {
+			return "AABB";
+		} break;
+		case V3Type::Type::QUAT: {
+			return "Quat";
+
+		} break;
+		case V3Type::Type::BASIS: {
+			return "Basis";
+
+		} break;
+		case V3Type::Type::TRANSFORM: {
+			return "Transform";
+		} break;
+
+		// misc types
+		case V3Type::Type::COLOR: {
+			return "Color";
+		} break;
+		case V3Type::Type::_RID: {
+			return "RID";
+		} break;
+		case V3Type::Type::OBJECT: {
+
+			return "Object";
+		} break;
+		case V3Type::Type::NODE_PATH: {
+			return "NodePath";
+
+		} break;
+		case V3Type::Type::DICTIONARY: {
+			return "Dictionary";
+		} break;
+		case V3Type::Type::ARRAY: {
+			return "Array";
+		} break;
+
+		// arrays
+		case V3Type::Type::POOL_BYTE_ARRAY: {
+			return "PoolByteArray";
+		} break;
+		case V3Type::Type::POOL_INT_ARRAY: {
+			return "PoolIntArray";
+		} break;
+		case V3Type::Type::POOL_REAL_ARRAY: {
+			return "PoolRealArray";
+		} break;
+		case V3Type::Type::POOL_STRING_ARRAY: {
+			return "PoolStringArray";
+		} break;
+		case V3Type::Type::POOL_VECTOR2_ARRAY: {
+			return "PoolVector2Array";
+		} break;
+		case V3Type::Type::POOL_VECTOR3_ARRAY: {
+			return "PoolVector3Array";
+		} break;
+		case V3Type::Type::POOL_COLOR_ARRAY: {
+			return "PoolColorArray";
+		} break;
+		default: {
+		}
+	}
+
+	return "";
 }
 
 Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len, bool p_allow_objects) {
@@ -1020,7 +1281,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			}
 
 		} break;
-	
+
 		case 16: { // NODE_PATH
 			ERR_FAIL_COND_V(len < 4, ERR_INVALID_DATA);
 			int32_t strlen = decode_uint32(buf);

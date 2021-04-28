@@ -7,8 +7,8 @@
 #include "gdre_editor.h"
 
 #include "modules/gdscript/gdscript.h"
-#include "modules/gdscript/gdscript_utility_functions.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
+#include "modules/gdscript/gdscript_utility_functions.h"
 
 #include "bytecode/bytecode_versions.h"
 
@@ -22,6 +22,9 @@
 #include "scene/resources/audio_stream_sample.h"
 
 #include "core/version_generated.gen.h"
+#include "utility/pcfg_loader.h"
+#include "utility/resource_loader_compat.h"
+#include "utility/texture_loader_compat.h"
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -335,7 +338,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	txt_res_file_selection = memnew(FileDialog);
 	txt_res_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	txt_res_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	txt_res_file_selection->add_filter("*.tscn,*.tres;Text resource files");
+	txt_res_file_selection->add_filter("*.escn,*.tscn,*.tres;Text resource files");
 	txt_res_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_txt_2_bin_request));
 	txt_res_file_selection->set_show_hidden_files(true);
 	p_control->add_child(txt_res_file_selection);
@@ -343,7 +346,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	stex_file_selection = memnew(FileDialog);
 	stex_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	stex_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	stex_file_selection->add_filter("*.stex;Stream texture files");
+	stex_file_selection->add_filter("*.stex,*.tex;Stream texture files");
 	stex_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_stex_2_png_request));
 	stex_file_selection->set_show_hidden_files(true);
 	p_control->add_child(stex_file_selection);
@@ -438,7 +441,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
-	
+
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -721,7 +724,7 @@ void GodotREEditor::_compile_files() {
 }
 
 void GodotREEditor::_compile_process() {
-/*
+	/*
 	Vector<String> files = script_dialog_c->get_file_list();
 	Vector<uint8_t> key = key_dialog->get_key(); = script_dialog_c->get_key();
 	String dir = script_dialog_c->get_target_dir();
@@ -835,16 +838,16 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		return;
 	}
 
-	uint32_t ver_major = pck->get_32();
-	uint32_t ver_minor = pck->get_32();
-	uint32_t ver_rev = pck->get_32();
+	pck_ver_major = pck->get_32();
+	pck_ver_minor = pck->get_32();
+	pck_ver_rev = pck->get_32();
 
-	if ((ver_major < 3) || ((ver_major == 3) && (ver_minor < 2))) {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+	if ((pck_ver_major < 3) || ((pck_ver_major == 3) && (pck_ver_minor < 2))) {
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	} else {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
+		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
+		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
 	}
 	uint32_t pack_flags = 0;
 	uint64_t file_base = 0;
@@ -1035,7 +1038,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			unsigned char hash[16];
 			ctx.finish(hash);
-			
+
 			f->close();
 			memdelete(f);
 
@@ -1078,6 +1081,19 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	pck_file = p_path;
 
 	pck_dialog->popup_centered();
+}
+
+void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
+	ProjectConfigLoader pcfgldr;
+	Error e1 = pcfgldr.load_cfb(path, ver_major, ver_minor);
+	if (e1 == OK) {
+		printf("Failed to load project config, no project file output.");
+		return;
+	}
+	Error e2 = pcfgldr.save_cfb(path.get_base_dir(), ver_major, ver_minor);
+	if (e2 == OK) {
+		printf("Failed to save project config, no project file output.");
+	}
 }
 
 void GodotREEditor::_pck_extract_files() {
@@ -1132,7 +1148,7 @@ void GodotREEditor::_pck_extract_files_process() {
 			continue;
 		}
 		pck->seek(pck_files[files[i]].offset);
-		
+
 		if (pck_files[files[i]].flags & (1 << 0)) {
 			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
 			if (!fae) {
@@ -1167,6 +1183,9 @@ void GodotREEditor::_pck_extract_files_process() {
 			memdelete(fa);
 		} else {
 			failed_files += files[i] + " (FileAccess error)\n";
+		}
+		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
+			convert_cfb_to_cfg(target_name, pck_ver_major, pck_ver_minor);
 		}
 		pck->close();
 		memdelete(pck);
@@ -1337,15 +1356,13 @@ void GodotREEditor::_res_stxt_2_png_process() {
 			break;
 		}
 
-		Ref<StreamTexture2D> stex;
-		stex.instance();
-		Error err = stex->load(res_files[i]);
+		Error err;
+		TextureLoaderCompat tlc;
+		Ref<Image> img = tlc.load_image_from_tex(res_files[i], &err);
 		if (err != OK) {
 			failed_files += res_files[i] + " (load StreamTexture error)\n";
 			continue;
 		}
-
-		Ref<Image> img = stex->get_image();
 		if (img.is_null()) {
 			failed_files += res_files[i] + " (invalid texture data)\n";
 			continue;
@@ -1376,7 +1393,11 @@ void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
 		String ext = p_files[i].get_extension().to_lower();
 		String new_ext = ".txt";
 		if (ext == "scn") {
-			new_ext = ".tscn";
+			if (p_files[i].to_lower().find(".escn.") != -1) {
+				new_ext = ".escn";
+			} else {
+				new_ext = ".tscn";
+			}
 		} else if (ext == "res") {
 			new_ext = ".tres";
 		}
@@ -1413,7 +1434,11 @@ void GodotREEditor::_res_bin_2_txt_process() {
 		String ext = res_files[i].get_extension().to_lower();
 		String new_ext = ".txt";
 		if (ext == "scn") {
-			new_ext = ".tscn";
+			if (res_files[i].to_lower().find(".escn") != -1) {
+				new_ext = ".escn";
+			} else {
+				new_ext = ".tscn";
+			}
 		} else if (ext == "res") {
 			new_ext = ".tres";
 		}
@@ -1436,8 +1461,9 @@ void GodotREEditor::_res_bin_2_txt_process() {
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
 
-	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
-	return ResourceFormatSaverText::singleton->save(p_dst_path, rl->load(p_src_path));
+	ResourceFormatLoaderCompat rl;
+	Error err = rl.convert_bin_to_txt(p_src_path, p_dst_path);
+	return err;
 }
 
 void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
@@ -1447,7 +1473,7 @@ void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
 	for (int i = 0; i < p_files.size(); i++) {
 		String ext = p_files[i].get_extension().to_lower();
 		String new_ext = ".bin";
-		if (ext == "tscn") {
+		if (ext == "tscn" || ext == "escn") {
 			new_ext = ".scn";
 		} else if (ext == "tres") {
 			new_ext = ".res";

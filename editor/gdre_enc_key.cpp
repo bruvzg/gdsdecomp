@@ -96,7 +96,6 @@ void EncKeyDialog::_script_encryption_key_changed(const String &p_key) {
 	_validate_input();
 }
 
-
 void EncKeyDialog::_notification(int p_notification) {
 	//NOP
 }

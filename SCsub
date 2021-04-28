@@ -3,11 +3,21 @@
 Import("env")
 Import("env_modules")
 
+mmp3thirdparty_dir = "#thirdparty/minimp3/"
+
 env_gdsdecomp = env_modules.Clone()
 
 env_gdsdecomp.Append(CPPPATH=["."])
 env_gdsdecomp.Append(CPPPATH=["#thirdparty/nanosvg/"])
+# Treat minimp3 headers as system headers to avoid raising warnings. Not supported on MSVC.
+if not env.msvc:
+    env_gdsdecomp.Append(CPPFLAGS=["-isystem", Dir(mmp3thirdparty_dir).path])
+else:
+    env_gdsdecomp.Prepend(CPPPATH=[mmp3thirdparty_dir])
+
 env_gdsdecomp.add_source_files(env.modules_sources, "*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "bytecode/*.cpp")
 
 env_gdsdecomp.add_source_files(env.modules_sources, "editor/*.cpp")
+env_gdsdecomp.add_source_files(env.modules_sources, "utility/*.cpp")
+

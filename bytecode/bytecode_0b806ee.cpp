@@ -3,8 +3,8 @@
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
-#include "core/templates/map.h"
 #include "core/string/print_string.h"
+#include "core/templates/map.h"
 
 #include "bytecode_0b806ee.h"
 
@@ -263,7 +263,7 @@ Error GDScriptDecomp_0b806ee::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "self";
 			} break;
 			case TK_BUILT_IN_TYPE: {
-				line += Variant::get_type_name(Variant::Type(tokens[i] >> TOKEN_BITS));
+				line += get_type_name_v2(tokens[i] >> TOKEN_BITS);
 			} break;
 			case TK_BUILT_IN_FUNC: {
 				line += func_names[tokens[i] >> TOKEN_BITS];
@@ -404,14 +404,14 @@ Error GDScriptDecomp_0b806ee::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "if ";
 			} break;
 			case TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "else ";
 			} break;
 			case TK_CF_FOR: {

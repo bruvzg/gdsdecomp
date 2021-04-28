@@ -3,8 +3,8 @@
 /*************************************************************************/
 
 #include "core/io/marshalls.h"
-#include "core/templates/map.h"
 #include "core/string/print_string.h"
+#include "core/templates/map.h"
 
 #include "bytecode_506df14.h"
 
@@ -323,7 +323,7 @@ Error GDScriptDecomp_506df14::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "self";
 			} break;
 			case TK_BUILT_IN_TYPE: {
-				line += Variant::get_type_name(Variant::Type(tokens[i] >> TOKEN_BITS));
+				line += get_type_name_v3(tokens[i] >> TOKEN_BITS);
 			} break;
 			case TK_BUILT_IN_FUNC: {
 				line += func_names[tokens[i] >> TOKEN_BITS];
@@ -464,14 +464,14 @@ Error GDScriptDecomp_506df14::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "if ";
 			} break;
 			case TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
-				if(prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE) _ensure_space(line);
 				line += "else ";
 			} break;
 			case TK_CF_FOR: {
@@ -535,6 +535,7 @@ Error GDScriptDecomp_506df14::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "var ";
 			} break;
 			case TK_PR_AS: {
+				_ensure_space(line);
 				line += "as ";
 			} break;
 			case TK_PR_VOID: {
