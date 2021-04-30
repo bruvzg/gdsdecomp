@@ -146,7 +146,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 					Vector<uint8_t> id = mipmap_images[i]->get_data();
 					int len = id.size();
 					const uint8_t *r = id.ptr();
-					copymem(&wr[ofs], r, len);
+					memcpy(&wr[ofs], r, len);
 					ofs += len;
 				}
 			}
@@ -203,7 +203,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 				int expected = total_size - ofs;
 				if (bytes < expected) {
 					//this is a compatibility workaround for older format, which saved less mipmaps2. It is still recommended the image is reimported.
-					zeromem(wr + bytes, (expected - bytes));
+					memset(wr + bytes, 0, (expected - bytes));
 				}
 				ERR_FAIL_COND_V(bytes != expected, ERR_FILE_CORRUPT);
 			}
@@ -410,7 +410,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 
 						Vector<uint8_t> id = mipmap_images[i]->get_data();
 						int len = id.size();
-						copymem(&img_data.ptrw()[ofs], id.ptr(), len);
+						memcpy(&img_data.ptrw()[ofs], id.ptr(), len);
 						ofs += len;
 					}
 				}
