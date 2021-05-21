@@ -5,7 +5,7 @@
 #include "core/version.h"
 #include "gdre_settings.h"
 
-bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, size_t p_offset) {
+bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
 	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
 	FileAccess *f = FileAccess::open(pck_path, FileAccess::READ);
 	if (!f) {

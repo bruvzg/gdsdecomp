@@ -147,7 +147,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		String fld_name = p_name.substr(0, pp);
 		String path = p_name.substr(pp + 1, p_name.length());
 		//Add folder if any
-		TreeItem *it = p_item->get_children();
+		TreeItem *it = p_item->get_first_child();
 		while (it) {
 			if (it->get_text(0) == fld_name) {
 				add_file_to_item(it, p_fullname, path, p_size, p_icon, p_error, false);
@@ -186,7 +186,7 @@ size_t PackDialog::_selected(TreeItem *p_item) {
 		selected = 1;
 	}
 
-	TreeItem *it = p_item->get_children();
+	TreeItem *it = p_item->get_first_child();
 	while (it) {
 		selected += _selected(it);
 		it = it->get_next();
@@ -202,8 +202,8 @@ void PackDialog::_update_subitems(TreeItem *p_item, bool p_check, bool p_first) 
 		p_item->set_checked(0, false);
 	}
 
-	if (p_item->get_children()) {
-		_update_subitems(p_item->get_children(), p_check);
+	if (p_item->get_first_child()) {
+		_update_subitems(p_item->get_first_child(), p_check);
 	}
 
 	if (!p_first && p_item->get_next()) {
@@ -282,7 +282,7 @@ void PackDialog::_get_selected_files(Vector<String> &p_list, TreeItem *p_item) c
 	if (p_item->is_checked(0) && (name != String())) {
 		p_list.push_back(name);
 	}
-	TreeItem *it = p_item->get_children();
+	TreeItem *it = p_item->get_first_child();
 	while (it) {
 		_get_selected_files(p_list, it);
 		it = it->get_next();
