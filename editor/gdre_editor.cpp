@@ -1596,7 +1596,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			CryptoCore::MD5Context ctx;
 			ctx.start();
 
-			int64_t rq_size = file->get_len();
+			int64_t rq_size = file->get_length();
 			uint8_t buf[32768];
 
 			while (rq_size > 0) {
@@ -1629,14 +1629,14 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 				}
 			}
 
-			PackedFile finfo = PackedFile(offset, file->get_len(), flags);
+			PackedFile finfo = PackedFile(offset, file->get_length(), flags);
 			finfo.name = p_rel.plus_file(f);
 			for (int j = 0; j < 16; j++) {
 				finfo.md5[j] = hash[j];
 			}
 			pck_save_files.push_back(finfo);
 
-			offset += file->get_len();
+			offset += file->get_length();
 
 			memdelete(file);
 		}

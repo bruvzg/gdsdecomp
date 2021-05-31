@@ -484,7 +484,7 @@ Error ImportExporter::get_md5_hash(const String &path, String &hash_str) {
 	CryptoCore::MD5Context ctx;
 	ctx.start();
 
-	int64_t rq_size = file->get_len();
+	int64_t rq_size = file->get_length();
 	uint8_t buf[32768];
 
 	while (rq_size > 0) {

@@ -91,7 +91,7 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 		ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
 	}
 
-	bytecode.resize(fae->get_len());
+	bytecode.resize(fae->get_length());
 	fae->get_buffer(bytecode.ptrw(), bytecode.size());
 	fae->close();
 	memdelete(fae);
