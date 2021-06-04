@@ -19,6 +19,7 @@ PackDialog::PackDialog() {
 	add_child(target_folder_selection);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
+	script_vb->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
 	//Version inf label
 	vernfo = memnew(Label);
@@ -30,9 +31,9 @@ PackDialog::PackDialog() {
 
 	//File list
 	file_list = memnew(Tree);
-	file_list->set_custom_minimum_size(Size2(1000, 600) * EDSCALE);
-
+	file_list->set_custom_minimum_size(Size2(400, 100) * EDSCALE);
 	file_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+
 	file_list->set_columns(3);
 	file_list->set_column_titles_visible(true);
 
@@ -58,7 +59,7 @@ PackDialog::PackDialog() {
 
 	file_list->connect("item_edited", callable_mp(this, &PackDialog::_item_edited));
 
-	script_vb->add_margin_child(RTR("Files:"), file_list);
+	script_vb->add_margin_child(RTR("Files:"), file_list, true);
 
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
@@ -169,7 +170,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 
 void PackDialog::_dir_select_pressed() {
 
-	target_folder_selection->popup_centered(Size2(800, 600));
+	target_folder_selection->popup_centered(Size2(600, 400));
 }
 
 void PackDialog::_dir_select_request(const String &p_path) {

@@ -25,10 +25,13 @@ ScriptCompDialog::ScriptCompDialog() {
 	add_child(file_selection);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
+	script_vb->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
 	//File list
 	file_list = memnew(ItemList);
-	file_list->set_custom_minimum_size(Size2(600, 400) * EDSCALE);
+	file_list->set_custom_minimum_size(Size2(400, 100) * EDSCALE);
+	file_list->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	file_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
 	HBoxContainer *file_list_hbc = memnew(HBoxContainer);
 	add_file = memnew(Button);
@@ -46,7 +49,7 @@ ScriptCompDialog::ScriptCompDialog() {
 	clear_files->connect("pressed", callable_mp(this, &ScriptCompDialog::_clear_pressed));
 	file_list_hbc->add_child(clear_files);
 
-	script_vb->add_margin_child(RTR("Script files:"), file_list);
+	script_vb->add_margin_child(RTR("Script files:"), file_list, true);
 	script_vb->add_child(file_list_hbc);
 
 	//Target directory
@@ -94,7 +97,7 @@ String ScriptCompDialog::get_target_dir() const {
 
 void ScriptCompDialog::_add_files_pressed() {
 
-	file_selection->popup_centered(Size2(800, 600));
+	file_selection->popup_centered(Size2(600, 400));
 }
 
 void ScriptCompDialog::_add_files_request(const Vector<String> &p_files) {
@@ -149,7 +152,7 @@ void ScriptCompDialog::_validate_input() {
 
 void ScriptCompDialog::_dir_select_pressed() {
 
-	target_folder_selection->popup_centered(Size2(800, 600));
+	target_folder_selection->popup_centered(Size2(600, 400));
 }
 
 void ScriptCompDialog::_dir_select_request(const String &p_path) {

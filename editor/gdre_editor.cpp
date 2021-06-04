@@ -179,7 +179,9 @@ ResultDialog::ResultDialog() {
 
 	message = memnew(TextEdit);
 	message->set_readonly(true);
-	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
+	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
+	message->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	message->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	script_vb->add_child(message);
 
 	add_child(script_vb);
@@ -218,7 +220,9 @@ OverwriteDialog::OverwriteDialog() {
 
 	message = memnew(TextEdit);
 	message->set_readonly(true);
-	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
+	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
+	message->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	message->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	script_vb->add_child(message);
 
 	add_child(script_vb);
@@ -385,8 +389,9 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 		Label *about_label = memnew(Label);
 		about_hbc->add_child(about_label);
-		about_label->set_custom_minimum_size(Size2(600, 150) * EDSCALE);
+		about_label->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
 		about_label->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+		about_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 		about_label->set_autowrap(true);
 		String about_text =
 				String("Godot RE Tools, ") + String(GDRE_VERSION) + String(" \n\n") +
@@ -527,34 +532,34 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 
 		} break;
 		case MENU_KEY: {
-			key_dialog->popup_centered(Size2(800, 600));
+			key_dialog->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_CREATE_PCK: {
-			pck_source_folder->popup_centered(Size2(800, 600));
+			pck_source_folder->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_EXT_PCK: {
-			pck_file_selection->popup_centered(Size2(800, 600));
+			pck_file_selection->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_DECOMP_GDS: {
-			script_dialog_d->popup_centered(Size2(800, 600));
+			script_dialog_d->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_COMP_GDS: {
-			script_dialog_c->popup_centered(Size2(800, 600));
+			script_dialog_c->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_CONV_TO_TXT: {
-			bin_res_file_selection->popup_centered(Size2(800, 600));
+			bin_res_file_selection->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_CONV_TO_BIN: {
-			txt_res_file_selection->popup_centered(Size2(800, 600));
+			txt_res_file_selection->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_STEX_TO_PNG: {
-			stex_file_selection->popup_centered(Size2(800, 600));
+			stex_file_selection->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_OSTR_TO_OGG: {
-			ostr_file_selection->popup_centered(Size2(800, 600));
+			ostr_file_selection->popup_centered(Size2(600, 400));
 		} break;
 		case MENU_SMPL_TO_WAV: {
-			smpl_file_selection->popup_centered(Size2(800, 600));
+			smpl_file_selection->popup_centered(Size2(600, 400));
 		} break;
 
 		case MENU_ABOUT_RE: {
@@ -1080,7 +1085,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	memdelete(pck);
 	pck_file = p_path;
 
-	pck_dialog->popup_centered();
+	pck_dialog->popup_centered(Size2(600, 400));
 }
 
 void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
@@ -1546,7 +1551,7 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 	pck_save_files.clear();
 	pck_file = p_path;
 
-	pck_save_dialog->popup_centered(Size2(800, 600));
+	pck_save_dialog->popup_centered(Size2(600, 400));
 }
 
 void GodotREEditor::_pck_save_prep() {
@@ -1557,7 +1562,7 @@ void GodotREEditor::_pck_save_prep() {
 	} else {
 		pck_save_file_selection->add_filter("*.pck;PCK archive files");
 	}
-	pck_save_file_selection->popup_centered(Size2(800, 600));
+	pck_save_file_selection->popup_centered(Size2(600, 400));
 }
 
 #define PCK_PADDING 16

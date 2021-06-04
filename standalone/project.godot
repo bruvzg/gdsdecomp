@@ -23,7 +23,7 @@ config/icon="res://gdre_icon.png"
 
 window/size/width=1200
 window/size/height=1024
-window/dpi/allow_hidpi=true
+window/dpi/allow_hidpi=false
 
 [editor]
 

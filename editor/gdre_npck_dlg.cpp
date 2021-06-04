@@ -14,6 +14,7 @@ NewPackDialog::NewPackDialog() {
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
+	script_vb->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
 	ver_base = memnew(SpinBox);
 	ver_base->set_min(0);
@@ -142,7 +143,7 @@ void NewPackDialog::_val_change(double p_val) {
 }
 
 void NewPackDialog::_exe_select_pressed() {
-	emb_selection->popup_centered(Size2(800, 600));
+	emb_selection->popup_centered(Size2(600, 400));
 }
 
 void NewPackDialog::_exe_select_request(const String &p_path) {
