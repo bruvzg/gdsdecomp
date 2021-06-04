@@ -26,10 +26,13 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	add_child(file_selection);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
+	script_vb->set_v_size_flags(SIZE_EXPAND_FILL);
 
 	//File list
 	file_list = memnew(ItemList);
-	file_list->set_custom_minimum_size(Size2(600, 400) * EDSCALE);
+	file_list->set_custom_minimum_size(Size2(400, 100) * EDSCALE);
+	file_list->set_h_size_flags(SIZE_EXPAND_FILL);
+	file_list->set_v_size_flags(SIZE_EXPAND_FILL);
 
 	HBoxContainer *file_list_hbc = memnew(HBoxContainer);
 	add_file = memnew(Button);
@@ -47,7 +50,7 @@ ScriptDecompDialog::ScriptDecompDialog() {
 	clear_files->connect("pressed", this, "_clear_pressed");
 	file_list_hbc->add_child(clear_files);
 
-	script_vb->add_margin_child(RTR("Script files:"), file_list);
+	script_vb->add_margin_child(RTR("Script files:"), file_list, true);
 	script_vb->add_child(file_list_hbc);
 
 	//Script version

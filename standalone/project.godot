@@ -21,9 +21,9 @@ config/icon="res://icon.png"
 
 [display]
 
-window/size/width=1200
-window/size/height=1024
-window/dpi/allow_hidpi=true
+window/size/width=800
+window/size/height=600
+window/dpi/allow_hidpi=false
 
 [editor]
 

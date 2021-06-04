@@ -14,10 +14,13 @@ NewPackDialog::NewPackDialog() {
 	set_resizable(true);
 
 	VBoxContainer *script_vb = memnew(VBoxContainer);
+	script_vb->set_v_size_flags(SIZE_EXPAND_FILL);
 
 	message = memnew(TextEdit);
 	message->set_readonly(true);
-	message->set_custom_minimum_size(Size2(1000, 300) * EDSCALE);
+	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
+	message->set_h_size_flags(SIZE_EXPAND_FILL);
+	message->set_v_size_flags(SIZE_EXPAND_FILL);
 
 	script_vb->add_margin_child(RTR("Files:"), message);
 
@@ -114,7 +117,7 @@ void NewPackDialog::_val_change(double p_val) {
 }
 
 void NewPackDialog::_exe_select_pressed() {
-	emb_selection->popup_centered(Size2(800, 600));
+	emb_selection->popup_centered(Size2(600, 400));
 }
 
 void NewPackDialog::_exe_select_request(const String &p_path) {
