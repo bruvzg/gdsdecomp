@@ -159,7 +159,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 		} break;
 		case ToV4::QUAT: {
 
-			Quat quat = p_variant;
+			Quaternion quat = p_variant;
 			p_store_string_func(p_store_string_ud, "Quat( " + rtosfix(quat.x) + ", " + rtosfix(quat.y) + ", " + rtosfix(quat.z) + ", " + rtosfix(quat.w) + " )");
 
 		} break;
@@ -183,7 +183,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 		case ToV4::TRANSFORM: {
 
 			String s = "Transform( ";
-			Transform t = p_variant;
+			Transform3D t = p_variant;
 			Basis &m3 = t.basis;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {

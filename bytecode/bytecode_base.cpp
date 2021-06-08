@@ -538,7 +538,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 		} break;
 		case 10: { // QUAT
 			ERR_FAIL_COND_V(len < 4 * 4, ERR_INVALID_DATA);
-			Quat val;
+			Quaternion val;
 			val.x = decode_float(&buf[0]);
 			val.y = decode_float(&buf[4]);
 			val.z = decode_float(&buf[8]);
@@ -584,7 +584,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 		} break;
 		case 13: { // TRANSFORM
 			ERR_FAIL_COND_V(len < 4 * 12, ERR_INVALID_DATA);
-			Transform val;
+			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
 					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
@@ -1183,7 +1183,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 		} break;
 		case 10: { // QUAT
 			ERR_FAIL_COND_V(len < 4 * 4, ERR_INVALID_DATA);
-			Quat val;
+			Quaternion val;
 			val.x = decode_float(&buf[0]);
 			val.y = decode_float(&buf[4]);
 			val.z = decode_float(&buf[8]);
@@ -1229,7 +1229,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 		} break;
 		case 13: { // TRANSFORM
 			ERR_FAIL_COND_V(len < 4 * 12, ERR_INVALID_DATA);
-			Transform val;
+			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
 					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);

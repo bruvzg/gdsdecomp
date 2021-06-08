@@ -227,7 +227,7 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	bool big_endian = f->get_32();
 	bool use_real64 = f->get_32();
 
-	f->set_endian_swap(big_endian != 0); //read big endian if saved as big endian
+	f->set_big_endian(big_endian != 0); //read big endian if saved as big endian
 	stored_big_endian = big_endian;
 	engine_ver_major = f->get_32();
 	engine_ver_minor = f->get_32();
@@ -1169,7 +1169,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			r_v = v;
 		} break;
 		case VariantBin::VARIANT_QUAT: {
-			Quat v;
+			Quaternion v;
 			v.x = f->get_real();
 			v.y = f->get_real();
 			v.z = f->get_real();
@@ -1214,7 +1214,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 		} break;
 		case VariantBin::VARIANT_TRANSFORM: {
-			Transform v;
+			Transform3D v;
 			v.basis.elements[0].x = f->get_real();
 			v.basis.elements[0].y = f->get_real();
 			v.basis.elements[0].z = f->get_real();
@@ -1642,10 +1642,10 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 			fa->store_real(val.d);
 
 		} break;
-		case Variant::QUAT: {
+		case Variant::QUATERNION: {
 
 			fa->store_32(VariantBin::VARIANT_QUAT);
-			Quat val = p_property;
+			Quaternion val = p_property;
 			fa->store_real(val.x);
 			fa->store_real(val.y);
 			fa->store_real(val.z);
@@ -1691,10 +1691,10 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 			fa->store_real(val.elements[2].z);
 
 		} break;
-		case Variant::TRANSFORM: {
+		case Variant::TRANSFORM3D: {
 
 			fa->store_32(VariantBin::VARIANT_TRANSFORM);
-			Transform val = p_property;
+			Transform3D val = p_property;
 			fa->store_real(val.basis.elements[0].x);
 			fa->store_real(val.basis.elements[0].y);
 			fa->store_real(val.basis.elements[0].z);
@@ -1943,7 +1943,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 
 	if (big_endian) {
 		fw->store_32(1);
-		fw->set_endian_swap(true);
+		fw->set_big_endian(true);
 	} else {
 		fw->store_32(0);
 	}
