@@ -4,7 +4,48 @@
 #include "core/io/file_access_zip.h"
 #include "modules/regex/regex.h"
 
+#if defined(WINDOWS_ENABLED)
+#include <windows.h>
+#elif defined(UNIX_ENABLED)
+#include <limits.h>
+#include <unistd.h>
+#endif
+#include <stdlib.h>
+
+
+String GDRESettings::_get_cwd() {
+#if defined(WINDOWS_ENABLED)
+	const DWORD expected_size = ::GetCurrentDirectoryW(0, nullptr);
+
+	Char16String buffer;
+	buffer.resize((int)expected_size);
+	if (::GetCurrentDirectoryW(expected_size, (wchar_t *)buffer.ptrw()) == 0)
+		return ".";
+
+	String result;
+	if (result.parse_utf16(buffer.ptr())) {
+		return ".";
+	}
+	return result.simplify_path();
+#elif defined(UNIX_ENABLED)
+	char buffer[PATH_MAX];
+	if (::getcwd(buffer, sizeof(buffer)) == nullptr) {
+		return ".";
+	}
+
+	String result;
+	if (result.parse_utf8(buffer)) {
+		return ".";
+	}
+
+	return result.simplify_path();
+#else
+	return ".";
+#endif
+}
+
 GDRESettings *GDRESettings::singleton = nullptr;
+String GDRESettings::exec_dir = GDRESettings::_get_cwd();
 
 GDRESettings::GDRESettings() {
 	singleton = this;

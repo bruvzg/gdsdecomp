@@ -15,7 +15,7 @@ protected:
 public:
 	Error open_log(const String &path);
 	Error close_log();
-
+	String get_cli_abs_path(const String &path);
 	GDRECLIMain() {
 		gdres_singleton = memnew(GDRESettings);
 	}
