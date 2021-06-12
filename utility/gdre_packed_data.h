@@ -1,7 +1,7 @@
 #ifndef GDRE_PACKED_DATA_H
 #define GDRE_PACKED_DATA_H
 
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 #include "packed_file_info.h"
 
 class GDREPackedSource : public PackSource {

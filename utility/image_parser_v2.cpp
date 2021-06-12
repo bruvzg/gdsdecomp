@@ -135,7 +135,7 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 
 	if (val->get_format() <= Image::FORMAT_RGB565) {
 		//can only compress uncompressed stuff
-		if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::lossless_packer) {
+		if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
 	}
@@ -238,9 +238,9 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 	} else {
 		Vector<uint8_t> data;
 		if (encoding == V2Image::IMAGE_ENCODING_LOSSY) {
-			data = Image::lossy_packer(val, quality);
+			data = Image::webp_lossy_packer(val, quality);
 		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS) {
-			data = Image::lossless_packer(val);
+			data = Image::png_packer(val);
 		}
 
 		int ds = data.size();
@@ -399,12 +399,10 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 		uint8_t *w = data.ptrw();
 		f->get_buffer(w, data.size());
 
-		if (encoding == V2Image::IMAGE_ENCODING_LOSSY && Image::lossy_unpacker) {
-
-			img = img->lossy_unpacker(data);
-		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS && Image::lossless_unpacker) {
-
-			img = img->lossless_unpacker(data);
+		if (encoding == V2Image::IMAGE_ENCODING_LOSSY && Image::webp_unpacker) {
+			img = img->webp_unpacker(data);
+		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS && Image::png_unpacker) {
+			img = img->png_unpacker(data);
 		}
 		_advance_padding(f, data.size());
 	}

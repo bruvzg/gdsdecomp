@@ -3,10 +3,10 @@
 #define RESOURCE_IMPORT_METADATAV2_H
 
 #include "core/io/resource.h"
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 
-class ResourceImportMetadatav2 : public Reference {
-	GDCLASS(ResourceImportMetadatav2, Reference);
+class ResourceImportMetadatav2 : public RefCounted {
+	GDCLASS(ResourceImportMetadatav2, RefCounted);
 
 	struct Source {
 		String path;

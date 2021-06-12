@@ -56,8 +56,8 @@ class GDRESettings : public Object {
 	GDCLASS(GDRESettings, Object);
 	_THREAD_SAFE_CLASS_
 public:
-	class PackInfo : public Reference {
-		GDCLASS(PackInfo, Reference);
+	class PackInfo : public RefCounted {
+		GDCLASS(PackInfo, RefCounted);
 
 		friend class GDRESettings;
 		String pack_file = "";

@@ -5,8 +5,8 @@
 #include "pcfg_loader.h"
 #include "resource_loader_compat.h"
 #include <core/io/file_access_encrypted.h>
-#include <core/os/dir_access.h>
-#include <core/os/file_access.h>
+#include <core/io/dir_access.h>
+#include <core/io/file_access.h>
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
 

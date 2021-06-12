@@ -4,14 +4,14 @@
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
-#include "core/object/reference.h"
-#include "core/os/file_access.h"
+#include "core/object/ref_counted.h"
+#include "core/io/file_access.h"
 #include "core/templates/map.h"
 #include "import_info.h"
 #include "resource_import_metadatav2.h"
 
-class ImportExporter : public Reference {
-	GDCLASS(ImportExporter, Reference)
+class ImportExporter : public RefCounted {
+	GDCLASS(ImportExporter, RefCounted)
 	Array files;
 	String project_dir;
 	bool opt_bin2text = true;

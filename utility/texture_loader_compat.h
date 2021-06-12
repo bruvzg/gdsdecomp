@@ -2,15 +2,15 @@
 #include "core/io/image.h"
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
-#include "core/object/reference.h"
-#include "core/os/file_access.h"
+#include "core/object/ref_counted.h"
+#include "core/io/file_access.h"
 #include "core/templates/vector.h"
 #include "scene/resources/texture.h"
 #ifndef TEXTURE_LOADER_COMPAT_H
 #define TEXTURE_LOADER_COMPAT_H
 
-class TextureLoaderCompat : public Reference {
-	GDCLASS(TextureLoaderCompat, Reference);
+class TextureLoaderCompat : public RefCounted {
+	GDCLASS(TextureLoaderCompat, RefCounted);
 
 	Error _load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const;
 	Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const;

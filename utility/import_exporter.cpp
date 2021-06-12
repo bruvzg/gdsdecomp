@@ -14,8 +14,8 @@
 #include "scene/resources/audio_stream_sample.h"
 #include "texture_loader_compat.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
-#include <core/os/dir_access.h>
-#include <core/os/file_access.h>
+#include <core/io/dir_access.h>
+#include <core/io/file_access.h>
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
 
@@ -148,7 +148,7 @@ Error ImportExporter::load_import_file_v2(const String &p_path) {
 		if (iinfo->has_import_data()) {
 			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
 			if (iinfo->get_source_file().begins_with("../") ||
-					(iinfo->get_source_file().is_abs_path() && GDRESettings::get_singleton()->is_fs_path(iinfo->get_source_file()))) {
+					(iinfo->get_source_file().is_absolute_path() && GDRESettings::get_singleton()->is_fs_path(iinfo->get_source_file()))) {
 
 				dest = String(".assets").plus_file(p_path.replace("res://", "").get_base_dir().plus_file(iinfo->get_source_file().get_file()));
 				iinfo->source_file = dest;
@@ -672,7 +672,7 @@ Error ImportExporter::convert_tex_to_png(const String &output_dir, const String 
 
 String ImportExporter::_get_path(const String &output_dir, const String &p_path) {
 	if (GDRESettings::get_singleton()->get_project_path() == "" && !GDRESettings::get_singleton()->is_pack_loaded()) {
-		if (p_path.is_abs_path()) {
+		if (p_path.is_absolute_path()) {
 			return p_path;
 		} else {
 			return output_dir.plus_file(p_path.replace("res://", ""));

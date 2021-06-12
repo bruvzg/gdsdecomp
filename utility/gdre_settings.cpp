@@ -185,7 +185,7 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 
 	if (res_path == "") {
 		//not initialized yet
-		if (!p_path.is_abs_path()) {
+		if (!p_path.is_absolute_path()) {
 			//just tack on a "res://" here
 			return "res://" + p_path;
 		}
@@ -193,7 +193,7 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 	}
 
 	if (p_path.begins_with("res://") || p_path.begins_with("user://") ||
-			(p_path.is_abs_path() && !p_path.begins_with(res_path))) {
+			(p_path.is_absolute_path() && !p_path.begins_with(res_path))) {
 		return p_path.simplify_path();
 	}
 
@@ -254,7 +254,7 @@ String GDRESettings::globalize_path(const String &p_path, const String &resource
 			return p_path.replace("user:/", data_dir);
 		}
 		return p_path.replace("user://", "");
-	} else if (!p_path.is_abs_path()) {
+	} else if (!p_path.is_absolute_path()) {
 		return res_path.plus_file(p_path);
 	}
 
@@ -262,7 +262,7 @@ String GDRESettings::globalize_path(const String &p_path, const String &resource
 }
 
 bool GDRESettings::is_fs_path(const String &p_path) {
-	if (!p_path.is_abs_path()) {
+	if (!p_path.is_absolute_path()) {
 		return true;
 	}
 	if (p_path.find("://") == -1 || p_path.begins_with("file://")) {
@@ -301,7 +301,7 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 			return res_path;
 		}
 		// localize_path did nothing
-		if (!res_path.is_abs_path()) {
+		if (!res_path.is_absolute_path()) {
 			res_path = "res://" + res_path;
 			if (PackedData::get_singleton()->has_path(res_path)) {
 				return res_path;
@@ -313,7 +313,7 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 	}
 	//try and find it on the file system
 	res_path = p_path;
-	if (res_path.is_abs_path() && is_fs_path(res_path)) {
+	if (res_path.is_absolute_path() && is_fs_path(res_path)) {
 		if (!FileAccess::exists(res_path)) {
 			ERR_FAIL_COND_V_MSG(!suppress_errors, "", "Resource " + res_path + " does not exist");
 			return "";
