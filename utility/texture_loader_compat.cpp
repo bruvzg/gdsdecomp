@@ -1,5 +1,5 @@
 #include "texture_loader_compat.h"
-#include "core/os/file_access.h"
+#include "core/io/file_access.h"
 #include "gdre_packed_data.h"
 #include "gdre_settings.h"
 #include "resource_loader_compat.h"
@@ -117,9 +117,9 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 
 			Ref<Image> img;
 			if (df & FORMAT_BIT_LOSSLESS) {
-				img = Image::lossless_unpacker(pv);
+				img = Image::png_unpacker(pv);
 			} else {
-				img = Image::lossy_unpacker(pv);
+				img = Image::webp_unpacker(pv);
 			}
 			ERR_FAIL_COND_V_MSG(img.is_null() || img->is_empty(), ERR_FILE_CORRUPT, "File is corrupt");
 
@@ -386,7 +386,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 				{
 					f->get_buffer(pv.ptrw(), size);
 				}
-				Ref<Image> img = Image::lossless_unpacker(pv);
+				Ref<Image> img = Image::png_unpacker(pv);
 
 				if (img.is_null() || img->is_empty() || format != img->get_format()) {
 					memdelete(f);

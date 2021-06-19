@@ -5,7 +5,7 @@
 #include <core/input/input_event.h>
 #include <core/io/compression.h>
 #include <core/io/marshalls.h>
-#include <core/os/file_access.h>
+#include <core/io/file_access.h>
 #include <core/os/keyboard.h>
 #include <core/variant/variant_parser.h>
 

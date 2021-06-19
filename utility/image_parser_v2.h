@@ -4,7 +4,7 @@
 #define V2_IMAGE_PARSER_H
 
 #include "core/io/resource.h"
-#include "core/os/file_access.h"
+#include "core/io/file_access.h"
 #include "core/variant/variant.h"
 
 class ImageParserV2 {

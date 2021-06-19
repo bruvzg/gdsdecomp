@@ -8,7 +8,7 @@
 #include "core/io/file_access_encrypted.h"
 #include "core/io/image.h"
 #include "core/io/marshalls.h"
-#include "core/os/file_access.h"
+#include "core/io/file_access.h"
 
 #include <limits.h>
 
@@ -736,8 +736,8 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 						obj->set(str, value);
 					}
 
-					if (Object::cast_to<Reference>(obj)) {
-						REF ref = REF(Object::cast_to<Reference>(obj));
+					if (Object::cast_to<RefCounted>(obj)) {
+						REF ref = REF(Object::cast_to<RefCounted>(obj));
 						r_variant = ref;
 					} else {
 						r_variant = obj;
@@ -1401,8 +1401,8 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 						obj->set(str, value);
 					}
 
-					if (Object::cast_to<Reference>(obj)) {
-						REF ref = REF(Object::cast_to<Reference>(obj));
+					if (Object::cast_to<RefCounted>(obj)) {
+						REF ref = REF(Object::cast_to<RefCounted>(obj));
 						r_variant = ref;
 					} else {
 						r_variant = obj;

@@ -20,9 +20,8 @@ func get_arg_value(arg):
 	var split_args = arg.split("=")
 	if split_args.size() < 2:
 		print("Error: args have to be in the format of --key=value (with equals sign)")
-		$root.quit()
+		get_tree().quit()
 	return split_args[1]
-
 
 func export_imports(output_dir:String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -207,6 +206,8 @@ func handle_cli():
 			print_usage()
 		else:
 			var main = GDRECLIMain.new()
+			exe_file = main.get_cli_abs_path(exe_file)
+			output_dir = main.get_cli_abs_path(output_dir)
 			main.open_log(output_dir)
 			#debugging
 			#print_import_info(output_dir)

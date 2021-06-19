@@ -5,14 +5,14 @@
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
-#include "core/object/reference.h"
-#include "core/os/file_access.h"
+#include "core/object/ref_counted.h"
+#include "core/io/file_access.h"
 #include "core/templates/map.h"
 
 #include "gdre_packed_data.h"
 
-class PckDumper : public Reference {
-	GDCLASS(PckDumper, Reference)
+class PckDumper : public RefCounted {
+	GDCLASS(PckDumper, RefCounted)
 	bool skip_malformed_paths = false;
 	bool skip_failed_md5 = false;
 	bool should_check_md5 = false;

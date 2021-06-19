@@ -5,7 +5,7 @@
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 #include "core/templates/map.h"
 #include "resource_import_metadatav2.h"
 
@@ -51,8 +51,8 @@ enum SceneFlags {
 };
 } // namespace V2ImportEnums
 
-class ImportInfo : public Reference {
-	GDCLASS(ImportInfo, Reference)
+class ImportInfo : public RefCounted {
+	GDCLASS(ImportInfo, RefCounted)
 private:
 	friend class ImportExporter;
 	friend class ResourceFormatLoaderCompat;

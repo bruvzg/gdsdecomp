@@ -3,10 +3,10 @@
 #include "core/object/object.h"
 
 #include "core/io/file_access_pack.h"
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 
-class PackedFileInfo : public Reference {
-	GDCLASS(PackedFileInfo, Reference);
+class PackedFileInfo : public RefCounted {
+	GDCLASS(PackedFileInfo, RefCounted);
 	friend class GDRESettings;
 	friend class PckDumper;
 	friend class GDREPackedSource;

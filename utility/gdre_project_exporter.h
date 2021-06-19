@@ -1,12 +1,12 @@
 #ifndef GDRE_PROJECT_EXPORTER_H
 #define GDRE_PROJECT_EXPORTER_H
 
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 #include "import_exporter.h"
 #include "pck_dumper.h"
 
-class GDREProjectExporter : public Reference {
-	GDCLASS(GDREProjectExporter, Reference)
+class GDREProjectExporter : public RefCounted {
+	GDCLASS(GDREProjectExporter, RefCounted)
 
 	Ref<PckDumper> pck_dumper;
 	Ref<ImportExporter> import_exporter;

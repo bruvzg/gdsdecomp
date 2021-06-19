@@ -33,7 +33,6 @@
 template <class T>
 class GDREOS : public T {
 	static_assert(std::is_base_of<OS, T>::value, "T must derive from OS");
-
 public:
 	void _add_logger(Logger *p_logger) { T::add_logger(p_logger); }
 };
@@ -56,8 +55,8 @@ class GDRESettings : public Object {
 	GDCLASS(GDRESettings, Object);
 	_THREAD_SAFE_CLASS_
 public:
-	class PackInfo : public Reference {
-		GDCLASS(PackInfo, Reference);
+	class PackInfo : public RefCounted {
+		GDCLASS(PackInfo, RefCounted);
 
 		friend class GDRESettings;
 		String pack_file = "";
@@ -99,11 +98,13 @@ private:
 	bool first_load = true;
 	String project_path = "";
 	static GDRESettings *singleton;
+	static String exec_dir;
 	void remove_current_pack();
 	Vector<Ref<PackedFileInfo> > files;
 	String _get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors);
 	void add_logger();
 
+	static String _get_cwd();
 public:
 	Error load_pack(const String &p_path);
 	Error unload_pack();
@@ -133,7 +134,8 @@ public:
 	Error open_log_file(const String &output_dir);
 	bool is_fs_path(const String &p_path);
 	Error close_log_file();
-
+	String get_cwd() { return GDRESettings::_get_cwd(); };
+	String get_exec_dir() {return GDRESettings::exec_dir; };
 	static GDRESettings *get_singleton() {
 		// TODO: remove this hack
 		if (!singleton) {

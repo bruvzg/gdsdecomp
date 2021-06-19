@@ -4,14 +4,14 @@
 #define PCFG_LOADER_H
 
 #include "core/object/class_db.h"
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 #include <core/object/object.h>
-#include <core/os/file_access.h>
+#include <core/io/file_access.h>
 
 typedef Map<String, Variant> CustomMap;
 
-class ProjectConfigLoader : public Reference {
-	GDCLASS(ProjectConfigLoader, Reference);
+class ProjectConfigLoader : public RefCounted {
+	GDCLASS(ProjectConfigLoader, RefCounted);
 	struct VariantContainer {
 		int order;
 		bool persist;

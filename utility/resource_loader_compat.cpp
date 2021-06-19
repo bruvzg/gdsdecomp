@@ -1,7 +1,7 @@
 #include "resource_loader_compat.h"
 #include "core/crypto/crypto_core.h"
 #include "core/io/file_access_compressed.h"
-#include "core/os/dir_access.h"
+#include "core/io/dir_access.h"
 #include "core/string/ustring.h"
 #include "core/variant/variant_parser.h"
 #include "core/version.h"

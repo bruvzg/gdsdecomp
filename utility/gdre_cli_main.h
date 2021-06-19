@@ -1,10 +1,10 @@
 #ifndef GDRE_CLI_MAIN_H
 #define GDRE_CLI_MAIN_H
 
-#include "core/object/reference.h"
+#include "core/object/ref_counted.h"
 #include "gdre_settings.h"
-class GDRECLIMain : public Reference {
-	GDCLASS(GDRECLIMain, Reference);
+class GDRECLIMain : public RefCounted {
+	GDCLASS(GDRECLIMain, RefCounted);
 
 private:
 	GDRESettings *gdres_singleton;
@@ -15,7 +15,7 @@ protected:
 public:
 	Error open_log(const String &path);
 	Error close_log();
-
+	String get_cli_abs_path(const String &path);
 	GDRECLIMain() {
 		gdres_singleton = memnew(GDRESettings);
 	}
