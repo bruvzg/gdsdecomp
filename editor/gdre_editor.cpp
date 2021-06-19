@@ -582,7 +582,7 @@ void GodotREEditor::print_warning(const String &p_text, const String &p_title, c
 	char timestamp[21];
 	OS::Date date = OS::get_singleton()->get_date();
 	OS::Time time = OS::get_singleton()->get_time();
-	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", date.year, date.month, date.day, time.hour, time.min, time.sec);
+	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", (uint16_t)date.year, date.month, date.day, time.hour, time.minute, time.second);
 
 	Vector<String> lines = p_text.split("\n");
 	if (lines.size() > 1) {
