@@ -100,7 +100,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 	// Everything worked, now set the data
 	Ref<GDRESettings::PackInfo> pckinfo;
-	pckinfo.instance();
+	pckinfo.instantiate();
 	pckinfo->init(pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
@@ -133,7 +133,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		pf.pack = p_path;
 		pf.src = this;
 		Ref<PackedFileInfo> pf_info;
-		pf_info.instance();
+		pf_info.instantiate();
 		pf_info->init(path, &pf);
 		GDRESettings::get_singleton()->add_pack_file(pf_info);
 		// use the corrected path, not the raw path

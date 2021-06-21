@@ -137,7 +137,7 @@ Error ImportExporter::load_import_file_v2(const String &p_path) {
 	String type;
 	Vector<String> spl = p_path.get_file().split(".");
 	Ref<ImportInfo> iinfo;
-	iinfo.instance();
+	iinfo.instantiate();
 
 	// This is an import file, possibly has import metadata
 	ResourceFormatLoaderCompat rlc;
@@ -217,12 +217,12 @@ Error ImportExporter::load_import_file_v2(const String &p_path) {
 
 Error ImportExporter::load_import_file(const String &p_path) {
 	Ref<ConfigFile> cf;
-	cf.instance();
+	cf.instantiate();
 	String path = GDRESettings::get_singleton()->get_res_path(p_path);
 	Error err = cf->load(path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
 	Ref<ImportInfo> i_info;
-	i_info.instance();
+	i_info.instantiate();
 	i_info->import_md_path = path;
 	i_info->import_path = cf->get_value("remap", "path", "");
 	i_info->type = ClassDB::get_compatibility_remapped_class(cf->get_value("remap", "type", ""));
@@ -525,7 +525,7 @@ Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const Str
 		new_dest_files.append(new_dest);
 	}
 	Ref<ConfigFile> import_file;
-	import_file.instance();
+	import_file.instantiate();
 	Error err = import_file->load(iinfo->import_md_path);
 	ERR_FAIL_COND_V_MSG(err, ERR_BUG, "Failed to load import file " + iinfo->import_md_path);
 

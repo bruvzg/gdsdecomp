@@ -683,7 +683,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 					r_variant = (Object *)nullptr;
 				} else {
 					Ref<EncodedObjectAsID> obj_as_id;
-					obj_as_id.instance();
+					obj_as_id.instantiate();
 					obj_as_id->set_object_id(val);
 
 					r_variant = obj_as_id;
@@ -701,7 +701,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 				if (str == String()) {
 					r_variant = (Object *)nullptr;
 				} else {
-					Object *obj = ClassDB::instance(str);
+					Object *obj = ClassDB::instantiate(str);
 
 					ERR_FAIL_COND_V(!obj, ERR_UNAVAILABLE);
 					ERR_FAIL_COND_V(len < 4, ERR_INVALID_DATA);
@@ -1348,7 +1348,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 					r_variant = (Object *)nullptr;
 				} else {
 					Ref<EncodedObjectAsID> obj_as_id;
-					obj_as_id.instance();
+					obj_as_id.instantiate();
 					obj_as_id->set_object_id(val);
 
 					r_variant = obj_as_id;
@@ -1366,7 +1366,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 				if (str == String()) {
 					r_variant = (Object *)nullptr;
 				} else {
-					Object *obj = ClassDB::instance(str);
+					Object *obj = ClassDB::instantiate(str);
 
 					ERR_FAIL_COND_V(!obj, ERR_UNAVAILABLE);
 					ERR_FAIL_COND_V(len < 4, ERR_INVALID_DATA);

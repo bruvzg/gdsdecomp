@@ -230,7 +230,7 @@ Ref<StreamTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, 
 	if (r_err)
 		*r_err = err;
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	texture.instance();
+	texture.instantiate();
 	texture->set("w", lwc ? lwc : lw);
 	texture->set("h", lhc ? lhc : lh);
 	texture->set("path_to_file", p_path);
@@ -306,7 +306,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 	uint32_t df = f->get_32(); //data format
 	p_size_limit = 0;
 	if (image.is_null()) {
-		image.instance();
+		image.instantiate();
 	}
 	err = load_image_from_fileV3(f, tw, th, tw_custom, th_custom, flags, p_size_limit, df, image);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load image from texture file " + p_path);
@@ -370,7 +370,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 
 	for (int layer = 0; layer < td; layer++) {
 		Ref<Image> image;
-		image.instance();
+		image.instantiate();
 
 		if (compression == 0) { //COMPRESSION_LOSSLESS
 			//look for a PNG file inside
@@ -513,7 +513,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, V
 		*r_err = err;
 	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, texture, "V2 Texture3d conversion unimplemented");
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	texture.instance();
+	texture.instantiate();
 	texture->set("w", lw);
 	texture->set("h", lh);
 	texture->set("d", ld);
@@ -798,7 +798,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 			break;
 	}
 	Ref<Image> image;
-	image.instance();
+	image.instantiate();
 	bool size_override;
 
 	_load_texture2d(res_path, image, size_override, ver_major, r_err);

@@ -89,7 +89,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
 
 	if (i_info == nullptr) {
-		i_info.instance();
+		i_info.instantiate();
 	}
 
 	i_info->import_path = loader->local_path;
@@ -157,7 +157,7 @@ Error ResourceLoaderBinaryCompat::load_import_metadata() {
 		return ERR_UNAVAILABLE;
 	}
 	if (imd.is_null()) {
-		imd.instance();
+		imd.instantiate();
 	}
 	f->seek(importmd_ofs);
 	imd->set_editor(get_unicode_string());
@@ -399,7 +399,7 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 
 	if (res.is_null()) {
 		//did not replace
-		Object *obj = ClassDB::instance(type);
+		Object *obj = ClassDB::instantiate(type);
 		if (!obj) {
 			error = ERR_FILE_CORRUPT;
 			ERR_FAIL_V_MSG(RES(), local_path + ":Resource of unrecognized type in file: " + type + ".");
@@ -760,7 +760,7 @@ Error ResourceLoaderBinaryCompat::load() {
 		// So we always instance them regardless if this is a fake load or not.
 		if (main && fake_load && type == "PackedScene") {
 			Ref<PackedScene> ps;
-			ps.instance();
+			ps.instantiate();
 			String valstring;
 			// this is the "_embedded" prop
 			ps->set(lrp.front()->get().name, lrp.front()->get().value);
@@ -813,7 +813,7 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const uint32_t subidx) {
 	String realtypename = type;
 	Ref<FakeResource> dummy;
-	dummy.instance();
+	dummy.instantiate();
 	dummy->set_real_path(path);
 	dummy->set_real_type(type);
 	dummy->set_subindex(subidx);

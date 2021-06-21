@@ -256,7 +256,7 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
 	uint32_t encoding = f->get_32();
 	Ref<Image> img;
-	img.instance();
+	img.instantiate();
 
 	if (encoding == V2Image::IMAGE_ENCODING_EMPTY) {
 		r_v = img;
