@@ -392,7 +392,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		about_label->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
 		about_label->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 		about_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-		about_label->set_autowrap(true);
+		about_label->set_autowrap_mode(Label::AUTOWRAP_WORD_SMART);
 		String about_text =
 				String("Godot RE Tools, ") + String(GDRE_VERSION) + String(" \n\n") +
 				RTR(String("Resources, binary code and source code might be protected by copyright and trademark\n") +

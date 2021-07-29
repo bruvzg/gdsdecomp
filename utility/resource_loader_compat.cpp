@@ -416,7 +416,7 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 		if (path != String() && cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
 			r->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); //if got here because the resource with same path has different type, replace it
 		}
-		r->set_subindex(subindex);
+		r->set_scene_unique_id(itos(subindex));
 		res = RES(r);
 	}
 	return res;
@@ -424,7 +424,7 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 
 RES ResourceLoaderBinaryCompat::get_internal_resource(const int subindex) {
 	for (auto R = internal_index_cache.front(); R; R = R->next()) {
-		if (R->value()->get_subindex() == subindex) {
+		if (R->value()->get_scene_unique_id() == itos(subindex)) {
 			return R->value();
 		}
 	}
@@ -816,7 +816,7 @@ RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &typ
 	dummy.instantiate();
 	dummy->set_real_path(path);
 	dummy->set_real_type(type);
-	dummy->set_subindex(subidx);
+	dummy->set_scene_unique_id(itos(subidx));
 	return dummy;
 }
 
@@ -871,9 +871,9 @@ String ResourceLoaderBinaryCompat::_write_rlc_resources(void *ud, const RES &p_r
 String ResourceLoaderBinaryCompat::_write_rlc_resource(const RES &res) {
 	String path = get_resource_path(res);
 	if (has_internal_resource(path)) {
-		return "SubResource( " + itos(res->get_subindex()) + " )";
+		return "SubResource( " + res->get_scene_unique_id() + " )";
 	} else if (has_external_resource(path)) {
-		return "ExtResource( " + itos(res->get_subindex()) + " )";
+		return "ExtResource( " + res->get_scene_unique_id() + " )";
 	}
 	ERR_FAIL_V_MSG("null", "Resource was not pre cached for the resource section, bug?");
 }
@@ -922,7 +922,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	for (int i = 0; i < external_resources.size(); i++) {
 		String p = external_resources[i].path;
 		wf->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type +
-						 "\" id=" + itos(external_resources[i].cache->get_subindex()) + "]\n"); //bundled
+						 "\" id=" + external_resources[i].cache->get_scene_unique_id() + "]\n"); //bundled
 	}
 
 	if (external_resources.size()) {
@@ -942,7 +942,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		} else {
 			String line = "[sub_resource ";
 			String type = get_internal_resource_type(path);
-			int idx = get_internal_resource(path)->get_subindex();
+			int idx = get_internal_resource(path)->get_scene_unique_id().to_int();
 			line += "type=\"" + type + "\" id=" + itos(idx) + "]";
 			if (text_format_version == 1) {
 				// Godot 2.x quirk: newline between subresource and properties
@@ -1786,7 +1786,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 					}
 					//RES res = get_external_resource(rpath);
 					fa->store_32(VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX);
-					fa->store_32(res->get_subindex());
+					fa->store_32(res->get_scene_unique_id().to_int());
 				} else {
 					if (!has_internal_resource(rpath)) {
 						fa->store_32(VariantBin::OBJECT_EMPTY);
@@ -1794,7 +1794,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 					}
 
 					fa->store_32(VariantBin::OBJECT_INTERNAL_RESOURCE);
-					fa->store_32(res->get_subindex());
+					fa->store_32(res->get_scene_unique_id().to_int());
 				}
 			}
 		} break;
@@ -1989,7 +1989,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
 		String path = get_resource_path(re);
 		if (path == "" || path.find("::") != -1) {
-			save_ustring(fw, "local://" + itos(re->get_subindex()));
+			save_ustring(fw, "local://" + re->get_scene_unique_id());
 		} else if (path == local_path) {
 			save_ustring(fw, local_path); // main resource
 		} else {

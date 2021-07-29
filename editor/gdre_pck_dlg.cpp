@@ -44,8 +44,8 @@ PackDialog::PackDialog() {
 	file_list->set_column_expand(0, true);
 	file_list->set_column_expand(1, false);
 	file_list->set_column_expand(2, false);
-	file_list->set_column_min_width(1, 120 * EDSCALE);
-	file_list->set_column_min_width(2, 120 * EDSCALE);
+	file_list->set_column_custom_minimum_width(1, 120 * EDSCALE);
+	file_list->set_column_custom_minimum_width(2, 120 * EDSCALE);
 
 	file_list->add_theme_constant_override("draw_relationship_lines", 1);
 
