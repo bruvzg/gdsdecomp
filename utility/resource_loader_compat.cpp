@@ -932,8 +932,6 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		text_format_version = 2;
 	} else if (engine_ver_major == 4) {
 		text_format_version = 3;
-	} else {
-		ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Cannot save file '" + dest_path + "'.");
 	}
 
 	// save resources
