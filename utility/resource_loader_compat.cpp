@@ -271,7 +271,6 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 		f->get_32(); //skip a few reserved fields
 	}
 
-
 	uint32_t string_table_size = f->get_32();
 	string_map.resize(string_table_size);
 	for (uint32_t i = 0; i < string_table_size; i++) {
@@ -836,21 +835,12 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 }
 
 RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const uint32_t subidx) {
-	// if (type.find("Script")){
-	// 	Ref<FakeScript> dummy;
-	// 	dummy.instantiate();
-	// 	dummy->set_real_path(path);
-	// 	dummy->set_real_type(type);
-	// 	dummy->set_scene_unique_id(itos(subidx));
-	// 	return dummy;
-	// } else {
-		Ref<FakeResource> dummy;
-		dummy.instantiate();
-		dummy->set_real_path(path);
-		dummy->set_real_type(type);
-		dummy->set_scene_unique_id(itos(subidx));
-		return dummy;
-	// }
+	Ref<FakeResource> dummy;
+	dummy.instantiate();
+	dummy->set_real_path(path);
+	dummy->set_real_type(type);
+	dummy->set_scene_unique_id(itos(subidx));
+	return dummy;
 }
 
 RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex) {
@@ -905,7 +895,7 @@ String ResourceLoaderBinaryCompat::_write_rlc_resource(const RES &res) {
 	String path = get_resource_path(res);
 	String id = res->get_scene_unique_id();
 	// Godot 4.x ids are strings, Godot 3.x are integers
-	if (using_named_scene_ids) {
+	if (engine_ver_major >= 4) {
 		id = "\"" + id + "\"";
 	}
 	if (has_internal_resource(path)) {
@@ -935,10 +925,9 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	String main_type = get_internal_resource_type(main_res_path);
 
 	// Version 1 (Godot 2.x)
-	int text_format_version = 1;
-
 	// Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
 	// Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
+	int text_format_version = 1;
 	if (engine_ver_major == 3) {
 		text_format_version = 2;
 	} else if (engine_ver_major == 4) {

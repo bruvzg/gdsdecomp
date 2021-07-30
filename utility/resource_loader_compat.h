@@ -147,7 +147,7 @@ class ResourceLoaderBinaryCompat {
 	Ref<ResourceImportMetadatav2> imd;
 	uint32_t ver_format = 0;
 	uint32_t engine_ver_major = 0;
-	int32_t engine_ver_minor = 0;
+	uint32_t engine_ver_minor = 0;
 
 	bool stored_big_endian = false;
 	bool stored_use_real64 = false;
