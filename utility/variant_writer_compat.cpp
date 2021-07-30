@@ -86,7 +86,8 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 	if (ver_major == 4) {
 		return VariantWriter::write(p_variant, p_store_string_func, p_encode_res_ud, p_encode_res_func, p_encode_res_ud);
 	}
-
+	
+	// for v2 and v3...
 	switch ((ToV4::Type)p_variant.get_type()) {
 
 		case ToV4::NIL: {
