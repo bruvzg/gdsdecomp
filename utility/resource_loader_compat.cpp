@@ -198,7 +198,7 @@ StringName ResourceLoaderBinaryCompat::_get_string() {
 	return string_map[id];
 }
 
-Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
+Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, bool p_keep_uuid_paths) {
 	error = OK;
 
 	f = p_f;
@@ -245,15 +245,29 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	print_bl("format: " + itos(ver_format));
 	ERR_FAIL_COND_V_MSG(engine_ver_major > 4, ERR_FILE_UNRECOGNIZED,
 			"Unsupported engine version " + itos(engine_ver_major) + " used to create resource '" + res_path + "'.");
-	ERR_FAIL_COND_V_MSG(ver_format > 4, ERR_FILE_UNRECOGNIZED,
+	ERR_FAIL_COND_V_MSG(ver_format > VariantBin::FORMAT_VERSION, ERR_FILE_UNRECOGNIZED,
 			"Unsupported binary resource format '" + res_path + "'.");
 
 	type = get_unicode_string();
 
 	print_bl("type: " + type);
 
-	importmd_ofs = f->get_64();
-	for (int i = 0; i < 14; i++) {
+	importmd_ofs = f->get_64();	
+	uint32_t flags = f->get_32();
+	if (flags & ResourceFormatSaverBinaryInstance::FORMAT_FLAG_NAMED_SCENE_IDS) {
+		using_named_scene_ids = true;
+	}
+
+	if (flags & ResourceFormatSaverBinaryInstance::FORMAT_FLAG_UIDS) {
+		using_uids = true;
+		uid = f->get_64();
+	} else {
+		// skip over uid field
+		f->get_64();
+		uid = ResourceUID::INVALID_ID;
+	}
+
+	for (int i = 0; i < 11; i++) {
 		f->get_32(); //skip a few reserved fields
 	}
 
@@ -270,9 +284,19 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f) {
 	for (uint32_t i = 0; i < ext_resources_size; i++) {
 		ExtResource er;
 		er.type = get_unicode_string();
-
 		er.path = get_unicode_string();
 
+		if (using_uids) {
+			er.uid = f->get_64();
+			if (!p_keep_uuid_paths && er.uid != ResourceUID::INVALID_ID) {
+				if (ResourceUID::get_singleton()->has_id(er.uid)) {
+					// If a UID is found and the path is valid, it will be used, otherwise, it falls back to the path.
+					er.path = ResourceUID::get_singleton()->get_id_path(er.uid);
+				} else {
+					WARN_PRINT(String(res_path + ": In external resource #" + itos(i) + ", invalid UUID: " + ResourceUID::get_singleton()->id_to_text(er.uid) + " - using text path instead: " + er.path).utf8().get_data());
+				}
+			}
+		}
 		external_resources.push_back(er);
 	}
 
@@ -811,7 +835,6 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 }
 
 RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const uint32_t subidx) {
-	String realtypename = type;
 	Ref<FakeResource> dummy;
 	dummy.instantiate();
 	dummy->set_real_path(path);
@@ -870,10 +893,15 @@ String ResourceLoaderBinaryCompat::_write_rlc_resources(void *ud, const RES &p_r
 
 String ResourceLoaderBinaryCompat::_write_rlc_resource(const RES &res) {
 	String path = get_resource_path(res);
+	String id = res->get_scene_unique_id();
+	// Godot 4.x ids are strings, Godot 3.x are integers
+	if (engine_ver_major >= 4) {
+		id = "\"" + id + "\"";
+	}
 	if (has_internal_resource(path)) {
-		return "SubResource( " + res->get_scene_unique_id() + " )";
+		return "SubResource( " + id + " )";
 	} else if (has_external_resource(path)) {
-		return "ExtResource( " + res->get_scene_unique_id() + " )";
+		return "ExtResource( " + id + " )";
 	}
 	ERR_FAIL_V_MSG("null", "Resource was not pre cached for the resource section, bug?");
 }
@@ -896,10 +924,14 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	// the actual type in case this is a fake resource
 	String main_type = get_internal_resource_type(main_res_path);
 
-	//
+	// Version 1 (Godot 2.x)
+	// Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
+	// Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
 	int text_format_version = 1;
-	if (engine_ver_major > 2) {
+	if (engine_ver_major == 3) {
 		text_format_version = 2;
+	} else if (engine_ver_major == 4) {
+		text_format_version = 3;
 	}
 
 	// save resources
@@ -914,23 +946,68 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			title += "load_steps=" + itos(load_steps) + " ";
 		}
 		title += "format=" + itos(text_format_version) + "";
+		// if v3 (Godot 4.x), store uid
 
+		if (text_format_version >= 3){
+			if (uid == ResourceUID::INVALID_ID) {
+				uid = ResourceSaver::get_resource_id_for_path(local_path, true);
+			}
+			if (uid != ResourceUID::INVALID_ID) {
+				title += " uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\"";
+			}
+		}
 		wf->store_string(title);
 		wf->store_line("]\n"); //one empty line
 	}
 
 	for (int i = 0; i < external_resources.size(); i++) {
 		String p = external_resources[i].path;
-		wf->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type +
-						 "\" id=" + external_resources[i].cache->get_scene_unique_id() + "]\n"); //bundled
+		// Godot 4.x: store uid tag
+		if (text_format_version >= 3) {
+			String s = "[ext_resource type=\"" + external_resources[i].type + "\"";
+			ResourceUID::ID er_uid = external_resources[i].uid;
+
+			if (er_uid == ResourceUID::INVALID_ID) {
+				er_uid = ResourceSaver::get_resource_id_for_path(p, false);
+			}
+			if (er_uid != ResourceUID::INVALID_ID) {
+				s += " uid=\"" + ResourceUID::get_singleton()->id_to_text(er_uid) + "\"";
+			}
+			// id is a string in Godot 4.x
+			s += " path=\"" + p + "\" id=\"" + itos(i+1) + "\"]\n";
+			wf->store_string(s); // Bundled.
+
+		// Godot 3.x (and below)
+		} else {
+			wf->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type +
+							"\" id=" + external_resources[i].cache->get_scene_unique_id() + "]\n"); //bundled
+		}
+
 	}
 
 	if (external_resources.size()) {
 		wf->store_line(String()); //separate
 	}
+	Set<String> used_unique_ids;
+	// Godot 4.x: Get all the unique ids for lookup
+	if (text_format_version >= 3){
+		for (int i = 0; i < internal_resources.size(); i++) {
+			RES intres = get_internal_resource(internal_resources[i].path);
+			if (i != internal_resources.size() - 1 && (res->get_path() == "" || res->get_path().find("::") != -1)) {
+				if (intres->get_scene_unique_id() != "") {
+					if (used_unique_ids.has(intres->get_scene_unique_id())) {
+						intres->set_scene_unique_id(""); // Repeated.
+					} else {
+						used_unique_ids.insert(intres->get_scene_unique_id());
+					}
+				}
+			}
+		}
+	}
 
 	for (int i = 0; i < internal_resources.size(); i++) {
 		String path = internal_resources[i].path;
+		RES intres = get_internal_resource(path);
 		bool main = i == (internal_resources.size() - 1);
 
 		if (main && is_scene) {
@@ -942,8 +1019,33 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		} else {
 			String line = "[sub_resource ";
 			String type = get_internal_resource_type(path);
-			int idx = get_internal_resource(path)->get_scene_unique_id().to_int();
-			line += "type=\"" + type + "\" id=" + itos(idx) + "]";
+			String id = intres->get_scene_unique_id();
+
+			line += "type=\"" + type + "\" ";
+			// Godot 4.x
+			if (text_format_version >= 3) {
+				//if unique id == "", generate and then store
+				if (id == "") {
+					String new_id;
+					while (true) {
+						new_id = intres->get_class() + "_" + Resource::generate_scene_unique_id();
+
+						if (!used_unique_ids.has(new_id)) {
+							break;
+						}
+					}
+					intres->set_scene_unique_id(new_id);
+					used_unique_ids.insert(new_id);
+					id = new_id;
+				}
+				// id is a string in Godot 4.x
+				line += "id=\"" + id + "\"]";
+			// For Godot 3.x and lower resources, the unique id will just be the numerical index
+			} else {
+				line += "id=" + id + "]";
+			}
+			
+
 			if (text_format_version == 1) {
 				// Godot 2.x quirk: newline between subresource and properties
 				line += "\n";
@@ -1291,11 +1393,20 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 				} break;
 				case VariantBin::OBJECT_INTERNAL_RESOURCE: {
 					uint32_t index = f->get_32();
-					String path = local_path + "::" + itos(index);
-					//always use internal cache for loading internal resources
+					//String path = local_path + "::" + itos(index);
+					String path;
+
+					if (using_named_scene_ids) { // New format.
+						ERR_FAIL_INDEX_V((int)index, internal_resources.size(), ERR_PARSE_ERROR);
+						path = internal_resources[index].path;
+					} else {
+						path += res_path + "::" + itos(index);
+					}
+
 					r_v = get_internal_resource(index);
 					if (!r_v) {
 						WARN_PRINT(String("Couldn't load internal resource (no cache): Subresource " + itos(index)).utf8().get_data());
+						r_v = Variant();
 					}
 				} break;
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE: {
@@ -1312,8 +1423,12 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX: {
 					//new file format, just refers to an index in the external list
 					int erindex = f->get_32();
-
-					r_v = get_external_resource(erindex + 1);
+					if (erindex < 0 || erindex >= external_resources.size()) {
+						WARN_PRINT("Broken external resource! (index out of size)");
+						r_v = Variant();
+					} else {
+						r_v = get_external_resource(erindex + 1);
+					}
 					ERR_FAIL_COND_V_MSG(r_v.is_null(), ERR_FILE_MISSING_DEPENDENCIES, "Can't load dependency: " + external_resources[erindex].path + ".");
 				} break;
 				default: {
@@ -1325,7 +1440,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		// Old Godot 2.x InputEvent variant, should never encounter these
 		// They were never saved into the binary resource files.
 		case VariantBin::VARIANT_INPUT_EVENT: {
-			WARN_PRINT(String("Encountered a Input event variant?!?!?").utf8().get_data());
+			WARN_PRINT("Encountered a Input event variant?!?!?");
 		} break;
 		case VariantBin::VARIANT_CALLABLE: {
 			r_v = Callable();
@@ -1751,7 +1866,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 				// If we found a property, store it
 				if (property_idx > -1) {
 					fa->store_32(string_map.find(np.get_subname(property_idx)));
-					// otherwise, store zero-length string
+				// otherwise, store zero-length string
 				} else {
 					// 0x80000000 will resolve to a zero length string in the binary parser for any version
 					uint32_t zlen = 0x80000000;
@@ -1958,12 +2073,26 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->close();
 		return ERR_CANT_CREATE;
 	}
-
+	
 	//fw->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
 	save_ustring(fw, type);
 	uint64_t md_at = fw->get_position();
 	fw->store_64(0); //offset to impoty metadata
-	for (int i = 0; i < 14; i++) {
+
+	uint32_t flags = 0;
+	if (using_named_scene_ids) {
+		flags |= ResourceFormatSaverBinaryInstance::FORMAT_FLAG_NAMED_SCENE_IDS;
+	}
+	if (using_uids) {
+		flags |= ResourceFormatSaverBinaryInstance::FORMAT_FLAG_UIDS;
+		fw->store_32(flags);
+		fw->store_64(uid);
+	} else {
+		fw->store_32(flags);
+		fw->store_64(0);
+	}
+
+	for (int i = 0; i < 11; i++) {
 		fw->store_32(0); // reserved
 	}
 
@@ -2072,7 +2201,12 @@ void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> 
 	}
 
 	for (int i = 0; i < external_resources.size(); i++) {
-		String dep = external_resources[i].path;
+		String dep;
+		if (external_resources[i].uid != ResourceUID::INVALID_ID) {
+			dep = ResourceUID::get_singleton()->id_to_text(external_resources[i].uid);
+		} else {
+			dep = external_resources[i].path;
+		}
 
 		if (p_add_types && external_resources[i].type != String()) {
 			dep += "::" + external_resources[i].type;

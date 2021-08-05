@@ -94,9 +94,10 @@ enum Type {
 	IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED = 19,
 	IMAGE_FORMAT_CUSTOM = 30,
 
-	//version 2: added 64 bits support for float and int
-	//version 3: changed nodepath encoding
-	FORMAT_VERSION = 3,
+	// Version 2: added 64 bits support for float and int.
+	// Version 3: changed nodepath encoding.
+	// Version 4: new string ID for ext/subresources, breaks forward compat.
+	FORMAT_VERSION = 4,
 	FORMAT_VERSION_CAN_RENAME_DEPS = 1,
 	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 };
@@ -137,6 +138,9 @@ class ResourceLoaderBinaryCompat {
 	// The actual path to the resource (either "res://" in pack or file system)
 	String res_path;
 
+	// Godot 4.x UID
+	ResourceUID::ID uid;
+
 	String type;
 	String project_dir;
 	Ref<Resource> resource;
@@ -144,11 +148,17 @@ class ResourceLoaderBinaryCompat {
 	uint32_t ver_format = 0;
 	uint32_t engine_ver_major = 0;
 	uint32_t engine_ver_minor = 0;
+
 	bool stored_big_endian = false;
 	bool stored_use_real64 = false;
 	bool convert_v2image_indexed = false;
 	bool hacks_for_deprecated_v2img_formats = true;
 	bool no_abort_on_ext_load_fail = true;
+		
+	//Godot 4.x flags
+	bool using_named_scene_ids = false;
+	bool using_uids = false;
+	
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
@@ -161,6 +171,7 @@ class ResourceLoaderBinaryCompat {
 	struct ExtResource {
 		String path;
 		String type;
+		ResourceUID::ID uid = ResourceUID::INVALID_ID;
 		RES cache;
 	};
 
@@ -229,7 +240,7 @@ public:
 	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static Map<String, String> get_version_and_type(const String &p_path, Error *r_error);
-	Error open(FileAccess *p_f);
+	Error open(FileAccess *p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
 	Error load();
 	static String get_ustring(FileAccess *f);
 	Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
