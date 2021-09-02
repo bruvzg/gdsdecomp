@@ -178,7 +178,7 @@ ResultDialog::ResultDialog() {
 	script_vb->add_child(lbl);
 
 	message = memnew(TextEdit);
-	message->set_readonly(true);
+	message->set_editable(false);
 	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
 	message->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	message->set_v_size_flags(Control::SIZE_EXPAND_FILL);
@@ -219,7 +219,7 @@ OverwriteDialog::OverwriteDialog() {
 	script_vb->add_child(lbl);
 
 	message = memnew(TextEdit);
-	message->set_readonly(true);
+	message->set_editable(false);
 	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
 	message->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	message->set_v_size_flags(Control::SIZE_EXPAND_FILL);
