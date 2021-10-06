@@ -12,6 +12,7 @@
 #include "utility/import_exporter.h"
 #include "utility/pck_dumper.h"
 #include "utility/texture_loader_compat.h"
+#include "utility/oggstr_loader_compat.h"
 
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
@@ -30,6 +31,7 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<PckDumper>();
 	ClassDB::register_class<ImportInfo>();
 	ClassDB::register_class<ImportExporter>();
+	ClassDB::register_class<OggStreamLoaderCompat>();
 	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRECLIMain>();
 

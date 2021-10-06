@@ -4,11 +4,15 @@ Import("env")
 Import("env_modules")
 
 mmp3thirdparty_dir = "#thirdparty/minimp3/"
+liboggthirdparty_dir = "#thirdparty/libogg/"
 
 env_gdsdecomp = env_modules.Clone()
 
 env_gdsdecomp.Append(CPPPATH=["."])
 env_gdsdecomp.Append(CPPPATH=["#thirdparty/nanosvg/"])
+
+if env["builtin_libogg"]:
+    env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])
 # Treat minimp3 headers as system headers to avoid raising warnings. Not supported on MSVC.
 if not env.msvc:
     env_gdsdecomp.Append(CPPFLAGS=["-isystem", Dir(mmp3thirdparty_dir).path])

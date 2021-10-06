@@ -102,6 +102,13 @@ enum Type {
 	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 };
 }
+// Used to strip debug messages in release mode
+#ifdef DEBUG_ENABLED
+#define DEBUG_STR(m_msg) m_msg
+#else
+#define DEBUG_STR(m_msg) ""
+#endif
+
 /**
  * Ensures `m_cond` is false.
  * If `m_cond` is true, prints `m_msg` and the current function returns `m_retval`.
@@ -205,7 +212,9 @@ class ResourceLoaderBinaryCompat {
 	Error error = OK;
 
 	friend class ResourceFormatLoaderCompat;
+	//TODO: make a fake_load() or something so we don't have to do this
 	friend class TextureLoaderCompat;
+	friend class OggStreamLoaderCompat;
 	static Map<String, String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
