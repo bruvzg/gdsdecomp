@@ -17,7 +17,7 @@
 #include "modules/svg/image_loader_svg.h"
 #include "scene/resources/resource_format_text.h"
 
-#include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
+#include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/main/canvas_item.h"
 #include "scene/resources/audio_stream_sample.h"
 
@@ -25,6 +25,7 @@
 #include "utility/pcfg_loader.h"
 #include "utility/resource_loader_compat.h"
 #include "utility/texture_loader_compat.h"
+#include "utility/oggstr_loader_compat.h"
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -1300,13 +1301,13 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 		}
 
 		print_warning("converting " + res_files[i], RTR("Convert OGG samples"));
-		Ref<AudioStreamOGGVorbis> sample = rl->load(res_files[i]);
-		if (sample.is_null()) {
+		Error err;
+		OggStreamLoaderCompat oslc;
+		Vector<uint8_t> buf = oslc.get_ogg_stream_data(res_files[i], &err);
+		if (err) {
 			failed_files += res_files[i] + " (load AudioStreamOGGVorbis error)\n";
 			continue;
 		}
-
-		Vector<uint8_t> buf = sample->get_data();
 
 		FileAccess *res = FileAccess::open(res_files[i].get_basename() + ".ogg", FileAccess::WRITE);
 		if (!res) {

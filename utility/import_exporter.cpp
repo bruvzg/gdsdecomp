@@ -8,10 +8,11 @@
 #include "gdre_settings.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/regex/regex.h"
-#include "modules/stb_vorbis/audio_stream_ogg_vorbis.h"
+#include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "pcfg_loader.h"
 #include "resource_loader_compat.h"
 #include "scene/resources/audio_stream_sample.h"
+#include "oggstr_loader_compat.h"
 #include "texture_loader_compat.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 #include <core/io/dir_access.h>
@@ -709,8 +710,8 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.plus_file(p_dst.replace("res://", ""));
 	Error err;
-
-	Ref<AudioStreamOGGVorbis> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	OggStreamLoaderCompat oslc;
+	PackedByteArray data = oslc.get_ogg_stream_data(src_path, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
 
 	err = ensure_dir(dst_path.get_base_dir());
@@ -718,8 +719,7 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 
 	FileAccess *f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
-
-	PackedByteArray data = sample->get_data();
+	
 	f->store_buffer(data.ptr(), data.size());
 
 	print_line("Converted " + src_path + " to " + dst_path);
