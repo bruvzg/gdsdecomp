@@ -266,7 +266,7 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 		uint32_t height = f->get_32();
 		uint32_t mipmaps = f->get_32();
 		uint32_t format = f->get_32();
-		Image::Format fmt;
+		Image::Format fmt = Image::FORMAT_MAX;
 		switch (format) {
 			//convert old image format types to new ones
 			case V2Image::IMAGE_FORMAT_GRAYSCALE: {
@@ -311,38 +311,42 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 			case V2Image::IMAGE_FORMAT_ETC: {
 				fmt = Image::FORMAT_ETC;
 			} break;
-				if (hacks_for_dropped_fmt) {
-					// Hacks for no-longer supported image formats
-					// We change the format to something that V2 didn't have support for as a placeholder
-					// This is just in the case of converting a bin resource to a text resource
-					// It gets handled in the above converters
-					case V2Image::IMAGE_FORMAT_INTENSITY: {
-						fmt = Image::FORMAT_ETC2_R11;
-					} break;
-					case V2Image::IMAGE_FORMAT_INDEXED: {
-						fmt = Image::FORMAT_ETC2_R11S;
-					} break;
-					case V2Image::IMAGE_FORMAT_INDEXED_ALPHA: {
-						fmt = Image::FORMAT_ETC2_RG11;
-					} break;
-					case V2Image::IMAGE_FORMAT_ATC: {
-						fmt = Image::FORMAT_ETC2_RG11S;
-					} break;
-					case V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT: {
-						fmt = Image::FORMAT_ETC2_RGB8;
-					} break;
-					case V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED: {
-						fmt = Image::FORMAT_ETC2_RGB8A1;
-					} break;
-					case V2Image::IMAGE_FORMAT_CUSTOM: {
-						fmt = Image::FORMAT_ETC2_RA_AS_RG;
-					} break;
-						// We can't convert YUV format
-				}
+
 			// If this is a deprecated or unsupported format...
 			default: {
-				// We'll error out after we've skipped over the data
-				fmt = Image::FORMAT_MAX;
+				// Hacks for no-longer supported image formats
+				// We change the format to something that V2 didn't have support for as a placeholder
+				// This is just in the case of converting a bin resource to a text resource
+				// It gets handled in the above converters
+				if (hacks_for_dropped_fmt) {
+					switch (format) {
+						case V2Image::IMAGE_FORMAT_INTENSITY: {
+							fmt = Image::FORMAT_ETC2_R11;
+						} break;
+						case V2Image::IMAGE_FORMAT_INDEXED: {
+							fmt = Image::FORMAT_ETC2_R11S;
+						} break;
+						case V2Image::IMAGE_FORMAT_INDEXED_ALPHA: {
+							fmt = Image::FORMAT_ETC2_RG11;
+						} break;
+						case V2Image::IMAGE_FORMAT_ATC: {
+							fmt = Image::FORMAT_ETC2_RG11S;
+						} break;
+						case V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT: {
+							fmt = Image::FORMAT_ETC2_RGB8;
+						} break;
+						case V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED: {
+							fmt = Image::FORMAT_ETC2_RGB8A1;
+						} break;
+						case V2Image::IMAGE_FORMAT_CUSTOM: {
+							fmt = Image::FORMAT_ETC2_RA_AS_RG;
+						} break;
+							// We can't convert YUV format
+					}
+				} else {
+					// We'll error out after we've skipped over the data
+					fmt = Image::FORMAT_MAX;
+				}
 			}
 		}
 

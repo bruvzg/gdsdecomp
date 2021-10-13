@@ -161,11 +161,11 @@ class ResourceLoaderBinaryCompat {
 	bool convert_v2image_indexed = false;
 	bool hacks_for_deprecated_v2img_formats = true;
 	bool no_abort_on_ext_load_fail = true;
-		
+
 	//Godot 4.x flags
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
-	
+
 	FileAccess *f = nullptr;
 
 	uint64_t importmd_ofs = 0;
@@ -245,7 +245,7 @@ class ResourceLoaderBinaryCompat {
 	Map<String, RES> dependency_cache;
 
 public:
-	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types);
+	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
 	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static Map<String, String> get_version_and_type(const String &p_path, Error *r_error);

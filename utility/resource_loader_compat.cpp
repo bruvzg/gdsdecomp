@@ -103,7 +103,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 			memdelete(loader);
 			return OK;
 		}
-		Error error = loader->load_import_metadata();
+		error = loader->load_import_metadata();
 		ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + loader->res_path + "'", loader);
 
 		if (loader->imd->get_source_count() > 1) {
@@ -252,7 +252,7 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 
 	print_bl("type: " + type);
 
-	importmd_ofs = f->get_64();	
+	importmd_ofs = f->get_64();
 	uint32_t flags = f->get_32();
 	if (flags & ResourceFormatSaverBinaryInstance::FORMAT_FLAG_NAMED_SCENE_IDS) {
 		using_named_scene_ids = true;
@@ -538,15 +538,15 @@ void print_class_prop_list(const StringName &cltype) {
 	memdelete(listpinfo);
 }
 
-/* 
+/*
  * Convert properties of old stored resources to new resource properties
- * 
+ *
  * Primarily for debugging; as development continues, we'll likely have special handlers
  * for old resources we care about.
- * 
+ *
  * Common failures like properties that no longer exist, or changed type (like String to StringName),
  * can be fixed. Otherwise we return an error so that we stop attempting to load the resource.
- * 
+ *
  * This is a recursive function; if the property value is a resource,
  * we iterate through all ITS properties and attempt repairs.
  */
@@ -839,6 +839,7 @@ RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &typ
 	dummy.instantiate();
 	dummy->set_real_path(path);
 	dummy->set_real_type(type);
+	//TODO: Fix this so that it sets the real UID if its enabled
 	dummy->set_scene_unique_id(itos(subidx));
 	return dummy;
 }
@@ -1044,7 +1045,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			} else {
 				line += "id=" + id + "]";
 			}
-			
+
 
 			if (text_format_version == 1) {
 				// Godot 2.x quirk: newline between subresource and properties
@@ -2073,7 +2074,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->close();
 		return ERR_CANT_CREATE;
 	}
-	
+
 	//fw->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
 	save_ustring(fw, type);
 	uint64_t md_at = fw->get_position();
@@ -2194,7 +2195,7 @@ ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat() {
 	}
 }
 
-void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types) {
+void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths) {
 	open(p_f);
 	if (error) {
 		return;
@@ -2202,7 +2203,7 @@ void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> 
 
 	for (int i = 0; i < external_resources.size(); i++) {
 		String dep;
-		if (external_resources[i].uid != ResourceUID::INVALID_ID) {
+		if (!only_paths && external_resources[i].uid != ResourceUID::INVALID_ID) {
 			dep = ResourceUID::get_singleton()->id_to_text(external_resources[i].uid);
 		} else {
 			dep = external_resources[i].path;
