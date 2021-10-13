@@ -8,9 +8,8 @@
 
 config_version=4
 
-_global_script_classes=[  ]
+_global_script_classes=[]
 _global_script_class_icons={
-
 }
 
 [application]
@@ -23,7 +22,6 @@ config/icon="res://gdre_icon.png"
 
 window/size/width=1200
 window/size/height=1024
-window/dpi/allow_hidpi=false
 
 [editor]
 
@@ -31,4 +29,4 @@ convert_text_resources_to_binary_on_export=true
 
 [rendering]
 
-environment/default_clear_color=Color( 0.0784314, 0.0901961, 0.121569, 1 )
+environment/default_clear_color=Color(0.0784314, 0.0901961, 0.121569, 1)
