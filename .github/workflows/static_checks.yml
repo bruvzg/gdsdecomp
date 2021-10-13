@@ -1,0 +1,16 @@
+name: Static Checks
+on: [push, pull_request]
+
+
+jobs:
+  static-check-clang-format:
+    runs-on: "ubuntu-20.04"
+    name: Static checks (clang-format)
+    steps:
+    - name: checkout-gdsdecomp
+      uses: actions/checkout@v2
+      with:
+      # get all history
+        fetch-depth: 0
+    - name: check clang_format
+      run: bash ./.scripts/clang_format.sh
