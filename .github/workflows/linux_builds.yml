@@ -1,0 +1,212 @@
+name: 🐧 Linux Builds
+on:
+  push:
+    paths:
+      - '**'
+      - '!**.md'
+      - '!LICENSE'
+      - '!.scripts/clang_format.sh'
+      - '!.github/**'
+      - '.github/workflows/actions/**'
+      - '.github/workflows/linux_builds.yml'
+  pull_request:
+    paths:
+      - '**'
+      - '!**.md'
+      - '!LICENSE'
+      - '!.scripts/clang_format.sh'
+      - '!.github/**'
+      - '.github/workflows/actions/**'
+      - '.github/workflows/linux_builds.yml'
+
+
+# Global Settings
+env:
+  GODOT_BASE_BRANCH: master
+  GODOT_MAIN_SYNC_REF: 26f4848d013c5a234c2399717372ef72985cb655
+  SCONSFLAGS: platform=linuxbsd debug_symbols=no verbose=yes warnings=extra werror=no --jobs=2 module_text_server_fb_enabled=yes
+  SCONS_CACHE_LIMIT: 4096
+
+jobs:
+  gdsdecomp-linux-editor:
+    runs-on: "ubuntu-20.04"
+    name: GDSDecomp with Editor (target=release_debug, tools=yes)
+
+    steps:
+      - name: checkout-godot
+        uses: actions/checkout@v2
+        with:
+          repository: godotengine/godot
+          ref: ${{env.GODOT_MAIN_SYNC_REF}}
+
+      - name: checkout-gdsdecomp
+        uses: actions/checkout@v2
+        with:
+          path: modules/gdsdecomp
+
+      # Azure repositories are not reliable, we need to prevent azure giving us packages.
+      - name: Make apt sources.list use the default Ubuntu repositories
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*
+          sudo cp -f misc/ci/sources.list /etc/apt/sources.list
+          sudo apt-get update
+
+      # Install all packages (except scons)
+      - name: Configure dependencies
+        run: |
+          sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
+            libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
+
+      # Upload cache on completion and check it out now
+      - name: Load .scons_cache directory
+        id: linux-editor-cache
+        uses: actions/cache@v2
+        with:
+          path: ${{github.workspace}}/.scons_cache/
+          key: ${{github.job}}-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+          restore-keys: |
+            ${{github.job}}-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+            ${{github.job}}-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+            ${{github.job}}-${{env.GODOT_BASE_BRANCH}}
+
+      # Use python 3.x release (works cross platform; best to keep self contained in it's own step)
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          # Semantic version range syntax or exact version of a Python version
+          python-version: '3.x'
+          # Optional - x64 or x86 architecture, defaults to x64
+          architecture: 'x64'
+
+      # Setup scons, print python version and scons version info, so if anything is broken it won't run the build.
+      - name: Configuring Python packages
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m pip install scons
+          python --version
+          scons --version
+
+      # We should always be explicit with our flags usage here since it's gonna be sure to always set those flags
+      - name: Compilation
+        env:
+          SCONS_CACHE: ${{github.workspace}}/.scons_cache/
+        run: |
+          scons tools=yes tests=no target=release_debug
+          ls -l bin/
+
+      - name: Prepare artifact
+        run: |
+          strip bin/godot.*
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.job }}
+          path: bin/*
+          retention-days: 90
+
+  GDRE_tools-linux-standalone:
+    needs: gdsdecomp-linux-editor
+    runs-on: "ubuntu-20.04"
+    name: GDRE Tools Standalone
+
+    steps:
+      - name: checkout-godot
+        uses: actions/checkout@v2
+        with:
+          repository: godotengine/godot
+          ref: ${{env.GODOT_MAIN_SYNC_REF}}
+
+      - name: checkout-gdsdecomp
+        uses: actions/checkout@v2
+        with:
+          path: modules/gdsdecomp
+
+      # Azure repositories are not reliable, we need to prevent azure giving us packages.
+      - name: Make apt sources.list use the default Ubuntu repositories
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*
+          sudo cp -f misc/ci/sources.list /etc/apt/sources.list
+          sudo apt-get update
+
+      # Install all packages (except scons)
+      - name: Configure dependencies
+        run: |
+          sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
+            libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
+
+      # Upload cache on completion and check it out now
+      - name: Load .scons_cache directory
+        id: linux-editor-cache
+        uses: actions/cache@v2
+        continue-on-error: true
+        with:
+          path: ${{github.workspace}}/.scons_cache/
+          key: ${{github.job}}-${{github.ref}}-${{github.sha}}
+          restore-keys: |
+            ${{github.job}}-${{github.ref}}-${{github.sha}}
+            ${{github.job}}-${{github.ref}}
+            ${{github.job}}
+
+      # Use python 3.x release (works cross platform; best to keep self contained in it's own step)
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          # Semantic version range syntax or exact version of a Python version
+          python-version: '3.x'
+          # Optional - x64 or x86 architecture, defaults to x64
+          architecture: 'x64'
+
+      # Setup scons, print python version and scons version info, so if anything is broken it won't run the build.
+      - name: Configuring Python packages
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m pip install scons
+          python --version
+          scons --version
+
+      # We should always be explicit with our flags usage here since it's gonna be sure to always set those flags
+      # target release makes CLI flags not work; use release_debug instead and then just strip it
+      - name: Compile Godot export template
+        env:
+          SCONS_CACHE: ${{github.workspace}}/.scons_cache/
+        run: |
+          scons target=release_debug tools=no tests=no 
+          ls -l bin/
+
+      - name: strip debug symbols
+        run: |
+          strip bin/godot.*
+
+      - name: Download editor from previous job
+        uses: actions/download-artifact@v2
+        with:
+          name: gdsdecomp-linux-editor
+          path: ${{github.workspace}}/bineditor/
+
+      # Download, unzip and setup SwiftShader library [4466040]
+      - name: Download SwiftShader
+        run: |
+          wget https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader2.zip
+          unzip swiftshader2.zip
+          rm swiftshader2.zip
+          curr="$(pwd)/libvk_swiftshader.so"
+          sed -i "s|PATH_TO_CHANGE|$curr|" vk_swiftshader_icd.json
+
+      - name: Export standalone GDRE Tools
+        run: |
+          export VK_ICD_FILENAMES=$(pwd)/vk_swiftshader_icd.json
+          cd modules/gdsdecomp/standalone
+          chmod a+x ${{github.workspace}}/bineditor/godot.linuxbsd.opt.tools.64
+          export DRI_PRIME=0 
+          mkdir .export
+          xvfb-run ${{github.workspace}}/bineditor/godot.linuxbsd.opt.tools.64 -e -q --audio-driver Dummy || echo OK
+          xvfb-run ${{github.workspace}}/bineditor/godot.linuxbsd.opt.tools.64 --audio-driver Dummy --export "Linux/X11" .export/gdre_tools.x86_64 || echo OK
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.job }}
+          path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
+          retention-days: 90
+
