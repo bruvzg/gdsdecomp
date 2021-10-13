@@ -266,12 +266,12 @@ Error GDScriptDecomp_64872ca::decompile_buffer(Vector<uint8_t> p_buffer) {
 			} break;
 			case TK_IDENTIFIER: {
 				uint32_t identifier = tokens[i] >> TOKEN_BITS;
-				ERR_FAIL_INDEX_V(identifier, (uint32_t)identifiers.size(), ERR_INVALID_DATA);
+				ERR_FAIL_COND_V(identifier >= (uint32_t)identifiers.size(), ERR_INVALID_DATA);
 				line += String(identifiers[identifier]);
 			} break;
 			case TK_CONSTANT: {
 				uint32_t constant = tokens[i] >> TOKEN_BITS;
-				ERR_FAIL_INDEX_V(constant, (uint32_t)constants.size(), ERR_INVALID_DATA);
+				ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), ERR_INVALID_DATA);
 				line += get_constant_string(constants, constant);
 			} break;
 			case TK_SELF: {
