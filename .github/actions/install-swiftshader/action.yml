@@ -1,0 +1,73 @@
+name: Install SwiftShader
+description: Install SwiftShader and set environment to 
+inputs:
+  path:
+    description: The absolute folder path to extract the SwiftShader shared library to.
+    default: '${{ github.workspace }}'
+  bits:
+    decription: 32 or 64 (only on Windows)
+    default: 64
+  # backend:
+  #   description: Vulkan or GLES.
+  #   default: "Vulkan"
+runs:
+  using: "composite"
+  steps:
+    - name: Scons Build
+      env:
+        SWIFTSHADER_WINDOWS_URL: https://artprodsu6weu.artifacts.visualstudio.com/A22fc38be-5a1f-46f4-9c73-5178c0f7346e/0f71ca99-a6cd-4648-9ce3-12c03b9eced3/_apis/artifact/cGlwZWxpbmVhcnRpZmFjdDovL2JvbnRhcmthL3Byb2plY3RJZC8wZjcxY2E5OS1hNmNkLTQ2NDgtOWNlMy0xMmMwM2I5ZWNlZDMvYnVpbGRJZC8xNzI5L2FydGlmYWN0TmFtZS9zd2lmdHNoYWRlci0yMDIxLTEwLTA5XzA4LTAxLUxMVk0xMC43eg2/content?format=zip
+        SWIFTSHADER_LINUX_URL: https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader2.zip
+        SWIFTSHADER_MACOS_URL: https://github.com/nikitalita/swiftshader-builds/releases/download/1.0.0/swiftshader-vulkan-r6216.7997cbc34b-macos-10.15.zip
+      shell: bash
+      run: |
+        export SWIFTSHADER_DEST_DIR='${{ inputs.path }}'
+        mkdir -p $SWIFTSHADER_DEST_DIR
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          wget ${{ env.SWIFTSHADER_LINUX_URL }} -O swiftshader.zip
+          unzip swiftshader.zip -d $SWIFTSHADER_DEST_DIR
+          rm swiftshader.zip
+          SWIFTSHADER_LIB_NAME="./libvk_swiftshader.so"
+          sed -i "s|PATH_TO_CHANGE|$SWIFTSHADER_LIB_NAME|" $SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json
+          echo "VK_ICD_FILENAMES=$SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          wget ${{ env.SWIFTSHADER_MACOS_URL }} -O swiftshader.zip
+          unzip swiftshader.zip -d temp-ss-dl/
+          rm swiftshader.zip
+          mv temp-ss-dl/lib/libvk_swiftshader.dylib $SWIFTSHADER_DEST_DIR/libvk_swiftshader.dylib
+          # cp $SWIFTSHADER_DEST_DIR/libvk_swiftshader.dylib $SWIFTSHADER_DEST_DIR/libvulkan.1.dylib
+          mv temp-ss-dl/share/vulkan/icd.d/vk_swiftshader_icd.json $SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json
+          rm -rf temp-ss-dl/
+          sed -i '' "s/..\/..\/..\/lib\/libvk_swiftshader.dylib/.\/libvk_swiftshader.dylib/" "$SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json" 
+          echo "VK_ICD_FILENAMES=$SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json" >> $GITHUB_ENV
+          wget https://sdk.lunarg.com/sdk/download/1.2.189.0/mac/vulkansdk-macos-1.2.189.0.dmg?Human=true -O vulkansdk-macos-1.2.189.0.dmg
+          hdiutil attach vulkansdk-macos-1.2.189.0.dmg
+          sudo /Volumes/vulkansdk-macos-1.2.189.0/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-1.2.189.0 --accept-licenses --default-answer --confirm-command install
+          hdiutil detach /Volumes/vulkansdk-macos-1.2.189.0
+          echo "DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-1.2.189.0/macOS/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          arch="x64"
+          if [ "${{ inputs.bits }}" == "32" ]; then
+            arch="x86"
+          fi
+          choco install --yes 7zip wget
+          wget -O swiftshader.zip ${{env.SWIFTSHADER_WINDOWS_URL}}
+          7z x swiftshader.zip -otemp-ss-dl/
+          rm swiftshader.zip
+          mv temp-ss-dl/swiftshader-*/swiftshader-*.7z temp-ss-dl/swiftshader.7z
+          7z x temp-ss-dl/swiftshader.7z -otemp-ss-dl/swiftshader
+          rm temp-ss-dl/swiftshader.7z
+          mv temp-ss-dl/swiftshader/$arch/bin/vk_swiftshader.dll $SWIFTSHADER_DEST_DIR/vk_swiftshader.dll
+          mv temp-ss-dl/swiftshader/$arch/bin/vulkan-1.dll $SWIFTSHADER_DEST_DIR/vulkan-1.dll
+          mv temp-ss-dl/swiftshader/$arch/bin/vk_swiftshader_icd.json $SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json
+          rm -rf temp-ss-dl/
+          echo "VK_ICD_FILENAMES=$SWIFTSHADER_DEST_DIR\vk_swiftshader_icd.json" >> $GITHUB_ENV
+        else
+          echo "$RUNNER_OS not supported"
+          exit 1
+        fi
+        ls -la $SWIFTSHADER_DEST_DIR
+        echo $SWIFTSHADER_DEST_DIR
+        echo '$SWIFTSHADER_DEST_DIR'
+        echo $SWIFTSHADER_DEST_DIR
+        echo "$SWIFTSHADER_DEST_DIR"
+        cat $SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json
