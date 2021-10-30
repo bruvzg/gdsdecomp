@@ -2,10 +2,15 @@
 
 CLANG_FORMAT=clang-format-6.0
 
+CURRENT_BRANCH="$(git branch --show-current)"
+
 # If this was triggered by a pull request...
 if [ -n "$GITHUB_BASE_REF" ]; then
     # Test from the the last commit of base branch to head of pull request
     RANGE="$(git rev-parse $GITHUB_BASE_REF) HEAD"
+# Otherwise, if we're not on master, check from the merge base of master
+elif [ "$CURRENT_BRANCH" != "master" ]; then
+	RANGE="$(git merge-base HEAD master) HEAD"
 # Otherwise, check last commit
 else
 	RANGE=HEAD
