@@ -2,9 +2,9 @@
 
 #ifndef RESOURCE_LOADER_COMPAT_H
 #define RESOURCE_LOADER_COMPAT_H
+#include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_format_binary.h"
-#include "core/io/file_access.h"
 #include "core/variant/variant.h"
 #include "import_info.h"
 #include "resource_import_metadatav2.h"
