@@ -1371,7 +1371,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			}
 			//empty property field, remove it
 			if (has_property && subnames[subnames.size() - 1] == "") {
-				subnames.remove(subnames.size() - 1);
+				subnames.remove_at(subnames.size() - 1);
 			}
 			NodePath np = NodePath(names, subnames, absolute);
 

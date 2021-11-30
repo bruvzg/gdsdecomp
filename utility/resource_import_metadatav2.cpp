@@ -38,7 +38,7 @@ void ResourceImportMetadatav2::set_source_md5(int p_idx, const String &p_md5) {
 void ResourceImportMetadatav2::remove_source(int p_idx) {
 
 	ERR_FAIL_INDEX(p_idx, sources.size());
-	sources.remove(p_idx);
+	sources.remove_at(p_idx);
 }
 
 int ResourceImportMetadatav2::get_source_count() const {
