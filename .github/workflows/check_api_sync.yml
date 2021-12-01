@@ -6,7 +6,7 @@ name: Check sync with Godot master API
 # runs every day at midnight GMT
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 0 * * *'
   push:
     paths:
       - '.github/workflows/check_api_sync.yml'
