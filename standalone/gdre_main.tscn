@@ -1,13 +1,13 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=3 format=3 uid="uid://el6o5uk15g2c"]
 
-[ext_resource path="res://gdre_theme.tres" type="Theme" id=1]
-[ext_resource path="res://gdre_main.gd" type="Script" id=2]
+[ext_resource type="Theme" path="res://gdre_theme.tres" id="1"]
+[ext_resource type="Script" path="res://gdre_main.gd" id="2"]
 
 [node name="root" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme = ExtResource( 1 )
-script = ExtResource( 2 )
+theme = ExtResource( "1" )
+script = ExtResource( "2" )
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -15,40 +15,38 @@ __meta__ = {
 [node name="log_window" type="RichTextLabel" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_top = 27.0
 focus_mode = 2
-custom_colors/default_color = Color( 0.470588, 0.45098, 0.45098, 1 )
-custom_constants/line_separation = 5
+theme_override_colors/default_color = Color(0.470588, 0.45098, 0.45098, 1)
+theme_override_constants/line_separation = 5
 selection_enabled = true
+custom_effects = []
+structured_text_bidi_override_options = []
+script = null
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
 [node name="menu_background" type="Panel" parent="."]
 anchor_right = 1.0
-margin_bottom = 24.0
+script = null
 
 [node name="version_lbl" type="Button" parent="menu_background"]
 anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-margin_left = -209.0
-margin_top = -10.0
-margin_right = -4.0
-margin_bottom = 12.0
 text = "$$$"
 flat = true
 align = 2
+script = null
 
 [node name="re_editor_standalone" type="GodotREEditorStandalone" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_left = 8.0
-margin_right = -420.0
-margin_bottom = -1000.0
+script = null
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
 [connection signal="pressed" from="menu_background/version_lbl" to="." method="_on_version_lbl_pressed"]
 [connection signal="write_log_message" from="re_editor_standalone" to="." method="_on_re_editor_standalone_write_log_message"]

@@ -1,0 +1,26 @@
+name: Prepare Godot artifact
+description: Prepare the Godot artifact.
+inputs:
+  path:
+    description: The folder path to the artifacts.
+    required: true
+    default: "${{ github.workspace }}/bin"
+runs:
+  using: "composite"
+  steps:
+    - name: Strip debug symbols
+      shell: bash
+      run: |
+        TARGET_DIR='${{ inputs.path }}'
+        mkdir -p {{ inputs.path }}
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          strip $TARGET_DIR/godot.*
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          strip $TARGET_DIR/godot.*
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          unix_dir=$(cygpath -u $TARGET_DIR)
+          rm -rf $unix_dir/*.exp $unix_dir/*.lib $unix_dir/*.pdb 
+        else
+          echo "$RUNNER_OS not supported"
+        fi
+

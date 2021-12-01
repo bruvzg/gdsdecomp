@@ -1,0 +1,33 @@
+name: Static Checks
+on: [push, pull_request]
+
+
+jobs:
+  static-check-clang-format:
+    runs-on: "ubuntu-20.04"
+    name: Static checks (clang-format)
+    steps:
+    - name: checkout-gdsdecomp
+      uses: actions/checkout@v2
+      with:
+      # get all history
+        fetch-depth: 0
+    # If we're on another branch, make sure we have master
+    - run: |
+        git fetch --prune
+        echo $(git branch --all)
+        CURR_BRANCH=$(git branch --show-current)
+        if [ "$CURR_BRANCH" = "" ]; then
+          CURR_BRANCH=$(git rev-parse HEAD)
+        fi
+        if [ "$CURR_BRANCH" != "master" ]; then
+          git checkout --track origin/master
+          git checkout $CURR_BRANCH
+        fi
+        echo $(git branch --all)
+    - name: Install Linux deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install clang-format-6.0
+    - name: check clang_format
+      run: bash ./.scripts/clang_format.sh

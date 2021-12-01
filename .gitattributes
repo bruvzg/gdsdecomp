@@ -10,3 +10,5 @@ drivers/* linguist-vendored
 *.hpp eol=lf
 *.xml eol=lf
 *.natvis eol=lf
+*.yml eol=lf
+*.md eol=lf

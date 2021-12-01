@@ -317,9 +317,6 @@ platform/windows/godot_res.res
 # Scons progress indicator
 .scons_node_count
 
-# godot imports
-standalone/.godot/
-
 # test files
 standalone/spriteTest.*
 standalone/character*

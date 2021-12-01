@@ -1,0 +1,172 @@
+name: Build Editor and Standalone
+on:
+  push:
+    paths:
+      - '**'
+      - '!**.md'
+      - '!LICENSE'
+      - '!.scripts/clang_format.sh'
+      - '!.github/**'
+      - '.github/actions/**'
+      - '.github/workflows/all_builds.yml'
+  pull_request:
+    paths:
+      - '**'
+      - '!**.md'
+      - '!LICENSE'
+      - '!.scripts/clang_format.sh'
+      - '!.github/**'
+      - '.github/actions/**'
+      - '.github/workflows/all_builds.yml'
+
+# Global Settings
+# SCONS_CACHE for windows must be set in the build environment
+env:
+  GODOT_BASE_BRANCH: master
+  GODOT_MAIN_SYNC_REF: 69a194f051c5f02243092e305633b9ffbd03b05f
+  SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes debug_symbols=no
+  SCONSFLAGS_TEMPLATE: disable_3d=yes no_editor_splash=yes module_bmp_enabled=no module_bullet_enabled=no module_camera_enabled=no module_csg_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_gdnative_enabled=no module_opensimplex_enabled=no module_pvr_enabled=no module_webm_enabled=no module_recast_enabled=no module_websocket_enabled=no module_gridmap_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes
+  SCONS_CACHE_MSVC_CONFIG: true
+
+concurrency:
+  group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Windows 10 with latest image
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Windows"
+            os: "windows-latest"
+            platform: windows
+            sconsflags-template: ""
+            command-export: . ${env:GITHUB_WORKSPACE}\bin\godot.windows.opt.tools.64.exe
+            command-postfix: ''
+            export-preset: "Windows Desktop"
+            export-name: .export\gdre_tools.exe
+
+          - name: "🐧 Linux"
+            os: "ubuntu-20.04"
+            platform: linux
+            sconsflags-template: optimize=size use_lto=yes 
+            command-export: DRI_PRIME=0 xvfb-run $GITHUB_WORKSPACE/bin/godot.linuxbsd.opt.tools.64
+            command-postfix: '|| echo OK'
+            export-preset: "Linux/X11"
+            export-name: .export/gdre_tools.x86_64
+
+          - name: "🍎 macOS"
+            os: "macos-latest"
+            platform: osx
+            sconsflags-template: optimize=size use_lto=yes 
+            command-export: $GITHUB_WORKSPACE/bin/godot.osx.opt.tools.64
+            command-postfix: '|| echo OK'
+            export-preset: "macOS"
+            export-name: .export/gdre_tools.x86_64.zip
+
+    steps:
+      - name: checkout-godot
+        uses: actions/checkout@v2
+        with:
+          repository: godotengine/godot
+          ref: ${{env.GODOT_MAIN_SYNC_REF}}
+
+      - name: checkout-gdsdecomp
+        uses: actions/checkout@v2
+        with:
+          path: modules/gdsdecomp
+
+      - name: copy actions
+        shell: bash
+        run: |
+          cp -R modules/gdsdecomp/.github/actions/* .github/actions/
+
+      - name: Setup Godot build cache
+        uses: ./.github/actions/godot-cache
+        with:
+          cache-name: ${{ matrix.platform }}-editor-and-standalone
+        continue-on-error: true
+
+      # Azure repositories are not reliable, we need to prevent azure giving us packages.
+      - name: Install Linux deps
+        if: matrix.platform == 'linux'
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*
+          sudo cp -f misc/ci/sources.list /etc/apt/sources.list
+          sudo apt-get update
+          sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
+            libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
+
+      - name: Setup python and scons
+        uses: ./.github/actions/godot-deps
+
+      - name: Compilation
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: ${{ env.SCONSFLAGS }} ${{ matrix.sconsflags }}
+          platform: ${{ matrix.platform }}
+          target: release_debug
+          tools: true
+          tests: false
+          scons-cache-limit: 4096
+
+      - name: Prepare artifact
+        uses: ./.github/actions/godot-prepare-artifact
+
+      - uses: actions/upload-artifact@v2
+        continue-on-error: true
+        with:
+          name: GDRE_tools-editor-${{ matrix.platform }}
+          path: ${{github.workspace}}/bin/*
+          retention-days: 90
+
+      # target release makes CLI flags not work; use release_debug instead and then just strip it
+      - name: Compile godot export template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
+          platform: ${{ matrix.platform }}
+          target: release_debug
+          tools: false
+          tests: false
+          scons-cache-limit: 4096
+        continue-on-error: true
+
+      - name: Prepare template artifact
+        uses: ./.github/actions/godot-prepare-artifact
+
+      - name: Make macOS template
+        if: matrix.platform == 'osx'
+        run: |
+          mkdir -p "bin/osx_template.app/Contents/MacOS"
+          cp "bin/godot.osx.opt.debug.64" "bin/osx_template.app/Contents/MacOS/godot_osx_debug.64"
+          cp "bin/godot.osx.opt.debug.64" "bin/osx_template.app/Contents/MacOS/godot_osx_release.64"
+          cd bin/
+          zip -r9 "osx.zip" "osx_template.app/"
+          cd ..
+      - name: Install swiftshader
+        uses: ./.github/actions/install-swiftshader
+        with:
+          path: ${{ github.workspace }}/bin
+        continue-on-error: true
+
+      - name: Export standalone GDRE Tools
+        continue-on-error: true
+        run: |
+          cd ${{github.workspace}}/modules/gdsdecomp/standalone
+          mkdir .export
+          ${{ matrix.command-export }} --no-window -e -q --audio-driver Dummy ${{ matrix.command-postfix }}
+          ${{ matrix.command-export }} --no-window --audio-driver Dummy --export "${{ matrix.export-preset }}" ${{ matrix.export-name }} ${{ matrix.command-postfix }}
+
+      - uses: actions/upload-artifact@v2
+        continue-on-error: true
+        with:
+          name: GDRE_tools-standalone-${{ matrix.platform }}
+          path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
+          retention-days: 90
+

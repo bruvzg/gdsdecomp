@@ -2,16 +2,22 @@
 
 CLANG_FORMAT=clang-format-6.0
 
-if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
-    # Check the whole commit range against $TRAVIS_BRANCH, the base merge branch
-    # We could use $TRAVIS_COMMIT_RANGE but it doesn't play well with force pushes
-    RANGE="$(git rev-parse $TRAVIS_BRANCH) HEAD"
+CURRENT_BRANCH="$(git branch --show-current)"
+
+# If this was triggered by a pull request...
+if [ -n "$GITHUB_BASE_REF" ]; then
+    # Test from the the last commit of base branch to head of pull request
+    RANGE="$(git rev-parse $GITHUB_BASE_REF) HEAD"
+# Otherwise, if we're not on master, check from the merge base of master
+elif [ "$CURRENT_BRANCH" != "master" ]; then
+	RANGE="$(git merge-base HEAD master) HEAD"
+# Otherwise, check last commit
 else
-    # Test only the last commit
-    RANGE=HEAD
+	RANGE=HEAD
 fi
 
-FILES=$(git diff-tree --no-commit-id --name-only -r $RANGE | grep -v subprojects/ | grep -E "\.(c|h|cpp|hpp|cc|hh|cxx|m|mm|inc)$")
+echo "Checking $RANGE"
+FILES=$(git diff-tree --no-commit-id --name-only -r $RANGE | grep -E "\.(c|h|cpp|hpp|cc|hh|cxx|m|mm|inc)$")
 echo "Checking files:\n$FILES"
 
 # create a random filename to store our generated patch
