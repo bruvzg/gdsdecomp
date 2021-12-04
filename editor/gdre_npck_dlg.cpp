@@ -9,7 +9,6 @@
 #include "gdre_version.h"
 
 NewPackDialog::NewPackDialog() {
-
 	set_title(RTR("Create new PCK..."));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 

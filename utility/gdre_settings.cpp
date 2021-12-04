@@ -12,7 +12,6 @@
 #endif
 #include <stdlib.h>
 
-
 String GDRESettings::_get_cwd() {
 #if defined(WINDOWS_ENABLED)
 	const DWORD expected_size = ::GetCurrentDirectoryW(0, nullptr);
@@ -156,7 +155,6 @@ void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 }
 
 void GDRESettings::set_encryption_key(const String &key_str) {
-
 	String skey = key_str.replace_first("0x", "");
 	ERR_FAIL_COND_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, "not a valid key");
 
@@ -199,18 +197,18 @@ void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 
 Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 	Vector<String> ret;
-	Vector<Ref<PackedFileInfo> > flist = get_file_info_list(filters);
+	Vector<Ref<PackedFileInfo>> flist = get_file_info_list(filters);
 	for (int i = 0; i < flist.size(); i++) {
 		ret.push_back(flist[i]->path);
 	}
 	return ret;
 }
 
-Vector<Ref<PackedFileInfo> > GDRESettings::get_file_info_list(const Vector<String> &filters) {
+Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String> &filters) {
 	if (filters.size() == 0) {
 		return files;
 	}
-	Vector<Ref<PackedFileInfo> > ret;
+	Vector<Ref<PackedFileInfo>> ret;
 	for (int i = 0; i < files.size(); i++) {
 		for (int j = 0; j < filters.size(); j++) {
 			if (files.get(i)->get_path().get_file().match(filters[j])) {
@@ -311,7 +309,6 @@ bool GDRESettings::is_fs_path(const String &p_path) {
 	}
 	//windows
 	if (OS::get_singleton()->get_name().begins_with("Win")) {
-
 		auto reg = RegEx("^[A-Za-z]:\\/");
 		if (reg.search(p_path).is_valid()) {
 			return true;

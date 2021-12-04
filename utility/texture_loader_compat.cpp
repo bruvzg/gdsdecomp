@@ -48,7 +48,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 	} else if (header[0] == 'G' && header[1] == 'S' && header[2] == 'T' && header[3] == '2') {
 		return TextureVersionType::FORMAT_V4_STREAM_TEXTURE2D;
 	} else if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
-			   (header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
+			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		//check if this is a V2 texture
 		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
@@ -73,7 +73,6 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 }
 
 Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
-
 	if (!(df & FORMAT_BIT_STREAM)) {
 		// do something??
 	}
@@ -89,7 +88,6 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 		//print_line("mipmaps: " + itos(mipmaps));
 
 		while (mipmaps > 1 && p_size_limit > 0 && (sw > p_size_limit || sh > p_size_limit)) {
-
 			f->seek(f->get_position() + size);
 			mipmaps = f->get_32();
 			size = f->get_32();
@@ -100,11 +98,10 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 		}
 
 		//mipmaps need to be read independently, they will be later combined
-		Vector<Ref<Image> > mipmap_images;
+		Vector<Ref<Image>> mipmap_images;
 		int total_size = 0;
 
 		for (uint32_t i = 0; i < mipmaps; i++) {
-
 			if (i) {
 				size = f->get_32();
 			}
@@ -170,7 +167,6 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 
 			image->create(tw, th, false, format, img_data);
 		} else {
-
 			int sw = tw;
 			int sh = th;
 
@@ -179,7 +175,6 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 			int idx = 0;
 
 			while (mipmaps2 > 1 && p_size_limit > 0 && (sw > p_size_limit || sh > p_size_limit)) {
-
 				sw = MAX(sw >> 1, 1);
 				sh = MAX(sh >> 1, 1);
 				mipmaps2--;
@@ -352,7 +347,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
 	Error err;
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(!f, err, "Cannot open file '" + p_path + "'.");
@@ -376,7 +371,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 			//look for a PNG file inside
 
 			int mipmaps = f->get_32();
-			Vector<Ref<Image> > mipmap_images;
+			Vector<Ref<Image>> mipmap_images;
 
 			for (int i = 0; i < mipmaps; i++) {
 				uint32_t size = f->get_32();
@@ -396,7 +391,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 			}
 
 			if (mipmap_images.size() == 1) {
-
 				image = mipmap_images[0];
 
 			} else {
@@ -407,7 +401,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 				{
 					int ofs = 0;
 					for (int i = 0; i < mipmap_images.size(); i++) {
-
 						Vector<uint8_t> id = mipmap_images[i]->get_data();
 						int len = id.size();
 						memcpy(&img_data.ptrw()[ofs], id.ptr(), len);
@@ -423,7 +416,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 			}
 
 		} else {
-
 			//look for regular format
 			bool mipmaps = (flags & 1); //Texture::FLAG_MIPMAPS
 			int total_size = Image::get_image_data_size(tw, th, format, mipmaps);
@@ -446,7 +438,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
 	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
@@ -494,7 +486,7 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 	return OK;
 }
 
-Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image> > &r_data, Error *r_err, int ver_major) const {
+Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const {
 	int lw, lh, ld, ltype;
 	bool mipmaps;
 	Image::Format fmt;
@@ -523,7 +515,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, V
 	return texture;
 }
 
-Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image> > &r_data, int &type, Error *r_err, int ver_major) const {
+Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const {
 	int lw, lh, ld;
 
 	bool mipmaps;
@@ -596,7 +588,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::load_texture_layered(const String
 			break;
 	}
 	Ref<StreamTexture3D> texture;
-	Vector<Ref<Image> > r_data;
+	Vector<Ref<Image>> r_data;
 	int type;
 	texture = _load_texture_layered(res_path, r_data, type, &err, ver_major);
 	if (r_err) {
@@ -644,7 +636,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Er
 			break;
 	}
 	Ref<StreamTexture3D> texture;
-	Vector<Ref<Image> > r_data;
+	Vector<Ref<Image>> r_data;
 
 	texture = _load_texture3d(p_path, r_data, &err, ver_major);
 	if (r_err) {
@@ -716,9 +708,9 @@ Ref<StreamTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Er
 }
 
 // TODO: What to do with this?
-Vector<Ref<Image> > TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error *r_err) {
+Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error *r_err) {
 	Error err;
-	Vector<Ref<Image> > data;
+	Vector<Ref<Image>> data;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);

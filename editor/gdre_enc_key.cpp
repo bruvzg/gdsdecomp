@@ -5,7 +5,6 @@
 #include "gdre_enc_key.h"
 
 EncKeyDialog::EncKeyDialog() {
-
 	set_title(RTR("Set encryption key"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
@@ -32,7 +31,6 @@ EncKeyDialog::~EncKeyDialog() {
 }
 
 Vector<uint8_t> EncKeyDialog::get_key() const {
-
 	Vector<uint8_t> key;
 
 	if (script_key->get_text().is_empty() || !script_key->get_text().is_valid_hex_number(false) || script_key->get_text().length() != 64) {
@@ -65,7 +63,6 @@ Vector<uint8_t> EncKeyDialog::get_key() const {
 }
 
 void EncKeyDialog::_validate_input() {
-
 	bool ok = true;
 	String error_message;
 
@@ -92,7 +89,6 @@ void EncKeyDialog::_validate_input() {
 }
 
 void EncKeyDialog::_script_encryption_key_changed(const String &p_key) {
-
 	_validate_input();
 }
 
@@ -101,7 +97,6 @@ void EncKeyDialog::_notification(int p_notification) {
 }
 
 void EncKeyDialog::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("get_key"), &EncKeyDialog::get_key);
 	ClassDB::bind_method(D_METHOD("_script_encryption_key_changed", "key"), &EncKeyDialog::_script_encryption_key_changed);
 }

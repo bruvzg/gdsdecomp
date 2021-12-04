@@ -9,10 +9,10 @@
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/regex/regex.h"
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
+#include "oggstr_loader_compat.h"
 #include "pcfg_loader.h"
 #include "resource_loader_compat.h"
 #include "scene/resources/audio_stream_sample.h"
-#include "oggstr_loader_compat.h"
 #include "texture_loader_compat.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 #include <core/io/dir_access.h>
@@ -31,9 +31,10 @@ Vector<String> ImportExporter::get_recursive_dir_list(const String dir, const Ve
 	}
 	String base = absolute ? dir : "";
 	da->list_dir_begin();
-	String f;
-	while ((f = da->get_next()) != "") {
+	String f = da->get_next();
+	while (!f.is_empty()) {
 		if (f == "." || f == "..") {
+			f = da->get_next();
 			continue;
 		} else if (da->current_is_dir()) {
 			ret.append_array(get_recursive_dir_list(dir, wildcards, absolute, rel.plus_file(f)));
@@ -49,7 +50,9 @@ Vector<String> ImportExporter::get_recursive_dir_list(const String dir, const Ve
 				ret.append(base.plus_file(rel).plus_file(f));
 			}
 		}
+		f = da->get_next();
 	}
+	da->list_dir_end();
 	memdelete(da);
 	return ret;
 }
@@ -59,7 +62,6 @@ Array ImportExporter::get_import_files() {
 }
 
 bool ImportExporter::check_if_dir_is_v2(const String &dir) {
-
 	Vector<String> wildcards;
 	// these are files that will only show up in version 2
 	wildcards.push_back("*.converted.*");
@@ -150,7 +152,6 @@ Error ImportExporter::load_import_file_v2(const String &p_path) {
 			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
 			if (iinfo->get_source_file().begins_with("../") ||
 					(iinfo->get_source_file().is_absolute_path() && GDRESettings::get_singleton()->is_fs_path(iinfo->get_source_file()))) {
-
 				dest = String(".assets").plus_file(p_path.replace("res://", "").get_base_dir().plus_file(iinfo->get_source_file().get_file()));
 				iinfo->source_file = dest;
 			}
@@ -359,8 +360,7 @@ Error ImportExporter::export_imports(const String &output_dir) {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->source_file);
 		} else if ((opt_bin2text && iinfo->import_path.get_extension() == "res") ||
-				   (importer == "scene" && (iinfo->source_file.get_extension() == "tscn" ||
-												   iinfo->source_file.get_extension() == "escn"))) {
+				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->source_file);
 		} else {
@@ -719,7 +719,7 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 
 	FileAccess *f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
-	
+
 	f->store_buffer(data.ptr(), data.size());
 
 	print_line("Converted " + src_path + " to " + dst_path);

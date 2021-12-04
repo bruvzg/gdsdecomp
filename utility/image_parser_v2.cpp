@@ -43,7 +43,6 @@ void _advance_padding(FileAccess *f, uint32_t p_len) {
 }
 
 String ImageParserV2::image_v2_to_string(const Variant &r_v) {
-
 	Ref<Image> img = r_v;
 
 	if (img.is_null() || img->is_empty()) {
@@ -56,20 +55,48 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 	String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";
 
 	switch (img->get_format()) {
-		case Image::FORMAT_L8: subimgstr += "GRAYSCALE"; break;
-		case Image::FORMAT_LA8: subimgstr += "GRAYSCALE_ALPHA"; break;
-		case Image::FORMAT_RGB8: subimgstr += "RGB"; break;
-		case Image::FORMAT_RGBA8: subimgstr += "RGBA"; break;
-		case Image::FORMAT_DXT1: subimgstr += "BC1"; break;
-		case Image::FORMAT_DXT3: subimgstr += "BC2"; break;
-		case Image::FORMAT_DXT5: subimgstr += "BC3"; break;
-		case Image::FORMAT_RGTC_R: subimgstr += "BC4"; break;
-		case Image::FORMAT_RGTC_RG: subimgstr += "BC5"; break;
-		case Image::FORMAT_PVRTC1_2: subimgstr += "PVRTC2"; break;
-		case Image::FORMAT_PVRTC1_2A: subimgstr += "PVRTC2_ALPHA"; break;
-		case Image::FORMAT_PVRTC1_4: subimgstr += "PVRTC4"; break;
-		case Image::FORMAT_PVRTC1_4A: subimgstr += "PVRTC4_ALPHA"; break;
-		case Image::FORMAT_ETC: subimgstr += "ETC"; break;
+		case Image::FORMAT_L8:
+			subimgstr += "GRAYSCALE";
+			break;
+		case Image::FORMAT_LA8:
+			subimgstr += "GRAYSCALE_ALPHA";
+			break;
+		case Image::FORMAT_RGB8:
+			subimgstr += "RGB";
+			break;
+		case Image::FORMAT_RGBA8:
+			subimgstr += "RGBA";
+			break;
+		case Image::FORMAT_DXT1:
+			subimgstr += "BC1";
+			break;
+		case Image::FORMAT_DXT3:
+			subimgstr += "BC2";
+			break;
+		case Image::FORMAT_DXT5:
+			subimgstr += "BC3";
+			break;
+		case Image::FORMAT_RGTC_R:
+			subimgstr += "BC4";
+			break;
+		case Image::FORMAT_RGTC_RG:
+			subimgstr += "BC5";
+			break;
+		case Image::FORMAT_PVRTC1_2:
+			subimgstr += "PVRTC2";
+			break;
+		case Image::FORMAT_PVRTC1_2A:
+			subimgstr += "PVRTC2_ALPHA";
+			break;
+		case Image::FORMAT_PVRTC1_4:
+			subimgstr += "PVRTC4";
+			break;
+		case Image::FORMAT_PVRTC1_4A:
+			subimgstr += "PVRTC4_ALPHA";
+			break;
+		case Image::FORMAT_ETC:
+			subimgstr += "ETC";
+			break;
 		// Hacks for no-longer supported image formats
 		// If hacks_for_dropped_fmt is true in parse_image_v2():
 		// The mipmap counts for these will not be correct in the img data
@@ -113,7 +140,6 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 	Vector<uint8_t> data = img->get_data();
 	int len = data.size();
 	for (int i = 0; i < len; i++) {
-
 		if (i > 0)
 			s += ", ";
 		s += itos(data[i]);
@@ -143,7 +169,6 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 	f->store_32(encoding); //raw encoding
 
 	if (encoding == V2Image::IMAGE_ENCODING_RAW) {
-
 		f->store_32(val->get_width());
 		f->store_32(val->get_height());
 		int mipmaps = val->get_mipmap_count();
@@ -380,7 +405,7 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 					p_width = 4;
 				}
 
-				Vector<Vector<uint8_t> > palette;
+				Vector<Vector<uint8_t>> palette;
 
 				//palette data starts at end of pixel data, is equal to 256 * p_width
 				for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {

@@ -3,17 +3,14 @@
 #include "core/object/class_db.h"
 
 void ResourceImportMetadatav2::set_editor(const String &p_editor) {
-
 	editor = p_editor;
 }
 
 String ResourceImportMetadatav2::get_editor() const {
-
 	return editor;
 }
 
 void ResourceImportMetadatav2::add_source(const String &p_path, const String &p_md5) {
-
 	Source s;
 	s.md5 = p_md5;
 	s.path = p_path;
@@ -30,23 +27,19 @@ String ResourceImportMetadatav2::get_source_md5(int p_idx) const {
 }
 
 void ResourceImportMetadatav2::set_source_md5(int p_idx, const String &p_md5) {
-
 	ERR_FAIL_INDEX(p_idx, sources.size());
 	sources.write[p_idx].md5 = p_md5;
 }
 
 void ResourceImportMetadatav2::remove_source(int p_idx) {
-
 	ERR_FAIL_INDEX(p_idx, sources.size());
 	sources.remove_at(p_idx);
 }
 
 int ResourceImportMetadatav2::get_source_count() const {
-
 	return sources.size();
 }
 void ResourceImportMetadatav2::set_option(const String &p_key, const Variant &p_value) {
-
 	if (p_value.get_type() == Variant::NIL) {
 		options.erase(p_key);
 		return;
@@ -59,21 +52,17 @@ void ResourceImportMetadatav2::set_option(const String &p_key, const Variant &p_
 }
 
 bool ResourceImportMetadatav2::has_option(const String &p_key) const {
-
 	return options.has(p_key);
 }
 
 Variant ResourceImportMetadatav2::get_option(const String &p_key) const {
-
 	ERR_FAIL_COND_V(!options.has(p_key), Variant());
 
 	return options[p_key];
 }
 
 void ResourceImportMetadatav2::get_options(List<String> *r_options) const {
-
 	for (Map<String, Variant>::Element *E = options.front(); E; E = E->next()) {
-
 		r_options->push_back(E->key());
 	}
 }
@@ -83,7 +72,6 @@ PackedStringArray ResourceImportMetadatav2::_get_options() const {
 	option_names.resize(options.size());
 	int i = 0;
 	for (Map<String, Variant>::Element *E = options.front(); E; E = E->next()) {
-
 		option_names.set(i++, E->key());
 	}
 

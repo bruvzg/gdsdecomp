@@ -168,7 +168,6 @@ enum Token {
 };
 
 Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
-
 	//Cleanup
 	script_text = String();
 
@@ -196,7 +195,6 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	identifiers.resize(identifier_count);
 	for (int i = 0; i < identifier_count; i++) {
-
 		int len = decode_uint32(b);
 		ERR_FAIL_COND_V(len > total_len, ERR_INVALID_DATA);
 		b += 4;
@@ -216,7 +214,6 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	constants.resize(constant_count);
 	for (int i = 0; i < constant_count; i++) {
-
 		Variant v;
 		int len;
 		Error err = decode_variant_2(v, b, total_len, &len);
@@ -232,7 +229,6 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 	ERR_FAIL_COND_V(line_count * 8 > total_len, ERR_INVALID_DATA);
 
 	for (int i = 0; i < line_count; i++) {
-
 		uint32_t token = decode_uint32(b);
 		b += 4;
 		uint32_t linecol = decode_uint32(b);
@@ -245,7 +241,6 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 	tokens.resize(token_count);
 
 	for (int i = 0; i < token_count; i++) {
-
 		ERR_FAIL_COND_V(total_len < 1, ERR_INVALID_DATA);
 
 		if ((*b) & TOKEN_BYTE_MASK) { //little endian always
@@ -425,14 +420,16 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case TK_CF_IF: {
-				if (prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE)
+					_ensure_space(line);
 				line += "if ";
 			} break;
 			case TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case TK_CF_ELSE: {
-				if (prev_token != TK_NEWLINE) _ensure_space(line);
+				if (prev_token != TK_NEWLINE)
+					_ensure_space(line);
 				line += "else ";
 			} break;
 			case TK_CF_FOR: {

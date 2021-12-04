@@ -73,7 +73,6 @@ enum Type {
 ////////////////////////////////////////////////////////////////////////////////
 
 static String rtosfix(double p_value) {
-
 	if (p_value == 0.0)
 		return "0"; //avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
 	else
@@ -81,53 +80,44 @@ static String rtosfix(double p_value) {
 }
 
 Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
-
 	// use the v4 write function instead for v4
 	if (ver_major == 4) {
 		return VariantWriter::write(p_variant, p_store_string_func, p_encode_res_ud, p_encode_res_func, p_encode_res_ud);
 	}
-	
+
 	// for v2 and v3...
 	switch ((ToV4::Type)p_variant.get_type()) {
-
 		case ToV4::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
 		} break;
 		case ToV4::BOOL: {
-
 			p_store_string_func(p_store_string_ud, p_variant.operator bool() ? "true" : "false");
 		} break;
 		case ToV4::INT: {
-
 			p_store_string_func(p_store_string_ud, itos(p_variant.operator int()));
 		} break;
 		case ToV4::REAL: {
-
 			String s = rtosfix(p_variant.operator real_t());
 			if (s.find(".") == -1 && s.find("e") == -1)
 				s += ".0";
 			p_store_string_func(p_store_string_ud, s);
 		} break;
 		case ToV4::STRING: {
-
 			String str = p_variant;
 
 			str = "\"" + str.c_escape_multiline() + "\"";
 			p_store_string_func(p_store_string_ud, str);
 		} break;
 		case ToV4::VECTOR2: {
-
 			Vector2 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector2( " + rtosfix(v.x) + ", " + rtosfix(v.y) + " )");
 		} break;
 		case ToV4::RECT2: {
-
 			Rect2 aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "Rect2( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + " )");
 
 		} break;
 		case ToV4::VECTOR3: {
-
 			Vector3 v = p_variant;
 			p_store_string_func(p_store_string_ud, "Vector3( " + rtosfix(v.x) + ", " + rtosfix(v.y) + ", " + rtosfix(v.z) + " )");
 		} break;
@@ -136,7 +126,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			Transform2D m3 = p_variant;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 2; j++) {
-
 					if (i != 0 || j != 0)
 						s += ", ";
 					s += rtosfix(m3.elements[i][j]);
@@ -147,19 +136,16 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 		} break;
 		case ToV4::PLANE: {
-
 			Plane p = p_variant;
 			p_store_string_func(p_store_string_ud, "Plane( " + rtosfix(p.normal.x) + ", " + rtosfix(p.normal.y) + ", " + rtosfix(p.normal.z) + ", " + rtosfix(p.d) + " )");
 
 		} break;
 		case ToV4::_AABB: {
-
 			AABB aabb = p_variant;
 			p_store_string_func(p_store_string_ud, "AABB( " + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.position.z) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + ", " + rtosfix(aabb.size.z) + " )");
 
 		} break;
 		case ToV4::QUAT: {
-
 			Quaternion quat = p_variant;
 			p_store_string_func(p_store_string_ud, "Quat( " + rtosfix(quat.x) + ", " + rtosfix(quat.y) + ", " + rtosfix(quat.z) + ", " + rtosfix(quat.w) + " )");
 
@@ -171,7 +157,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			Basis m3 = p_variant;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-
 					if (i != 0 || j != 0)
 						s += ", ";
 					s += rtosfix(m3.elements[i][j]);
@@ -182,13 +167,11 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 		} break;
 		case ToV4::TRANSFORM: {
-
 			String s = "Transform( ";
 			Transform3D t = p_variant;
 			Basis &m3 = t.basis;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-
 					if (i != 0 || j != 0)
 						s += ", ";
 					s += rtosfix(m3.elements[i][j]);
@@ -200,13 +183,11 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			p_store_string_func(p_store_string_ud, s + " )");
 		} break;
 		case ToV4::COLOR: {
-
 			Color c = p_variant;
 			p_store_string_func(p_store_string_ud, "Color( " + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + " )");
 
 		} break;
 		case ToV4::NODE_PATH: {
-
 			String str = p_variant;
 
 			str = "NodePath(\"" + str.c_escape() + "\")";
@@ -215,7 +196,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 		} break;
 
 		case ToV4::OBJECT: {
-
 			Object *obj = p_variant;
 
 			if (!obj) {
@@ -260,7 +240,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			obj->get_property_list(&props);
 			bool first = true;
 			for (List<PropertyInfo>::Element *E = props.front(); E; E = E->next()) {
-
 				if (E->get().usage & PROPERTY_USAGE_STORAGE || E->get().usage & PROPERTY_USAGE_SCRIPT_VARIABLE) {
 					//must be serialized
 
@@ -284,7 +263,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			WARN_PRINT("Attempted to save Input Event!");
 		} break;
 		case ToV4::DICTIONARY: {
-
 			Dictionary dict = p_variant;
 
 			List<Variant> keys;
@@ -293,7 +271,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 			p_store_string_func(p_store_string_ud, "{\n");
 			for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
-
 				/*
 				if (!_check_type(dict[E->get()]))
 					continue;
@@ -309,12 +286,10 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 		} break;
 		case ToV4::ARRAY: {
-
 			p_store_string_func(p_store_string_ud, "[ ");
 			Array array = p_variant;
 			int len = array.size();
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 				write_compat(array[i], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
@@ -332,7 +307,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 			const uint8_t *ptr = data.ptr();
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 
@@ -351,7 +325,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			const int *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 
@@ -369,7 +342,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			const real_t *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 				p_store_string_func(p_store_string_ud, rtosfix(ptr[i]));
@@ -389,7 +361,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			//write_string("\n");
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 				String str = ptr[i];
@@ -407,7 +378,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			const Vector2 *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].x) + ", " + rtosfix(ptr[i].y));
@@ -424,7 +394,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			const Vector3 *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].x) + ", " + rtosfix(ptr[i].y) + ", " + rtosfix(ptr[i].z));
@@ -443,7 +412,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			const Color *ptr = data.ptr();
 
 			for (int i = 0; i < len; i++) {
-
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
 
@@ -459,7 +427,6 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 }
 
 static Error _write_to_str(void *ud, const String &p_string) {
-
 	String *str = (String *)ud;
 	(*str) += p_string;
 	return OK;

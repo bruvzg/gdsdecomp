@@ -5,7 +5,6 @@
 #include "gdre_cmp_dlg.h"
 
 ScriptCompDialog::ScriptCompDialog() {
-
 	set_title(RTR("Compile GDScript"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
@@ -82,7 +81,6 @@ ScriptCompDialog::~ScriptCompDialog() {
 }
 
 Vector<String> ScriptCompDialog::get_file_list() const {
-
 	Vector<String> ret;
 	for (int i = 0; i < file_list->get_item_count(); i++) {
 		ret.push_back(file_list->get_item_text(i));
@@ -91,17 +89,14 @@ Vector<String> ScriptCompDialog::get_file_list() const {
 }
 
 String ScriptCompDialog::get_target_dir() const {
-
 	return target_dir->get_text();
 }
 
 void ScriptCompDialog::_add_files_pressed() {
-
 	file_selection->popup_centered(Size2(600, 400));
 }
 
 void ScriptCompDialog::_add_files_request(const Vector<String> &p_files) {
-
 	for (int i = 0; i < p_files.size(); i++) {
 		file_list->add_item(p_files[i]);
 	}
@@ -109,13 +104,11 @@ void ScriptCompDialog::_add_files_request(const Vector<String> &p_files) {
 }
 
 void ScriptCompDialog::_clear_pressed() {
-
 	file_list->clear();
 	_validate_input();
 }
 
 void ScriptCompDialog::_remove_file_pressed() {
-
 	Vector<int> items = file_list->get_selected_items();
 	for (int i = items.size() - 1; i >= 0; i--) {
 		file_list->remove_item(items[i]);
@@ -124,7 +117,6 @@ void ScriptCompDialog::_remove_file_pressed() {
 }
 
 void ScriptCompDialog::_validate_input() {
-
 	bool ok = true;
 	String error_message;
 
@@ -151,12 +143,10 @@ void ScriptCompDialog::_validate_input() {
 }
 
 void ScriptCompDialog::_dir_select_pressed() {
-
 	target_folder_selection->popup_centered(Size2(600, 400));
 }
 
 void ScriptCompDialog::_dir_select_request(const String &p_path) {
-
 	target_dir->set_text(p_path);
 	_validate_input();
 }
@@ -166,7 +156,6 @@ void ScriptCompDialog::_notification(int p_notification) {
 }
 
 void ScriptCompDialog::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("get_file_list"), &ScriptCompDialog::get_file_list);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &ScriptCompDialog::get_target_dir);
 

@@ -10,20 +10,18 @@
 #include "utility/gdre_cli_main.h"
 #include "utility/gdre_settings.h"
 #include "utility/import_exporter.h"
+#include "utility/oggstr_loader_compat.h"
 #include "utility/pck_dumper.h"
 #include "utility/texture_loader_compat.h"
-#include "utility/oggstr_loader_compat.h"
 
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
-
 	EditorNode *editor = EditorNode::get_singleton();
 	editor->add_child(memnew(GodotREEditor(editor)));
 };
 #endif
 
 void register_gdsdecomp_types() {
-
 	ClassDB::register_virtual_class<GDScriptDecomp>();
 	register_decomp_versions();
 

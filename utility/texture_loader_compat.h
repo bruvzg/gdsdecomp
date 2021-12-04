@@ -1,9 +1,9 @@
 
+#include "core/io/file_access.h"
 #include "core/io/image.h"
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
 #include "core/object/ref_counted.h"
-#include "core/io/file_access.h"
 #include "core/templates/vector.h"
 #include "scene/resources/texture.h"
 #ifndef TEXTURE_LOADER_COMPAT_H
@@ -12,8 +12,8 @@
 class TextureLoaderCompat : public RefCounted {
 	GDCLASS(TextureLoaderCompat, RefCounted);
 
-	Error _load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const;
-	Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image> > &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const;
+	Error _load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const;
+	Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const;
 
 	Error load_image_from_fileV3(FileAccess *f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const;
 
@@ -21,8 +21,8 @@ class TextureLoaderCompat : public RefCounted {
 	Error _load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit = 0) const;
 	Error _load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const;
 
-	Ref<StreamTextureLayered> _load_texture_layered(const String p_path, Vector<Ref<Image> > &r_data, int &type, Error *r_err, int ver_major) const;
-	Ref<StreamTexture3D> _load_texture3d(const String p_path, Vector<Ref<Image> > &r_data, Error *r_err, int ver_major) const;
+	Ref<StreamTextureLayered> _load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const;
+	Ref<StreamTexture3D> _load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const;
 	Ref<StreamTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
 
 protected:
@@ -50,7 +50,7 @@ public:
 	Ref<StreamTexture3D> load_texture3d(const String p_path, Error *r_err);
 	Ref<StreamTexture2D> load_texture2d(const String p_path, Error *r_err);
 
-	Vector<Ref<Image> > load_images_from_layered_tex(const String p_path, Error *r_err);
+	Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error *r_err);
 	Ref<Image> load_image_from_tex(const String p_path, Error *r_err);
 };
 

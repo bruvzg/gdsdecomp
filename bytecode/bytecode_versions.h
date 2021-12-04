@@ -61,7 +61,6 @@ void register_decomp_versions();
 GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash);
 
 struct GDScriptDecompVersion {
-
 	uint64_t commit;
 	String name;
 };

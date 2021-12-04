@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CLANG_FORMAT=clang-format-6.0
+CLANG_FORMAT=clang-format-13
 
 CURRENT_BRANCH="$(git branch --show-current)"
 

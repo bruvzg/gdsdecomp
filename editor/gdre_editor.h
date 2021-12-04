@@ -40,7 +40,6 @@
 
 #ifndef TOOLS_ENABLED
 class ProgressDialog : public Popup {
-
 	GDCLASS(ProgressDialog, Popup);
 	struct Task {
 		String task;
@@ -112,11 +111,9 @@ public:
 };
 
 struct EditorProgressGDDC {
-
 	String task;
 	ProgressDialog *progress_dialog;
 	bool step(const String &p_state, int p_step = -1, bool p_force_refresh = true) {
-
 #ifdef TOOLS_ENABLED
 		if (EditorNode::get_singleton()) {
 			return EditorNode::progress_task_step(task, p_state, p_step, p_force_refresh);
@@ -130,7 +127,6 @@ struct EditorProgressGDDC {
 	}
 
 	EditorProgressGDDC(Control *p_parent, const String &p_task, const String &p_label, int p_amount, bool p_can_cancel = false) {
-
 #ifdef TOOLS_ENABLED
 		if (EditorNode::get_singleton()) {
 			progress_dialog = NULL;
@@ -170,7 +166,6 @@ class GodotREEditor : public Node {
 
 private:
 	struct PackedFile {
-
 		String name;
 		uint64_t offset;
 		uint64_t size;

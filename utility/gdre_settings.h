@@ -33,6 +33,7 @@
 template <class T>
 class GDREOS : public T {
 	static_assert(std::is_base_of<OS, T>::value, "T must derive from OS");
+
 public:
 	void _add_logger(Logger *p_logger) { T::add_logger(p_logger); }
 };
@@ -81,7 +82,7 @@ public:
 	};
 
 private:
-	Vector<Ref<PackInfo> > packs;
+	Vector<Ref<PackInfo>> packs;
 	PackInfo *current_pack = nullptr;
 	PackedData *old_pack_data_singleton = nullptr;
 	PackedData *new_singleton = nullptr;
@@ -100,11 +101,12 @@ private:
 	static GDRESettings *singleton;
 	static String exec_dir;
 	void remove_current_pack();
-	Vector<Ref<PackedFileInfo> > files;
+	Vector<Ref<PackedFileInfo>> files;
 	String _get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors);
 	void add_logger();
 
 	static String _get_cwd();
+
 public:
 	Error load_pack(const String &p_path);
 	Error unload_pack();
@@ -118,7 +120,7 @@ public:
 	void add_pack_info(Ref<PackInfo> packinfo);
 	void add_pack_file(const Ref<PackedFileInfo> &f_info) { files.push_back(f_info); };
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
-	Vector<Ref<PackedFileInfo> > get_file_info_list(const Vector<String> &filters = Vector<String>());
+	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
 	uint32_t get_pack_version() { return is_pack_loaded() ? current_pack->fmt_version : 0; }
 	String get_version_string() { return is_pack_loaded() ? String(itos(current_pack->ver_major) + "." + itos(current_pack->ver_minor) + "." + itos(current_pack->ver_rev)) : String(); }
 	uint32_t get_ver_major() { return is_pack_loaded() ? current_pack->ver_major : 0; }
@@ -135,7 +137,7 @@ public:
 	bool is_fs_path(const String &p_path);
 	Error close_log_file();
 	String get_cwd() { return GDRESettings::_get_cwd(); };
-	String get_exec_dir() {return GDRESettings::exec_dir; };
+	String get_exec_dir() { return GDRESettings::exec_dir; };
 	static GDRESettings *get_singleton() {
 		// TODO: remove this hack
 		if (!singleton) {
