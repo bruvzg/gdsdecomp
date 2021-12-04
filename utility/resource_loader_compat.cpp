@@ -163,7 +163,6 @@ Error ResourceLoaderBinaryCompat::load_import_metadata() {
 	imd->set_editor(get_unicode_string());
 	int sc = f->get_32();
 	for (int i = 0; i < sc; i++) {
-
 		String src = get_unicode_string();
 		String md5 = get_unicode_string();
 		imd->add_source(src, md5);
@@ -551,7 +550,6 @@ void print_class_prop_list(const StringName &cltype) {
  * we iterate through all ITS properties and attempt repairs.
  */
 Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const StringName &name, Variant &value) {
-
 	bool class_exists = ClassDB::class_exists(StringName(rtype));
 	ERR_FAIL_COND_V_MSG(!class_exists, ERR_UNAVAILABLE, "Class does not exist in ClassDB");
 
@@ -610,9 +608,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 				ret.y = val.y;
 				ret.z = val.z;
 			} else {
-				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" +
-																		"\n\tclass prop type:          " + class_prop_type +
-																		"\n\tattempted set value type: " + value_type);
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" + "\n\tclass prop type:          " + class_prop_type + "\n\tattempted set value type: " + value_type);
 			}
 
 			// TODO: implement these
@@ -631,8 +627,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 			String hint = pinfo->class_name;
 			//String hint = pinfo->hint_string;
 			if (hint.is_empty()) {
-				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Possible type difference in property " + name +
-																		"\nclass property type is of an unknown object, attempted set value type is " + value_type);
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Possible type difference in property " + name + "\nclass property type is of an unknown object, attempted set value type is " + value_type);
 			}
 			ClassDB::get_property_list(StringName(hint), listpinfo);
 			if (!listpinfo || listpinfo->size() == 0) {
@@ -652,9 +647,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 
 			// Can't handle classes of different types
 			if (hint != res_type) {
-				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" +
-																		"\n\tclass prop type:          " + hint +
-																		"\n\tattempted set value type: " + res_type);
+				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Property " + name + " type does not match!" + "\n\tclass prop type:          " + hint + "\n\tattempted set value type: " + res_type);
 			}
 			// Walk the property list
 			for (auto I = listpinfo->front(); I; I->next()) {
@@ -981,7 +974,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			// Godot 3.x (and below)
 		} else {
 			wf->store_string("[ext_resource path=\"" + p + "\" type=\"" + external_resources[i].type +
-							 "\" id=" + external_resources[i].cache->get_scene_unique_id() + "]\n"); //bundled
+					"\" id=" + external_resources[i].cache->get_scene_unique_id() + "]\n"); //bundled
 		}
 	}
 
@@ -1689,38 +1682,32 @@ void ResourceLoaderBinaryCompat::save_unicode_string(const String &p_string) {
 Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint) {
 	switch (p_property.get_type()) {
 		case Variant::NIL: {
-
 			fa->store_32(VariantBin::VARIANT_NIL);
 			// don't store anything
 		} break;
 		case Variant::BOOL: {
-
 			fa->store_32(VariantBin::VARIANT_BOOL);
 			bool val = p_property;
 			fa->store_32(val);
 		} break;
 		case Variant::INT: {
-
 			fa->store_32(VariantBin::VARIANT_INT);
 			int val = p_property;
 			fa->store_32(val);
 		} break;
 		case Variant::FLOAT: {
-
 			fa->store_32(VariantBin::VARIANT_REAL);
 			real_t val = p_property;
 			fa->store_real(val);
 
 		} break;
 		case Variant::STRING: {
-
 			fa->store_32(VariantBin::VARIANT_STRING);
 			String val = p_property;
 			save_ustring(fa, val);
 
 		} break;
 		case Variant::VECTOR2: {
-
 			fa->store_32(VariantBin::VARIANT_VECTOR2);
 			Vector2 val = p_property;
 			fa->store_real(val.x);
@@ -1728,7 +1715,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::RECT2: {
-
 			fa->store_32(VariantBin::VARIANT_RECT2);
 			Rect2 val = p_property;
 			fa->store_real(val.position.x);
@@ -1738,7 +1724,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::VECTOR3: {
-
 			fa->store_32(VariantBin::VARIANT_VECTOR3);
 			Vector3 val = p_property;
 			fa->store_real(val.x);
@@ -1747,7 +1732,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PLANE: {
-
 			fa->store_32(VariantBin::VARIANT_PLANE);
 			Plane val = p_property;
 			fa->store_real(val.normal.x);
@@ -1757,7 +1741,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::QUATERNION: {
-
 			fa->store_32(VariantBin::VARIANT_QUAT);
 			Quaternion val = p_property;
 			fa->store_real(val.x);
@@ -1767,7 +1750,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::AABB: {
-
 			fa->store_32(VariantBin::VARIANT_AABB);
 			AABB val = p_property;
 			fa->store_real(val.position.x);
@@ -1779,7 +1761,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::TRANSFORM2D: {
-
 			fa->store_32(VariantBin::VARIANT_MATRIX32);
 			Transform2D val = p_property;
 			fa->store_real(val.elements[0].x);
@@ -1791,7 +1772,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::BASIS: {
-
 			fa->store_32(VariantBin::VARIANT_MATRIX3);
 			Basis val = p_property;
 			fa->store_real(val.elements[0].x);
@@ -1806,7 +1786,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::TRANSFORM3D: {
-
 			fa->store_32(VariantBin::VARIANT_TRANSFORM);
 			Transform3D val = p_property;
 			fa->store_real(val.basis.elements[0].x);
@@ -1824,7 +1803,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::COLOR: {
-
 			fa->store_32(VariantBin::VARIANT_COLOR);
 			Color val = p_property;
 			fa->store_real(val.r);
@@ -1927,7 +1905,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_ARRAY);
 			Array a = p_property;
 			fa->store_32(uint32_t(a.size()) | (p_property.is_shared() ? 0x80000000 : 0));
@@ -1937,7 +1914,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_BYTE_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_RAW_ARRAY);
 			Vector<uint8_t> arr = p_property;
 			int len = arr.size();
@@ -1947,7 +1923,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_INT32_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_INT_ARRAY);
 			Vector<int> arr = p_property;
 			int len = arr.size();
@@ -1957,7 +1932,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_FLOAT32_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_REAL_ARRAY);
 			Vector<real_t> arr = p_property;
 			int len = arr.size();
@@ -1968,7 +1942,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_STRING_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_STRING_ARRAY);
 			Vector<String> arr = p_property;
 			int len = arr.size();
@@ -1979,7 +1952,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_VECTOR3_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_VECTOR3_ARRAY);
 			Vector<Vector3> arr = p_property;
 			int len = arr.size();
@@ -1993,7 +1965,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_VECTOR2_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_VECTOR2_ARRAY);
 			Vector<Vector2> arr = p_property;
 			int len = arr.size();
@@ -2005,7 +1976,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 		} break;
 		case Variant::PACKED_COLOR_ARRAY: {
-
 			fa->store_32(VariantBin::VARIANT_COLOR_ARRAY);
 			Vector<Color> arr = p_property;
 			int len = arr.size();
@@ -2026,7 +1996,6 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 }
 
 Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
-
 	Error err;
 	FileAccess *fw;
 	if (p_flags & ResourceSaver::FLAG_COMPRESS) {

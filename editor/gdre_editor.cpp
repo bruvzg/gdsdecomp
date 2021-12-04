@@ -22,10 +22,10 @@
 #include "scene/resources/audio_stream_sample.h"
 
 #include "core/version_generated.gen.h"
+#include "utility/oggstr_loader_compat.h"
 #include "utility/pcfg_loader.h"
 #include "utility/resource_loader_compat.h"
 #include "utility/texture_loader_compat.h"
-#include "utility/oggstr_loader_compat.h"
 
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
@@ -46,7 +46,6 @@ void ProgressDialog::_notification(int p_what) {
 }
 
 void ProgressDialog::_popup() {
-
 	Size2 ms = main->get_combined_minimum_size();
 	ms.width = MAX(500 * EDSCALE, ms.width);
 
@@ -61,7 +60,6 @@ void ProgressDialog::_popup() {
 }
 
 void ProgressDialog::add_task(const String &p_task, const String &p_label, int p_steps, bool p_can_cancel) {
-
 	if (MessageQueue::get_singleton()->is_flushing()) {
 		ERR_PRINT("Do not use progress dialog (task) while flushing the message queue or using call_deferred()!");
 		return;
@@ -96,7 +94,6 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 }
 
 bool ProgressDialog::task_step(const String &p_task, const String &p_state, int p_step, bool p_force_redraw) {
-
 	ERR_FAIL_COND_V(!tasks.has(p_task), cancelled);
 
 	if (!p_force_redraw) {
@@ -121,7 +118,6 @@ bool ProgressDialog::task_step(const String &p_task, const String &p_state, int 
 }
 
 void ProgressDialog::end_task(const String &p_task) {
-
 	ERR_FAIL_COND(!tasks.has(p_task));
 	Task &t = tasks[p_task];
 
@@ -143,7 +139,6 @@ void ProgressDialog::_bind_methods() {
 }
 
 ProgressDialog::ProgressDialog() {
-
 	main = memnew(VBoxContainer);
 	add_child(main);
 	main->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
@@ -169,7 +164,6 @@ GodotREEditor *GodotREEditor::singleton = NULL;
 /*************************************************************************/
 
 ResultDialog::ResultDialog() {
-
 	set_title(RTR("OK"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
@@ -201,7 +195,6 @@ void ResultDialog::_bind_methods() {
 }
 
 void ResultDialog::set_message(const String &p_text, const String &p_title) {
-
 	lbl->set_text(p_title);
 	message->set_text(p_text);
 }
@@ -209,7 +202,6 @@ void ResultDialog::set_message(const String &p_text, const String &p_title) {
 /*************************************************************************/
 
 OverwriteDialog::OverwriteDialog() {
-
 	set_title(RTR("Files already exist!"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
@@ -245,14 +237,12 @@ void OverwriteDialog::_bind_methods() {
 }
 
 void OverwriteDialog::set_message(const String &p_text) {
-
 	message->set_text(p_text);
 }
 
 /*************************************************************************/
 
 static int _get_pad(int p_alignment, int p_n) {
-
 	int rest = p_n % p_alignment;
 	int pad = 0;
 	if (rest > 0) {
@@ -264,7 +254,6 @@ static int _get_pad(int p_alignment, int p_n) {
 
 #ifdef TOOLS_ENABLED
 GodotREEditor::GodotREEditor(EditorNode *p_editor) {
-
 	singleton = this;
 	editor = p_editor;
 	ne_parent = editor->get_gui_base();
@@ -274,7 +263,6 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 #endif
 
 GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
-
 	editor = NULL;
 	ne_parent = p_control;
 
@@ -496,7 +484,6 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 }
 
 GodotREEditor::~GodotREEditor() {
-
 	singleton = NULL;
 }
 
@@ -515,7 +502,6 @@ void GodotREEditor::show_about_dialog() {
 }
 
 void GodotREEditor::_toggle_about_dialog_on_start(bool p_enabled) {
-
 #ifdef TOOLS_ENABLED
 	if (EditorSettings::get_singleton()) {
 		bool show_on_start = EDITOR_GET("re/editor/show_info_on_start");
@@ -527,10 +513,8 @@ void GodotREEditor::_toggle_about_dialog_on_start(bool p_enabled) {
 }
 
 void GodotREEditor::menu_option_pressed(int p_id) {
-
 	switch (p_id) {
 		case MENU_ONE_CLICK_UNEXPORT: {
-
 		} break;
 		case MENU_KEY: {
 			key_dialog->popup_centered(Size2(600, 400));
@@ -579,7 +563,6 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 #endif
 
 void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
-
 	char timestamp[21];
 	OS::Date date = OS::get_singleton()->get_date();
 	OS::Time time = OS::get_singleton()->get_time();
@@ -607,7 +590,6 @@ void GodotREEditor::print_warning(const String &p_text, const String &p_title, c
 }
 
 void GodotREEditor::show_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
-
 	print_warning(p_text, p_title, p_sub_text);
 
 	rdl->set_title(p_title);
@@ -620,7 +602,6 @@ void GodotREEditor::show_warning(const String &p_text, const String &p_title, co
 /*************************************************************************/
 
 void GodotREEditor::_decompile_files() {
-
 	Vector<String> files = script_dialog_d->get_file_list();
 	String dir = script_dialog_d->get_target_dir();
 
@@ -643,7 +624,6 @@ void GodotREEditor::_decompile_files() {
 }
 
 void GodotREEditor::_decompile_process() {
-
 	Vector<String> files = script_dialog_d->get_file_list();
 	Vector<uint8_t> key = key_dialog->get_key();
 	String dir = script_dialog_d->get_target_dir();
@@ -705,7 +685,6 @@ void GodotREEditor::_decompile_process() {
 /*************************************************************************/
 
 void GodotREEditor::_compile_files() {
-
 	Vector<String> files = script_dialog_c->get_file_list();
 	Vector<uint8_t> key = key_dialog->get_key();
 	String dir = script_dialog_c->get_target_dir();
@@ -796,7 +775,6 @@ void GodotREEditor::_compile_process() {
 /*************************************************************************/
 
 void GodotREEditor::_pck_select_request(const String &p_path) {
-
 	pck_file = String();
 	pck_dialog->clear();
 	pck_files.clear();
@@ -897,7 +875,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 
 	for (uint32_t i = 0; i < file_count; i++) {
-
 		uint32_t sl = pck->get_32();
 		CharString cs;
 		cs.resize(sl + 1);
@@ -1032,7 +1009,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 			uint8_t buf[32768];
 
 			while (rq_size > 0) {
-
 				int got = f->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
 					ctx.update(buf, got);
@@ -1103,7 +1079,6 @@ void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint3
 }
 
 void GodotREEditor::_pck_extract_files() {
-
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
 
@@ -1126,7 +1101,6 @@ void GodotREEditor::_pck_extract_files() {
 }
 
 void GodotREEditor::_pck_extract_files_process() {
-
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
 
@@ -1181,7 +1155,6 @@ void GodotREEditor::_pck_extract_files_process() {
 			uint8_t buf[16384];
 
 			while (rq_size > 0) {
-
 				int got = pck->get_buffer(buf, MIN(16384, rq_size));
 				fa->store_buffer(buf, got);
 				rq_size -= 16384;
@@ -1213,7 +1186,6 @@ void GodotREEditor::_pck_extract_files_process() {
 /*************************************************************************/
 
 void GodotREEditor::_res_smpl_2_wav_request(const Vector<String> &p_files) {
-
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
@@ -1234,13 +1206,11 @@ void GodotREEditor::_res_smpl_2_wav_request(const Vector<String> &p_files) {
 }
 
 void GodotREEditor::_res_smpl_2_wav_process() {
-
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_wav2_res", RTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
 	for (int i = 0; i < res_files.size(); i++) {
-
 		print_warning("converting " + res_files[i], RTR("Convert WAV samples"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
@@ -1267,7 +1237,6 @@ void GodotREEditor::_res_smpl_2_wav_process() {
 }
 
 void GodotREEditor::_res_ostr_2_ogg_request(const Vector<String> &p_files) {
-
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
@@ -1288,13 +1257,11 @@ void GodotREEditor::_res_ostr_2_ogg_request(const Vector<String> &p_files) {
 }
 
 void GodotREEditor::_res_ostr_2_ogg_process() {
-
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ogg2_res", RTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	Ref<ResourceFormatLoaderBinary> rl = memnew(ResourceFormatLoaderBinary);
 	for (int i = 0; i < res_files.size(); i++) {
-
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
 			break;
@@ -1329,7 +1296,6 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 }
 
 void GodotREEditor::_res_stex_2_png_request(const Vector<String> &p_files) {
-
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
@@ -1350,12 +1316,10 @@ void GodotREEditor::_res_stex_2_png_request(const Vector<String> &p_files) {
 }
 
 void GodotREEditor::_res_stxt_2_png_process() {
-
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_st2pnh_res", RTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
-
 		print_warning("converting " + res_files[i], RTR("Convert textures"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
@@ -1391,11 +1355,9 @@ void GodotREEditor::_res_stxt_2_png_process() {
 }
 
 void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
-
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
-
 		String ext = p_files[i].get_extension().to_lower();
 		String new_ext = ".txt";
 		if (ext == "scn") {
@@ -1425,12 +1387,10 @@ void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
 }
 
 void GodotREEditor::_res_bin_2_txt_process() {
-
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_b2t_res", RTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
-
 		print_warning("converting " + res_files[i], RTR("Convert resources"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
@@ -1466,14 +1426,12 @@ void GodotREEditor::_res_bin_2_txt_process() {
 }
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
-
 	ResourceFormatLoaderCompat rl;
 	Error err = rl.convert_bin_to_txt(p_src_path, p_dst_path);
 	return err;
 }
 
 void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
-
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
@@ -1502,12 +1460,10 @@ void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
 }
 
 void GodotREEditor::_res_txt_2_bin_process() {
-
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_t2b_res", RTR("Converting files..."), res_files.size(), true));
 
 	String failed_files;
 	for (int i = 0; i < res_files.size(); i++) {
-
 		print_warning("converting " + res_files[i], RTR("Convert resources"));
 		bool cancel = pr->step(res_files[i], i, true);
 		if (cancel) {
@@ -1539,7 +1495,6 @@ void GodotREEditor::_res_txt_2_bin_process() {
 }
 
 Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const String &p_dst_path) {
-
 	Ref<ResourceFormatLoaderText> rl = memnew(ResourceFormatLoaderText);
 	return ResourceFormatSaverBinary::singleton->save(p_dst_path, rl->load(p_src_path));
 }
@@ -1556,7 +1511,6 @@ void GodotREEditor::_pck_create_request(const String &p_path) {
 }
 
 void GodotREEditor::_pck_save_prep() {
-
 	pck_save_file_selection->clear_filters();
 	if (pck_save_dialog->get_is_emb()) {
 		pck_save_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
@@ -1569,7 +1523,6 @@ void GodotREEditor::_pck_save_prep() {
 #define PCK_PADDING 16
 
 uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, const String &p_path, const String &p_rel, uint64_t p_offset, bool &p_cancel) {
-
 	uint64_t offset = p_offset;
 
 	Vector<String> enc_in_filters = pck_save_dialog->get_enc_filters_in().split(",");
@@ -1581,10 +1534,11 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 		return offset;
 	}
 	da->list_dir_begin();
-	String f;
-	while ((f = da->get_next()) != "") {
+	String f = da->get_next();
+	while (!f.is_empty()) {
 		if (f == "." || f == "..")
-			continue;
+			f = da->get_next();
+		continue;
 		if (p_pr->step(p_rel.plus_file(f), 0, true)) {
 			p_cancel = true;
 			return offset;
@@ -1606,7 +1560,6 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			uint8_t buf[32768];
 
 			while (rq_size > 0) {
-
 				int got = file->get_buffer(buf, MIN(32768, rq_size));
 				if (got > 0) {
 					ctx.update(buf, got);
@@ -1646,7 +1599,9 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 			memdelete(file);
 		}
+		f = da->get_next();
 	}
+	da->list_dir_end();
 	memdelete(da);
 
 	return offset;
@@ -1776,7 +1731,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	pr->step("Directory...", 0, true);
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
-
 		uint32_t string_len = pck_save_files[i].name.utf8().length() + 6;
 		uint32_t pad = _get_pad(4, string_len);
 
@@ -1848,7 +1802,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			uint8_t buf[16384];
 
 			while (rq_size > 0) {
-
 				int got = fa->get_buffer(buf, MIN(16384, rq_size));
 				ftmp->store_buffer(buf, got);
 				rq_size -= 16384;
@@ -1927,7 +1880,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			int64_t section_table_pos = f->get_position();
 
 			for (int i = 0; i < num_sections; ++i) {
-
 				int64_t section_header_pos = section_table_pos + i * 40;
 				f->seek(section_header_pos);
 
@@ -2016,7 +1968,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 			// Search for the "pck" section
 			for (int i = 0; i < num_sections; ++i) {
-
 				int64_t section_header_pos = section_table_pos + i * section_header_size;
 				f->seek(section_header_pos);
 
@@ -2056,9 +2007,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 /*************************************************************************/
 
 void GodotREEditor::_notification(int p_notification) {
-
 	switch (p_notification) {
-
 		case NOTIFICATION_READY: {
 #ifdef TOOLS_ENABLED
 			if (EditorSettings::get_singleton()) {
@@ -2082,7 +2031,6 @@ void GodotREEditor::_notification(int p_notification) {
 }
 
 void GodotREEditor::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("_decompile_files"), &GodotREEditor::_decompile_files);
 	ClassDB::bind_method(D_METHOD("_decompile_process"), &GodotREEditor::_decompile_process);
 
@@ -2126,7 +2074,6 @@ void GodotREEditor::_bind_methods() {
 /*************************************************************************/
 
 void GodotREEditorStandalone::_notification(int p_notification) {
-
 	if (p_notification == MainLoop::NOTIFICATION_WM_ABOUT) {
 		if (editor_ctx)
 			editor_ctx->show_about_dialog();
@@ -2134,17 +2081,14 @@ void GodotREEditorStandalone::_notification(int p_notification) {
 }
 
 void GodotREEditorStandalone::_write_log_message(String p_message) {
-
 	emit_signal("write_log_message", p_message);
 }
 
 String GodotREEditorStandalone::get_version() {
-
 	return String(GDRE_VERSION);
 }
 
 void GodotREEditorStandalone::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("_write_log_message"), &GodotREEditorStandalone::_write_log_message);
 	ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
 
@@ -2152,7 +2096,6 @@ void GodotREEditorStandalone::_bind_methods() {
 }
 
 GodotREEditorStandalone::GodotREEditorStandalone() {
-
 	menu_hb = memnew(HBoxContainer);
 	add_child(menu_hb);
 
@@ -2163,6 +2106,5 @@ GodotREEditorStandalone::GodotREEditorStandalone() {
 }
 
 GodotREEditorStandalone::~GodotREEditorStandalone() {
-
 	editor_ctx = NULL;
 }

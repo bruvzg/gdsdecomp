@@ -5,7 +5,6 @@
 #include "gdre_pck_dlg.h"
 
 PackDialog::PackDialog() {
-
 	set_title(RTR("PCK explorer"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 	updating = false;
@@ -91,7 +90,6 @@ PackDialog::~PackDialog() {
 }
 
 void PackDialog::clear() {
-
 	file_list->clear();
 	root = file_list->create_item();
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
@@ -107,7 +105,6 @@ void PackDialog::clear() {
 }
 
 void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_malformed_name, bool p_enc) {
-
 	if (p_malformed_name) {
 		have_malformed_names = true;
 	}
@@ -118,7 +115,6 @@ void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_
 }
 
 void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_enc) {
-
 	int pp = p_name.find("/");
 	if (pp == -1) {
 		//Add file
@@ -169,18 +165,15 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 }
 
 void PackDialog::_dir_select_pressed() {
-
 	target_folder_selection->popup_centered(Size2(600, 400));
 }
 
 void PackDialog::_dir_select_request(const String &p_path) {
-
 	target_dir->set_text(p_path);
 	_validate_selection();
 }
 
 size_t PackDialog::_selected(TreeItem *p_item) {
-
 	size_t selected = 0;
 	String path = p_item->get_metadata(0);
 	if ((path != String()) && p_item->is_checked(0)) { //not a dir
@@ -196,7 +189,6 @@ size_t PackDialog::_selected(TreeItem *p_item) {
 }
 
 void PackDialog::_update_subitems(TreeItem *p_item, bool p_check, bool p_first) {
-
 	if (p_check) {
 		p_item->set_checked(0, true);
 	} else {
@@ -213,7 +205,6 @@ void PackDialog::_update_subitems(TreeItem *p_item, bool p_check, bool p_first) 
 }
 
 void PackDialog::_item_edited() {
-
 	if (updating)
 		return;
 
@@ -239,7 +230,6 @@ void PackDialog::_item_edited() {
 }
 
 void PackDialog::_validate_selection() {
-
 	bool nothing_selected = (_selected(root) == 0);
 	bool ok = true;
 	String error_message;
@@ -271,14 +261,12 @@ void PackDialog::_validate_selection() {
 }
 
 Vector<String> PackDialog::get_selected_files() const {
-
 	Vector<String> ret;
 	_get_selected_files(ret, root);
 	return ret;
 }
 
 void PackDialog::_get_selected_files(Vector<String> &p_list, TreeItem *p_item) const {
-
 	String name = p_item->get_metadata(0);
 	if (p_item->is_checked(0) && (name != String())) {
 		p_list.push_back(name);
@@ -291,17 +279,14 @@ void PackDialog::_get_selected_files(Vector<String> &p_list, TreeItem *p_item) c
 }
 
 String PackDialog::get_target_dir() const {
-
 	return target_dir->get_text();
 }
 
 void PackDialog::set_version(const String &p_version) {
-
 	vernfo->set_text(p_version);
 }
 
 void PackDialog::set_info(const String &p_info) {
-
 	gennfo->set_text(p_info);
 }
 
@@ -310,7 +295,6 @@ void PackDialog::_notification(int p_notification) {
 }
 
 void PackDialog::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("get_selected_files"), &PackDialog::get_selected_files);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &PackDialog::get_target_dir);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &PackDialog::set_version);

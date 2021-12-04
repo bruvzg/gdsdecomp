@@ -1,12 +1,12 @@
 #ifndef RE_PCK_DUMPER_H
 #define RE_PCK_DUMPER_H
 
+#include "core/io/file_access.h"
 #include "core/io/file_access_pack.h"
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/io/file_access.h"
 #include "core/templates/map.h"
 
 #include "gdre_packed_data.h"

@@ -5,10 +5,10 @@
 #include "bytecode_base.h"
 
 #include "core/config/engine.h"
+#include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/image.h"
 #include "core/io/marshalls.h"
-#include "core/io/file_access.h"
 
 #include <limits.h>
 
@@ -56,7 +56,6 @@ static Error _decode_string(const uint8_t *&buf, int &len, int *r_len, String &r
 }
 
 void GDScriptDecomp::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("decompile_byte_code", "path"), &GDScriptDecomp::decompile_byte_code);
 	ClassDB::bind_method(D_METHOD("decompile_byte_code_encrypted", "path", "key"), &GDScriptDecomp::decompile_byte_code_encrypted);
 
@@ -65,14 +64,12 @@ void GDScriptDecomp::_bind_methods() {
 }
 
 void GDScriptDecomp::_ensure_space(String &p_code) {
-
 	if (!p_code.ends_with(" ")) {
 		p_code += String(" ");
 	}
 }
 
 Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
-
 	Vector<uint8_t> bytecode;
 
 	FileAccess *fa = FileAccess::open(p_path, FileAccess::READ);
@@ -102,7 +99,6 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 }
 
 Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
-
 	Vector<uint8_t> bytecode;
 
 	bytecode = FileAccess::get_file_as_array(p_path);
@@ -113,12 +109,10 @@ Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
 }
 
 String GDScriptDecomp::get_script_text() {
-
 	return script_text;
 }
 
 String GDScriptDecomp::get_error_message() {
-
 	return error_message;
 }
 
@@ -133,49 +127,39 @@ String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t 
 String GDScriptDecomp::get_type_name_v2(int p_type) {
 	switch (p_type) {
 		case V2Type::Type::NIL: {
-
 			return "Nil";
 		} break;
 
 		// atomic types
 		case V2Type::Type::BOOL: {
-
 			return "bool";
 		} break;
 		case V2Type::Type::INT: {
-
 			return "int";
 
 		} break;
 		case V2Type::Type::REAL: {
-
 			return "float";
 
 		} break;
 		case V2Type::Type::STRING: {
-
 			return "String";
 		} break;
 
 		// math types
 		case V2Type::Type::VECTOR2: {
-
 			return "Vector2";
 		} break;
 		case V2Type::Type::RECT2: {
-
 			return "Rect2";
 		} break;
 		case V2Type::Type::MATRIX32: {
-
 			return "Matrix32";
 		} break;
 		case V2Type::Type::VECTOR3: {
-
 			return "Vector3";
 		} break;
 		case V2Type::Type::PLANE: {
-
 			return "Plane";
 
 		} break;
@@ -183,97 +167,78 @@ String GDScriptDecomp::get_type_name_v2(int p_type) {
 			case V2Type::Type::QUAT: {
 			} break;*/
 		case V2Type::Type::_AABB: {
-
 			return "AABB";
 		} break;
 		case V2Type::Type::QUAT: {
-
 			return "Quat";
 
 		} break;
 		case V2Type::Type::MATRIX3: {
-
 			return "Matrix3";
 
 		} break;
 		case V2Type::Type::TRANSFORM: {
-
 			return "Transform";
 
 		} break;
 
 		// misc types
 		case V2Type::Type::COLOR: {
-
 			return "Color";
 
 		} break;
 		case V2Type::Type::IMAGE: {
-
 			return "Image";
 
 		} break;
 		case V2Type::Type::_RID: {
-
 			return "RID";
 		} break;
 		case V2Type::Type::OBJECT: {
-
 			return "Object";
 		} break;
 		case V2Type::Type::NODE_PATH: {
-
 			return "NodePath";
 
 		} break;
 		case V2Type::Type::INPUT_EVENT: {
-
 			return "InputEvent";
 
 		} break;
 		case V2Type::Type::DICTIONARY: {
-
 			return "Dictionary";
 
 		} break;
 		case V2Type::Type::ARRAY: {
-
 			return "Array";
 
 		} break;
 
 		// arrays
 		case V2Type::Type::RAW_ARRAY: {
-
 			return "RawArray";
 
 		} break;
 		case V2Type::Type::INT_ARRAY: {
-
 			return "IntArray";
 
 		} break;
 		case V2Type::Type::REAL_ARRAY: {
-
 			return "RealArray";
 
 		} break;
 		case V2Type::Type::STRING_ARRAY: {
-
 			return "StringArray";
 		} break;
 		case V2Type::Type::VECTOR2_ARRAY: {
-
 			return "Vector2Array";
 
 		} break;
 		case V2Type::Type::VECTOR3_ARRAY: {
-
 			return "Vector3Array";
 
 		} break;
 		case V2Type::Type::COLOR_ARRAY: {
-
 			return "ColorArray";
 
 		} break;
@@ -285,7 +250,6 @@ String GDScriptDecomp::get_type_name_v2(int p_type) {
 }
 
 String GDScriptDecomp::get_type_name_v3(int p_type) {
-
 	switch (p_type) {
 		case V3Type::Type::NIL: {
 			return "Nil";
@@ -293,7 +257,6 @@ String GDScriptDecomp::get_type_name_v3(int p_type) {
 
 		// atomic types
 		case V3Type::Type::BOOL: {
-
 			return "bool";
 		} break;
 		case V3Type::Type::INT: {
@@ -348,7 +311,6 @@ String GDScriptDecomp::get_type_name_v3(int p_type) {
 			return "RID";
 		} break;
 		case V3Type::Type::OBJECT: {
-
 			return "Object";
 		} break;
 		case V3Type::Type::NODE_PATH: {

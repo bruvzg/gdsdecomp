@@ -118,7 +118,8 @@ enum Type {
  */
 #define ERR_RFLBC_COND_V_MSG_CLEANUP(m_cond, m_retval, m_msg, loader)                                                                               \
 	if (unlikely(m_cond)) {                                                                                                                         \
-		if (loader != nullptr) memdelete(loader);                                                                                                   \
+		if (loader != nullptr)                                                                                                                      \
+			memdelete(loader);                                                                                                                      \
 		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), DEBUG_STR(m_msg)); \
 		return m_retval;                                                                                                                            \
 	} else                                                                                                                                          \
@@ -126,7 +127,8 @@ enum Type {
 
 #define ERR_RFLBC_COND_V_CLEANUP(m_cond, m_retval, loader) \
 	if (unlikely(m_cond)) {                                \
-		if (loader != nullptr) memdelete(loader);          \
+		if (loader != nullptr)                             \
+			memdelete(loader);                             \
 		return m_retval;                                   \
 	} else                                                 \
 		((void)0)
@@ -197,7 +199,7 @@ class ResourceLoaderBinaryCompat {
 	Vector<IntResource> internal_resources;
 	Map<String, RES> internal_index_cache;
 	Map<String, String> internal_type_cache;
-	Map<String, List<ResourceProperty> > internal_index_cached_properties;
+	Map<String, List<ResourceProperty>> internal_index_cached_properties;
 
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);

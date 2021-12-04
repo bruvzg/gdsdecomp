@@ -1,8 +1,8 @@
 #ifndef VARIANT_WRITER_COMPAT_H
 #define VARIANT_WRITER_COMPAT_H
 
-#include "core/io/resource.h"
 #include "core/io/file_access.h"
+#include "core/io/resource.h"
 #include "core/variant/variant.h"
 
 class VariantWriterCompat {

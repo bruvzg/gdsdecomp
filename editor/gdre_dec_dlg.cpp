@@ -6,7 +6,6 @@
 #include "bytecode/bytecode_versions.h"
 
 ScriptDecompDialog::ScriptDecompDialog() {
-
 	set_title(RTR("Decompile GDScript"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
 
@@ -93,12 +92,10 @@ ScriptDecompDialog::~ScriptDecompDialog() {
 }
 
 int ScriptDecompDialog::get_bytecode_version() const {
-
 	return scrver->get_selected_id();
 }
 
 Vector<String> ScriptDecompDialog::get_file_list() const {
-
 	Vector<String> ret;
 	for (int i = 0; i < file_list->get_item_count(); i++) {
 		ret.push_back(file_list->get_item_text(i));
@@ -107,17 +104,14 @@ Vector<String> ScriptDecompDialog::get_file_list() const {
 }
 
 String ScriptDecompDialog::get_target_dir() const {
-
 	return target_dir->get_text();
 }
 
 void ScriptDecompDialog::_add_files_pressed() {
-
 	file_selection->popup_centered(Size2(800, 600));
 }
 
 void ScriptDecompDialog::_add_files_request(const Vector<String> &p_files) {
-
 	for (int i = 0; i < p_files.size(); i++) {
 		file_list->add_item(p_files[i]);
 	}
@@ -125,18 +119,15 @@ void ScriptDecompDialog::_add_files_request(const Vector<String> &p_files) {
 }
 
 void ScriptDecompDialog::_clear_pressed() {
-
 	file_list->clear();
 	_validate_input();
 }
 
 void ScriptDecompDialog::_bytcode_changed(int p_id) {
-
 	_validate_input();
 }
 
 void ScriptDecompDialog::_remove_file_pressed() {
-
 	Vector<int> items = file_list->get_selected_items();
 	for (int i = items.size() - 1; i >= 0; i--) {
 		file_list->remove_item(items[i]);
@@ -145,7 +136,6 @@ void ScriptDecompDialog::_remove_file_pressed() {
 }
 
 void ScriptDecompDialog::_validate_input() {
-
 	bool ok = true;
 	String error_message;
 
@@ -178,12 +168,10 @@ void ScriptDecompDialog::_validate_input() {
 }
 
 void ScriptDecompDialog::_dir_select_pressed() {
-
 	target_folder_selection->popup_centered(Size2(800, 600));
 }
 
 void ScriptDecompDialog::_dir_select_request(const String &p_path) {
-
 	target_dir->set_text(p_path);
 	_validate_input();
 }
@@ -193,7 +181,6 @@ void ScriptDecompDialog::_notification(int p_notification) {
 }
 
 void ScriptDecompDialog::_bind_methods() {
-
 	ClassDB::bind_method(D_METHOD("get_file_list"), &ScriptDecompDialog::get_file_list);
 	ClassDB::bind_method(D_METHOD("get_target_dir"), &ScriptDecompDialog::get_target_dir);
 	ClassDB::bind_method(D_METHOD("_add_files_pressed"), &ScriptDecompDialog::_add_files_pressed);

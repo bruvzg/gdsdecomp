@@ -1,11 +1,11 @@
 #ifndef IMPORT_EXPORTER_H
 #define IMPORT_EXPORTER_H
 
+#include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/io/file_access.h"
 #include "core/templates/map.h"
 #include "import_info.h"
 #include "resource_import_metadatav2.h"
@@ -25,12 +25,12 @@ class ImportExporter : public RefCounted {
 	Vector<String> files_lossy_exported;
 	Vector<String> files_rewrote_metadata;
 	int import_count;
-	Vector<Ref<ImportInfo> > lossy_imports;
-	Vector<Ref<ImportInfo> > rewrote_metadata;
-	Vector<Ref<ImportInfo> > failed_rewrite_md;
-	Vector<Ref<ImportInfo> > failed;
-	Vector<Ref<ImportInfo> > success;
-	Vector<Ref<ImportInfo> > not_converted;
+	Vector<Ref<ImportInfo>> lossy_imports;
+	Vector<Ref<ImportInfo>> rewrote_metadata;
+	Vector<Ref<ImportInfo>> failed_rewrite_md;
+	Vector<Ref<ImportInfo>> failed;
+	Vector<Ref<ImportInfo>> success;
+	Vector<Ref<ImportInfo>> not_converted;
 
 	Error load_import_file(const String &p_path);
 	Error load_import_file_v2(const String &p_path);
