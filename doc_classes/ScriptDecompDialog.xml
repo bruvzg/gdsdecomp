@@ -8,14 +8,12 @@
 	</tutorials>
 	<methods>
 		<method name="get_file_list" qualifiers="const">
-			<return type="PackedStringArray">
-			</return>
+			<return type="PackedStringArray" />
 			<description>
 			</description>
 		</method>
 		<method name="get_target_dir" qualifiers="const">
-			<return type="String">
-			</return>
+			<return type="String" />
 			<description>
 			</description>
 		</method>
@@ -23,6 +21,4 @@
 	<members>
 		<member name="title" type="String" setter="set_title" getter="get_title" override="true" default="&quot;Decompile GDScript&quot;" />
 	</members>
-	<constants>
-	</constants>
 </class>

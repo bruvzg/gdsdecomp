@@ -59,9 +59,15 @@ def get_doc_classes():
         "GDScriptDecomp_506df14",
         "GDScriptDecomp_5565f55",
         "GDScriptDecomp_f3f05dc",
+        "GDSRECLIMain",
         "GodotREEditorStandalone",
-        "PackDialog",
+        "ImportExporter",
+        "ImportInfo",
         "NewPackDialog",
+        "OggStreamLoaderCompart",
+        "PackDialog",
+        "PCKDumper",
+        "TextureLoaderCompat",
         "ScriptCompDialog",
         "ScriptDecompDialog"
     ]

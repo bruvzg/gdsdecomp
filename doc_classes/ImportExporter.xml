@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="ImportExporter" inherits="RefCounted" version="4.0">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="convert_mp3str_to_mp3">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<argument index="2" name="arg2" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="convert_oggstr_to_ogg">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<argument index="2" name="arg2" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="convert_res_bin_2_txt">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<argument index="2" name="arg2" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="convert_sample_to_wav">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<argument index="2" name="arg2" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="convert_tex_to_png">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<argument index="2" name="arg2" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="export_imports">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_import_files">
+			<return type="Array" />
+			<description>
+			</description>
+		</method>
+		<method name="load_import_files">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="int" />
+			<description>
+			</description>
+		</method>
+		<method name="reset">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
+	</methods>
+</class>

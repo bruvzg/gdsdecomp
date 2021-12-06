@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="GDScriptDecomp_1ca61a3" inherits="GDScriptDecomp" version="4.0">
+<class name="TextureLoaderCompat" inherits="RefCounted" version="4.0">
 	<brief_description>
 	</brief_description>
 	<description>

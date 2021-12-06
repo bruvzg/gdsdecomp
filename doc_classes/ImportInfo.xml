@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="ImportInfo" inherits="RefCounted" version="4.0">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_dest_files" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+			</description>
+		</method>
+		<method name="get_import_loss_type" qualifiers="const">
+			<return type="int" />
+			<description>
+			</description>
+		</method>
+		<method name="get_import_md_path" qualifiers="const">
+			<return type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_params" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+			</description>
+		</method>
+		<method name="get_path" qualifiers="const">
+			<return type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_source_file" qualifiers="const">
+			<return type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_type" qualifiers="const">
+			<return type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_version" qualifiers="const">
+			<return type="int" />
+			<description>
+			</description>
+		</method>
+	</methods>
+</class>

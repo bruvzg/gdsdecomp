@@ -8,30 +8,24 @@
 	</tutorials>
 	<methods>
 		<method name="get_selected_files" qualifiers="const">
-			<return type="PackedStringArray">
-			</return>
+			<return type="PackedStringArray" />
 			<description>
 			</description>
 		</method>
 		<method name="get_target_dir" qualifiers="const">
-			<return type="String">
-			</return>
+			<return type="String" />
 			<description>
 			</description>
 		</method>
 		<method name="set_info">
-			<return type="void">
-			</return>
-			<argument index="0" name="info" type="String">
-			</argument>
+			<return type="void" />
+			<argument index="0" name="info" type="String" />
 			<description>
 			</description>
 		</method>
 		<method name="set_version">
-			<return type="void">
-			</return>
-			<argument index="0" name="version" type="String">
-			</argument>
+			<return type="void" />
+			<argument index="0" name="version" type="String" />
 			<description>
 			</description>
 		</method>
@@ -39,6 +33,4 @@
 	<members>
 		<member name="title" type="String" setter="set_title" getter="get_title" override="true" default="&quot;PCK explorer&quot;" />
 	</members>
-	<constants>
-	</constants>
 </class>
