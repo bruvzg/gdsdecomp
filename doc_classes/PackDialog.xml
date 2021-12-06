@@ -31,6 +31,6 @@
 		</method>
 	</methods>
 	<members>
-		<member name="title" type="String" setter="set_title" getter="get_title" override="true" default="&quot;PCK explorer&quot;" />
+		<member name="title" type="String" setter="set_title" getter="get_title" overrides="Window" default="&quot;PCK explorer&quot;" />
 	</members>
 </class>

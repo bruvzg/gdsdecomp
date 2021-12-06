@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PckDumper" inherits="RefCounted" version="4.0">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="check_md5_all_files">
+			<return type="int" enum="Error" />
+			<description>
+			</description>
+		</method>
+		<method name="clear_data">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
+		<method name="get_engine_version">
+			<return type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="get_file_count">
+			<return type="int" />
+			<description>
+			</description>
+		</method>
+		<method name="get_loaded_files">
+			<return type="PackedStringArray" />
+			<description>
+			</description>
+		</method>
+		<method name="is_loaded">
+			<return type="bool" />
+			<description>
+			</description>
+		</method>
+		<method name="load_pck">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="pck_dump_to_dir">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="pck_load_and_dump">
+			<return type="int" enum="Error" />
+			<argument index="0" name="arg0" type="String" />
+			<argument index="1" name="arg1" type="String" />
+			<description>
+			</description>
+		</method>
+	</methods>
+</class>

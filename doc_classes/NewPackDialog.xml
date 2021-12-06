@@ -7,6 +7,6 @@
 	<tutorials>
 	</tutorials>
 	<members>
-		<member name="title" type="String" setter="set_title" getter="get_title" override="true" default="&quot;Create new PCK...&quot;" />
+		<member name="title" type="String" setter="set_title" getter="get_title" overrides="Window" default="&quot;Create new PCK...&quot;" />
 	</members>
 </class>

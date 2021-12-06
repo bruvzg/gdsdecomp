@@ -19,6 +19,6 @@
 		</method>
 	</methods>
 	<members>
-		<member name="title" type="String" setter="set_title" getter="get_title" override="true" default="&quot;Decompile GDScript&quot;" />
+		<member name="title" type="String" setter="set_title" getter="get_title" overrides="Window" default="&quot;Decompile GDScript&quot;" />
 	</members>
 </class>
