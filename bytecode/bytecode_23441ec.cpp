@@ -463,6 +463,7 @@ Error GDScriptDecomp_23441ec::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "class ";
 			} break;
 			case TK_PR_EXTENDS: {
+				_ensure_space(line);
 				line += "extends ";
 			} break;
 			case TK_PR_ONREADY: {

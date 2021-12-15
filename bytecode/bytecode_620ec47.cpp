@@ -499,6 +499,7 @@ Error GDScriptDecomp_620ec47::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "class_name ";
 			} break;
 			case TK_PR_EXTENDS: {
+				_ensure_space(line);
 				line += "extends ";
 			} break;
 			case TK_PR_IS: {

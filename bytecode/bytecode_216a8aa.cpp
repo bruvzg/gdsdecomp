@@ -488,6 +488,7 @@ Error GDScriptDecomp_216a8aa::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "class ";
 			} break;
 			case TK_PR_EXTENDS: {
+				_ensure_space(line);
 				line += "extends ";
 			} break;
 			case TK_PR_IS: {
