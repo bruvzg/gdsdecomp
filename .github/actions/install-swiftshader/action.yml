@@ -15,7 +15,7 @@ runs:
   steps:
     - name: Scons Build
       env:
-        SWIFTSHADER_WINDOWS_URL: https://artprodsu6weu.artifacts.visualstudio.com/A22fc38be-5a1f-46f4-9c73-5178c0f7346e/0f71ca99-a6cd-4648-9ce3-12c03b9eced3/_apis/artifact/cGlwZWxpbmVhcnRpZmFjdDovL2JvbnRhcmthL3Byb2plY3RJZC8wZjcxY2E5OS1hNmNkLTQ2NDgtOWNlMy0xMmMwM2I5ZWNlZDMvYnVpbGRJZC8xNzI5L2FydGlmYWN0TmFtZS9zd2lmdHNoYWRlci0yMDIxLTEwLTA5XzA4LTAxLUxMVk0xMC43eg2/content?format=zip
+        SWIFTSHADER_WINDOWS_URL: https://github.com/nikitalita/swiftshader-dist-win/releases/download/2021-12-09_00-02/swiftshader-2021-12-09_00-02-subzero.7z.zip
         SWIFTSHADER_LINUX_URL: https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader2.zip
         SWIFTSHADER_MACOS_URL: https://github.com/nikitalita/swiftshader-builds/releases/download/1.0.0/swiftshader-vulkan-r6216.7997cbc34b-macos-10.15.zip
       shell: bash

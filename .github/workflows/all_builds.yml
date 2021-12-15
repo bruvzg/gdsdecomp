@@ -104,6 +104,11 @@ jobs:
 
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
+        
+      - name: Install swiftshader
+        uses: ./.github/actions/install-swiftshader
+        with:
+          path: ${{ github.workspace }}/bin
 
       - name: Compilation
         uses: ./.github/actions/godot-build
@@ -149,11 +154,6 @@ jobs:
           cd bin/
           zip -r9 "osx.zip" "osx_template.app/"
           cd ..
-      - name: Install swiftshader
-        uses: ./.github/actions/install-swiftshader
-        with:
-          path: ${{ github.workspace }}/bin
-        continue-on-error: true
 
       - name: Export standalone GDRE Tools
         continue-on-error: true
@@ -169,4 +169,3 @@ jobs:
           name: GDRE_tools-standalone-${{ matrix.platform }}
           path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
           retention-days: 90
-
