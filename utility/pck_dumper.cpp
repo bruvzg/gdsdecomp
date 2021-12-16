@@ -14,7 +14,6 @@
 #include "gdre_settings.h"
 
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
-
 	// Loading an encrypted file automatically checks the md5
 	if (file->is_encrypted()) {
 		return true;

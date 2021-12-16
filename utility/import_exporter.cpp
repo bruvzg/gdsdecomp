@@ -234,7 +234,7 @@ Error ImportExporter::load_import_file(const String &p_path) {
 	i_info->v3metadata_prop = cf->get_value("remap", "metadata", Dictionary());
 	i_info->version = ver_major;
 	// special handler for imports with more than one path
-	// path won't be found if there are two or more 
+	// path won't be found if there are two or more
 	if (i_info->import_path == "") {
 		bool lossy_texture = false;
 		List<String> remap_keys;
