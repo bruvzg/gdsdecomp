@@ -476,34 +476,6 @@ Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
 	return Ref<ImportInfo>();
 }
 
-Error ImportExporter::get_md5_hash(const String &path, String &hash_str) {
-	FileAccess *file = FileAccess::open(path, FileAccess::READ);
-	if (!file) {
-		return ERR_FILE_CANT_OPEN;
-	}
-	CryptoCore::MD5Context ctx;
-	ctx.start();
-
-	int64_t rq_size = file->get_length();
-	uint8_t buf[32768];
-
-	while (rq_size > 0) {
-		int got = file->get_buffer(buf, MIN(32768, rq_size));
-		if (got > 0) {
-			ctx.update(buf, got);
-		}
-		if (got < 4096)
-			break;
-		rq_size -= 32768;
-	}
-	unsigned char hash[16];
-	ctx.finish(hash);
-	hash_str = String::md5(hash);
-	file->close();
-	memdelete(file);
-	return OK;
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: rethink this, this isn't going to work by itself
 // currently only needed for v3-v4 textures that were imported from something other than PNGs
@@ -587,8 +559,8 @@ Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String 
 			if (output_dir != "") {
 				dst_path = output_dir.plus_file(rel_dest_path.replace("res://", ""));
 			}
-			String new_hash;
-			if (get_md5_hash(dst_path, new_hash) != OK) {
+			String new_hash = FileAccess::get_md5(dst_path);
+			if (new_hash == "") {
 				WARN_PRINT("Can't open exported file to calculate hash");
 			} else {
 				md5 = new_hash;

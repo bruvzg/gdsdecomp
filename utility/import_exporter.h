@@ -46,7 +46,6 @@ class ImportExporter : public RefCounted {
 	static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards, const bool absolute, const String rel);
 	static bool check_if_dir_is_v2(const String &dir);
 	static Vector<String> get_v2_wildcards();
-	static Error get_md5_hash(const String &path, String &hash_str);
 	String _get_path(const String &output_dir, const String &p_path);
 
 protected:

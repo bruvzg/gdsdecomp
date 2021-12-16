@@ -14,47 +14,14 @@
 #include "gdre_settings.h"
 
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
-	Error err;
-	FileAccess *pck_f = FileAccess::open(file->get_path(), FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!pck_f, false, "Can't open file '" + file->get_path() + "'.");
 
 	// Loading an encrypted file automatically checks the md5
 	if (file->is_encrypted()) {
 		return true;
 	}
-
-	CryptoCore::MD5Context ctx;
-	ctx.start();
-
-	int64_t rq_size = file->get_size();
-	uint8_t buf[32768];
-
-	while (rq_size > 0) {
-		int got = pck_f->get_buffer(buf, MIN(32768, rq_size));
-		if (got > 0) {
-			ctx.update(buf, got);
-		}
-		if (got < 4096)
-			break;
-		rq_size -= 32768;
-	}
-
-	unsigned char hash[16];
-	ctx.finish(hash);
-
-	auto p_md5 = file->get_md5();
-	String file_md5;
-	String saved_md5;
-	String error_msg = "";
-
-	bool md5_match = true;
-	for (int j = 0; j < 16; j++) {
-		md5_match &= (hash[j] == p_md5[j]);
-		file_md5 += String::num_uint64(hash[j], 16);
-		saved_md5 += String::num_uint64(p_md5[j], 16);
-	}
-	memdelete(pck_f);
-	return md5_match;
+	auto hash = FileAccess::get_md5(file->get_path());
+	auto p_md5 = String::md5(file->get_md5().ptr());
+	return hash == p_md5;
 }
 
 Error PckDumper::load_pck(const String &p_path) {
