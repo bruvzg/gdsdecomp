@@ -409,7 +409,7 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 
 				//palette data starts at end of pixel data, is equal to 256 * p_width
 				for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {
-					palette.push_back(imgdata.slice(dataidx, dataidx + p_width - 1));
+					palette.push_back(imgdata.slice(dataidx, dataidx + p_width));
 				}
 				//pixel data is index into palette
 				for (uint32_t i = 0; i < width * height; i++) {
