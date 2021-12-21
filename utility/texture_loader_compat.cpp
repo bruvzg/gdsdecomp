@@ -269,7 +269,7 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 			flags = (int)pe.value;
 		}
 	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(image.is_null(), err, "Cannot load resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(image.is_null(), ERR_FILE_CORRUPT, "Cannot load resource '" + p_path + "'.", loader);
 	image->set_name(name);
 	tw = image->get_width();
 	th = image->get_height();

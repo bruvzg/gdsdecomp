@@ -1,3 +1,6 @@
+#ifndef GDRE_UTIL_FUNCTIONS_H
+#define GDRE_UTIL_FUNCTIONS_H
+
 #include "external/toojpeg/toojpeg.h"
 #include <core/io/dir_access.h>
 #include <core/io/file_access.h>
@@ -126,3 +129,5 @@ Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 }
 
 } //namespace gdreutil
+
+#endif //GDRE_UTIL_FUNCTIONS_H
