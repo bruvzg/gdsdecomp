@@ -127,8 +127,10 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 	if (ver_major > 2) {
 		if (ver_major == 3 && ver_minor == 0) {
 			config_version = 3;
-		} else {
+		} else if (ver_major == 3) {
 			config_version = 4;
+		} else { // v4
+			config_version = 5;
 		}
 	} else {
 		config_version = 2;

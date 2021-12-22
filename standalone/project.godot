@@ -6,7 +6,7 @@
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters
 
-config_version=4
+config_version=5
 
 _global_script_classes=[]
 _global_script_class_icons={
@@ -17,6 +17,7 @@ _global_script_class_icons={
 config/name="Godot RE Tools"
 run/main_scene="res://gdre_main.tscn"
 config/icon="res://gdre_icon.png"
+config/features=PackedStringArray("4.0")
 
 [display]
 
