@@ -222,7 +222,7 @@ class ResourceLoaderBinaryCompat {
 	static Error _get_resource_header(FileAccess *f);
 	RES set_dummy_ext(const String &path, const String &exttype);
 	RES set_dummy_ext(const uint32_t erindex);
-	RES make_dummy(const String &path, const String &type, const uint32_t subidx);
+	RES make_dummy(const String &path, const String &type, const String &id);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 
 	Error load_ext_resource(const uint32_t i);
@@ -230,7 +230,7 @@ class ResourceLoaderBinaryCompat {
 	RES get_external_resource(const String &path);
 	bool has_external_resource(const String &path);
 
-	RES instance_internal_resource(const String &path, const String &type, const int subindex);
+	RES instance_internal_resource(const String &path, const String &type, const String &id);
 	RES get_internal_resource(const int subindex);
 	RES get_internal_resource(const String &path);
 	String get_internal_resource_type(const String &path);

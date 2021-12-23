@@ -82,7 +82,7 @@ static String rtosfix(double p_value) {
 Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
 	// use the v4 write function instead for v4
 	if (ver_major == 4) {
-		return VariantWriter::write(p_variant, p_store_string_func, p_encode_res_ud, p_encode_res_func, p_encode_res_ud);
+		return VariantWriter::write(p_variant, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
 	}
 
 	// for v2 and v3...

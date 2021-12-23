@@ -86,15 +86,13 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 			file_names = gdreutil::get_recursive_dir_list(dir, wildcards, false);
 		}
 	}
-	file_names = get_recursive_dir_list(dir, wildcards, false);
-}
-for (int i = 0; i < file_names.size(); i++) {
-	if (load_import_file(file_names[i]) != OK) {
-		WARN_PRINT("Can't load import file: " + file_names[i]);
+
+	for (int i = 0; i < file_names.size(); i++) {
+		if (load_import_file(file_names[i]) != OK) {
+			WARN_PRINT("Can't load import file: " + file_names[i]);
+		}
 	}
-}
-}
-return OK;
+	return OK;
 }
 
 Error ImportExporter::load_import_file(const String &p_path) {
@@ -107,7 +105,7 @@ Error ImportExporter::load_import_file(const String &p_path) {
 
 // export all the imported resources
 Error ImportExporter::export_imports(const String &p_out_dir) {
-	String output_dir = p_out_dir == "" ? p_out_dir : GDRESettings::get_singleton()->get_project_path();
+	String output_dir = !p_out_dir.is_empty() ? p_out_dir : GDRESettings::get_singleton()->get_project_path();
 	Error err = OK;
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
@@ -308,62 +306,6 @@ Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
 	}
 	// not found
 	return Ref<ImportInfo>();
-}
-
-// Godot v3-v4 import data rewriting
-// TODO: rethink this, this isn't going to work by itself
-// currently only needed for v3-v4 textures that were imported from something other than PNGs
-// i.e. ground.jpg -> ground.png
-// Need to either:
-// 1) Implement renaming dependencies in the RFLC and load every other resource type after textures
-// and rewrite the resource if necessary,
-// 2) do remapping trickery,
-// 3) just save them as lossy files?
-Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo) {
-	String new_source = rel_dest_path;
-	String new_import_file = iinfo->import_md_path.get_base_dir().plus_file(rel_dest_path.get_file() + ".import");
-	Array new_dest_files;
-	ERR_FAIL_COND_V_MSG(iinfo->dest_files.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	for (int i = 0; i < iinfo->dest_files.size(); i++) {
-		String old_dest = iinfo->dest_files[i];
-		String new_dest = old_dest.replace(iinfo->source_file.get_file(), new_source.get_file());
-		ERR_FAIL_COND_V_MSG(old_dest == new_dest, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-		new_dest_files.append(new_dest);
-	}
-	Ref<ConfigFile> import_file;
-	import_file.instantiate();
-	Error err = import_file->load(iinfo->import_md_path);
-	ERR_FAIL_COND_V_MSG(err, ERR_BUG, "Failed to load import file " + iinfo->import_md_path);
-
-	import_file->set_value("deps", "source_file", new_source);
-	import_file->set_value("deps", "dest_files", new_dest_files);
-	if (new_dest_files.size() > 1) {
-		List<String> remap_keys;
-		import_file->get_section_keys("remap", &remap_keys);
-		ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-		// we likely have multiple paths
-		if (iinfo->v3metadata_prop.has("imported_formats")) {
-			Vector<String> fmts = iinfo->v3metadata_prop["imported_formats"];
-			for (int i = 0; i < fmts.size(); i++) {
-				auto E = remap_keys.find("path." + fmts[i]);
-				if (E) {
-					String path_prop = E->get();
-					String old_path = import_file->get_value("remap", path_prop, String());
-					String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
-					ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-					import_file->set_value("remap", path_prop, new_path);
-				} else {
-					ERR_FAIL_V_MSG(ERR_BUG, "Expected to see path for import format" + fmts[i]);
-				}
-			}
-		}
-	} else {
-		String old_path = iinfo->import_path;
-		String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
-		ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-		import_file->set_value("remap", "path", new_path);
-	}
-	return import_file->save(iinfo->import_md_path);
 }
 
 // Makes a copy of the import metadata and changes the source to the new path
