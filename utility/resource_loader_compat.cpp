@@ -267,7 +267,7 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 		uid = ResourceUID::INVALID_ID;
 	}
 
-	for (int i = 0; i < 11; i++) {
+	for (int i = 0; i < ResourceFormatSaverBinaryInstance::RESERVED_FIELDS; i++) {
 		f->get_32(); //skip a few reserved fields
 	}
 
@@ -401,11 +401,11 @@ bool ResourceLoaderBinaryCompat::has_external_resource(const String &path) {
 // by default, we don't instance an internal resource.
 // This is done for compatibility reasons. Class names and constructors, and their properties, have changed between versions.
 // So we instead just make a dummy resource and keep a list of properties, which would all be Variants
-RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const int subindex) {
+RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const String &id) {
 	RES res;
 	// if this is a fake load, create a dummy instead
 	if (fake_load) {
-		res = make_dummy(path, type, subindex);
+		res = make_dummy(path, type, id);
 		return res;
 	}
 	// If this is a real load...
@@ -440,7 +440,7 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 		if (path != String() && cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
 			r->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); //if got here because the resource with same path has different type, replace it
 		}
-		r->set_scene_unique_id(itos(subindex));
+		r->set_scene_unique_id(id);
 		res = RES(r);
 	}
 	return res;
@@ -700,13 +700,13 @@ Error ResourceLoaderBinaryCompat::load() {
 		bool main = i == (internal_resources.size() - 1);
 
 		String path;
-		int subindex = 0;
+		String id;
 
 		if (!main) {
 			path = internal_resources[i].path;
 			if (path.begins_with("local://")) {
 				path = path.replace_first("local://", "");
-				subindex = path.to_int();
+				id = path;
 				path = local_path + "::" + path;
 			}
 		} else {
@@ -725,7 +725,7 @@ Error ResourceLoaderBinaryCompat::load() {
 
 		// if this a fake load, this is a dummy
 		// if it's a real load, it's an instance of the resource class
-		RES res = instance_internal_resource(path, rtype, subindex);
+		RES res = instance_internal_resource(path, rtype, id);
 		ERR_FAIL_COND_V_MSG(res.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't load internal resource " + path);
 		int pc = f->get_32();
 
@@ -828,13 +828,12 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 	return get_ustring(f);
 }
 
-RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const uint32_t subidx) {
+RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const String &id) {
 	Ref<FakeResource> dummy;
 	dummy.instantiate();
 	dummy->set_real_path(path);
 	dummy->set_real_type(type);
-	//TODO: Fix this so that it sets the real UID if its enabled
-	dummy->set_scene_unique_id(itos(subidx));
+	dummy->set_scene_unique_id(id);
 	return dummy;
 }
 
@@ -842,8 +841,13 @@ RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex) {
 	if (external_resources[erindex].cache.is_valid()) {
 		return external_resources[erindex].cache;
 	}
-
-	RES dummy = make_dummy(external_resources[erindex].path, external_resources[erindex].type, erindex + 1);
+	String id;
+	if (using_uids) {
+		id = itos(external_resources[erindex].uid);
+	} else {
+		id = itos(erindex + 1);
+	}
+	RES dummy = make_dummy(external_resources[erindex].path, external_resources[erindex].type, id);
 	external_resources.write[erindex].cache = dummy;
 
 	return dummy;
@@ -859,10 +863,11 @@ RES ResourceLoaderBinaryCompat::set_dummy_ext(const String &path, const String &
 		}
 	}
 	//If not found in cache...
+	WARN_PRINT("External resource not found in cache???? Making dummy anyway...");
 	ExtResource er;
 	er.path = path;
 	er.type = exttype;
-	er.cache = make_dummy(path, exttype, external_resources.size() + 1);
+	er.cache = make_dummy(path, exttype, itos(external_resources.size() + 1));
 	external_resources.push_back(er);
 
 	return er.cache;
@@ -916,6 +921,9 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
 
 	String main_res_path = get_resource_path(res);
+	if (main_res_path == "") {
+		main_res_path = local_path;
+	}
 	// the actual type in case this is a fake resource
 	String main_type = get_internal_resource_type(main_res_path);
 
@@ -1022,7 +1030,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 				if (id == "") {
 					String new_id;
 					while (true) {
-						new_id = intres->get_class() + "_" + Resource::generate_scene_unique_id();
+						new_id = type + "_" + Resource::generate_scene_unique_id();
 
 						if (!used_unique_ids.has(new_id)) {
 							break;
@@ -1392,11 +1400,12 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 					if (using_named_scene_ids) { // New format.
 						ERR_FAIL_INDEX_V((int)index, internal_resources.size(), ERR_PARSE_ERROR);
 						path = internal_resources[index].path;
+						r_v = get_internal_resource(path);
 					} else {
 						path += res_path + "::" + itos(index);
+						r_v = get_internal_resource(index);
 					}
 
-					r_v = get_internal_resource(index);
 					if (!r_v) {
 						WARN_PRINT(String("Couldn't load internal resource (no cache): Subresource " + itos(index)).utf8().get_data());
 						r_v = Variant();
@@ -2061,7 +2070,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->store_64(0);
 	}
 
-	for (int i = 0; i < 11; i++) {
+	for (int i = 0; i < ResourceFormatSaverBinaryInstance::RESERVED_FIELDS; i++) {
 		fw->store_32(0); // reserved
 	}
 
