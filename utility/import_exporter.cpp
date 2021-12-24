@@ -233,9 +233,9 @@ Error ImportExporter::load_import_file(const String &p_path) {
 	i_info->dest_files = cf->get_value("deps", "dest_files", Array());
 	i_info->v3metadata_prop = cf->get_value("remap", "metadata", Dictionary());
 	i_info->version = ver_major;
-	bool path_found = i_info->import_path == "";
 	// special handler for imports with more than one path
-	if (!path_found) {
+	// path won't be found if there are two or more
+	if (i_info->import_path == "") {
 		bool lossy_texture = false;
 		List<String> remap_keys;
 		cf->get_section_keys("remap", &remap_keys);
@@ -248,7 +248,6 @@ Error ImportExporter::load_import_file(const String &p_path) {
 				String f_fmt = fmts[i];
 				if (remap_keys.find("path." + f_fmt)) {
 					i_info->import_path = cf->get_value("remap", "path." + f_fmt, "");
-					path_found = true;
 					// if it's a texture that's vram compressed, there's a chance that it may have a ghost .stex file
 					if (i_info->v3metadata_prop.get("vram_texture", false)) {
 						lossy_texture = true;
@@ -259,16 +258,15 @@ Error ImportExporter::load_import_file(const String &p_path) {
 			}
 		}
 		//otherwise, check destination files
-		if (!path_found && i_info->dest_files.size() != 0) {
+		if (i_info->import_path == "" && i_info->dest_files.size() != 0) {
 			i_info->import_path = i_info->dest_files[0];
-			path_found = true;
 		}
 		// special case for textures: if we have multiple formats, and it's a lossy import,
 		// we look to see if there's a ghost .stex file with the same prefix.
 		// Godot 3.x and 4.x will often import it as a lossless stex first, then imports it
 		// as lossy textures, and this sometimes ends up in the exported project.
 		// It's just not listed in the .import file.
-		if (path_found && lossy_texture) {
+		if (i_info->import_path != "" && lossy_texture) {
 			String basedir = i_info->import_path.get_base_dir();
 			Vector<String> split = i_info->import_path.get_file().split(".");
 			if (split.size() == 4) {
@@ -283,7 +281,8 @@ Error ImportExporter::load_import_file(const String &p_path) {
 		}
 	}
 
-	ERR_FAIL_COND_V_MSG(!path_found || i_info->type == String(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
+	// If we fail to find the import path, throw error
+	ERR_FAIL_COND_V_MSG(i_info->import_path == "" || i_info->type == String(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
 	if (cf->has_section("params")) {
 		List<String> param_keys;
 		cf->get_section_keys("params", &param_keys);
@@ -477,34 +476,6 @@ Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
 	return Ref<ImportInfo>();
 }
 
-Error ImportExporter::get_md5_hash(const String &path, String &hash_str) {
-	FileAccess *file = FileAccess::open(path, FileAccess::READ);
-	if (!file) {
-		return ERR_FILE_CANT_OPEN;
-	}
-	CryptoCore::MD5Context ctx;
-	ctx.start();
-
-	int64_t rq_size = file->get_length();
-	uint8_t buf[32768];
-
-	while (rq_size > 0) {
-		int got = file->get_buffer(buf, MIN(32768, rq_size));
-		if (got > 0) {
-			ctx.update(buf, got);
-		}
-		if (got < 4096)
-			break;
-		rq_size -= 32768;
-	}
-	unsigned char hash[16];
-	ctx.finish(hash);
-	hash_str = String::md5(hash);
-	file->close();
-	memdelete(file);
-	return OK;
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: rethink this, this isn't going to work by itself
 // currently only needed for v3-v4 textures that were imported from something other than PNGs
@@ -588,8 +559,8 @@ Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String 
 			if (output_dir != "") {
 				dst_path = output_dir.plus_file(rel_dest_path.replace("res://", ""));
 			}
-			String new_hash;
-			if (get_md5_hash(dst_path, new_hash) != OK) {
+			String new_hash = FileAccess::get_md5(dst_path);
+			if (new_hash == "") {
 				WARN_PRINT("Can't open exported file to calculate hash");
 			} else {
 				md5 = new_hash;
