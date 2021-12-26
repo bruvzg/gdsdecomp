@@ -1,7 +1,7 @@
 extends Control
 
 var ver_major = 0;
-
+var ver_minor = 0;
 func _ready():
 	$menu_background/version_lbl.text = $re_editor_standalone.get_version()
 	# test_functions()
@@ -25,7 +25,7 @@ func get_arg_value(arg):
 
 func export_imports(output_dir:String):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, ver_major)
+	importer.load_import_files(output_dir, ver_major, ver_minor)
 	var arr = importer.get_import_files()
 	var failed_files = []
 	print("Number of import files: " + str(arr.size()))
@@ -64,6 +64,7 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = "") -> int:
 	if err == OK:
 		print("Successfully loaded PCK!")
 		ver_major = pckdump.get_engine_version().split(".")[0].to_int()
+		ver_minor = pckdump.get_engine_version().split(".")[1].to_int()
 		var version:String = pckdump.get_engine_version()
 		print("Version: " + version)
 		err = pckdump.check_md5_all_files()

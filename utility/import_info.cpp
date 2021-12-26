@@ -49,7 +49,7 @@ int ImportInfo::get_import_loss_type() const {
         // These are always imported in such a way that it is impossible to recover the original file
         // SVG in particular is converted to raster from vector
         // However, you can convert these and rewrite the imports such that they will be imported losslessly next time
-        if (ext == "svg" || ext == "jpg" || ext == "webp") {
+        if (ext == "svg" || ext == "jpg") {
             stat |= IMPORTED_LOSSY;
         }
         // Not possible to recover asset used to import losslessly
@@ -59,14 +59,14 @@ int ImportInfo::get_import_loss_type() const {
             stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
         }
         return LossType(stat);
-    } else if (importer == "wav" || (version == 2 && importer == "sample")) {
+    } else if (importer == "wav" || (ver_major == 2 && importer == "sample")) {
         // Not possible to recover asset used to import losslessly
         if (params.has("compress/mode") && params["compress/mode"].is_num()) {
             return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
         }
     }
 
-    if (version == 2 && importer == "font") {
+    if (ver_major == 2 && importer == "font") {
         // Not possible to recover asset used to import losslessly
         if (params.has("mode/mode") && params["mode/mode"].is_num()) {
             return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD ? LOSSLESS : STORED_LOSSY;
@@ -77,7 +77,10 @@ int ImportInfo::get_import_loss_type() const {
     return UNKNOWN;
 }
 
-Error ImportInfo::load_from_file(const String &p_path, int ver_major) {
+
+Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor = 0) {
+	ver_major = v_major;
+	ver_minor = v_minor; // TODO: we could get the minor version number from the binary resource on v3-v4?
     if (ver_major == 2){
         return load_from_file_v2(p_path);
     }
@@ -91,7 +94,6 @@ Error ImportInfo::load_from_file(const String &p_path, int ver_major) {
 	source_file = cf->get_value("deps", "source_file", "");
 	dest_files = cf->get_value("deps", "dest_files", Array());
 	v3metadata_prop = cf->get_value("remap", "metadata", Dictionary());
-	version = ver_major;
 	// special handler for imports with more than one path
 	// path won't be found if there are two or more
 	if (import_path == "") {
@@ -234,7 +236,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 }
 
 Error ImportInfo::rename_source(const String &p_new_source){
-    ERR_FAIL_COND_V_MSG(version <= 2, ERR_BUG, "Don't use this for version <= 2 ");
+    ERR_FAIL_COND_V_MSG(ver_major <= 2, ERR_BUG, "Don't use this for version <= 2 ");
     String old_import_path = import_md_path;
 	String new_import_path = import_md_path.get_base_dir().plus_file(p_new_source.get_file() + ".import");
 
@@ -248,12 +250,11 @@ Error ImportInfo::rename_source(const String &p_new_source){
 	ERR_FAIL_COND_V_MSG(import_file->save(new_import_path) != OK, ERR_BUG, "Failed to save changed import data");
     cf->set_value("deps", "source_file", p_new_source);
     source_file = p_new_source;
-	ERR_FAIL_COND_V_MSG(load_from_file(new_import_path, version) != OK, ERR_BUG, "Failed to reload changed import file");
+	//ERR_FAIL_COND_V_MSG(load_from_file(new_import_path, ver_major, ver_minor) != OK, ERR_BUG, "Failed to reload changed import file");
     DirAccess::remove_file_or_error(old_import_path);
-    
 	return OK;
 }
 
 Error ImportInfo::reload(){
-    return load_from_file(import_md_path, version);
+    return load_from_file(import_md_path, ver_major, ver_minor);
 }

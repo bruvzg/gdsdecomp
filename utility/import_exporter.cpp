@@ -15,11 +15,11 @@
 #include "scene/resources/audio_stream_sample.h"
 #include "texture_loader_compat.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
+#include "util_functions.h"
 #include <core/io/dir_access.h>
 #include <core/io/file_access.h>
 #include <core/os/os.h>
 #include <core/version_generated.gen.h>
-#include "util_functions.h"
 
 Array ImportExporter::get_import_files() {
 	return files;
@@ -58,10 +58,11 @@ Vector<String> ImportExporter::get_v2_wildcards() {
 	return wildcards;
 }
 
-Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_major) {
+Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_major, const uint32_t p_ver_minor = 0) {
 	project_dir = dir;
 	Vector<String> file_names;
 	ver_major = p_ver_major;
+	ver_minor = p_ver_minor;
 	if (dir != "" && !dir.begins_with("res://")) {
 		GDRESettings::get_singleton()->set_project_path(dir);
 	}
@@ -85,22 +86,21 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 			file_names = gdreutil::get_recursive_dir_list(dir, wildcards, false);
 		}
 	}
-			file_names = get_recursive_dir_list(dir, wildcards, false);
-		}
-		for (int i = 0; i < file_names.size(); i++) {
-			if (load_import_file(file_names[i]) != OK) {
-				WARN_PRINT("Can't load import file: " + file_names[i]);
-			}
-		}
-	}
-	return OK;
+	file_names = get_recursive_dir_list(dir, wildcards, false);
 }
-
+for (int i = 0; i < file_names.size(); i++) {
+	if (load_import_file(file_names[i]) != OK) {
+		WARN_PRINT("Can't load import file: " + file_names[i]);
+	}
+}
+}
+return OK;
+}
 
 Error ImportExporter::load_import_file(const String &p_path) {
 	Ref<ImportInfo> i_info;
 	i_info.instantiate();
-	i_info->load_from_file(p_path, ver_major);
+	i_info->load_from_file(p_path, ver_major, ver_minor);
 	files.push_back(i_info);
 	return OK;
 }
@@ -208,7 +208,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	// We currently only rewrite the metadata for v2
 	// This is essentially mandatory for v2 resources because they can be imported outside the
 	// project directory tree and the import metadata often points to locations that don't exist.
-	if (iinfo->version == 2) {
+	if (iinfo->ver_major == 2) {
 		rewrite_metadata = true;
 	}
 
@@ -219,7 +219,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 		rewrite_metadata = true;
 		// version 3-4 import rewrite not yet implemented, we catch this down below
 		// Instead...
-		if (iinfo->version > 2) {
+		if (iinfo->ver_major > 2) {
 			// save it under .assets, which won't be picked up for import by the godot editor
 			if (!dest.replace("res://", "").begins_with(".assets")) {
 				String prefix = ".assets";
@@ -236,14 +236,14 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	Error err = _convert_tex_to_png(output_dir, path, dest, &r_name);
 	if (err != OK || !rewrite_metadata) {
 		return err;
-	} else if (rewrite_metadata && iinfo->version == 2) {
+	} else if (rewrite_metadata && iinfo->ver_major == 2) {
 		err = rewrite_v2_import_metadata(path, dest, r_name, output_dir);
 		if (err == OK) {
 			return ERR_PRINTER_ON_FIRE;
 		}
 		return ERR_DATABASE_CANT_WRITE;
 	} else {
-		if (iinfo->version != 2) {
+		if (iinfo->ver_major != 2) {
 			WARN_PRINT_ONCE("Godot 3.x/4.x import data rewrite not yet implemented");
 			WARN_PRINT_ONCE("These assets will not be re-imported when loading the project");
 		}
@@ -263,7 +263,7 @@ Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &i
 	String dest = source;
 
 	iinfo->preferred_dest = dest;
-	if (iinfo->version == 2) {
+	if (iinfo->ver_major == 2) {
 		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
 		print_line("Not converting sample " + path);
 		return ERR_UNAVAILABLE;
