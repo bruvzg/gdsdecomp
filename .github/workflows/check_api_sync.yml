@@ -14,7 +14,7 @@ on:
 env:
   GODOT_BASE_BRANCH: master
   GDSDECOMP_BASE_BRANCH: master
-  SCONSFLAGS: debug_symbols=no warnings=extra optimize=size use_lto=yes disable_3d=yes no_editor_splash=yes module_bmp_enabled=no module_bullet_enabled=no module_camera_enabled=no module_csg_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_gdnative_enabled=no module_opensimplex_enabled=no module_pvr_enabled=no module_webm_enabled=no module_recast_enabled=no module_websocket_enabled=no module_gridmap_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes
+  SCONSFLAGS: debug_symbols=no warnings=extra optimize=size use_lto=yes disable_3d=yes no_editor_splash=yes module_bmp_enabled=no module_bullet_enabled=no module_camera_enabled=no module_csg_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_gdnative_enabled=no module_opensimplex_enabled=no module_pvr_enabled=no module_webm_enabled=no module_websocket_enabled=no module_gridmap_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes
 jobs:
   check:
     name: "Test master API Sync"
