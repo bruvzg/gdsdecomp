@@ -106,8 +106,8 @@ Error ImportExporter::load_import_file(const String &p_path) {
 }
 
 // export all the imported resources
-Error ImportExporter::export_imports(const String &output_dir) {
-	String out_dir = output_dir == "" ? output_dir : GDRESettings::get_singleton()->get_project_path();
+Error ImportExporter::export_imports(const String &p_out_dir) {
+	String output_dir = p_out_dir == "" ? p_out_dir : GDRESettings::get_singleton()->get_project_path();
 	Error err = OK;
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
@@ -135,7 +135,7 @@ Error ImportExporter::export_imports(const String &output_dir) {
 				case TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D:
 				case TextureLoaderCompat::FORMAT_V4_STREAM_TEXTURE2D: {
 					// Export texture
-					err = export_texture(out_dir, iinfo);
+					err = export_texture(output_dir, iinfo);
 				} break;
 				case TextureLoaderCompat::FORMAT_NOT_TEXTURE:
 					if (err == ERR_FILE_UNRECOGNIZED) {
@@ -204,55 +204,81 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	String source = iinfo->get_source_file();
 	String dest = source;
 	bool rewrite_metadata = false;
+	bool lossy = false;
 
-	// We currently only rewrite the metadata for v2
+	// Rewrite the metadata for v2
 	// This is essentially mandatory for v2 resources because they can be imported outside the
 	// project directory tree and the import metadata often points to locations that don't exist.
-	if (iinfo->ver_major == 2) {
+	if (iinfo->ver_major == 2 && opt_rewrite_imd_v2) {
 		rewrite_metadata = true;
 	}
 
-	// We only convert textures to png, so we need to rename the destination
+	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
+	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
 	if (source.get_extension() != "png") {
-		dest = source.get_basename() + ".png";
-		// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
-		rewrite_metadata = true;
-		// version 3-4 import rewrite not yet implemented, we catch this down below
-		// Instead...
 		if (iinfo->ver_major > 2) {
-			// save it under .assets, which won't be picked up for import by the godot editor
-			if (!dest.replace("res://", "").begins_with(".assets")) {
-				String prefix = ".assets";
-				if (dest.begins_with("res://")) {
-					prefix = "res://.assets";
+			if ((source.get_extension() == "jpg" || source.get_extension() == "jpeg") && opt_export_jpg) {
+				lossy = true;
+			} else if (source.get_extension() == "webp" && opt_export_webp) {
+				// if the engine is <3.4, it can't handle lossless encoded WEBPs
+				if (ver_major < 4 && !(ver_major == 3 && ver_minor >= 4)) {
+					lossy = true;
 				}
-				dest = prefix.plus_file(dest.replace("res://", ""));
+			} else {
+				dest = source.get_basename() + ".png";
+				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
+				if (opt_rewrite_imd_v3) {
+					rewrite_metadata = true;
+				} else {
+					// save it under .assets, which won't be picked up for import by the godot editor
+					if (!dest.replace("res://", "").begins_with(".assets")) {
+						String prefix = ".assets";
+						if (dest.begins_with("res://")) {
+							prefix = "res://.assets";
+						}
+						dest = prefix.plus_file(dest.replace("res://", ""));
+					}
+				}
 			}
+		} else { //version 2
+			dest = source.get_basename() + ".png";
 		}
 	}
 
 	iinfo->preferred_dest = dest;
 	String r_name;
-	Error err = _convert_tex_to_png(output_dir, path, dest, &r_name);
-	if (err != OK || !rewrite_metadata) {
-		return err;
-	} else if (rewrite_metadata && iinfo->ver_major == 2) {
-		err = rewrite_v2_import_metadata(path, dest, r_name, output_dir);
-		if (err == OK) {
+	Error err;
+	err = _convert_tex(output_dir, path, dest, &r_name, lossy);
+	ERR_FAIL_COND_V(err, err);
+	// If lossy, also convert it as a png
+	if (lossy) {
+		dest = source.get_basename() + ".png";
+		if (!dest.replace("res://", "").begins_with(".assets")) {
+			String prefix = ".assets";
+			if (dest.begins_with("res://")) {
+				prefix = "res://.assets";
+			}
+			dest = prefix.plus_file(dest.replace("res://", ""));
+		}
+		err = _convert_tex(output_dir, path, dest, &r_name, false);
+		ERR_FAIL_COND_V(err != OK, err);
+	}
+	if (iinfo->ver_major == 2) {
+		if (rewrite_metadata) {
+			err = rewrite_v2_import_metadata(path, iinfo->preferred_dest, r_name, output_dir);
+			ERR_FAIL_COND_V_MSG(err != OK, ERR_DATABASE_CANT_WRITE, "Failed to rewrite import metadata for " + iinfo->source_file);
 			return ERR_PRINTER_ON_FIRE;
 		}
 		return ERR_DATABASE_CANT_WRITE;
-	} else {
-		if (iinfo->ver_major != 2) {
-			WARN_PRINT_ONCE("Godot 3.x/4.x import data rewrite not yet implemented");
-			WARN_PRINT_ONCE("These assets will not be re-imported when loading the project");
+	} else if (iinfo->ver_major >= 3) {
+		if (rewrite_metadata) {
+			err = ERR_DATABASE_CANT_WRITE;
+			ERR_FAIL_COND_V_MSG(err != OK, ERR_DATABASE_CANT_WRITE, "Failed to remap resource " + iinfo->source_file);
+			return ERR_PRINTER_ON_FIRE;
+			// If we saved the file to something other than png
+		} else if (iinfo->source_file != iinfo->preferred_dest) {
+			return ERR_DATABASE_CANT_WRITE;
 		}
-		print_line("Exported " + path + " as " + dest + " but not rewriting import metadata");
-		// ! version 3-4 import rewrite not yet implemented
-		return ERR_DATABASE_CANT_WRITE;
-		//Error err = rewrite_import_data(dest, output_dir, iinfo);
-		//ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to rewrite import metadata " + iinfo->import_md_path);
-		//print_line("rewrote metadata file " + iinfo->import_md_path);
 	}
 	return err;
 }
@@ -341,7 +367,11 @@ Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const Str
 }
 
 // Makes a copy of the import metadata and changes the source to the new path
-Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension) {
+Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String &p_path,
+		const String &rel_dest_path,
+		const String &p_res_name,
+		const String &output_dir,
+		const bool change_extension) {
 	Ref<ResourceImportMetadatav2> imd;
 	auto iinfo = get_import_info(p_path);
 	if (iinfo.is_null()) {
@@ -424,7 +454,7 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 	return err;
 }
 
-Error ImportExporter::_convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String *r_name) {
+Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {
 	String dst_dir = output_dir.plus_file(p_dst.get_base_dir().replace("res://", ""));
 	String dest_path = output_dir.plus_file(p_dst.replace("res://", ""));
 	Error err;
@@ -435,11 +465,17 @@ Error ImportExporter::_convert_tex_to_png(const String &output_dir, const String
 	if (r_name) {
 		*r_name = String(img->get_name());
 	}
-
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
-
-	err = img->save_png(dest_path);
+	if (dest_path.get_extension() == "jpg" || dest_path.get_extension() == "jpeg") {
+		err = gdreutil::save_image_as_jpeg(dest_path, img);
+	} else if (dest_path.get_extension() == "webp") {
+		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
+	} else if (dest_path.get_extension() == "png") {
+		err = img->save_png(dest_path);
+	} else {
+		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path);
 
 	print_line("Converted " + p_path + " to " + p_dst);
@@ -447,7 +483,7 @@ Error ImportExporter::_convert_tex_to_png(const String &output_dir, const String
 }
 
 Error ImportExporter::convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
-	return _convert_tex_to_png(output_dir, p_path, p_dst, nullptr);
+	return _convert_tex(output_dir, p_path, p_dst, nullptr);
 }
 
 String ImportExporter::_get_path(const String &output_dir, const String &p_path) {
@@ -604,7 +640,7 @@ void ImportExporter::reset() {
 	opt_export_ogg = true;
 	opt_export_mp3 = true;
 	opt_lossy = true;
-	opt_rewrite_imd = true;
+	opt_rewrite_imd_v2 = true;
 	GDRESettings::get_singleton()->set_project_path("");
 	files_lossy_exported.clear();
 	files_rewrote_metadata.clear();

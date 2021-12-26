@@ -69,14 +69,9 @@ private:
 	Ref<ConfigFile> cf; // raw v3-v4 import data
 	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
 	Dictionary v3metadata_prop; // 'metadata' property of "remap" tag in an import file
-	void _init() {
-		import_path = "";
-		type = "";
-		importer = "";
-		source_file = "";
-		ver_major = 0;
-	};
+	void _init();
 	Error load_from_file_v2(const String &p_path);
+
 public:
 	enum LossType {
 		UNKNOWN = -1,
@@ -104,7 +99,8 @@ public:
 	Error reload();
 	virtual String to_string() override;
 	int get_import_loss_type() const;
-	Error ImportInfo::rename_source(const String &p_new_source);
+	Error rename_source(const String &p_new_source);
+
 protected:
 	static void _bind_methods() {
 		ClassDB::bind_method(D_METHOD("get_ver_major"), &ImportInfo::get_ver_major);
