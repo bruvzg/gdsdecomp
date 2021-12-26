@@ -22,6 +22,7 @@ class ImportExporter : public RefCounted {
 	bool opt_lossy = true;
 	bool opt_rewrite_imd = true;
 	int ver_major = 0;
+	int ver_minor = 0;
 	Vector<String> files_lossy_exported;
 	Vector<String> files_rewrote_metadata;
 	int import_count;
@@ -56,7 +57,7 @@ public:
 	Error convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
-	Error load_import_files(const String &dir, const uint32_t ver_major);
+	Error load_import_files(const String &dir, const uint32_t ver_major, const uint32_t p_ver_minor);
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
 	Error export_imports(const String &output_dir = "");

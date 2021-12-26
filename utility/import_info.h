@@ -58,7 +58,8 @@ private:
 	friend class ResourceFormatLoaderCompat;
 	String import_path; // path to the imported file
 	String import_md_path; // path to the ".import" file
-	int version; //2, 3, 4
+	int ver_major; //2, 3, 4
+	int ver_minor = 0;
 	String type;
 	String importer;
 	String source_file; // file to import
@@ -73,7 +74,7 @@ private:
 		type = "";
 		importer = "";
 		source_file = "";
-		version = 0;
+		ver_major = 0;
 	};
 	Error load_from_file_v2(const String &p_path);
 public:
@@ -84,28 +85,29 @@ public:
 		IMPORTED_LOSSY = 2,
 		STORED_AND_IMPORTED_LOSSY = 3,
 	};
-	int get_version() const { return version; }
+	int get_ver_major() const { return ver_major; }
+	int get_ver_minor() const { return ver_minor; }
 	String get_path() const { return import_path; }
 	String get_import_md_path() const { return import_md_path; }
 	String get_type() const { return type; }
 	String get_source_file() const { return source_file; }
 	Vector<String> get_dest_files() const { return dest_files; }
 	bool has_import_data() const {
-		if (version == 2) {
+		if (ver_major == 2) {
 			return v2metadata.is_valid();
 		} else {
 			return cf.is_valid();
 		}
 	}
 	Dictionary get_params() const { return params; }
-	Error load_from_file(const String &p_path, int ver_major);
+	Error load_from_file(const String &p_path, int ver_major, int ver_minor);
 	Error reload();
 	virtual String to_string() override;
 	int get_import_loss_type() const;
 	Error ImportInfo::rename_source(const String &p_new_source);
 protected:
 	static void _bind_methods() {
-		ClassDB::bind_method(D_METHOD("get_version"), &ImportInfo::get_version);
+		ClassDB::bind_method(D_METHOD("get_ver_major"), &ImportInfo::get_ver_major);
 		ClassDB::bind_method(D_METHOD("get_path"), &ImportInfo::get_path);
 		ClassDB::bind_method(D_METHOD("get_import_md_path"), &ImportInfo::get_import_md_path);
 		ClassDB::bind_method(D_METHOD("get_type"), &ImportInfo::get_type);

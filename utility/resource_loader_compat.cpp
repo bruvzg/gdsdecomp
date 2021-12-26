@@ -94,7 +94,8 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 
 	i_info->import_path = loader->local_path;
 	i_info->type = loader->type;
-	i_info->version = loader->engine_ver_major;
+	i_info->ver_major = loader->engine_ver_major;
+	i_info->ver_minor = loader->engine_ver_minor;
 	if (loader->engine_ver_major == 2) {
 		i_info->dest_files.push_back(loader->local_path);
 		i_info->import_md_path = loader->res_path;
