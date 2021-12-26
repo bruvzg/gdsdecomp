@@ -75,7 +75,7 @@ private:
 		source_file = "";
 		version = 0;
 	};
-
+	Error load_from_file_v2(const String &p_path);
 public:
 	enum LossType {
 		UNKNOWN = -1,
@@ -98,80 +98,11 @@ public:
 		}
 	}
 	Dictionary get_params() const { return params; }
-	virtual String to_string() override {
-		String s = "ImportInfo: {";
-		s += "\n\timport_md_path: " + import_md_path;
-		s += "\n\tpath: " + import_path;
-		s += "\n\ttype: " + type;
-		s += "\n\timporter: " + importer;
-		s += "\n\tsource_file: " + source_file;
-		s += "\n\tdest_files: [";
-		for (int i = 0; i < dest_files.size(); i++) {
-			if (i > 0) {
-				s += ", ";
-			}
-			s += " " + dest_files[i];
-		}
-		s += " ]";
-		s += "\n\tparams: {";
-		List<Variant> *keys = memnew(List<Variant>);
-		params.get_key_list(keys);
-		for (int i = 0; i < keys->size(); i++) {
-			// skip excessively long options list
-			if (i == 8) {
-				s += "\n\t\t[..." + itos(keys->size() - i) + " others...]";
-				break;
-			}
-			String t = (*keys)[i];
-			s += "\n\t\t" + t + "=" + params[t];
-		}
-		memdelete(keys);
-		s += "\n\t}\n}";
-		return s;
-	}
-	int get_import_loss_type() const {
-		if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj") {
-			//These are always imported as either native files or losslessly
-			return LOSSLESS;
-		}
-		if (!has_import_data()) {
-			return UNKNOWN;
-		}
-
-		if (importer == "texture") {
-			int stat = 0;
-			String ext = source_file.get_extension();
-			// These are always imported in such a way that it is impossible to recover the original file
-			// SVG in particular is converted to raster from vector
-			// However, you can convert these and rewrite the imports such that they will be imported losslessly next time
-			if (ext == "svg" || ext == "jpg" || ext == "webp") {
-				stat |= IMPORTED_LOSSY;
-			}
-			// Not possible to recover asset used to import losslessly
-			if (params.has("compress/mode") && params["compress/mode"].is_num()) {
-				stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
-			} else if (params.has("storage") && params["storage"].is_num()) {
-				stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
-			}
-			return LossType(stat);
-		} else if (importer == "wav" || (version == 2 && importer == "sample")) {
-			// Not possible to recover asset used to import losslessly
-			if (params.has("compress/mode") && params["compress/mode"].is_num()) {
-				return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
-			}
-		}
-
-		if (version == 2 && importer == "font") {
-			// Not possible to recover asset used to import losslessly
-			if (params.has("mode/mode") && params["mode/mode"].is_num()) {
-				return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD ? LOSSLESS : STORED_LOSSY;
-			}
-		}
-
-		// We can't say for sure
-		return UNKNOWN;
-	}
-
+	Error load_from_file(const String &p_path, int ver_major);
+	Error reload();
+	virtual String to_string() override;
+	int get_import_loss_type() const;
+	Error ImportInfo::rename_source(const String &p_new_source);
 protected:
 	static void _bind_methods() {
 		ClassDB::bind_method(D_METHOD("get_version"), &ImportInfo::get_version);
