@@ -43,7 +43,6 @@ class ImportExporter : public RefCounted {
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
 
 	static Error ensure_dir(const String &dst_dir);
-	static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards, const bool absolute, const String rel);
 	static bool check_if_dir_is_v2(const String &dir);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
