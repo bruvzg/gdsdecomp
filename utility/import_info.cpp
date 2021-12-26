@@ -3,87 +3,103 @@
 #include "resource_loader_compat.h"
 
 String ImportInfo::to_string() {
-    String s = "ImportInfo: {";
-    s += "\n\timport_md_path: " + import_md_path;
-    s += "\n\tpath: " + import_path;
-    s += "\n\ttype: " + type;
-    s += "\n\timporter: " + importer;
-    s += "\n\tsource_file: " + source_file;
-    s += "\n\tdest_files: [";
-    for (int i = 0; i < dest_files.size(); i++) {
-        if (i > 0) {
-            s += ", ";
-        }
-        s += " " + dest_files[i];
-    }
-    s += " ]";
-    s += "\n\tparams: {";
-    List<Variant> *keys = memnew(List<Variant>);
-    params.get_key_list(keys);
-    for (int i = 0; i < keys->size(); i++) {
-        // skip excessively long options list
-        if (i == 8) {
-            s += "\n\t\t[..." + itos(keys->size() - i) + " others...]";
-            break;
-        }
-        String t = (*keys)[i];
-        s += "\n\t\t" + t + "=" + params[t];
-    }
-    memdelete(keys);
-    s += "\n\t}\n}";
-    return s;
+	String s = "ImportInfo: {";
+	s += "\n\timport_md_path: " + import_md_path;
+	s += "\n\tpath: " + import_path;
+	s += "\n\ttype: " + type;
+	s += "\n\timporter: " + importer;
+	s += "\n\tsource_file: " + source_file;
+	s += "\n\tdest_files: [";
+	for (int i = 0; i < dest_files.size(); i++) {
+		if (i > 0) {
+			s += ", ";
+		}
+		s += " " + dest_files[i];
+	}
+	s += " ]";
+	s += "\n\tparams: {";
+	List<Variant> *keys = memnew(List<Variant>);
+	params.get_key_list(keys);
+	for (int i = 0; i < keys->size(); i++) {
+		// skip excessively long options list
+		if (i == 8) {
+			s += "\n\t\t[..." + itos(keys->size() - i) + " others...]";
+			break;
+		}
+		String t = (*keys)[i];
+		s += "\n\t\t" + t + "=" + params[t];
+	}
+	memdelete(keys);
+	s += "\n\t}\n}";
+	return s;
 }
 
 int ImportInfo::get_import_loss_type() const {
-    if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj") {
-        //These are always imported as either native files or losslessly
-        return LOSSLESS;
-    }
-    if (!has_import_data()) {
-        return UNKNOWN;
-    }
+	if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj") {
+		//These are always imported as either native files or losslessly
+		return LOSSLESS;
+	}
+	if (!has_import_data()) {
+		return UNKNOWN;
+	}
 
-    if (importer == "texture") {
-        int stat = 0;
-        String ext = source_file.get_extension();
-        // These are always imported in such a way that it is impossible to recover the original file
-        // SVG in particular is converted to raster from vector
-        // However, you can convert these and rewrite the imports such that they will be imported losslessly next time
-        if (ext == "svg" || ext == "jpg") {
-            stat |= IMPORTED_LOSSY;
-        }
-        // Not possible to recover asset used to import losslessly
-        if (params.has("compress/mode") && params["compress/mode"].is_num()) {
-            stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
-        } else if (params.has("storage") && params["storage"].is_num()) {
-            stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
-        }
-        return LossType(stat);
-    } else if (importer == "wav" || (ver_major == 2 && importer == "sample")) {
-        // Not possible to recover asset used to import losslessly
-        if (params.has("compress/mode") && params["compress/mode"].is_num()) {
-            return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
-        }
-    }
+	if (importer == "texture") {
+		int stat = 0;
+		String ext = source_file.get_extension();
+		// These are always imported in such a way that it is impossible to recover the original file
+		// SVG in particular is converted to raster from vector
+		// However, you can convert these and rewrite the imports such that they will be imported losslessly next time
+		if (ext == "svg" || ext == "jpg") {
+			stat |= IMPORTED_LOSSY;
+		}
+		// Not possible to recover asset used to import losslessly
+		if (params.has("compress/mode") && params["compress/mode"].is_num()) {
+			stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
+		} else if (params.has("storage") && params["storage"].is_num()) {
+			stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
+		}
+		return LossType(stat);
+	} else if (importer == "wav" || (ver_major == 2 && importer == "sample")) {
+		// Not possible to recover asset used to import losslessly
+		if (params.has("compress/mode") && params["compress/mode"].is_num()) {
+			return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
+		}
+	}
 
-    if (ver_major == 2 && importer == "font") {
-        // Not possible to recover asset used to import losslessly
-        if (params.has("mode/mode") && params["mode/mode"].is_num()) {
-            return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD ? LOSSLESS : STORED_LOSSY;
-        }
-    }
+	if (ver_major == 2 && importer == "font") {
+		// Not possible to recover asset used to import losslessly
+		if (params.has("mode/mode") && params["mode/mode"].is_num()) {
+			return (int)params["mode/mode"] == V2ImportEnums::FontMode::FONT_DISTANCE_FIELD ? LOSSLESS : STORED_LOSSY;
+		}
+	}
 
-    // We can't say for sure
-    return UNKNOWN;
+	// We can't say for sure
+	return UNKNOWN;
 }
 
+void ImportInfo::_init() {
+	import_path = "";
+	import_md_path = "";
+	type = "";
+	importer = "";
+	source_file = "";
+	ver_major = 0;
+	ver_minor = 0;
+	dest_files = Vector<String>();
+	preferred_dest = "";
+	params = Dictionary();
+	cf.instantiate();
+	v2metadata.instantiate();
+	v3metadata_prop = Dictionary();
+}
 
 Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor = 0) {
+	_init();
 	ver_major = v_major;
 	ver_minor = v_minor; // TODO: we could get the minor version number from the binary resource on v3-v4?
-    if (ver_major == 2){
-        return load_from_file_v2(p_path);
-    }
+	if (ver_major == 2) {
+		return load_from_file_v2(p_path);
+	}
 	String path = GDRESettings::get_singleton()->get_res_path(p_path);
 	Error err = cf->load(path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
@@ -163,7 +179,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 	Vector<String> spl = p_path.get_file().split(".");
 	// This is an import file, possibly has import metadata
 	ResourceFormatLoaderCompat rlc;
-    Ref<ImportInfo> t = this;
+	Ref<ImportInfo> t = this;
 
 	err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), t);
 
@@ -235,9 +251,9 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 	return OK;
 }
 
-Error ImportInfo::rename_source(const String &p_new_source){
-    ERR_FAIL_COND_V_MSG(ver_major <= 2, ERR_BUG, "Don't use this for version <= 2 ");
-    String old_import_path = import_md_path;
+Error ImportInfo::rename_source(const String &p_new_source) {
+	ERR_FAIL_COND_V_MSG(ver_major <= 2, ERR_BUG, "Don't use this for version <= 2 ");
+	String old_import_path = import_md_path;
 	String new_import_path = import_md_path.get_base_dir().plus_file(p_new_source.get_file() + ".import");
 
 	Ref<ConfigFile> import_file;
@@ -248,13 +264,13 @@ Error ImportInfo::rename_source(const String &p_new_source){
 	import_file->set_value("deps", "source_file", p_new_source);
 
 	ERR_FAIL_COND_V_MSG(import_file->save(new_import_path) != OK, ERR_BUG, "Failed to save changed import data");
-    cf->set_value("deps", "source_file", p_new_source);
-    source_file = p_new_source;
+	cf->set_value("deps", "source_file", p_new_source);
+	source_file = p_new_source;
 	//ERR_FAIL_COND_V_MSG(load_from_file(new_import_path, ver_major, ver_minor) != OK, ERR_BUG, "Failed to reload changed import file");
-    DirAccess::remove_file_or_error(old_import_path);
+	DirAccess::remove_file_or_error(old_import_path);
 	return OK;
 }
 
-Error ImportInfo::reload(){
-    return load_from_file(import_md_path, ver_major, ver_minor);
+Error ImportInfo::reload() {
+	return load_from_file(import_md_path, ver_major, ver_minor);
 }

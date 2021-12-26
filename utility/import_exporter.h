@@ -20,7 +20,11 @@ class ImportExporter : public RefCounted {
 	bool opt_export_ogg = true;
 	bool opt_export_mp3 = true;
 	bool opt_lossy = true;
-	bool opt_rewrite_imd = true;
+	bool opt_export_jpg = true;
+	bool opt_export_webp = true;
+
+	bool opt_rewrite_imd_v2 = true;
+	bool opt_rewrite_imd_v3 = false;
 	int ver_major = 0;
 	int ver_minor = 0;
 	Vector<String> files_lossy_exported;
@@ -39,8 +43,9 @@ class ImportExporter : public RefCounted {
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 
-	Error _convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst, String *r_name);
-	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
+	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
+	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst, String *r_name);
+	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, Ref<ImportInfo> &iinfo);
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
 
 	static Error ensure_dir(const String &dst_dir);
@@ -52,6 +57,7 @@ protected:
 	static void _bind_methods();
 
 public:
+	Error remap_resource(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst);

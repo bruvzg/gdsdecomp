@@ -137,7 +137,7 @@ func print_import_info_from_pak(pak_file: String):
 	var pckdump = PckDumper.new()
 	pckdump.load_pck(pak_file)
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files("res://", 0)
+	importer.load_import_files("res://", 0, 0)
 	var arr = importer.get_import_files()
 	print("size is " + str(arr.size()))
 	for ifo in arr:
@@ -154,7 +154,7 @@ func print_import_info_from_pak(pak_file: String):
 	
 func print_import_info(output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, 0)
+	importer.load_import_files(output_dir, 0, 0)
 	var arr = importer.get_import_files()
 	print("size is " + str(arr.size()))
 	for ifo in arr:
