@@ -97,6 +97,9 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = "") -> int:
 		# Did 3.3 add new GDScript features?
 		elif version.begins_with("3.3"):
 			decomp = GDScriptDecomp_5565f55.new()
+		# Don't know any changes between 3.3 and 3.4
+		elif version.begins_with("3.4"):
+			decomp = GDScriptDecomp_5565f55.new()
 		else:
 			print("Unknown version, no decomp")
 			pckdump.clear_data()
