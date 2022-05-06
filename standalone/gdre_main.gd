@@ -94,8 +94,11 @@ func dump_files(exe_file:String, output_dir:String, enc_key:String = "") -> int:
 			decomp = GDScriptDecomp_514a3fb.new()
 		elif version.begins_with("3.2"):
 			decomp = GDScriptDecomp_5565f55.new()
-		# Did 3.3 add new GDScript features?
 		elif version.begins_with("3.3"):
+			decomp = GDScriptDecomp_5565f55.new()
+		elif version.begins_with("3.4"):
+			decomp = GDScriptDecomp_5565f55.new()
+		elif version.begins_with("3.5"):
 			decomp = GDScriptDecomp_5565f55.new()
 		else:
 			print("Unknown version, no decomp")
