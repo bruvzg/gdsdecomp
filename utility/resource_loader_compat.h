@@ -197,9 +197,9 @@ class ResourceLoaderBinaryCompat {
 	};
 
 	Vector<IntResource> internal_resources;
-	Map<String, Ref<Resource>> internal_index_cache;
-	Map<String, String> internal_type_cache;
-	Map<String, List<ResourceProperty>> internal_index_cached_properties;
+	RBMap<String, Ref<Resource>> internal_index_cache;
+	RBMap<String, String> internal_type_cache;
+	RBMap<String, List<ResourceProperty>> internal_index_cached_properties;
 
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
@@ -210,14 +210,14 @@ class ResourceLoaderBinaryCompat {
 	static void advance_padding(FileAccess *f, uint32_t p_len);
 	void _advance_padding(uint32_t p_len);
 
-	Map<String, String> remaps;
+	RBMap<String, String> remaps;
 	Error error = OK;
 
 	friend class ResourceFormatLoaderCompat;
 	//TODO: make a fake_load() or something so we don't have to do this
 	friend class TextureLoaderCompat;
 	friend class OggStreamLoaderCompat;
-	static Map<String, String> _get_file_info(FileAccess *f, Error *r_error);
+	static RBMap<String, String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
 	Ref<Resource> set_dummy_ext(const String &path, const String &exttype);
@@ -244,13 +244,13 @@ class ResourceLoaderBinaryCompat {
 	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
 	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
-	Map<String, Ref<Resource>> dependency_cache;
+	RBMap<String, Ref<Resource>> dependency_cache;
 
 public:
 	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
-	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
+	static Error write_variant_bin(FileAccess *f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
-	static Map<String, String> get_version_and_type(const String &p_path, Error *r_error);
+	static RBMap<String, String> get_version_and_type(const String &p_path, Error *r_error);
 	Error open(FileAccess *p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
 	Error load();
 	static String get_ustring(FileAccess *f);

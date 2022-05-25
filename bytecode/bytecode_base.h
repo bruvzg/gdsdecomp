@@ -7,7 +7,7 @@
 
 #include "core/object/class_db.h"
 #include "core/object/object.h"
-#include "core/templates/map.h"
+#include "core/templates/rb_map.h"
 namespace V2Type {
 enum Type {
 

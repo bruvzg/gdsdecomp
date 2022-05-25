@@ -82,9 +82,9 @@ struct _VCSort {
 Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor) {
 	ERR_FAIL_COND_V_MSG(p_path == "", ERR_INVALID_PARAMETER, "Project settings save path cannot be empty.");
 
-	Set<_VCSort> vclist;
+	RBSet<_VCSort> vclist;
 
-	for (Map<StringName, VariantContainer>::Element *G = props.front(); G; G = G->next()) {
+	for (RBMap<StringName, VariantContainer>::Element *G = props.front(); G; G = G->next()) {
 		const VariantContainer *v = &G->get();
 
 		if (v->hide_from_editor)
@@ -100,9 +100,9 @@ Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_
 
 		vclist.insert(vc);
 	}
-	Map<String, List<String>> proops;
+	RBMap<String, List<String>> proops;
 
-	for (Set<_VCSort>::Element *E = vclist.front(); E; E = E->next()) {
+	for (RBSet<_VCSort>::Element *E = vclist.front(); E; E = E->next()) {
 		String category = E->get().name;
 		String name = E->get().name;
 
@@ -120,7 +120,7 @@ Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_
 	return _save_settings_text(p_path, proops, ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<String, List<String>> &proops, const uint32_t ver_major, const uint32_t ver_minor) {
+Error ProjectConfigLoader::_save_settings_text(const String &p_file, const RBMap<String, List<String>> &proops, const uint32_t ver_major, const uint32_t ver_minor) {
 	Error err;
 	FileAccess *file = FileAccess::open(p_file, FileAccess::WRITE, &err);
 	uint32_t config_version = 2;
@@ -153,7 +153,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 
 	file->store_string("\n");
 
-	for (Map<String, List<String>>::Element *E = proops.front(); E; E = E->next()) {
+	for (RBMap<String, List<String>>::Element *E = proops.front(); E; E = E->next()) {
 		if (E != proops.front())
 			file->store_string("\n");
 

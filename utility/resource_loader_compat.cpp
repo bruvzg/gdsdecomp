@@ -990,7 +990,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	if (external_resources.size()) {
 		wf->store_line(String()); //separate
 	}
-	Set<String> used_unique_ids;
+	RBSet<String> used_unique_ids;
 	// Godot 4.x: Get all the unique ids for lookup
 	if (text_format_version >= 3) {
 		for (int i = 0; i < internal_resources.size(); i++) {
