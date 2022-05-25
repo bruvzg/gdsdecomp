@@ -21,7 +21,11 @@ void gdsdecomp_init_callback() {
 };
 #endif
 
-void register_gdsdecomp_types() {
+void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
+	}
+
 	ClassDB::register_virtual_class<GDScriptDecomp>();
 	register_decomp_versions();
 
@@ -37,11 +41,12 @@ void register_gdsdecomp_types() {
 	ClassDB::register_class<NewPackDialog>();
 	ClassDB::register_class<ScriptCompDialog>();
 	ClassDB::register_class<ScriptDecompDialog>();
+
 #ifdef TOOLS_ENABLED
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);
 #endif
 }
 
-void unregister_gdsdecomp_types() {
+void uninitialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	//NOP
 }
