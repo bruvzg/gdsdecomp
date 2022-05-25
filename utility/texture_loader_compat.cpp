@@ -39,12 +39,12 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		return TextureVersionType::FORMAT_V3_STREAM_TEXTUREARRAY;
 	} else if (header[0] == 'G' && header[1] == 'S' && header[2] == 'T' && header[3] == 'L') {
 		String ext = p_path.get_extension();
-		if (ext == "stexarray" || ext == "scube" || ext == "scubearray") {
-			return TextureVersionType::FORMAT_V4_STREAM_TEXTURELAYERED;
+		if (ext == "ctexarray" || ext == "ccube" || ext == "ccubearray") {
+			return TextureVersionType::FORMAT_V4_COMPRESSED_TEXTURELAYERED;
 		}
-		return TextureVersionType::FORMAT_V4_STREAM_TEXTURE3D;
+		return TextureVersionType::FORMAT_V4_COMPRESSED_TEXTURE3D;
 	} else if (header[0] == 'G' && header[1] == 'S' && header[2] == 'T' && header[3] == '2') {
-		return TextureVersionType::FORMAT_V4_STREAM_TEXTURE2D;
+		return TextureVersionType::FORMAT_V4_COMPRESSED_TEXTURE2D;
 	} else if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
 			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		//check if this is a V2 texture

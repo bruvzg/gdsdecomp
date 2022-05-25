@@ -339,7 +339,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	stex_file_selection = memnew(FileDialog);
 	stex_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	stex_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	stex_file_selection->add_filter("*.stex,*.tex;Stream texture files");
+	stex_file_selection->add_filter("*.ctex,*.stex,*.tex;Stream texture files");
 	stex_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_stex_2_png_request));
 	stex_file_selection->set_show_hidden_files(true);
 	p_control->add_child(stex_file_selection);

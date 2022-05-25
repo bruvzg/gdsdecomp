@@ -42,7 +42,9 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 	} else {
 		*r_error = err;
 	}
-	if (p_path.get_extension() == "tex" || p_path.get_extension() == "stex") {
+	if (p_path.get_extension() == "tex" || // 2.x
+			p_path.get_extension() == "stex" || // 3.x
+			p_path.get_extension() == "ctex") { // 4.x
 		TextureLoaderCompat rflct;
 		return rflct.load_texture2d(p_path, r_error);
 	}

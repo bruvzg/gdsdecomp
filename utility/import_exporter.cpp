@@ -131,7 +131,7 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 			switch (tex_type) {
 				case TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE:
 				case TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D:
-				case TextureLoaderCompat::FORMAT_V4_STREAM_TEXTURE2D: {
+				case TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D: {
 					// Export texture
 					err = export_texture(output_dir, iinfo);
 				} break;
