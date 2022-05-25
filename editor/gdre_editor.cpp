@@ -605,7 +605,7 @@ void GodotREEditor::_decompile_files() {
 	Vector<String> files = script_dialog_d->get_file_list();
 	String dir = script_dialog_d->get_target_dir();
 
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
@@ -658,13 +658,11 @@ void GodotREEditor::_decompile_process() {
 
 		if (err == OK) {
 			String scr = dce->get_script_text();
-			FileAccess *file = FileAccess::open(target_name, FileAccess::WRITE, &err);
+			Ref<FileAccess> file = FileAccess::open(target_name, FileAccess::WRITE, &err);
 			if (err) {
 				failed_files += files[i] + " (FileAccess error)\n";
 			}
 			file->store_string(scr);
-			file->close();
-			memdelete(file);
 		} else {
 			failed_files += files[i] + " (" + dce->get_error_message() + ")\n";
 		}
@@ -690,7 +688,7 @@ void GodotREEditor::_compile_files() {
 	String dir = script_dialog_c->get_target_dir();
 	String ext = (key.size() == 32) ? ".gde" : ".gds";
 
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
@@ -735,10 +733,11 @@ void GodotREEditor::_compile_process() {
 			txt.parse_utf8((const char *)file.ptr(), file.size());
 			file = GDScriptTokenizerBuffer::parse_code_string(txt);
 
-			FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
+			Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
 			if (fa) {
 				if (key.size() == 32) {
-					FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
+					Ref<FileAccessEncrypted> fae;
+					fae.instantiate();
 					Error err = fae->open_and_parse(fa, key, FileAccessEncrypted::MODE_WRITE_AES256);
 					if (err == OK) {
 						fae->store_buffer(file.ptr(), file.size());
@@ -779,8 +778,8 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	pck_dialog->clear();
 	pck_files.clear();
 
-	FileAccess *pck = FileAccess::open(p_path, FileAccess::READ);
-	if (!pck) {
+	Ref<FileAccess> pck = FileAccess::open(p_path, FileAccess::READ);
+	if (pck.is_null()) {
 		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
 		return;
 	}
@@ -795,7 +794,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
 			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
-			memdelete(pck);
 			return;
 		}
 		pck->seek(pck->get_position() - 12);
@@ -806,7 +804,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		magic = pck->get_32();
 		if (magic != 0x43504447) {
 			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
-			memdelete(pck);
 			return;
 		}
 		is_emb = true;
@@ -818,7 +815,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	if (version > 2) {
 		show_warning(RTR("Pack version unsupported: ") + itos(version), RTR("Read PCK"));
-		memdelete(pck);
 		return;
 	}
 
@@ -850,17 +846,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	Vector<uint8_t> key = key_dialog->get_key();
 
 	if (enc_directory) {
-		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-		if (!fae) {
-			pck->close();
-			memdelete(pck);
+		Ref<FileAccessEncrypted> fae;
+		fae.instantiate();
+		if (fae.is_null()) {
 			ERR_FAIL_MSG("Can't open encrypted pack directory.");
 		}
 		Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
 		if (err) {
-			pck->close();
-			memdelete(pck);
-			memdelete(fae);
 			ERR_FAIL_MSG("Can't open encrypted pack directory.");
 		}
 		pck = fae;
@@ -969,7 +961,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 					p_check_md5 = false;
 				} else {
 					memdelete(pr);
-					memdelete(pck);
 
 					pck_dialog->clear();
 					pck_files.clear();
@@ -985,17 +976,17 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 		if (p_check_md5) {
 			String error_msg = "";
-			FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
+			Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 			f->seek(ofs);
 			if (flags & (1 << 0)) {
-				FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-				if (!fae) {
+				Ref<FileAccessEncrypted> fae;
+				fae.instantiate();
+				if (fae.is_null()) {
 					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
 				}
 
 				Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_READ, false);
 				if (err) {
-					memdelete(fae);
 					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
 				}
 				f = fae;
@@ -1020,9 +1011,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 			unsigned char hash[16];
 			ctx.finish(hash);
-
-			f->close();
-			memdelete(f);
 
 			String file_md5;
 			String saved_md5;
@@ -1059,7 +1047,6 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	print_warning(RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken), RTR("Read PCK"));
 
 	memdelete(pr);
-	memdelete(pck);
 	pck_file = p_path;
 
 	pck_dialog->popup_centered(Size2(600, 400));
@@ -1082,7 +1069,7 @@ void GodotREEditor::_pck_extract_files() {
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
 
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i].get_file());
@@ -1109,7 +1096,7 @@ void GodotREEditor::_pck_extract_files_process() {
 	Vector<uint8_t> key = key_dialog->get_key();
 
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck", RTR("Extracting files..."), files.size(), true));
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	for (int i = 0; i < files.size(); i++) {
 		String target_name = dir.plus_file(files[i]);
@@ -1122,35 +1109,31 @@ void GodotREEditor::_pck_extract_files_process() {
 			break;
 		}
 
-		FileAccess *pck = FileAccess::open(pck_file, FileAccess::READ);
-		if (!pck) {
+		Ref<FileAccess> pck = FileAccess::open(pck_file, FileAccess::READ);
+		if (pck.is_null()) {
 			failed_files += files[i] + " (FileAccess error)\n";
 			continue;
 		}
 		pck->seek(pck_files[files[i]].offset);
 
 		if (pck_files[files[i]].flags & (1 << 0)) {
-			FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-			if (!fae) {
-				pck->close();
-				memdelete(pck);
+			Ref<FileAccessEncrypted> fae;
+			fae.instantiate();
+			if (fae.is_null()) {
 				failed_files += files[i] + " (FileAccess error)\n";
 				continue;
 			}
 
 			Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
 			if (err) {
-				pck->close();
-				memdelete(pck);
-				memdelete(fae);
 				failed_files += files[i] + " (FileAccess error)\n";
 				continue;
 			}
 			pck = fae;
 		}
 
-		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
-		if (fa) {
+		Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
+		if (fa.is_valid()) {
 			int64_t rq_size = pck_files[files[i]].size;
 			uint8_t buf[16384];
 
@@ -1159,15 +1142,12 @@ void GodotREEditor::_pck_extract_files_process() {
 				fa->store_buffer(buf, got);
 				rq_size -= 16384;
 			}
-			memdelete(fa);
 		} else {
 			failed_files += files[i] + " (FileAccess error)\n";
 		}
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			convert_cfb_to_cfg(target_name, pck_ver_major, pck_ver_minor);
 		}
-		pck->close();
-		memdelete(pck);
 	}
 	memdelete(pr);
 
@@ -1186,7 +1166,7 @@ void GodotREEditor::_pck_extract_files_process() {
 /*************************************************************************/
 
 void GodotREEditor::_res_smpl_2_wav_request(const Vector<String> &p_files) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
 		if (da->file_exists(p_files[i].get_basename() + ".wav")) {
@@ -1237,7 +1217,7 @@ void GodotREEditor::_res_smpl_2_wav_process() {
 }
 
 void GodotREEditor::_res_ostr_2_ogg_request(const Vector<String> &p_files) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
 		if (da->file_exists(p_files[i].get_basename() + ".ogg")) {
@@ -1276,13 +1256,12 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 			continue;
 		}
 
-		FileAccess *res = FileAccess::open(res_files[i].get_basename() + ".ogg", FileAccess::WRITE);
-		if (!res) {
+		Ref<FileAccess> res = FileAccess::open(res_files[i].get_basename() + ".ogg", FileAccess::WRITE);
+		if (res.is_null()) {
 			failed_files += res_files[i] + " (write error)\n";
 			continue;
 		}
 		res->store_buffer(buf.ptr(), buf.size());
-		res->close();
 	}
 
 	memdelete(pr);
@@ -1296,7 +1275,7 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 }
 
 void GodotREEditor::_res_stex_2_png_request(const Vector<String> &p_files) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
 		if (da->file_exists(p_files[i].get_basename() + ".png")) {
@@ -1355,7 +1334,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 }
 
 void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
 		String ext = p_files[i].get_extension().to_lower();
@@ -1432,7 +1411,7 @@ Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String
 }
 
 void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < p_files.size(); i++) {
 		String ext = p_files[i].get_extension().to_lower();
@@ -1528,8 +1507,8 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 	Vector<String> enc_in_filters = pck_save_dialog->get_enc_filters_in().split(",");
 	Vector<String> enc_ex_filters = pck_save_dialog->get_enc_filters_ex().split(",");
 
-	DirAccess *da = DirAccess::open(p_path.plus_file(p_rel));
-	if (!da) {
+	Ref<DirAccess> da = DirAccess::open(p_path.plus_file(p_rel));
+	if (da.is_null()) {
 		show_warning(RTR("Error opening folder: ") + p_path.plus_file(p_rel), RTR("New PCK"));
 		return offset;
 	}
@@ -1551,7 +1530,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 
 		} else {
 			String path = p_path.plus_file(p_rel).plus_file(f);
-			FileAccess *file = FileAccess::open(path, FileAccess::READ);
+			Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
 
 			CryptoCore::MD5Context ctx;
 			ctx.start();
@@ -1596,13 +1575,10 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			pck_save_files.push_back(finfo);
 
 			offset += file->get_length();
-
-			memdelete(file);
 		}
 		f = da->get_next();
 	}
 	da->list_dir_end();
-	memdelete(da);
 
 	return offset;
 }
@@ -1625,8 +1601,8 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	int64_t embedded_start = 0;
 	int64_t embedded_size = 0;
 
-	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
-	if (!f) {
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::WRITE);
+	if (f.is_null()) {
 		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("New PCK"));
 		return;
 	}
@@ -1635,8 +1611,8 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	if (pck_save_dialog->get_is_emb()) {
 		// append to exe
-		FileAccess *fs = FileAccess::open(pck_save_dialog->get_emb_source(), FileAccess::READ);
-		if (!fs) {
+		Ref<FileAccess> fs = FileAccess::open(pck_save_dialog->get_emb_source(), FileAccess::READ);
+		if (fs.is_null()) {
 			show_warning(RTR("Error opening source executable file: ") + pck_save_dialog->get_emb_source(), RTR("New PCK"));
 			return;
 		}
@@ -1660,7 +1636,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 		for (int i = 0; i < exe_end; i++) {
 			f->store_8(fs->get_8());
 		}
-		memdelete(fs);
 
 		embedded_start = f->get_position();
 
@@ -1703,12 +1678,12 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	size_t header_size = f->get_position();
 
-	FileAccessEncrypted *fae = nullptr;
-	FileAccess *fhead = f;
+	Ref<FileAccessEncrypted> fae;
+	Ref<FileAccess> fhead = f;
 	if (version == 2) {
 		if (pck_save_dialog->get_enc_dir()) {
-			fae = memnew(FileAccessEncrypted);
-			ERR_FAIL_COND(!fae);
+			fae.instantiate();
+			ERR_FAIL_COND(fae.is_null());
 
 			Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_WRITE_AES256, false);
 			ERR_FAIL_COND(err != OK);
@@ -1757,9 +1732,8 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 		}
 	}
 
-	if (fae) {
-		fae->release();
-		memdelete(fae);
+	if (fae.is_valid()) {
+		fae.unref();
 	}
 
 	for (uint32_t j = 0; j < header_padding; j++) {
@@ -1785,19 +1759,19 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			break;
 		}
 
-		fae = nullptr;
-		FileAccess *ftmp = f;
+		fae = Ref<FileAccess>();
+		Ref<FileAccess> ftmp = f;
 		if (pck_save_files[i].encrypted) {
-			fae = memnew(FileAccessEncrypted);
-			ERR_FAIL_COND(!fae);
+			fae.instantiate();
+			ERR_FAIL_COND(fae.is_null());
 
 			Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_WRITE_AES256, false);
 			ERR_FAIL_COND(err != OK);
 			ftmp = fae;
 		}
 
-		FileAccess *fa = FileAccess::open(pck_file.plus_file(pck_save_files[i].name), FileAccess::READ);
-		if (fa) {
+		Ref<FileAccess> fa = FileAccess::open(pck_file.plus_file(pck_save_files[i].name), FileAccess::READ);
+		if (fa.is_valid()) {
 			int64_t rq_size = pck_save_files[i].size;
 			uint8_t buf[16384];
 
@@ -1806,14 +1780,12 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 				ftmp->store_buffer(buf, got);
 				rq_size -= 16384;
 			}
-			memdelete(fa);
 		} else {
 			failed_files += pck_save_files[i].name + " (FileAccess error)\n";
 		}
 
-		if (fae) {
-			fae->release();
-			memdelete(fae);
+		if (fae.is_valid()) {
+			fae.unref();
 		}
 	}
 
@@ -1857,7 +1829,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 				show_warning(RTR("Invalid PE magic"), RTR("New PCK"), RTR("At least one error was detected!"));
 				pck_save_files.clear();
 				pck_file = String();
-				memdelete(f);
 				memdelete(pr);
 				return;
 			}
@@ -1911,7 +1882,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 				show_warning(RTR("32-bit executables cannot have embedded data >= 4 GiB"), RTR("New PCK"), RTR("At least one error was detected!"));
 				pck_save_files.clear();
 				pck_file = String();
-				memdelete(f);
 				memdelete(pr);
 				return;
 			}
@@ -1959,7 +1929,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 					show_warning(RTR("Out of memory"), RTR("New PCK"), RTR("At least one error was detected!"));
 					pck_save_files.clear();
 					pck_file = String();
-					memdelete(f);
 					memdelete(pr);
 					return;
 				}
@@ -1994,7 +1963,6 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	pck_save_files.clear();
 	pck_file = String();
-	memdelete(f);
 	memdelete(pr);
 
 	if (failed_files.length() > 0) {

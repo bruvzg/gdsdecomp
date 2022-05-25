@@ -7,8 +7,8 @@
 
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
 	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
-	FileAccess *f = FileAccess::open(pck_path, FileAccess::READ);
-	if (!f) {
+	Ref<FileAccess> f = FileAccess::open(pck_path, FileAccess::READ);
+	if (f.is_null()) {
 		return false;
 	}
 
@@ -19,8 +19,6 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	if (magic != PACK_HEADER_MAGIC) {
 		// loading with offset feature not supported for self contained exe files
 		if (p_offset != 0) {
-			f->close();
-			memdelete(f);
 			ERR_FAIL_V_MSG(false, "Loading self-contained executable with offset not supported.");
 		}
 
@@ -29,8 +27,6 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		f->seek(f->get_position() - 4);
 		magic = f->get_32();
 		if (magic != PACK_HEADER_MAGIC) {
-			f->close();
-			memdelete(f);
 			return false;
 		}
 		f->seek(f->get_position() - 12);
@@ -40,8 +36,6 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 		magic = f->get_32();
 		if (magic != PACK_HEADER_MAGIC) {
-			f->close();
-			memdelete(f);
 			return false;
 		}
 	}
@@ -52,8 +46,6 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	uint32_t ver_rev = f->get_32(); // patch number, not used for validation.
 
 	if (version > PACK_FORMAT_VERSION) {
-		f->close();
-		memdelete(f);
 		ERR_FAIL_V_MSG(false, "Pack version unsupported: " + itos(version) + ".");
 	}
 
@@ -75,10 +67,9 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	int file_count = f->get_32();
 
 	if (enc_directory) {
-		FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-		if (!fae) {
-			f->close();
-			memdelete(f);
+		Ref<FileAccessEncrypted> fae;
+		fae.instantiate();
+		if (fae.is_null()) {
 			ERR_FAIL_V_MSG(false, "Can't open encrypted pack directory.");
 		}
 
@@ -90,9 +81,6 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 		Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_READ, false);
 		if (err) {
-			f->close();
-			memdelete(f);
-			memdelete(fae);
 			ERR_FAIL_V_MSG(false, "Can't open encrypted pack directory.");
 		}
 		f = fae;
@@ -141,10 +129,8 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		PackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
 	}
 
-	f->close();
-	memdelete(f);
 	return true;
 }
-FileAccess *GDREPackedSource::get_file(const String &p_path, PackedData::PackedFile *p_file) {
+Ref<FileAccess> GDREPackedSource::get_file(const String &p_path, PackedData::PackedFile *p_file) {
 	return memnew(FileAccessPack(p_path, *p_file));
 }

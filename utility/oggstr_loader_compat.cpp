@@ -18,7 +18,7 @@ Vector<uint8_t> packet_data_to_byte_array(Array page_data) {
 
 Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path, Error *r_err) const {
 	Error err;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
 	if (r_err) {
 		*r_err = err;
 	}

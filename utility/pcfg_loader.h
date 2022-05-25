@@ -44,7 +44,7 @@ class ProjectConfigLoader : public RefCounted {
 public:
 	Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);
 	Error save_cfb(const String dir, uint32_t ver_major, uint32_t ver_minor);
-	Error _load_settings_binary(FileAccess *f, const String &p_path, uint32_t ver_major);
+	Error _load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major);
 
 	Error save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor);
 	Error _save_settings_text(const String &p_file, const RBMap<String, List<String>> &props, const uint32_t ver_major, const uint32_t ver_minor);

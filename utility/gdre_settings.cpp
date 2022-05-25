@@ -236,15 +236,13 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 		return p_path.simplify_path();
 	}
 
-	DirAccess *dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	String path = p_path.replace("\\", "/").simplify_path();
 
 	if (dir->change_dir(path) == OK) {
 		String cwd = dir->get_current_dir();
 		cwd = cwd.replace("\\", "/");
-
-		memdelete(dir);
 
 		res_path = res_path.plus_file("");
 
@@ -258,8 +256,6 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 
 		return cwd.replace_first(res_path, "res://");
 	} else {
-		memdelete(dir);
-
 		int sep = path.rfind("/");
 		if (sep == -1) {
 			return "res://" + path;
@@ -385,7 +381,7 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 		return;
 	}
 
-	if (file) {
+	if (file.is_valid()) {
 		const int static_buf_size = 512;
 		char static_buf[static_buf_size];
 		char *buf = static_buf;
@@ -425,24 +421,22 @@ Error GDRESettings::close_log_file() {
 }
 
 Error GDRELogger::open_file(const String &base_path) {
-	if (file) {
+	if (file.is_valid()) {
 		return ERR_ALREADY_IN_USE;
 	}
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_USERDATA);
-	if (da) {
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_USERDATA);
+	if (da.is_valid()) {
 		da->make_dir_recursive(base_path.get_base_dir());
-		memdelete(da);
 	}
 	Error err;
 	file = FileAccess::open(base_path, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V_MSG(!file, err, "Failed to open log file " + base_path + " for writing.");
+	ERR_FAIL_COND_V_MSG(file.is_null(), err, "Failed to open log file " + base_path + " for writing.");
 	return OK;
 }
 
 void GDRELogger::close_file() {
-	if (file) {
-		memdelete(file);
-		file = nullptr;
+	if (file.is_valid()) {
+		file = Ref<FileAccess>();
 	}
 }
 

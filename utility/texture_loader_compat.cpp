@@ -24,15 +24,13 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		r_err = &err;
 	}
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	FileAccess *f = FileAccess::open(res_path, FileAccess::READ, r_err);
+	Ref<FileAccess> f = FileAccess::open(res_path, FileAccess::READ, r_err);
 
-	ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
+	ERR_FAIL_COND_V_MSG(*r_err != OK || f.is_null(), FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);
 	//Only reading the header
-	memdelete(f);
-
 	if (header[0] == 'G' && header[1] == 'D' && header[2] == 'S' && header[3] == 'T') {
 		return TextureVersionType::FORMAT_V3_STREAM_TEXTURE2D;
 	} else if (header[0] == 'G' && header[1] == 'D' && header[2] == '3' && header[3] == 'T') {
@@ -53,7 +51,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
 		*r_err = rlc.get_import_info(res_path, "", i_info);
-		ERR_FAIL_COND_V_MSG(*r_err != OK || !f, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
+		ERR_FAIL_COND_V_MSG(*r_err != OK || f.is_null(), FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
 		String type = i_info->get_type();
 		if (type == "Texture") {
@@ -72,7 +70,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 	return FORMAT_NOT_TEXTURE;
 }
 
-Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
+Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
 	if (!(df & FORMAT_BIT_STREAM)) {
 		// do something??
 	}
@@ -126,8 +124,6 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 		}
 
 		//print_line("mipmap read total: " + itos(mipmap_images.size()));
-
-		memdelete(f); //no longer needed
 
 		if (mipmap_images.size() == 1) {
 			image = mipmap_images[0];
@@ -237,7 +233,7 @@ Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_pa
 
 Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const {
 	Error err;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
 
@@ -286,8 +282,8 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
 	Error err;
 
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!f, err, "Can't open image file for loading: " + p_path);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Can't open image file for loading: " + p_path);
 	uint8_t header[4];
 	f->get_buffer(header, 4);
 	// already checked
@@ -317,7 +313,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 }
 
 Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const {
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	uint8_t header[4];
 	f->get_buffer(header, 4);
 	// already checked
@@ -339,7 +335,6 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 		p_size_limit = 0;
 	}
 	image = CompressedTexture2D::load_image_from_file(f, p_size_limit);
-	memdelete(f);
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
@@ -349,8 +344,8 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 
 Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
 	Error err;
-	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!f, err, "Cannot open file '" + p_path + "'.");
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Cannot open file '" + p_path + "'.");
 
 	uint8_t header[5] = { 0, 0, 0, 0, 0 };
 	f->get_buffer(header, 4);
@@ -384,7 +379,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 				Ref<Image> img = Image::png_unpacker(pv);
 
 				if (img.is_null() || img->is_empty() || format != img->get_format()) {
-					memdelete(f);
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
 				}
 				mipmap_images.push_back(img);
@@ -410,7 +404,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 
 				image->create(tw, th, true, format, img_data);
 				if (image->is_empty()) {
-					memdelete(f);
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
 				}
 			}
@@ -426,7 +419,6 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 			{
 				int bytes = f->get_buffer(img_data.ptrw(), total_size);
 				if (bytes != total_size) {
-					memdelete(f);
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
 				}
 			}
@@ -439,8 +431,8 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 }
 
 Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
-	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);

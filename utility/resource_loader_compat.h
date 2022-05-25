@@ -168,7 +168,7 @@ class ResourceLoaderBinaryCompat {
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
 
-	FileAccess *f = nullptr;
+	Ref<FileAccess> f;
 
 	uint64_t importmd_ofs = 0;
 
@@ -203,11 +203,11 @@ class ResourceLoaderBinaryCompat {
 
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
-	static void save_ustring(FileAccess *f, const String &p_string);
+	static void save_ustring(Ref<FileAccess> f, const String &p_string);
 	Error repair_property(const String &rtype, const StringName &name, Variant &value);
 
 	String get_unicode_string();
-	static void advance_padding(FileAccess *f, uint32_t p_len);
+	static void advance_padding(Ref<FileAccess> f, uint32_t p_len);
 	void _advance_padding(uint32_t p_len);
 
 	RBMap<String, String> remaps;
@@ -217,9 +217,9 @@ class ResourceLoaderBinaryCompat {
 	//TODO: make a fake_load() or something so we don't have to do this
 	friend class TextureLoaderCompat;
 	friend class OggStreamLoaderCompat;
-	static RBMap<String, String> _get_file_info(FileAccess *f, Error *r_error);
+	static RBMap<String, String> _get_file_info(Ref<FileAccess> f, Error *r_error);
 	Error load_import_metadata();
-	static Error _get_resource_header(FileAccess *f);
+	static Error _get_resource_header(Ref<FileAccess> f);
 	Ref<Resource> set_dummy_ext(const String &path, const String &exttype);
 	Ref<Resource> set_dummy_ext(const uint32_t erindex);
 	Ref<Resource> make_dummy(const String &path, const String &type, const String &id);
@@ -241,19 +241,19 @@ class ResourceLoaderBinaryCompat {
 
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
-	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
-	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
+	Error open_text(Ref<FileAccess> p_f, bool p_skip_first_tag);
+	Error write_variant_bin(Ref<FileAccess> fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
 	RBMap<String, Ref<Resource>> dependency_cache;
 
 public:
-	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
-	static Error write_variant_bin(FileAccess *f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
+	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
+	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static RBMap<String, String> get_version_and_type(const String &p_path, Error *r_error);
-	Error open(FileAccess *p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
+	Error open(Ref<FileAccess> p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
 	Error load();
-	static String get_ustring(FileAccess *f);
+	static String get_ustring(Ref<FileAccess> f);
 	Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
 	static String _write_rlc_resources(void *ud, const Ref<Resource> &p_resource);
 	String _write_rlc_resource(const Ref<Resource> &res);

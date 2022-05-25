@@ -126,15 +126,15 @@ ResourceLoaderBinaryCompat *ResourceFormatLoaderCompat::_open(const String &p_pa
 		r_error = &error;
 	}
 	String res_path = GDRESettings::get_singleton()->get_res_path(p_path, base_dir);
-	FileAccess *f = nullptr;
+	Ref<FileAccess> f;
 	if (res_path != "") {
 		f = FileAccess::open(res_path, FileAccess::READ, r_error);
 	} else {
 		*r_error = ERR_FILE_NOT_FOUND;
-		ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "'.");
+		ERR_FAIL_COND_V_MSG(f.is_null(), nullptr, "Cannot open file '" + res_path + "'.");
 	}
 	// TODO: remove this extra check
-	ERR_FAIL_COND_V_MSG(!f, nullptr, "Cannot open file '" + res_path + "' (Even after get_res_path() returned a path?).");
+	ERR_FAIL_COND_V_MSG(f.is_null(), nullptr, "Cannot open file '" + res_path + "' (Even after get_res_path() returned a path?).");
 
 	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
 	loader->project_dir = base_dir;
@@ -151,7 +151,7 @@ ResourceLoaderBinaryCompat *ResourceFormatLoaderCompat::_open(const String &p_pa
 }
 
 Error ResourceLoaderBinaryCompat::load_import_metadata() {
-	if (!f) {
+	if (f.is_null()) {
 		return ERR_CANT_ACQUIRE_RESOURCE;
 	}
 	if (importmd_ofs == 0) {
@@ -198,7 +198,7 @@ StringName ResourceLoaderBinaryCompat::_get_string() {
 	return string_map[id];
 }
 
-Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, bool p_keep_uuid_paths) {
+Error ResourceLoaderBinaryCompat::open(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
 	error = OK;
 
 	f = p_f;
@@ -207,12 +207,11 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 	f->get_buffer(header, 4);
 	if (header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C') {
 		// Compressed.
-		FileAccessCompressed *fac = memnew(FileAccessCompressed);
+		Ref<FileAccessCompressed> fac;
+		fac.instantiate();
 		r_error = fac->open_after_magic(f);
 
 		if (r_error != OK) {
-			memdelete(fac);
-			f->close();
 			ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Cannot decompress compressed resource file '" + f->get_path() + "'.");
 		}
 		f = fac;
@@ -220,7 +219,6 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 	} else if (header[0] != 'R' || header[1] != 'S' || header[2] != 'R' || header[3] != 'C') {
 		// Not normal.
 		r_error = ERR_FILE_UNRECOGNIZED;
-		f->close();
 		ERR_FAIL_COND_V_MSG(r_error != OK, r_error, "Unable to recognize  '" + f->get_path() + "'.");
 	}
 
@@ -314,7 +312,6 @@ Error ResourceLoaderBinaryCompat::open(FileAccess *p_f, bool p_no_resources, boo
 
 	if (f->eof_reached()) {
 		error = ERR_FILE_CORRUPT;
-		f->close();
 		ERR_FAIL_V_MSG(error, "Premature end of file (EOF): " + local_path + ".");
 	}
 
@@ -811,7 +808,7 @@ Error ResourceLoaderBinaryCompat::load() {
 	return ERR_FILE_EOF;
 }
 
-String ResourceLoaderBinaryCompat::get_ustring(FileAccess *f) {
+String ResourceLoaderBinaryCompat::get_ustring(Ref<FileAccess> f) {
 	int len = f->get_32();
 	Vector<char> str_buf;
 	if (len == 0) {
@@ -873,7 +870,7 @@ Ref<Resource> ResourceLoaderBinaryCompat::set_dummy_ext(const String &path, cons
 	return er.cache;
 }
 
-void ResourceLoaderBinaryCompat::advance_padding(FileAccess *f, uint32_t p_len) {
+void ResourceLoaderBinaryCompat::advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
@@ -917,7 +914,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	}
 
 	Error err;
-	FileAccess *wf = FileAccess::open(dest_path, FileAccess::WRITE, &err);
+	Ref<FileAccess> wf = FileAccess::open(dest_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
 
 	String main_res_path = get_resource_path(res);
@@ -1182,11 +1179,8 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	}
 
 	if (wf->get_error() != OK && wf->get_error() != ERR_FILE_EOF) {
-		wf->close();
 		return ERR_CANT_CREATE;
 	}
-
-	wf->close();
 
 	return OK;
 }
@@ -1679,7 +1673,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 	return OK;
 }
 
-void ResourceLoaderBinaryCompat::save_ustring(FileAccess *f, const String &p_string) {
+void ResourceLoaderBinaryCompat::save_ustring(Ref<FileAccess> f, const String &p_string) {
 	CharString utf8 = p_string.utf8();
 	f->store_32(utf8.length() + 1);
 	f->store_buffer((const uint8_t *)utf8.get_data(), utf8.length() + 1);
@@ -1689,7 +1683,7 @@ void ResourceLoaderBinaryCompat::save_unicode_string(const String &p_string) {
 	save_ustring(f, p_string);
 }
 
-Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint) {
+Error ResourceLoaderBinaryCompat::write_variant_bin(Ref<FileAccess> fa, const Variant &p_property, const PropertyInfo &p_hint) {
 	switch (p_property.get_type()) {
 		case Variant::NIL: {
 			fa->store_32(VariantBin::VARIANT_NIL);
@@ -2007,14 +2001,13 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 
 Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
 	Error err;
-	FileAccess *fw;
+	Ref<FileAccess> fw;
 	if (p_flags & ResourceSaver::FLAG_COMPRESS) {
-		FileAccessCompressed *fac = memnew(FileAccessCompressed);
+		Ref<FileAccessCompressed> fac;
+		fac.instantiate();
 		fac->configure("RSCC");
 		fw = fac;
 		err = fac->_open(p_path, FileAccess::WRITE);
-		if (err)
-			memdelete(fw);
 	} else {
 		fw = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	}
@@ -2048,7 +2041,6 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	fw->store_32(ver_format);
 
 	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
-		fw->close();
 		return ERR_CANT_CREATE;
 	}
 
@@ -2155,24 +2147,16 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	fw->store_buffer((const uint8_t *)"RSRC", 4); //magic at end
 
 	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
-		fw->close();
-		memdelete(fw);
 		return ERR_CANT_CREATE;
 	}
 
-	fw->close();
-	memdelete(fw);
 	return OK;
 }
 
 ResourceLoaderBinaryCompat::ResourceLoaderBinaryCompat() {}
-ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat() {
-	if (f != nullptr) {
-		memdelete(f);
-	}
-}
+ResourceLoaderBinaryCompat::~ResourceLoaderBinaryCompat() {}
 
-void ResourceLoaderBinaryCompat::get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths) {
+void ResourceLoaderBinaryCompat::get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths) {
 	open(p_f);
 	if (error) {
 		return;

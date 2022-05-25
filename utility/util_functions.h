@@ -10,10 +10,10 @@ namespace gdreutil {
 static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = "", const bool &res = false) {
 	Vector<String> ret;
 	Error err;
-	DirAccess *da = DirAccess::open(dir.plus_file(rel), &err);
-	ERR_FAIL_COND_V_MSG(!da, ret, "Failed to open directory " + dir);
+	Ref<DirAccess> da = DirAccess::open(dir.plus_file(rel), &err);
+	ERR_FAIL_COND_V_MSG(da.is_null(), ret, "Failed to open directory " + dir);
 
-	if (!da) {
+	if (da.is_null()) {
 		return ret;
 	}
 	String base = absolute ? dir : "";
@@ -40,10 +40,9 @@ static Vector<String> get_recursive_dir_list(const String dir, const Vector<Stri
 		f = da->get_next();
 	}
 	da->list_dir_end();
-	memdelete(da);
 	return ret;
 }
-FileAccess *_____tmp_file;
+Ref<FileAccess> _____tmp_file;
 
 Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy = false) {
 	Ref<Image> source_image = p_img->duplicate();
@@ -54,16 +53,13 @@ Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool los
 		buffer = Image::webp_lossless_packer(source_image);
 	}
 	Error err;
-	FileAccess *file = FileAccess::open(p_path, FileAccess::WRITE, &err);
+	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, vformat("Can't save WEBP at path: '%s'.", p_path));
 	// skip the 4 byte "WEBP" at the beginning of the buffer, not present in real WEBP files
 	file->store_buffer(buffer.ptr() + 4, buffer.size() - 4);
 	if (file->get_error() != OK && file->get_error() != ERR_FILE_EOF) {
-		memdelete(file);
 		return ERR_CANT_CREATE;
 	}
-	file->close();
-	memdelete(file);
 	return OK;
 }
 
@@ -118,12 +114,8 @@ Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 	}
 
 	if (_____tmp_file->get_error() != OK && _____tmp_file->get_error() != ERR_FILE_EOF) {
-		memdelete(_____tmp_file);
 		return ERR_CANT_CREATE;
 	}
-
-	_____tmp_file->close();
-	memdelete(_____tmp_file);
 
 	return OK;
 }

@@ -41,7 +41,7 @@ public:
 class GDRELogger : public Logger {
 	String base_path;
 
-	FileAccess *file = nullptr;
+	Ref<FileAccess> file;
 
 public:
 	GDRELogger();

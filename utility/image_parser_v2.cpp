@@ -33,7 +33,7 @@ enum Type {
 };
 }
 
-void _advance_padding(FileAccess *f, uint32_t p_len) {
+void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
@@ -149,7 +149,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 	return imgstr;
 }
 
-Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, const PropertyHint p_hint) {
+Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, const PropertyHint p_hint) {
 	Ref<Image> val = r_v;
 	if (val.is_null() || val->is_empty()) {
 		f->store_32(V2Image::IMAGE_ENCODING_EMPTY);
@@ -278,7 +278,7 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 	return OK;
 }
 
-Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
+Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
 	uint32_t encoding = f->get_32();
 	Ref<Image> img;
 	img.instantiate();
