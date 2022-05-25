@@ -82,7 +82,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 		case Image::FORMAT_RGTC_RG:
 			subimgstr += "BC5";
 			break;
-		case Image::FORMAT_PVRTC1_2:
+		/*case Image::FORMAT_PVRTC1_2:
 			subimgstr += "PVRTC2";
 			break;
 		case Image::FORMAT_PVRTC1_2A:
@@ -93,7 +93,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 			break;
 		case Image::FORMAT_PVRTC1_4A:
 			subimgstr += "PVRTC4_ALPHA";
-			break;
+			break;*/
 		case Image::FORMAT_ETC:
 			subimgstr += "ETC";
 			break;
@@ -114,10 +114,10 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
 			subimgstr += "INDEXED_ALPHA";
 			break;
-		case Image::FORMAT_ETC2_RG11S:
+		/*case Image::FORMAT_ETC2_RG11S:
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_PVRTC1_4A)) + ", ";
 			subimgstr += "ATC";
-			break;
+			break;*/
 		case Image::FORMAT_ETC2_RGB8:
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
 			subimgstr += "ATC_ALPHA_EXPLICIT";
@@ -203,7 +203,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 			case Image::FORMAT_RGTC_RG: {
 				fmt = V2Image::IMAGE_FORMAT_BC5;
 			} break;
-			case Image::FORMAT_PVRTC1_2: {
+			/*case Image::FORMAT_PVRTC1_2: {
 				fmt = V2Image::IMAGE_FORMAT_PVRTC2;
 			} break;
 			case Image::FORMAT_PVRTC1_2A: {
@@ -214,7 +214,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 			} break;
 			case Image::FORMAT_PVRTC1_4A: {
 				fmt = V2Image::IMAGE_FORMAT_PVRTC4_ALPHA;
-			} break;
+			} break;*/
 			case Image::FORMAT_ETC: {
 				fmt = V2Image::IMAGE_FORMAT_ETC;
 			} break;
@@ -233,10 +233,10 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
 				fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
 			} break;
-			case Image::FORMAT_ETC2_RG11S: {
+			/*case Image::FORMAT_ETC2_RG11S: {
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
 				fmt = V2Image::IMAGE_FORMAT_ATC;
-			} break;
+			} break;*/
 			case Image::FORMAT_ETC2_RGB8: {
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
 				fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
@@ -321,7 +321,7 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 			case V2Image::IMAGE_FORMAT_BC5: {
 				fmt = Image::FORMAT_RGTC_RG;
 			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC2: {
+			/*case V2Image::IMAGE_FORMAT_PVRTC2: {
 				fmt = Image::FORMAT_PVRTC1_2;
 			} break;
 			case V2Image::IMAGE_FORMAT_PVRTC2_ALPHA: {
@@ -332,7 +332,7 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 			} break;
 			case V2Image::IMAGE_FORMAT_PVRTC4_ALPHA: {
 				fmt = Image::FORMAT_PVRTC1_4A;
-			} break;
+			} break;*/
 			case V2Image::IMAGE_FORMAT_ETC: {
 				fmt = Image::FORMAT_ETC;
 			} break;
