@@ -7,6 +7,7 @@
 #include <core/io/file_access.h>
 #include <core/io/marshalls.h>
 #include <core/os/keyboard.h>
+#include <core/templates/rb_set.h>
 #include <core/variant/variant_parser.h>
 
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {

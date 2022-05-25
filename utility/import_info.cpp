@@ -27,7 +27,7 @@ String ImportInfo::to_string() {
 			break;
 		}
 		String t = (*keys)[i];
-		s += "\n\t\t" + t + "=" + params[t];
+		s += "\n\t\t" + t + "=" + (String)params[t];
 	}
 	memdelete(keys);
 	s += "\n\t}\n}";

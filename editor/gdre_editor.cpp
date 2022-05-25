@@ -374,6 +374,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 		TextureRect *about_icon = memnew(TextureRect);
 		about_hbc->add_child(about_icon);
+		about_icon->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 		about_icon->set_texture(p_control->get_theme_icon("RELogoBig", "EditorIcons"));
 
 		Label *about_label = memnew(Label);
