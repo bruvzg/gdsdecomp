@@ -26,7 +26,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	ClassDB::register_virtual_class<GDScriptDecomp>();
+	ClassDB::register_abstract_class<GDScriptDecomp>();
 	register_decomp_versions();
 
 	ClassDB::register_class<GodotREEditorStandalone>();
