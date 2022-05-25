@@ -473,7 +473,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Transform2D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 2; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
+					val.columns[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
 				}
 			}
 
@@ -533,7 +533,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Basis val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 
@@ -549,7 +549,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.basis.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 			val.origin[0] = decode_float(&buf[36]);
@@ -1118,7 +1118,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Transform2D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 2; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
+					val.columns[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
 				}
 			}
 
@@ -1178,7 +1178,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Basis val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 
@@ -1194,7 +1194,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.basis.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 			val.origin[0] = decode_float(&buf[36]);

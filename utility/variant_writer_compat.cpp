@@ -128,7 +128,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				for (int j = 0; j < 2; j++) {
 					if (i != 0 || j != 0)
 						s += ", ";
-					s += rtosfix(m3.elements[i][j]);
+					s += rtosfix(m3.columns[i][j]);
 				}
 			}
 
@@ -159,7 +159,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				for (int j = 0; j < 3; j++) {
 					if (i != 0 || j != 0)
 						s += ", ";
-					s += rtosfix(m3.elements[i][j]);
+					s += rtosfix(m3.rows[i][j]);
 				}
 			}
 
@@ -174,7 +174,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				for (int j = 0; j < 3; j++) {
 					if (i != 0 || j != 0)
 						s += ", ";
-					s += rtosfix(m3.elements[i][j]);
+					s += rtosfix(m3.rows[i][j]);
 				}
 			}
 
