@@ -209,10 +209,10 @@ Error TextureLoaderCompat::load_image_from_fileV3(FileAccess *f, int tw, int th,
 	return OK;
 }
 
-Ref<StreamTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const {
+Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const {
 	int lw, lh, lwc, lhc, lflags;
 	Error err;
-	Ref<StreamTexture2D> texture;
+	Ref<CompressedTexture2D> texture;
 	if (ver_major == 2) {
 		err = _load_data_tex_v2(p_path, lw, lh, lwc, lhc, lflags, image);
 	} else if (ver_major == 3) {
@@ -338,7 +338,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, i
 	if (!(df & FORMAT_BIT_STREAM)) {
 		p_size_limit = 0;
 	}
-	image = StreamTexture2D::load_image_from_file(f, p_size_limit);
+	image = CompressedTexture2D::load_image_from_file(f, p_size_limit);
 	memdelete(f);
 
 	if (image.is_null() || image->is_empty()) {
@@ -453,7 +453,7 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Stream texture file is too new.");
 	}
 
-	r_depth = f->get_32(); //depth or layer count (StreamTextureLayered)
+	r_depth = f->get_32(); //depth or layer count (CompressedTextureLayered)
 	r_type = f->get_32(); //type
 	f->get_32(); //data format
 	f->get_32(); // mipmap limit, pretty sure it's ignored?
@@ -473,7 +473,7 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 
 	int limit = is_layered ? r_depth : r_depth + mipmaps;
 	for (int i = 0; i < limit; i++) {
-		Ref<Image> image = StreamTexture2D::load_image_from_file(f, 0);
+		Ref<Image> image = CompressedTexture2D::load_image_from_file(f, 0);
 		ERR_FAIL_COND_V(image.is_null() || image->is_empty(), ERR_CANT_OPEN);
 		if (i == 0) {
 			r_format = image->get_format();
@@ -486,12 +486,12 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 	return OK;
 }
 
-Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const {
+Ref<CompressedTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const {
 	int lw, lh, ld, ltype;
 	bool mipmaps;
 	Image::Format fmt;
 	Error err;
-	Ref<StreamTexture3D> texture;
+	Ref<CompressedTexture3D> texture;
 	if (ver_major == 2) {
 		err = ERR_UNAVAILABLE;
 	} else if (ver_major == 3) {
@@ -515,7 +515,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, V
 	return texture;
 }
 
-Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const {
+Ref<CompressedTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const {
 	int lw, lh, ld;
 
 	bool mipmaps;
@@ -537,14 +537,14 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load image from texture file " + p_path);
 	Ref<Resource> res;
 	if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
-		res = Ref<StreamTexture2DArray>();
+		res = Ref<CompressedTexture2DArray>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
-		res = Ref<StreamCubemap>();
+		res = Ref<CompressedCubemap>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
-		res = Ref<StreamCubemapArray>();
+		res = Ref<CompressedCubemapArray>();
 	}
 
-	Ref<StreamTextureLayered> texture = res;
+	Ref<CompressedTextureLayered> texture = res;
 
 	texture->set("w", lw);
 	texture->set("h", lh);
@@ -555,7 +555,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 	return texture;
 }
 
-Ref<StreamTextureLayered> TextureLoaderCompat::load_texture_layered(const String p_path, Error *r_err) {
+Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const String p_path, Error *r_err) {
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
@@ -587,7 +587,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::load_texture_layered(const String
 			ERR_FAIL_V_MSG(Ref<Image>(), "Not a layered texture: " + res_path);
 			break;
 	}
-	Ref<StreamTexture3D> texture;
+	Ref<CompressedTexture3D> texture;
 	Vector<Ref<Image>> r_data;
 	int type;
 	texture = _load_texture_layered(res_path, r_data, type, &err, ver_major);
@@ -604,7 +604,7 @@ Ref<StreamTextureLayered> TextureLoaderCompat::load_texture_layered(const String
 	return texture;
 }
 
-Ref<StreamTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Error *r_err) {
+Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Error *r_err) {
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
@@ -635,7 +635,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Er
 			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 3d image texture: " + p_path);
 			break;
 	}
-	Ref<StreamTexture3D> texture;
+	Ref<CompressedTexture3D> texture;
 	Vector<Ref<Image>> r_data;
 
 	texture = _load_texture3d(p_path, r_data, &err, ver_major);
@@ -657,7 +657,7 @@ Ref<StreamTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Er
 	return texture;
 }
 
-Ref<StreamTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Error *r_err) {
+Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Error *r_err) {
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
@@ -687,7 +687,7 @@ Ref<StreamTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Er
 			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + res_path);
 			break;
 	}
-	Ref<StreamTexture2D> texture;
+	Ref<CompressedTexture2D> texture;
 	Ref<Image> image;
 	bool size_override = false;
 	texture = _load_texture2d(res_path, image, size_override, ver_major, &err);

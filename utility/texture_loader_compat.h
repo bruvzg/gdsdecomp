@@ -21,9 +21,9 @@ class TextureLoaderCompat : public RefCounted {
 	Error _load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit = 0) const;
 	Error _load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const;
 
-	Ref<StreamTextureLayered> _load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const;
-	Ref<StreamTexture3D> _load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const;
-	Ref<StreamTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
+	Ref<CompressedTextureLayered> _load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const;
+	Ref<CompressedTexture3D> _load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const;
+	Ref<CompressedTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
 
 protected:
 	static void _bind_methods();
@@ -46,9 +46,9 @@ public:
 
 	static TextureVersionType recognize(const String &p_path, Error *r_err);
 
-	Ref<StreamTextureLayered> load_texture_layered(const String p_path, Error *r_err);
-	Ref<StreamTexture3D> load_texture3d(const String p_path, Error *r_err);
-	Ref<StreamTexture2D> load_texture2d(const String p_path, Error *r_err);
+	Ref<CompressedTextureLayered> load_texture_layered(const String p_path, Error *r_err);
+	Ref<CompressedTexture3D> load_texture3d(const String p_path, Error *r_err);
+	Ref<CompressedTexture2D> load_texture2d(const String p_path, Error *r_err);
 
 	Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error *r_err);
 	Ref<Image> load_image_from_tex(const String p_path, Error *r_err);
