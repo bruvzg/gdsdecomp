@@ -82,18 +82,6 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 		case Image::FORMAT_RGTC_RG:
 			subimgstr += "BC5";
 			break;
-		/*case Image::FORMAT_PVRTC1_2:
-			subimgstr += "PVRTC2";
-			break;
-		case Image::FORMAT_PVRTC1_2A:
-			subimgstr += "PVRTC2_ALPHA";
-			break;
-		case Image::FORMAT_PVRTC1_4:
-			subimgstr += "PVRTC4";
-			break;
-		case Image::FORMAT_PVRTC1_4A:
-			subimgstr += "PVRTC4_ALPHA";
-			break;*/
 		case Image::FORMAT_ETC:
 			subimgstr += "ETC";
 			break;
@@ -114,10 +102,6 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
 			subimgstr += "INDEXED_ALPHA";
 			break;
-		/*case Image::FORMAT_ETC2_RG11S:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_PVRTC1_4A)) + ", ";
-			subimgstr += "ATC";
-			break;*/
 		case Image::FORMAT_ETC2_RGB8:
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
 			subimgstr += "ATC_ALPHA_EXPLICIT";
@@ -203,18 +187,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 			case Image::FORMAT_RGTC_RG: {
 				fmt = V2Image::IMAGE_FORMAT_BC5;
 			} break;
-			/*case Image::FORMAT_PVRTC1_2: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC2;
-			} break;
-			case Image::FORMAT_PVRTC1_2A: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC2_ALPHA;
-			} break;
-			case Image::FORMAT_PVRTC1_4: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC4;
-			} break;
-			case Image::FORMAT_PVRTC1_4A: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC4_ALPHA;
-			} break;*/
+
 			case Image::FORMAT_ETC: {
 				fmt = V2Image::IMAGE_FORMAT_ETC;
 			} break;
@@ -233,10 +206,6 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
 				fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
 			} break;
-			/*case Image::FORMAT_ETC2_RG11S: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
-				fmt = V2Image::IMAGE_FORMAT_ATC;
-			} break;*/
 			case Image::FORMAT_ETC2_RGB8: {
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
 				fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
@@ -321,18 +290,6 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 			case V2Image::IMAGE_FORMAT_BC5: {
 				fmt = Image::FORMAT_RGTC_RG;
 			} break;
-			/*case V2Image::IMAGE_FORMAT_PVRTC2: {
-				fmt = Image::FORMAT_PVRTC1_2;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC2_ALPHA: {
-				fmt = Image::FORMAT_PVRTC1_2A;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC4: {
-				fmt = Image::FORMAT_PVRTC1_4;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC4_ALPHA: {
-				fmt = Image::FORMAT_PVRTC1_4A;
-			} break;*/
 			case V2Image::IMAGE_FORMAT_ETC: {
 				fmt = Image::FORMAT_ETC;
 			} break;
@@ -343,6 +300,8 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 				// We change the format to something that V2 didn't have support for as a placeholder
 				// This is just in the case of converting a bin resource to a text resource
 				// It gets handled in the above converters
+				// TODO: this is of dubious value because the compressed textures SHOULD
+				// never have been stored inline in a resource in v2. Consider removing.
 				if (hacks_for_dropped_fmt) {
 					switch (format) {
 						case V2Image::IMAGE_FORMAT_INTENSITY: {
@@ -366,7 +325,10 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 						case V2Image::IMAGE_FORMAT_CUSTOM: {
 							fmt = Image::FORMAT_ETC2_RA_AS_RG;
 						} break;
-							// We can't convert YUV format
+							// We can't convert YUV format, PVRTC formats, or ETC2_RG11S
+						default: {
+							fmt = Image::FORMAT_MAX;
+						} break;
 					}
 				} else {
 					// We'll error out after we've skipped over the data

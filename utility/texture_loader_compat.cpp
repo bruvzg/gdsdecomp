@@ -147,7 +147,9 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 		}
 	} else {
 		//look for regular format
-		Image::Format format = (Image::Format)(df & FORMAT_MASK_IMAGE_FORMAT);
+		Image::Format format = convert_image_format_enum_v3_to_v4(ImageV3Fmt(df & FORMAT_MASK_IMAGE_FORMAT));
+		ERR_FAIL_COND_V_MSG(format == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Textured layer is in an invalid or deprecated format");
+
 		bool mipmaps = df & FORMAT_BIT_HAS_MIPMAPS;
 
 		if (!mipmaps) {
@@ -214,7 +216,7 @@ Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_pa
 	} else if (ver_major == 3) {
 		err = _load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
 	} else if (ver_major == 4) {
-		err = _load_data_stex2d_v4(p_path, lw, lh, lwc, lhc, image);
+		err = _load_data_ctex2d_v4(p_path, lw, lh, lwc, lhc, image);
 	} else {
 		err = ERR_INVALID_PARAMETER;
 	}
@@ -279,6 +281,25 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 	return OK;
 }
 
+// V4 removed PVRTC, need to convert enums
+Image::Format TextureLoaderCompat::convert_image_format_enum_v3_to_v4(ImageV3Fmt fmt) const {
+	// V4 removed
+	if (fmt <= Image::Format::FORMAT_BPTC_RGBFU) {
+		return Image::Format(fmt);
+	}
+
+	// IF this is a PVRTC image, print a specific error
+	ERR_FAIL_COND_V_MSG(fmt >= ImageV3Fmt::FORMAT_PVRTC2 && fmt <= ImageV3Fmt::FORMAT_PVRTC4A, Image::FORMAT_MAX, "Cannot convert deprecated PVRTC formatted textures");
+
+	// They removed four PVRTC enum values after BPTC_RGBFU, so just subtract 4
+	if (fmt >= ImageV3Fmt::FORMAT_ETC && fmt < ImageV3Fmt::FORMAT_MAX) {
+		return Image::Format(fmt - 4);
+	}
+	// If this is an invalid value, return FORMAT_MAX
+
+	return Image::FORMAT_MAX;
+}
+
 Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
 	Error err;
 
@@ -312,7 +333,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_data_stex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const {
+Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	uint8_t header[4];
 	f->get_buffer(header, 4);
@@ -355,7 +376,10 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 	int th = f->get_32();
 	int td = f->get_32();
 	int flags = f->get_32(); //texture flags!
-	Image::Format format = Image::Format(f->get_32());
+
+	Image::Format format = convert_image_format_enum_v3_to_v4(ImageV3Fmt(f->get_32()));
+	ERR_FAIL_COND_V_MSG(format == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Textured layer is in an invalid or deprecated format");
+
 	uint32_t compression = f->get_32(); // 0 - lossless (PNG), 1 - vram, 2 - uncompressed
 
 	for (int layer = 0; layer < td; layer++) {
@@ -430,7 +454,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_data_ctexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
@@ -459,7 +483,8 @@ Error TextureLoaderCompat::_load_data_stexlayered_v4(const String &p_path, Vecto
 
 	String ext = p_path.get_extension();
 	bool is_layered = false;
-	if (ext == "stexarray" || ext == "scube" || ext == "scubearray") {
+	if (ext == "stexarray" || ext == "scube" || ext == "scubearray" ||
+			ext == "ctexarray" || ext == "ccube" || ext == "ccubearray") {
 		is_layered = true;
 	}
 
@@ -489,7 +514,7 @@ Ref<CompressedTexture3D> TextureLoaderCompat::_load_texture3d(const String p_pat
 	} else if (ver_major == 3) {
 		err = _load_layered_texture_v3(p_path, r_data, fmt, lw, lh, ld, mipmaps);
 	} else if (ver_major == 4) {
-		err = _load_data_stexlayered_v4(p_path, r_data, fmt, lw, lh, ld, ltype, mipmaps);
+		err = _load_data_ctexlayered_v4(p_path, r_data, fmt, lw, lh, ld, ltype, mipmaps);
 	} else {
 		err = ERR_INVALID_PARAMETER;
 	}
@@ -519,7 +544,7 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::_load_texture_layered(const S
 		err = _load_layered_texture_v3(p_path, r_data, fmt, lw, lh, ld, mipmaps);
 		type = 0;
 	} else if (ver_major == 4) {
-		err = _load_data_stexlayered_v4(p_path, r_data, fmt, lw, lh, ld, type, mipmaps);
+		err = _load_data_ctexlayered_v4(p_path, r_data, fmt, lw, lh, ld, type, mipmaps);
 	} else {
 		err = ERR_INVALID_PARAMETER;
 	}
@@ -569,7 +594,7 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const St
 		case FORMAT_V3_STREAM_TEXTUREARRAY:
 			ver_major = 3;
 			break;
-		case FORMAT_V4_STREAM_TEXTURELAYERED:
+		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
 			ver_major = 4;
 			break;
 		default:
@@ -617,7 +642,7 @@ Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path
 		case FORMAT_V3_STREAM_TEXTURE3D:
 			ver_major = 3;
 			break;
-		case FORMAT_V4_STREAM_TEXTURE3D:
+		case FORMAT_V4_COMPRESSED_TEXTURE3D:
 			ver_major = 4;
 			break;
 		default:
@@ -669,7 +694,7 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 		case FORMAT_V3_STREAM_TEXTURE2D:
 			ver_major = 3;
 			break;
-		case FORMAT_V4_STREAM_TEXTURE2D:
+		case FORMAT_V4_COMPRESSED_TEXTURE2D:
 			ver_major = 4;
 			break;
 		default:
@@ -723,7 +748,7 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 		case FORMAT_V3_STREAM_TEXTURE3D:
 			_load_texture3d(res_path, data, &err, 3);
 			break;
-		case FORMAT_V4_STREAM_TEXTURE3D:
+		case FORMAT_V4_COMPRESSED_TEXTURE3D:
 			_load_texture3d(res_path, data, &err, 4);
 			break;
 		case FORMAT_V2_LARGE_TEXTURE:
@@ -733,7 +758,7 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 		case FORMAT_V3_STREAM_TEXTUREARRAY:
 			_load_texture_layered(res_path, data, type, &err, 3);
 			break;
-		case FORMAT_V4_STREAM_TEXTURELAYERED:
+		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
 			_load_texture_layered(res_path, data, type, &err, 4);
 			break;
 		default:
@@ -771,7 +796,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 		case FORMAT_V3_STREAM_TEXTURE2D:
 			ver_major = 3;
 			break;
-		case FORMAT_V4_STREAM_TEXTURE2D:
+		case FORMAT_V4_COMPRESSED_TEXTURE2D:
 			ver_major = 4;
 			break;
 		default:
