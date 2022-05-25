@@ -51,7 +51,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		ResourceFormatLoaderCompat rlc;
 		Ref<ImportInfo> i_info;
 		*r_err = rlc.get_import_info(res_path, "", i_info);
-		ERR_FAIL_COND_V_MSG(*r_err != OK || f.is_null(), FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
+		ERR_FAIL_COND_V_MSG(*r_err != OK, FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 
 		String type = i_info->get_type();
 		if (type == "Texture") {

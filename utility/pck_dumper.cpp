@@ -72,6 +72,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			fa->store_buffer(buf, got);
 			rq_size -= 16384;
 		}
+		fa->flush();
 		print_line("Extracted " + target_name);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader *pcfgldr = memnew(ProjectConfigLoader);

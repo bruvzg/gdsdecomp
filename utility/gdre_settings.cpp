@@ -436,6 +436,7 @@ Error GDRELogger::open_file(const String &base_path) {
 
 void GDRELogger::close_file() {
 	if (file.is_valid()) {
+		file->flush();
 		file = Ref<FileAccess>();
 	}
 }

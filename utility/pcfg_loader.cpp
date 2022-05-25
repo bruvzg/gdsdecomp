@@ -33,9 +33,12 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {
 	Error err;
 	uint8_t hdr[4];
-	f->get_buffer(hdr, 4);
+	int file_length = f->get_length();
+	int bytes_read = f->get_buffer(hdr, 4);
 	if (hdr[0] != 'E' || hdr[1] != 'C' || hdr[2] != 'F' || hdr[3] != 'G') {
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Corrupted header in binary project.binary (not ECFG).");
+	} else if (bytes_read < 4) {
+		WARN_PRINT("Bytes read less than slen!");
 	}
 
 	uint32_t count = f->get_32();
@@ -45,7 +48,10 @@ Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String
 		CharString cs;
 		cs.resize(slen + 1);
 		cs[slen] = 0;
-		f->get_buffer((uint8_t *)cs.ptr(), slen);
+		int bytes_read = f->get_buffer((uint8_t *)cs.ptr(), slen);
+		if (bytes_read < slen) {
+			WARN_PRINT("Bytes read less than slen!");
+		}
 		String key;
 		key.parse_utf8(cs.ptr());
 

@@ -1179,7 +1179,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			wf->store_line("[editable path=\"" + editable_instances[i].operator String() + "\"]");
 		}
 	}
-
+	wf->flush();
 	if (wf->get_error() != OK && wf->get_error() != ERR_FILE_EOF) {
 		return ERR_CANT_CREATE;
 	}
@@ -2043,6 +2043,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	fw->store_32(ver_format);
 
 	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
+		fw->flush();
 		return ERR_CANT_CREATE;
 	}
 
@@ -2147,7 +2148,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	}
 
 	fw->store_buffer((const uint8_t *)"RSRC", 4); //magic at end
-
+	fw->flush();
 	if (fw->get_error() != OK && fw->get_error() != ERR_FILE_EOF) {
 		return ERR_CANT_CREATE;
 	}

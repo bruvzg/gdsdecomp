@@ -110,13 +110,19 @@ Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 			_____tmp_file->store_8(oneByte);
 		},
 				image_data.ptr(), width, height, isRGB, 100, false);
+		if (!success) {
+			_____tmp_file = Ref<FileAccess>();
+		}
 		ERR_FAIL_COND_V_MSG(!success, ERR_BUG, "Failed to convert image to JPEG");
 	}
 
 	if (_____tmp_file->get_error() != OK && _____tmp_file->get_error() != ERR_FILE_EOF) {
+		_____tmp_file = Ref<FileAccess>();
+		;
 		return ERR_CANT_CREATE;
 	}
-
+	_____tmp_file->flush();
+	_____tmp_file = Ref<FileAccess>();
 	return OK;
 }
 
