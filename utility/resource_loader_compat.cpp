@@ -35,7 +35,7 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 
 // This is really only for loading certain resources to view them, and debugging.
 // This is not suitable for conversion of resources
-RES ResourceFormatLoaderCompat::load(const String &p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
 	Error err = ERR_FILE_CANT_OPEN;
 	if (!r_error) {
 		r_error = &err;
@@ -48,7 +48,7 @@ RES ResourceFormatLoaderCompat::load(const String &p_path, const String &project
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
 	ResourceLoaderBinaryCompat *loader = _open(p_path, project_dir, false, r_error, r_progress);
-	ERR_FAIL_COND_V_MSG(*r_error != OK, RES(), "Cannot open file '" + p_path + "'.");
+	ERR_FAIL_COND_V_MSG(*r_error != OK, Ref<Resource>(), "Cannot open file '" + p_path + "'.");
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
 	if (loader->engine_ver_major != VERSION_MAJOR) {
@@ -56,9 +56,9 @@ RES ResourceFormatLoaderCompat::load(const String &p_path, const String &project
 	}
 
 	*r_error = loader->load();
-	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, RES(), "failed to load resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, Ref<Resource>(), "failed to load resource '" + p_path + "'.", loader);
 
-	RES ret = loader->resource;
+	Ref<Resource> ret = loader->resource;
 	memdelete(loader);
 	return ret;
 }
@@ -369,16 +369,16 @@ Error ResourceLoaderBinaryCompat::load_ext_resource(const uint32_t i) {
 	return OK;
 }
 
-RES ResourceLoaderBinaryCompat::get_external_resource(const int subindex) {
+Ref<Resource> ResourceLoaderBinaryCompat::get_external_resource(const int subindex) {
 	if (external_resources[subindex - 1].cache.is_valid()) {
 		return external_resources[subindex - 1].cache;
 	}
 	// We don't do multithreading, so if this external resource is not cached (either dummy or real)
 	// then we return a blank resource
-	return RES();
+	return Ref<Resource>();
 }
 
-RES ResourceLoaderBinaryCompat::get_external_resource(const String &path) {
+Ref<Resource> ResourceLoaderBinaryCompat::get_external_resource(const String &path) {
 	for (int i = 0; i < external_resources.size(); i++) {
 		if (external_resources[i].path == path) {
 			return external_resources[i].cache;
@@ -386,7 +386,7 @@ RES ResourceLoaderBinaryCompat::get_external_resource(const String &path) {
 	}
 	// We don't do multithreading, so if this external resource is not cached (either dummy or real)
 	// then we return a blank resource
-	return RES();
+	return Ref<Resource>();
 }
 
 bool ResourceLoaderBinaryCompat::has_external_resource(const String &path) {
@@ -401,8 +401,8 @@ bool ResourceLoaderBinaryCompat::has_external_resource(const String &path) {
 // by default, we don't instance an internal resource.
 // This is done for compatibility reasons. Class names and constructors, and their properties, have changed between versions.
 // So we instead just make a dummy resource and keep a list of properties, which would all be Variants
-RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const String &id) {
-	RES res;
+Ref<Resource> ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, const String &type, const String &id) {
+	Ref<Resource> res;
 	// if this is a fake load, create a dummy instead
 	if (fake_load) {
 		res = make_dummy(path, type, id);
@@ -426,7 +426,7 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 		Object *obj = ClassDB::instantiate(type);
 		if (!obj) {
 			error = ERR_FILE_CORRUPT;
-			ERR_FAIL_V_MSG(RES(), local_path + ":Resource of unrecognized type in file: " + type + ".");
+			ERR_FAIL_V_MSG(Ref<Resource>(), local_path + ":Resource of unrecognized type in file: " + type + ".");
 		}
 
 		Resource *r = Object::cast_to<Resource>(obj);
@@ -434,32 +434,32 @@ RES ResourceLoaderBinaryCompat::instance_internal_resource(const String &path, c
 			String obj_class = obj->get_class();
 			error = ERR_FILE_CORRUPT;
 			memdelete(obj); //bye
-			ERR_FAIL_V_MSG(RES(), local_path + ":Resource type in resource field not a resource, type is: " + obj_class + ".");
+			ERR_FAIL_V_MSG(Ref<Resource>(), local_path + ":Resource type in resource field not a resource, type is: " + obj_class + ".");
 		}
 
 		if (path != String() && cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
 			r->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); //if got here because the resource with same path has different type, replace it
 		}
 		r->set_scene_unique_id(id);
-		res = RES(r);
+		res = Ref<Resource>(r);
 	}
 	return res;
 }
 
-RES ResourceLoaderBinaryCompat::get_internal_resource(const int subindex) {
+Ref<Resource> ResourceLoaderBinaryCompat::get_internal_resource(const int subindex) {
 	for (auto R = internal_index_cache.front(); R; R = R->next()) {
 		if (R->value()->get_scene_unique_id() == itos(subindex)) {
 			return R->value();
 		}
 	}
-	return RES();
+	return Ref<Resource>();
 }
 
-RES ResourceLoaderBinaryCompat::get_internal_resource(const String &path) {
+Ref<Resource> ResourceLoaderBinaryCompat::get_internal_resource(const String &path) {
 	if (has_internal_resource(path)) {
 		return internal_index_cache[path];
 	}
-	return RES();
+	return Ref<Resource>();
 }
 
 String ResourceLoaderBinaryCompat::get_internal_resource_type(const String &path) {
@@ -480,7 +480,7 @@ bool ResourceLoaderBinaryCompat::has_internal_resource(const String &path) {
 	return internal_index_cache.has(path);
 }
 
-String ResourceLoaderBinaryCompat::get_resource_path(const RES &res) {
+String ResourceLoaderBinaryCompat::get_resource_path(const Ref<Resource> &res) {
 	if (res.is_null()) {
 		return "";
 	}
@@ -634,7 +634,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 			if (!listpinfo || listpinfo->size() == 0) {
 				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_CANT_OPEN, "Failed to get list of properties for property " + name + " of object type " + hint);
 			}
-			RES res = value;
+			Ref<Resource> res = value;
 			if (res.is_null()) {
 				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_MISSING_DEPENDENCIES, "Property " + name + " is not a resource of type " + hint);
 			}
@@ -725,7 +725,7 @@ Error ResourceLoaderBinaryCompat::load() {
 
 		// if this a fake load, this is a dummy
 		// if it's a real load, it's an instance of the resource class
-		RES res = instance_internal_resource(path, rtype, id);
+		Ref<Resource> res = instance_internal_resource(path, rtype, id);
 		ERR_FAIL_COND_V_MSG(res.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't load internal resource " + path);
 		int pc = f->get_32();
 
@@ -828,7 +828,7 @@ String ResourceLoaderBinaryCompat::get_unicode_string() {
 	return get_ustring(f);
 }
 
-RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const String &id) {
+Ref<Resource> ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &type, const String &id) {
 	Ref<FakeResource> dummy;
 	dummy.instantiate();
 	dummy->set_real_path(path);
@@ -837,7 +837,7 @@ RES ResourceLoaderBinaryCompat::make_dummy(const String &path, const String &typ
 	return dummy;
 }
 
-RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex) {
+Ref<Resource> ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex) {
 	if (external_resources[erindex].cache.is_valid()) {
 		return external_resources[erindex].cache;
 	}
@@ -847,13 +847,13 @@ RES ResourceLoaderBinaryCompat::set_dummy_ext(const uint32_t erindex) {
 	} else {
 		id = itos(erindex + 1);
 	}
-	RES dummy = make_dummy(external_resources[erindex].path, external_resources[erindex].type, id);
+	Ref<Resource> dummy = make_dummy(external_resources[erindex].path, external_resources[erindex].type, id);
 	external_resources.write[erindex].cache = dummy;
 
 	return dummy;
 }
 
-RES ResourceLoaderBinaryCompat::set_dummy_ext(const String &path, const String &exttype) {
+Ref<Resource> ResourceLoaderBinaryCompat::set_dummy_ext(const String &path, const String &exttype) {
 	for (int i = 0; i < external_resources.size(); i++) {
 		if (external_resources[i].path == path) {
 			if (external_resources[i].cache.is_valid()) {
@@ -886,12 +886,12 @@ void ResourceLoaderBinaryCompat::_advance_padding(uint32_t p_len) {
 	advance_padding(f, p_len);
 }
 
-String ResourceLoaderBinaryCompat::_write_rlc_resources(void *ud, const RES &p_resource) {
+String ResourceLoaderBinaryCompat::_write_rlc_resources(void *ud, const Ref<Resource> &p_resource) {
 	ResourceLoaderBinaryCompat *rsi = (ResourceLoaderBinaryCompat *)ud;
 	return rsi->_write_rlc_resource(p_resource);
 }
 
-String ResourceLoaderBinaryCompat::_write_rlc_resource(const RES &res) {
+String ResourceLoaderBinaryCompat::_write_rlc_resource(const Ref<Resource> &res) {
 	String path = get_resource_path(res);
 	String id = res->get_scene_unique_id();
 	// Godot 4.x ids are strings, Godot 3.x are integers
@@ -909,7 +909,7 @@ String ResourceLoaderBinaryCompat::_write_rlc_resource(const RES &res) {
 Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path, uint32_t p_flags) {
 	bool is_scene = false;
 	// main resource
-	RES res = resource;
+	Ref<Resource> res = resource;
 	Ref<PackedScene> packed_scene;
 	if (dest_path.ends_with(".tscn") || dest_path.ends_with(".escn")) {
 		is_scene = true;
@@ -994,7 +994,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	// Godot 4.x: Get all the unique ids for lookup
 	if (text_format_version >= 3) {
 		for (int i = 0; i < internal_resources.size(); i++) {
-			RES intres = get_internal_resource(internal_resources[i].path);
+			Ref<Resource> intres = get_internal_resource(internal_resources[i].path);
 			if (i != internal_resources.size() - 1 && (res->get_path() == "" || res->get_path().find("::") != -1)) {
 				if (intres->get_scene_unique_id() != "") {
 					if (used_unique_ids.has(intres->get_scene_unique_id())) {
@@ -1009,7 +1009,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 
 	for (int i = 0; i < internal_resources.size(); i++) {
 		String path = internal_resources[i].path;
-		RES intres = get_internal_resource(path);
+		Ref<Resource> intres = get_internal_resource(path);
 		bool main = i == (internal_resources.size() - 1);
 
 		if (main && is_scene) {
@@ -1077,7 +1077,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			int index = state->get_node_index(i);
 			NodePath path = state->get_node_path(i, true);
 			NodePath owner = state->get_node_owner_path(i);
-			RES instance = state->get_node_instance(i);
+			Ref<Resource> instance = state->get_node_instance(i);
 
 			String instance_placeholder = state->get_node_instance_placeholder(i);
 			Vector<StringName> groups = state->get_node_groups(i);
@@ -1868,7 +1868,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 			fa->store_32(val.get_id());
 		} break;
 		case Variant::OBJECT: {
-			RES res = p_property;
+			Ref<Resource> res = p_property;
 			// This will only be triggered on godot 2.x, where the image variant is loaded as an image object vs. a resource
 			if (ver_format == 1 && res->is_class("Image")) {
 				fa->store_32(VariantBin::VARIANT_IMAGE);
@@ -1886,7 +1886,7 @@ Error ResourceLoaderBinaryCompat::write_variant_bin(FileAccess *fa, const Varian
 						fa->store_32(VariantBin::OBJECT_EMPTY);
 						ERR_FAIL_COND_V_MSG(!has_external_resource(rpath), ERR_BUG, "Cannot find external resource");
 					}
-					//RES res = get_external_resource(rpath);
+					//Ref<Resource> res = get_external_resource(rpath);
 					fa->store_32(VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX);
 					fa->store_32(res->get_scene_unique_id().to_int());
 				} else {
@@ -2092,7 +2092,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	Vector<uint64_t> ofs_pos;
 
 	for (int i = 0; i < internal_resources.size(); i++) {
-		RES re = get_internal_resource(internal_resources[i].path);
+		Ref<Resource> re = get_internal_resource(internal_resources[i].path);
 		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
 		String path = get_resource_path(re);
 		if (path == "" || path.find("::") != -1) {
@@ -2110,7 +2110,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	Vector<uint64_t> ofs_table;
 	//now actually save the resources
 	for (int i = 0; i < internal_resources.size(); i++) {
-		RES re = get_internal_resource(internal_resources[i].path);
+		Ref<Resource> re = get_internal_resource(internal_resources[i].path);
 		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);
 		String path = get_resource_path(re);
 		String rtype = get_internal_resource_type(path);

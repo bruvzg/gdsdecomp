@@ -533,9 +533,9 @@ Ref<StreamTextureLayered> TextureLoaderCompat::_load_texture_layered(const Strin
 	}
 	if (r_err)
 		*r_err = err;
-	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, RES(), "V2 TextureLayered conversion unimplemented");
-	ERR_FAIL_COND_V_MSG(err != OK, RES(), "Failed to load image from texture file " + p_path);
-	RES res;
+	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, Ref<Resource>(), "V2 TextureLayered conversion unimplemented");
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load image from texture file " + p_path);
+	Ref<Resource> res;
 	if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
 		res = Ref<StreamTexture2DArray>();
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
@@ -722,7 +722,7 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 		ERR_FAIL_COND_V(err != OK, data);
 	}
 	int type;
-	RES res;
+	Ref<Resource> res;
 	switch (t) {
 		// TODO: what the hell does v2 use for 3d textures?
 		case FORMAT_V2_TEXTURE:

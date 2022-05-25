@@ -181,7 +181,7 @@ class ResourceLoaderBinaryCompat {
 		String path;
 		String type;
 		ResourceUID::ID uid = ResourceUID::INVALID_ID;
-		RES cache;
+		Ref<Resource> cache;
 	};
 
 	bool use_sub_threads = false;
@@ -197,7 +197,7 @@ class ResourceLoaderBinaryCompat {
 	};
 
 	Vector<IntResource> internal_resources;
-	Map<String, RES> internal_index_cache;
+	Map<String, Ref<Resource>> internal_index_cache;
 	Map<String, String> internal_type_cache;
 	Map<String, List<ResourceProperty>> internal_index_cached_properties;
 
@@ -220,43 +220,43 @@ class ResourceLoaderBinaryCompat {
 	static Map<String, String> _get_file_info(FileAccess *f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(FileAccess *f);
-	RES set_dummy_ext(const String &path, const String &exttype);
-	RES set_dummy_ext(const uint32_t erindex);
-	RES make_dummy(const String &path, const String &type, const String &id);
+	Ref<Resource> set_dummy_ext(const String &path, const String &exttype);
+	Ref<Resource> set_dummy_ext(const uint32_t erindex);
+	Ref<Resource> make_dummy(const String &path, const String &type, const String &id);
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 
 	Error load_ext_resource(const uint32_t i);
-	RES get_external_resource(const int subindex);
-	RES get_external_resource(const String &path);
+	Ref<Resource> get_external_resource(const int subindex);
+	Ref<Resource> get_external_resource(const String &path);
 	bool has_external_resource(const String &path);
 
-	RES instance_internal_resource(const String &path, const String &type, const String &id);
-	RES get_internal_resource(const int subindex);
-	RES get_internal_resource(const String &path);
+	Ref<Resource> instance_internal_resource(const String &path, const String &type, const String &id);
+	Ref<Resource> get_internal_resource(const int subindex);
+	Ref<Resource> get_internal_resource(const String &path);
 	String get_internal_resource_type(const String &path);
 	bool has_internal_resource(const String &path);
 	List<ResourceProperty> get_internal_resource_properties(const String &path);
 
-	static String get_resource_path(const RES &res);
+	static String get_resource_path(const Ref<Resource> &res);
 
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(FileAccess *p_f, bool p_skip_first_tag);
 	Error write_variant_bin(FileAccess *fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
-	Map<String, RES> dependency_cache;
+	Map<String, Ref<Resource>> dependency_cache;
 
 public:
 	void get_dependencies(FileAccess *p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
-	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, RES> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
+	static Error write_variant_bin(FileAccess *f, const Variant &p_property, Map<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static Map<String, String> get_version_and_type(const String &p_path, Error *r_error);
 	Error open(FileAccess *p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
 	Error load();
 	static String get_ustring(FileAccess *f);
 	Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
-	static String _write_rlc_resources(void *ud, const RES &p_resource);
-	String _write_rlc_resource(const RES &res);
+	static String _write_rlc_resources(void *ud, const Ref<Resource> &p_resource);
+	String _write_rlc_resource(const Ref<Resource> &res);
 	Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
 	ResourceLoaderBinaryCompat();
 	~ResourceLoaderBinaryCompat();
@@ -297,7 +297,7 @@ public:
 	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
-	RES load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
+	Ref<Resource> load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };
 
 #endif // RESOURCE_LOADER_COMPAT_H
