@@ -25,7 +25,7 @@ window/size/height=1024
 
 [editor]
 
-export/convert_text_resources_to_binary=true
+export/convert_text_resources_to_binary=false
 
 [rendering]
 
