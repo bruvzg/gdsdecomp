@@ -7,7 +7,7 @@
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/templates/map.h"
+#include "core/templates/rb_map.h"
 
 #include "gdre_packed_data.h"
 
@@ -17,7 +17,7 @@ class PckDumper : public RefCounted {
 	bool skip_failed_md5 = false;
 	bool should_check_md5 = false;
 	bool loaded = false;
-	bool _get_magic_number(FileAccess *pck);
+	bool _get_magic_number(Ref<FileAccess> pck);
 	bool _pck_file_check_md5(Ref<PackedFileInfo> &file);
 
 protected:
@@ -28,7 +28,7 @@ public:
 	Vector<uint8_t> get_key() const;
 	String get_key_str() const;
 	void clear_data();
-	FileAccess *get_file_access(const String &p_path, PackedFileInfo *p_file);
+	Ref<FileAccess> get_file_access(const String &p_path, PackedFileInfo *p_file);
 
 	Error load_pck(const String &p_path);
 	Error check_md5_all_files();

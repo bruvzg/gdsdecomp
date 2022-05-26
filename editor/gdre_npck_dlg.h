@@ -6,7 +6,7 @@
 #define GODOT_RE_NPCK_DLG_H
 
 #include "core/io/resource.h"
-#include "core/templates/map.h"
+#include "core/templates/rb_map.h"
 
 #include "scene/gui/check_box.h"
 #include "scene/gui/control.h"

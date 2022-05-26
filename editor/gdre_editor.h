@@ -6,7 +6,7 @@
 #define GODOT_RE_EDITOR_H
 
 #include "core/io/resource.h"
-#include "core/templates/map.h"
+#include "core/templates/rb_map.h"
 
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
@@ -50,7 +50,7 @@ class ProgressDialog : public Popup {
 	HBoxContainer *cancel_hb;
 	Button *cancel;
 
-	Map<String, Task> tasks;
+	RBMap<String, Task> tasks;
 	VBoxContainer *main;
 	uint64_t last_progress_tick;
 
@@ -208,7 +208,7 @@ private:
 	uint32_t pck_ver_major;
 	uint32_t pck_ver_minor;
 	uint32_t pck_ver_rev;
-	Map<String, PackedFile> pck_files;
+	RBMap<String, PackedFile> pck_files;
 	Vector<PackedFile> pck_save_files;
 
 	NewPackDialog *pck_save_dialog;

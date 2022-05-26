@@ -4,7 +4,7 @@
 
 #include "core/io/marshalls.h"
 #include "core/string/print_string.h"
-#include "core/templates/map.h"
+#include "core/templates/rb_map.h"
 
 #include "bytecode_2185c01.h"
 

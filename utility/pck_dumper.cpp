@@ -43,26 +43,25 @@ Error PckDumper::check_md5_all_files() {
 }
 
 Error PckDumper::pck_dump_to_dir(const String &dir) {
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	Vector<uint8_t> key = get_key();
-	if (!da) {
+	if (da.is_null()) {
 		return ERR_FILE_CANT_WRITE;
 	}
 	String failed_files;
 	Error err;
 	for (int i = 0; i < files.size(); i++) {
-		FileAccess *pck_f = FileAccess::open(files.get(i)->get_path(), FileAccess::READ, &err);
-		if (!pck_f) {
+		Ref<FileAccess> pck_f = FileAccess::open(files.get(i)->get_path(), FileAccess::READ, &err);
+		if (pck_f.is_null()) {
 			failed_files += files.get(i)->get_path() + " (FileAccess error)\n";
 			continue;
 		}
 		String target_name = dir.plus_file(files.get(i)->get_path().replace("res://", ""));
 		da->make_dir_recursive(target_name.get_base_dir());
-		FileAccess *fa = FileAccess::open(target_name, FileAccess::WRITE);
-		if (!fa) {
+		Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
+		if (fa.is_null()) {
 			failed_files += files.get(i)->get_path() + " (FileWrite error)\n";
-			memdelete(pck_f);
 			continue;
 		}
 
@@ -73,8 +72,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			fa->store_buffer(buf, got);
 			rq_size -= 16384;
 		}
-		memdelete(fa);
-		memdelete(pck_f);
+		fa->flush();
 		print_line("Extracted " + target_name);
 		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
 			ProjectConfigLoader *pcfgldr = memnew(ProjectConfigLoader);
@@ -95,7 +93,6 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			memdelete(pcfgldr);
 		}
 	}
-	memdelete(da);
 
 	if (failed_files.length() > 0) {
 		print_error("At least one error was detected while extracting pack!\n" + failed_files);

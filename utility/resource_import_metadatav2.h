@@ -16,7 +16,7 @@ class ResourceImportMetadatav2 : public RefCounted {
 	Vector<Source> sources;
 	String editor;
 
-	Map<String, Variant> options;
+	RBMap<String, Variant> options;
 
 	PackedStringArray _get_options() const;
 	friend class ImportExporter;

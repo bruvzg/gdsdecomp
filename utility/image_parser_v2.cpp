@@ -33,7 +33,7 @@ enum Type {
 };
 }
 
-void _advance_padding(FileAccess *f, uint32_t p_len) {
+void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
@@ -82,18 +82,6 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 		case Image::FORMAT_RGTC_RG:
 			subimgstr += "BC5";
 			break;
-		case Image::FORMAT_PVRTC1_2:
-			subimgstr += "PVRTC2";
-			break;
-		case Image::FORMAT_PVRTC1_2A:
-			subimgstr += "PVRTC2_ALPHA";
-			break;
-		case Image::FORMAT_PVRTC1_4:
-			subimgstr += "PVRTC4";
-			break;
-		case Image::FORMAT_PVRTC1_4A:
-			subimgstr += "PVRTC4_ALPHA";
-			break;
 		case Image::FORMAT_ETC:
 			subimgstr += "ETC";
 			break;
@@ -113,10 +101,6 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 		case Image::FORMAT_ETC2_RG11:
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
 			subimgstr += "INDEXED_ALPHA";
-			break;
-		case Image::FORMAT_ETC2_RG11S:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_PVRTC1_4A)) + ", ";
-			subimgstr += "ATC";
 			break;
 		case Image::FORMAT_ETC2_RGB8:
 			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
@@ -149,7 +133,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v) {
 	return imgstr;
 }
 
-Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, const PropertyHint p_hint) {
+Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, const PropertyHint p_hint) {
 	Ref<Image> val = r_v;
 	if (val.is_null() || val->is_empty()) {
 		f->store_32(V2Image::IMAGE_ENCODING_EMPTY);
@@ -203,18 +187,7 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 			case Image::FORMAT_RGTC_RG: {
 				fmt = V2Image::IMAGE_FORMAT_BC5;
 			} break;
-			case Image::FORMAT_PVRTC1_2: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC2;
-			} break;
-			case Image::FORMAT_PVRTC1_2A: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC2_ALPHA;
-			} break;
-			case Image::FORMAT_PVRTC1_4: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC4;
-			} break;
-			case Image::FORMAT_PVRTC1_4A: {
-				fmt = V2Image::IMAGE_FORMAT_PVRTC4_ALPHA;
-			} break;
+
 			case Image::FORMAT_ETC: {
 				fmt = V2Image::IMAGE_FORMAT_ETC;
 			} break;
@@ -232,10 +205,6 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 			case Image::FORMAT_ETC2_RG11: {
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
 				fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
-			} break;
-			case Image::FORMAT_ETC2_RG11S: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_PVRTC1_4A);
-				fmt = V2Image::IMAGE_FORMAT_ATC;
 			} break;
 			case Image::FORMAT_ETC2_RGB8: {
 				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
@@ -278,7 +247,7 @@ Error ImageParserV2::write_image_v2_to_bin(FileAccess *f, const Variant &r_v, co
 	return OK;
 }
 
-Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
+Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
 	uint32_t encoding = f->get_32();
 	Ref<Image> img;
 	img.instantiate();
@@ -321,18 +290,6 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 			case V2Image::IMAGE_FORMAT_BC5: {
 				fmt = Image::FORMAT_RGTC_RG;
 			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC2: {
-				fmt = Image::FORMAT_PVRTC1_2;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC2_ALPHA: {
-				fmt = Image::FORMAT_PVRTC1_2A;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC4: {
-				fmt = Image::FORMAT_PVRTC1_4;
-			} break;
-			case V2Image::IMAGE_FORMAT_PVRTC4_ALPHA: {
-				fmt = Image::FORMAT_PVRTC1_4A;
-			} break;
 			case V2Image::IMAGE_FORMAT_ETC: {
 				fmt = Image::FORMAT_ETC;
 			} break;
@@ -343,6 +300,8 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 				// We change the format to something that V2 didn't have support for as a placeholder
 				// This is just in the case of converting a bin resource to a text resource
 				// It gets handled in the above converters
+				// TODO: this is of dubious value because the compressed textures SHOULD
+				// never have been stored inline in a resource in v2. Consider removing.
 				if (hacks_for_dropped_fmt) {
 					switch (format) {
 						case V2Image::IMAGE_FORMAT_INTENSITY: {
@@ -366,7 +325,10 @@ Error ImageParserV2::parse_image_v2(FileAccess *f, Variant &r_v, bool hacks_for_
 						case V2Image::IMAGE_FORMAT_CUSTOM: {
 							fmt = Image::FORMAT_ETC2_RA_AS_RG;
 						} break;
-							// We can't convert YUV format
+							// We can't convert YUV format, PVRTC formats, or ETC2_RG11S
+						default: {
+							fmt = Image::FORMAT_MAX;
+						} break;
 					}
 				} else {
 					// We'll error out after we've skipped over the data

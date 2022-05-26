@@ -62,7 +62,7 @@ Variant ResourceImportMetadatav2::get_option(const String &p_key) const {
 }
 
 void ResourceImportMetadatav2::get_options(List<String> *r_options) const {
-	for (Map<String, Variant>::Element *E = options.front(); E; E = E->next()) {
+	for (RBMap<String, Variant>::Element *E = options.front(); E; E = E->next()) {
 		r_options->push_back(E->key());
 	}
 }
@@ -71,7 +71,7 @@ PackedStringArray ResourceImportMetadatav2::_get_options() const {
 	PackedStringArray option_names;
 	option_names.resize(options.size());
 	int i = 0;
-	for (Map<String, Variant>::Element *E = options.front(); E; E = E->next()) {
+	for (RBMap<String, Variant>::Element *E = options.front(); E; E = E->next()) {
 		option_names.set(i++, E->key());
 	}
 

@@ -27,7 +27,7 @@ String ImportInfo::to_string() {
 			break;
 		}
 		String t = (*keys)[i];
-		s += "\n\t\t" + t + "=" + params[t];
+		s += "\n\t\t" + t + "=" + (String)params[t];
 	}
 	memdelete(keys);
 	s += "\n\t}\n}";
@@ -124,7 +124,7 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 				String f_fmt = fmts[i];
 				if (remap_keys.find("path." + f_fmt)) {
 					import_path = cf->get_value("remap", "path." + f_fmt, "");
-					// if it's a texture that's vram compressed, there's a chance that it may have a ghost .stex file
+					// if it's a texture that's vram compressed, there's a chance that it may have a ghost texture file
 					if (v3metadata_prop.get("vram_texture", false)) {
 						lossy_texture = true;
 					}
@@ -138,8 +138,8 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 			import_path = dest_files[0];
 		}
 		// special case for textures: if we have multiple formats, and it's a lossy import,
-		// we look to see if there's a ghost .stex file with the same prefix.
-		// Godot 3.x and 4.x will often import it as a lossless stex first, then imports it
+		// we look to see if there's a ghost texture file with the same prefix.
+		// Godot 3.x and 4.x will often import it as a lossless texture first, then imports it
 		// as lossy textures, and this sometimes ends up in the exported project.
 		// It's just not listed in the .import file.
 		if (import_path != "" && lossy_texture) {
@@ -149,7 +149,7 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 				// for example, "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.s3tc.stex"
 				// will become "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.stex"
 				String new_path = basedir.plus_file(split[0] + "." + split[1] + "." + split[3]);
-				// if we have the ghost .stex, set it to be the import path
+				// if we have the ghost texture, set it to be the import path
 				if (GDRESettings::get_singleton()->has_res_path(new_path)) {
 					import_path = new_path;
 				}

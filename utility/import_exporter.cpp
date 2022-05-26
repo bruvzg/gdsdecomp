@@ -131,7 +131,7 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 			switch (tex_type) {
 				case TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE:
 				case TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D:
-				case TextureLoaderCompat::FORMAT_V4_STREAM_TEXTURE2D: {
+				case TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D: {
 					// Export texture
 					err = export_texture(output_dir, iinfo);
 				} break;
@@ -366,25 +366,23 @@ Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const Str
 	err = rlc.rewrite_v2_import_metadata(p_path, orig_file + ".tmp", imd);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to rewrite metadata for " + orig_file);
 
-	DirAccess *dr = DirAccess::open(orig_file.get_base_dir(), &err);
-	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
+	Ref<DirAccess> dr = DirAccess::open(orig_file.get_base_dir(), &err);
+	ERR_FAIL_COND_V_MSG(dr.is_null(), err, "Failed to rename file " + orig_file + ".tmp");
 
 	// this may fail, we don't care
 	dr->remove(orig_file);
 	err = dr->rename(orig_file + ".tmp", orig_file);
-	ERR_FAIL_COND_V_MSG(!dr, err, "Failed to rename file " + orig_file + ".tmp");
+	ERR_FAIL_COND_V_MSG(dr.is_null(), err, "Failed to rename file " + orig_file + ".tmp");
 
 	print_line("Rewrote import metadata for " + p_path);
-	memdelete(dr);
 	return OK;
 }
 
 Error ImportExporter::ensure_dir(const String &dst_dir) {
 	Error err;
-	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	ERR_FAIL_COND_V(!da, ERR_FILE_CANT_OPEN);
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	ERR_FAIL_COND_V(da.is_null(), ERR_FILE_CANT_OPEN);
 	err = da->make_dir_recursive(dst_dir);
-	memdelete(da);
 	return err;
 }
 
@@ -474,7 +472,7 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	err = ensure_dir(dst_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dst_path);
 
-	FileAccess *f = FileAccess::open(dst_path, FileAccess::WRITE);
+	Ref<FileAccess> f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
 
 	f->store_buffer(data.ptr(), data.size());
@@ -494,7 +492,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	err = ensure_dir(dst_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dst_path);
 
-	FileAccess *f = FileAccess::open(dst_path, FileAccess::WRITE);
+	Ref<FileAccess> f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
 
 	PackedByteArray data = sample->get_data();

@@ -5,7 +5,7 @@
 #include "core/object/object.h"
 #include "core/os/os.h"
 #include "core/os/thread_safe.h"
-#include "core/templates/set.h"
+#include "core/templates/rb_set.h"
 #include "gdre_packed_data.h"
 #include "packed_file_info.h"
 #ifdef WINDOWS_ENABLED
@@ -41,7 +41,7 @@ public:
 class GDRELogger : public Logger {
 	String base_path;
 
-	FileAccess *file = nullptr;
+	Ref<FileAccess> file;
 
 public:
 	GDRELogger();

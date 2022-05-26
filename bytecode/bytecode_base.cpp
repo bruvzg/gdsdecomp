@@ -72,26 +72,21 @@ void GDScriptDecomp::_ensure_space(String &p_code) {
 Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
 	Vector<uint8_t> bytecode;
 
-	FileAccess *fa = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V(!fa, ERR_FILE_CANT_OPEN);
+	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V(fa.is_null(), ERR_FILE_CANT_OPEN);
 
-	FileAccessEncrypted *fae = memnew(FileAccessEncrypted);
-	ERR_FAIL_COND_V(!fae, ERR_FILE_CORRUPT);
+	Ref<FileAccessEncrypted> fae;
+	fae.instantiate();
+	ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
 
 	Error err = fae->open_and_parse(fa, p_key, FileAccessEncrypted::MODE_READ);
 
 	if (err) {
-		fa->close();
-		memdelete(fa);
-		memdelete(fae);
-
 		ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
 	}
 
 	bytecode.resize(fae->get_length());
 	fae->get_buffer(bytecode.ptrw(), bytecode.size());
-	fae->close();
-	memdelete(fae);
 
 	error_message = RTR("No error");
 
@@ -473,7 +468,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Transform2D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 2; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
+					val.columns[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
 				}
 			}
 
@@ -533,7 +528,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Basis val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 
@@ -549,7 +544,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.basis.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 			val.origin[0] = decode_float(&buf[36]);
@@ -699,7 +694,7 @@ Error GDScriptDecomp::decode_variant_3(Variant &r_variant, const uint8_t *p_buff
 					}
 
 					if (Object::cast_to<RefCounted>(obj)) {
-						REF ref = REF(Object::cast_to<RefCounted>(obj));
+						Ref<RefCounted> ref = Ref<RefCounted>(Object::cast_to<RefCounted>(obj));
 						r_variant = ref;
 					} else {
 						r_variant = obj;
@@ -1118,7 +1113,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Transform2D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 2; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
+					val.columns[i][j] = decode_float(&buf[(i * 2 + j) * 4]);
 				}
 			}
 
@@ -1178,7 +1173,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Basis val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 
@@ -1194,7 +1189,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 			Transform3D val;
 			for (int i = 0; i < 3; i++) {
 				for (int j = 0; j < 3; j++) {
-					val.basis.elements[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
+					val.basis.rows[i][j] = decode_float(&buf[(i * 3 + j) * 4]);
 				}
 			}
 			val.origin[0] = decode_float(&buf[36]);
@@ -1364,7 +1359,7 @@ Error GDScriptDecomp::decode_variant_2(Variant &r_variant, const uint8_t *p_buff
 					}
 
 					if (Object::cast_to<RefCounted>(obj)) {
-						REF ref = REF(Object::cast_to<RefCounted>(obj));
+						Ref<RefCounted> ref = Ref<RefCounted>(Object::cast_to<RefCounted>(obj));
 						r_variant = ref;
 					} else {
 						r_variant = obj;

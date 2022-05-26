@@ -7,15 +7,15 @@
 #include <core/io/file_access.h>
 #include <core/io/marshalls.h>
 #include <core/os/keyboard.h>
+#include <core/templates/rb_set.h>
 #include <core/variant/variant_parser.h>
 
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	cfb_path = path;
 	Error err;
-	FileAccess *f = FileAccess::open(path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(!f, err, "Could not open " + path);
+	Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Could not open " + path);
 	err = _load_settings_binary(f, path, ver_major);
-	memdelete(f);
 	return err;
 }
 
@@ -30,12 +30,15 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 	return save_custom(dir.plus_file(file), ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_load_settings_binary(FileAccess *f, const String &p_path, uint32_t ver_major) {
+Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {
 	Error err;
 	uint8_t hdr[4];
-	f->get_buffer(hdr, 4);
+	int file_length = f->get_length();
+	int bytes_read = f->get_buffer(hdr, 4);
 	if (hdr[0] != 'E' || hdr[1] != 'C' || hdr[2] != 'F' || hdr[3] != 'G') {
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Corrupted header in binary project.binary (not ECFG).");
+	} else if (bytes_read < 4) {
+		WARN_PRINT("Bytes read less than slen!");
 	}
 
 	uint32_t count = f->get_32();
@@ -45,7 +48,10 @@ Error ProjectConfigLoader::_load_settings_binary(FileAccess *f, const String &p_
 		CharString cs;
 		cs.resize(slen + 1);
 		cs[slen] = 0;
-		f->get_buffer((uint8_t *)cs.ptr(), slen);
+		int bytes_read = f->get_buffer((uint8_t *)cs.ptr(), slen);
+		if (bytes_read < slen) {
+			WARN_PRINT("Bytes read less than slen!");
+		}
 		String key;
 		key.parse_utf8(cs.ptr());
 
@@ -82,9 +88,9 @@ struct _VCSort {
 Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_major, const uint32_t ver_minor) {
 	ERR_FAIL_COND_V_MSG(p_path == "", ERR_INVALID_PARAMETER, "Project settings save path cannot be empty.");
 
-	Set<_VCSort> vclist;
+	RBSet<_VCSort> vclist;
 
-	for (Map<StringName, VariantContainer>::Element *G = props.front(); G; G = G->next()) {
+	for (RBMap<StringName, VariantContainer>::Element *G = props.front(); G; G = G->next()) {
 		const VariantContainer *v = &G->get();
 
 		if (v->hide_from_editor)
@@ -100,9 +106,9 @@ Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_
 
 		vclist.insert(vc);
 	}
-	Map<String, List<String>> proops;
+	RBMap<String, List<String>> proops;
 
-	for (Set<_VCSort>::Element *E = vclist.front(); E; E = E->next()) {
+	for (RBSet<_VCSort>::Element *E = vclist.front(); E; E = E->next()) {
 		String category = E->get().name;
 		String name = E->get().name;
 
@@ -120,9 +126,9 @@ Error ProjectConfigLoader::save_custom(const String &p_path, const uint32_t ver_
 	return _save_settings_text(p_path, proops, ver_major, ver_minor);
 }
 
-Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<String, List<String>> &proops, const uint32_t ver_major, const uint32_t ver_minor) {
+Error ProjectConfigLoader::_save_settings_text(const String &p_file, const RBMap<String, List<String>> &proops, const uint32_t ver_major, const uint32_t ver_minor) {
 	Error err;
-	FileAccess *file = FileAccess::open(p_file, FileAccess::WRITE, &err);
+	Ref<FileAccess> file = FileAccess::open(p_file, FileAccess::WRITE, &err);
 	uint32_t config_version = 2;
 	if (ver_major > 2) {
 		if (ver_major == 3 && ver_minor == 0) {
@@ -153,7 +159,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 
 	file->store_string("\n");
 
-	for (Map<String, List<String>>::Element *E = proops.front(); E; E = E->next()) {
+	for (RBMap<String, List<String>>::Element *E = proops.front(); E; E = E->next()) {
 		if (E != proops.front())
 			file->store_string("\n");
 
@@ -171,9 +177,6 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const Map<S
 			file->store_string(F->get().property_name_encode() + "=" + vstr + "\n");
 		}
 	}
-
-	file->close();
-	memdelete(file);
 
 	return OK;
 }
