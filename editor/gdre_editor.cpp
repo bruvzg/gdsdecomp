@@ -27,6 +27,8 @@
 #include "utility/resource_loader_compat.h"
 #include "utility/texture_loader_compat.h"
 
+#include "gdre_icons.gen.h"
+
 #if VERSION_MAJOR < 4
 #error Unsupported Godot version
 #endif
@@ -252,6 +254,22 @@ static int _get_pad(int p_alignment, int p_n) {
 	return pad;
 }
 
+static Ref<ImageTexture> generate_icon(int p_index) {
+	Ref<ImageTexture> icon = memnew(ImageTexture);
+	Ref<Image> img = memnew(Image);
+
+#ifdef MODULE_SVG_ENABLED
+	// Upsample icon generation only if the scale isn't an integer multiplier.
+	// Generating upsampled icons is slower, and the benefit is hardly visible
+	// with integer scales.
+	ImageLoaderSVG img_loader;
+	img_loader.create_image_from_string(img, gdre_icons_sources[p_index], 1.0, false, false);
+#endif
+	icon->create_from_image(img);
+
+	return icon;
+}
+
 #ifdef TOOLS_ENABLED
 GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	singleton = this;
@@ -269,8 +287,18 @@ GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
 	init_gui(p_control, p_menu, true);
 }
 
+void init_icons() {
+}
+
 void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_long_menu) {
 	//Init dialogs
+
+	// Convert the generated icon sources to a dictionary for easier access.
+	// Unlike the editor icons, there is no central repository of icons in the Theme resource itself to keep it tidy.
+	Dictionary icons;
+	for (int i = 0; i < gdre_icons_count; i++) {
+		icons[gdre_icons_names[i]] = generate_icon(i);
+	}
 
 	ovd = memnew(OverwriteDialog);
 	p_control->add_child(ovd);
@@ -375,7 +403,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		TextureRect *about_icon = memnew(TextureRect);
 		about_hbc->add_child(about_icon);
 		about_icon->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
-		about_icon->set_texture(p_control->get_theme_icon("RELogoBig", "EditorIcons"));
+		about_icon->set_texture(icons["RELogoBig"]);
 
 		Label *about_label = memnew(Label);
 		about_hbc->add_child(about_label);
@@ -410,31 +438,31 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	if (p_long_menu) {
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("RE Tools"));
-		menu_button->set_icon(p_control->get_theme_icon("RELogo", "EditorIcons"));
+		menu_button->set_icon(icons["RELogo"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(p_control->get_theme_icon("RELogo", "EditorIcons"), RTR("About Godot RE Tools"), MENU_ABOUT_RE);
-		menu_popup->add_icon_item(p_control->get_theme_icon("RELogo", "EditorIcons"), RTR("Quit"), MENU_EXIT_RE);
+		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_icon_item(icons["RELogo"], RTR("Quit"), MENU_EXIT_RE);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("PCK"));
-		menu_button->set_icon(p_control->get_theme_icon("REPack", "EditorIcons"));
+		menu_button->set_icon(icons["REPack"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Set encryption key..."), MENU_KEY);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Set encryption key..."), MENU_KEY);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Explore PCK archive..."), MENU_EXT_PCK);
 
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("GDScript"));
-		menu_button->set_icon(p_control->get_theme_icon("REScript", "EditorIcons"));
+		menu_button->set_icon(icons["REScript"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->add_icon_item(icons["REScript"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
+		menu_popup->add_icon_item(icons["REScript"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
 
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
@@ -442,40 +470,40 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("Resources"));
-		menu_button->set_icon(p_control->get_theme_icon("REResBT", "EditorIcons"));
+		menu_button->set_icon(icons["REResBT"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResBT", "EditorIcons"), RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResTB", "EditorIcons"), RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
+		menu_popup->add_icon_item(icons["REResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
+		menu_popup->add_icon_item(icons["REResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 	} else {
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("RE Tools"));
-		menu_button->set_icon(p_control->get_theme_icon("RELogo", "EditorIcons"));
+		menu_button->set_icon(icons["RELogo"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(p_control->get_theme_icon("RELogo", "EditorIcons"), RTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
 		menu_popup->add_separator();
 
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Set encryption key..."), MENU_KEY);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Set encryption key..."), MENU_KEY);
 		menu_popup->add_separator();
 
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REPack", "EditorIcons"), RTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Explore PCK archive..."), MENU_EXT_PCK);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REScript", "EditorIcons"), RTR("Compile .GD script files..."), MENU_COMP_GDS);
+		menu_popup->add_icon_item(icons["REScript"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
+		menu_popup->add_icon_item(icons["REScript"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResBT", "EditorIcons"), RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResTB", "EditorIcons"), RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
+		menu_popup->add_icon_item(icons["REResBT"], RTR("Convert binary resources to text..."), MENU_CONV_TO_TXT);
+		menu_popup->add_icon_item(icons["REResTB"], RTR("Convert text resources to binary..."), MENU_CONV_TO_BIN);
 		menu_popup->add_separator();
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
-		menu_popup->add_icon_item(p_control->get_theme_icon("REResOther", "EditorIcons"), RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert stream textures to PNG..."), MENU_STEX_TO_PNG);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
+		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 		if (p_menu->get_child_count() >= 2) {
