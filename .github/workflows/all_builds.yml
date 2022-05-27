@@ -60,6 +60,7 @@ jobs:
           - name: "🍎 macOS"
             os: "macos-latest"
             platform: osx
+            sconsflags: use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
             sconsflags-template: optimize=size use_lto=yes use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
             command-export: $GITHUB_WORKSPACE/bin/godot.osx.opt.tools.64
             export-preset: "macOS"
