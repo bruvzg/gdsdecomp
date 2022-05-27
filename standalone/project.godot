@@ -20,6 +20,7 @@ config/features=PackedStringArray("4.0")
 
 [display]
 
+window/subwindows/embed_subwindows=false
 window/size/width=1200
 window/size/height=1024
 
