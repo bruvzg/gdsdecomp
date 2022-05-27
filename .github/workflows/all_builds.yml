@@ -49,7 +49,6 @@ jobs:
             command-postfix: ''
             export-preset: "Windows Desktop"
             export-name: .export\gdre_tools.exe
-            install_vulkan_sdk: false
 
           - name: "🐧 Linux"
             os: "ubuntu-20.04"
@@ -59,7 +58,6 @@ jobs:
             command-postfix: '|| echo OK'
             export-preset: "Linux/X11"
             export-name: .export/gdre_tools.x86_64
-            install_vulkan_sdk: false
 
           - name: "🍎 macOS"
             os: "macos-latest"
@@ -69,7 +67,6 @@ jobs:
             command-postfix: '|| echo OK'
             export-preset: "macOS"
             export-name: .export/gdre_tools.x86_64.zip
-            install_vulkan_sdk: true
 
     steps:
       - name: checkout-godot
@@ -107,13 +104,11 @@ jobs:
 
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
-
+        
       - name: Install swiftshader
         uses: ./.github/actions/install-swiftshader
         with:
           path: ${{ github.workspace }}/bin
-          install_vulkan_sdk: ${{ matrix.install_vulkan_sdk }}
-
 
       - name: Compilation
         uses: ./.github/actions/godot-build
