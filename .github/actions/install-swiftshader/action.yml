@@ -31,11 +31,10 @@ runs:
         hdiutil attach vulkansdk.dmg
         sudo /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }} --accept-licenses --default-answer --confirm-command install
         hdiutil detach /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}
-        echo "VULKAN_SDK_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }} >> $GITHUB_ENV"
-        echo "VULKAN_SDK=$VULKAN_SDK_PATH/macOS >> $GITHUB_ENV"
+        echo "VULKAN_SDK_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}" >> $GITHUB_ENV
+        echo "VULKAN_SDK=$VULKAN_SDK_PATH/macOS" >> $GITHUB_ENV
         echo "DYLD_LIBRARY_PATH=$VULKAN_SDK/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-        echo "PATH=$VULKAN_SDK/bin:$PATH >> $GITHUB_ENV"
-        echo $GITHUB_ENV
+        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
 
     - name: Install Swiftshader
       env:
