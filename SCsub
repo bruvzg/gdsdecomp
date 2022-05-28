@@ -3,13 +3,31 @@
 Import("env")
 Import("env_modules")
 
+from platform_methods import run_in_subprocess
+import gdre_icon_builder
+
 mmp3thirdparty_dir = "#thirdparty/minimp3/"
 liboggthirdparty_dir = "#thirdparty/libogg/"
 
 env_gdsdecomp = env_modules.Clone()
 
 env_gdsdecomp.Append(CPPPATH=["."])
-env_gdsdecomp.Append(CPPPATH=["#thirdparty/nanosvg/"])
+env_gdsdecomp.Append(CPPPATH=["#thirdparty/thorsvg/"])
+
+env_gdsdecomp["BUILDERS"]["MakeGDREIconsBuilder"] = Builder(
+    action=env_gdsdecomp.Run(
+        gdre_icon_builder.make_gdre_icons_action, "Generating default project theme icons header."
+    ),
+    suffix=".h",
+    src_suffix=".svg",
+)
+
+icon_sources = Glob("icons/*.svg")
+
+env_gdsdecomp.Alias(
+    "gdre_icons",
+    [env_gdsdecomp.MakeGDREIconsBuilder("editor/gdre_icons.gen.h", icon_sources)],
+)
 
 if env["builtin_libogg"]:
     env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])

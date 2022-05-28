@@ -1,24 +1,49 @@
-name: Install SwiftShader
-description: Install SwiftShader and set environment to 
+name: Install Vulkan and Swiftshader
+description: Install Vulkan and SwiftShader and set appropriate environment variables
 inputs:
+  install_swiftshader:
+    description: If swiftshader should be installed
+    default: false
   path:
     description: The absolute folder path to extract the SwiftShader shared library to.
     default: '${{ github.workspace }}'
   bits:
     decription: 32 or 64 (only on Windows)
     default: 64
+  install_vulkan_sdk:
+    description: Whether or not the vulkan SDK should also be installed
+    default: false
+  vulkan_sdk_version:
+    description: If installing the SDK, which version to install
+    default: 1.3.204.1
+
   # backend:
   #   description: Vulkan or GLES.
   #   default: "Vulkan"
 runs:
   using: "composite"
   steps:
-    - name: Scons Build
+    - name: Install Vulkan SDK
+      shell: bash
+      if: inputs.install_vulkan_sdk == 'true'
+      run : |
+        wget "https://sdk.lunarg.com/sdk/download/${{ inputs.vulkan_sdk_version }}/mac/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}.dmg?Human=true" -O vulkansdk.dmg
+        hdiutil attach vulkansdk.dmg
+        sudo /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }} --accept-licenses --default-answer --confirm-command install
+        hdiutil detach /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}
+        echo "VULKAN_SDK_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}" >> $GITHUB_ENV
+        echo "VULKAN_SDK=$VULKAN_SDK_PATH/macOS" >> $GITHUB_ENV
+        echo "DYLD_LIBRARY_PATH=$VULKAN_SDK/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "PATH=$VULKAN_SDK/bin:$PATH" >> $GITHUB_ENV
+
+    - name: Install Swiftshader
       env:
         SWIFTSHADER_WINDOWS_URL: https://github.com/nikitalita/swiftshader-dist-win/releases/download/2021-12-09_00-02/swiftshader-2021-12-09_00-02-subzero.7z.zip
         SWIFTSHADER_LINUX_URL: https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader2.zip
         SWIFTSHADER_MACOS_URL: https://github.com/nikitalita/swiftshader-builds/releases/download/1.0.0/swiftshader-vulkan-r6216.7997cbc34b-macos-10.15.zip
+        VULKAN_VERSION: 1.3.204.1
       shell: bash
+      if: inputs.install_swiftshader == 'true'
       run: |
         export SWIFTSHADER_DEST_DIR='${{ inputs.path }}'
         mkdir -p $SWIFTSHADER_DEST_DIR
@@ -39,11 +64,6 @@ runs:
           rm -rf temp-ss-dl/
           sed -i '' "s/..\/..\/..\/lib\/libvk_swiftshader.dylib/.\/libvk_swiftshader.dylib/" "$SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json" 
           echo "VK_ICD_FILENAMES=$SWIFTSHADER_DEST_DIR/vk_swiftshader_icd.json" >> $GITHUB_ENV
-          wget https://sdk.lunarg.com/sdk/download/1.2.189.0/mac/vulkansdk-macos-1.2.189.0.dmg?Human=true -O vulkansdk-macos-1.2.189.0.dmg
-          hdiutil attach vulkansdk-macos-1.2.189.0.dmg
-          sudo /Volumes/vulkansdk-macos-1.2.189.0/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-1.2.189.0 --accept-licenses --default-answer --confirm-command install
-          hdiutil detach /Volumes/vulkansdk-macos-1.2.189.0
-          echo "DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-1.2.189.0/macOS/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
         elif [ "$RUNNER_OS" == "Windows" ]; then
           arch="x64"
           if [ "${{ inputs.bits }}" == "32" ]; then
