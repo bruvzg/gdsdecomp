@@ -53,7 +53,7 @@ jobs:
             os: "ubuntu-20.04"
             platform: linux
             sconsflags-template: optimize=size use_lto=yes 
-            command-export: $GITHUB_WORKSPACE/bin/godot.linuxbsd.opt.tools.64
+            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.linuxbsd.opt.tools.64
             export-preset: "Linux/X11"
             export-name: .export/gdre_tools.x86_64
 
@@ -62,7 +62,7 @@ jobs:
             platform: osx
             sconsflags: use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
             sconsflags-template: optimize=size use_lto=yes use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
-            command-export: $GITHUB_WORKSPACE/bin/godot.osx.opt.tools.64
+            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.osx.opt.tools.64
             export-preset: "macOS"
             export-name: .export/gdre_tools.x86_64.zip
 
