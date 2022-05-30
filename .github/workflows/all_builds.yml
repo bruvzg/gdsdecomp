@@ -161,9 +161,9 @@ jobs:
         run: |
           cd ${{github.workspace}}/modules/gdsdecomp/standalone
           mkdir .export
-          $proc = Start-Process -PassThru -FilePath ${{ matrix.command-export }} -ArgumentList '--headless -e --quit'
+          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless -e --quit'
           Wait-Process -Id $proc.id -Timeout 300
-          $proc = Start-Process -PassThru -FilePath ${{ matrix.command-export }} -ArgumentList '--headless --export "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
+          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export "${{ matrix.export-preset }}" ${{ matrix.export-name }}'"${{ matrix.export-preset }}" ${{ matrix.export-name }}'
           Wait-Process -Id $proc.id -Timeout 300
     
       - uses: actions/upload-artifact@v2
