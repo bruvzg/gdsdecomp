@@ -11,10 +11,26 @@ This module includes following tools:
 - PCK archive explorer / tester / extractor / creator.
 - GDScript batch "compiler" / "decompiler".
 - Resource text <-> binary batch converter.
+- Full project recovery (CLI-only)
+
+Full project recovery performs the following:
+- Decompiles all GDScript scripts
+- Recovers the original project file
+- Converts all resources back to their original import formats
+ - Does not currently support converting models and ADPCM wavs to their original format
+
+This module has support for decompiling Godot 4.x, 3.x, and 2.x projects.
 
 ## Usage
 
-- All module functions are accessible via `RE Tools` menu.
+- To perform full project recovery from the command line:
+```bash
+gdre_tools --extract game.pck --output-dir game-extract/
+```
+
+Use the same Godot tools version that the original game was compiled in to edit the project. In order to detect this, see [To detect Godot version](#to-detect-godot-version)
+
+- All other module functions (excepting for full project recovery) are accessible via `RE Tools` menu.
 - Decompilers additionally available as `GDScriptDecomp_{commit_hash}` GDScript classes.
 
 ```gdscript
@@ -29,7 +45,8 @@ This module includes following tools:
 
 ## Requirements
 
-Godot 3.x (3.x branch) or 4.0 (master branch)
+Godot 4.0 (master branch)
+- Support for building on 3.x has been dropped and no new features are being pushed.
 
 ## GDScript decompiler compatibility
 
