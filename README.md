@@ -45,7 +45,7 @@ Use the same Godot tools version that the original game was compiled in to edit 
 
 ## Requirements
 
-Godot 4.0 (master branch)
+Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/ff75a49227d8d81f99b728fc89b1e4e6e79ed5be
 - Support for building on 3.x has been dropped and no new features are being pushed.
 
 ## GDScript decompiler compatibility
