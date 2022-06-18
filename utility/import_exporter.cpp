@@ -110,6 +110,7 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
+	recreate_plugin_configs(output_dir);
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
@@ -194,6 +195,61 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 		}
 	}
 	print_report();
+	return OK;
+}
+
+Error ImportExporter::recreate_plugin_config(const String &output_dir, const String &plugin_dir) {
+	Error err;
+	Vector<String> wildcards;
+	wildcards.push_back("*.gd");
+	String abs_plugin_path = output_dir.plus_file("addons").plus_file(plugin_dir);
+	auto gd_scripts = gdreutil::get_recursive_dir_list(abs_plugin_path, wildcards, false);
+	String main_script;
+	for (int j = 0; j < gd_scripts.size(); j++) {
+		String gd_script_abs_path = abs_plugin_path.plus_file(gd_scripts[j]);
+		String gd_text = FileAccess::get_file_as_string(gd_script_abs_path, &err);
+		ERR_FAIL_COND_V_MSG(err, err, "failed to open gd_script " + gd_script_abs_path + "!");
+		if (gd_text.find("extends EditorPlugin") != -1) {
+			main_script = gd_scripts[j];
+			break;
+		}
+	}
+	ERR_FAIL_COND_V_MSG(main_script == "", ERR_FILE_NOT_FOUND, "Failed to find main script for plugin " + plugin_dir + "!");
+	String plugin_cfg_text = String("[plugin]\n\n") +
+			"name=\"" + plugin_dir.replace("_", " ").replace(".", " ") + "\"\n" +
+			"description=\"" + plugin_dir.replace("_", " ").replace(".", " ") + " plugin\"\n" +
+			"author=\"Unknown\"\n" +
+			"version=\"1.0\"\n" +
+			"script=\"" + main_script + "\"";
+	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.plus_file("plugin.cfg"), FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
+	f->store_string(plugin_cfg_text);
+	return OK;
+}
+
+// Recreates the "plugin.cfg" files for each plugin to avoid loading errors.
+Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
+	Error err;
+	if (!DirAccess::exists(output_dir.plus_file("addons"))) {
+		return OK;
+	}
+	Vector<String> dirs;
+	Ref<DirAccess> da = DirAccess::open(output_dir.plus_file("addons"), &err);
+	da->list_dir_begin();
+	String f = da->get_next();
+	while (!f.is_empty()) {
+		if (f != "." && f != ".." && da->current_is_dir()) {
+			dirs.append(f);
+		}
+		f = da->get_next();
+	}
+	da->list_dir_end();
+	for (int i = 0; i < dirs.size(); i++) {
+		err = recreate_plugin_config(output_dir, dirs[i]);
+		if (err) {
+			WARN_PRINT("Failed to recreate plugin.cfg for " + dirs[i]);
+		}
+	}
 	return OK;
 }
 
