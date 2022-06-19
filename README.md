@@ -25,7 +25,7 @@ This module has support for decompiling Godot 4.x, 3.x, and 2.x projects.
 
 - To perform full project recovery from the command line:
 ```bash
-gdre_tools --extract=game.pck --output-dir=game-extract/
+gdre_tools --recover=game.pck [--output-dir=game-extract/]
 ```
 
 Use the same Godot tools version that the original game was compiled in to edit the project. In order to detect this, see [To detect Godot version](#to-detect-godot-version)
