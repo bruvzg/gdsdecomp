@@ -122,8 +122,13 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 			Array fmts = v3metadata_prop["imported_formats"];
 			for (int i = 0; i < fmts.size(); i++) {
 				String f_fmt = fmts[i];
+
 				if (remap_keys.find("path." + f_fmt)) {
 					import_path = cf->get_value("remap", "path." + f_fmt, "");
+					// Make sure the res exists first
+					if (!GDRESettings::get_singleton()->has_res_path(import_path)) {
+						continue;
+					}
 					// if it's a texture that's vram compressed, there's a chance that it may have a ghost texture file
 					if (v3metadata_prop.get("vram_texture", false)) {
 						lossy_texture = true;
