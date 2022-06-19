@@ -23,7 +23,8 @@ on:
 # SCONS_CACHE for windows must be set in the build environment
 env:
   GODOT_BASE_BRANCH: master
-  GODOT_MAIN_SYNC_REF: ff75a49227d8d81f99b728fc89b1e4e6e79ed5be
+  # Change the README too
+  GODOT_MAIN_SYNC_REF: 4366f8bcd455714a5cd29374726d83b674ff0430
   SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes debug_symbols=no
   SCONSFLAGS_TEMPLATE: no_editor_splash=yes module_bmp_enabled=no module_camera_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_noise_enabled=no module_websocket_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libogg=yes module_csg_enabled=yes module_gridmap_enabled=yes disable_3d=no
   SCONS_CACHE_MSVC_CONFIG: true
