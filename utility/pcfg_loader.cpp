@@ -12,14 +12,19 @@
 
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	cfb_path = path;
-	Error err;
+	Error err = OK;
 	Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Could not open " + path);
 	err = _load_settings_binary(f, path, ver_major);
-	return err;
+	ERR_FAIL_COND_V(err, err);
+	loaded = true;
+	return OK;
 }
 
 Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor) {
+	if (cfb_path.is_empty()) {
+		return ERR_UNAVAILABLE;
+	}
 	String file;
 	if (ver_major > 2) {
 		file = "project.godot";
@@ -28,6 +33,13 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 	}
 
 	return save_custom(dir.plus_file(file), ver_major, ver_minor);
+}
+
+Variant ProjectConfigLoader::get_setting(String p_var, Variant default_value) const {
+	if (props.has(p_var)) {
+		return props[p_var].variant;
+	}
+	return default_value;
 }
 
 Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {

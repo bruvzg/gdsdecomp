@@ -410,6 +410,10 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	}
 }
 
+String GDRESettings::get_log_file_path() {
+	return logger->get_path();
+}
+
 Error GDRESettings::open_log_file(const String &output_dir) {
 	String logfile = output_dir.plus_file("gdre_export.log");
 	Error err = logger->open_file(logfile);
@@ -423,17 +427,18 @@ Error GDRESettings::close_log_file() {
 	return OK;
 }
 
-Error GDRELogger::open_file(const String &base_path) {
+Error GDRELogger::open_file(const String &p_base_path) {
 	if (file.is_valid()) {
 		return ERR_ALREADY_IN_USE;
 	}
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_USERDATA);
 	if (da.is_valid()) {
-		da->make_dir_recursive(base_path.get_base_dir());
+		da->make_dir_recursive(p_base_path.get_base_dir());
 	}
 	Error err;
-	file = FileAccess::open(base_path, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V_MSG(file.is_null(), err, "Failed to open log file " + base_path + " for writing.");
+	file = FileAccess::open(p_base_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(file.is_null(), err, "Failed to open log file " + p_base_path + " for writing.");
+	base_path = p_base_path;
 	return OK;
 }
 
@@ -441,6 +446,7 @@ void GDRELogger::close_file() {
 	if (file.is_valid()) {
 		file->flush();
 		file = Ref<FileAccess>();
+		base_path = "";
 	}
 }
 

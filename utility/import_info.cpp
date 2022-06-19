@@ -220,6 +220,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 
 	//This is a converted file
 	if (p_path.get_file().find(".converted.") != -1) {
+		auto_converted_export = true;
 		// if this doesn't match "filename.ext.converted.newext"
 		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
 		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);

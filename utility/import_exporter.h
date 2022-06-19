@@ -8,11 +8,13 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/rb_map.h"
 #include "import_info.h"
+#include "pcfg_loader.h"
 #include "resource_import_metadatav2.h"
-
 class ImportExporter : public RefCounted {
 	GDCLASS(ImportExporter, RefCounted)
 	Array files;
+	Ref<ProjectConfigLoader> pcfg_loader;
+	Vector<String> code_files;
 	String project_dir;
 	bool opt_bin2text = true;
 	bool opt_export_textures = true;
@@ -49,6 +51,8 @@ class ImportExporter : public RefCounted {
 
 	static Error ensure_dir(const String &dst_dir);
 	static bool check_if_dir_is_v2(const String &dir);
+	static bool check_if_dir_is_v3(const String &dir);
+	static bool check_if_dir_is_v4(const String &dir);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
 
@@ -64,7 +68,9 @@ public:
 	Error convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
+	Error decompile_scripts(const String &output_dir);
 	Error load_import_files(const String &dir, const uint32_t ver_major, const uint32_t p_ver_minor);
+
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
 	Error export_imports(const String &output_dir = "");
