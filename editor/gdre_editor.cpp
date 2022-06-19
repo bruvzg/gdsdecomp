@@ -1544,9 +1544,10 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 	da->list_dir_begin();
 	String f = da->get_next();
 	while (!f.is_empty()) {
-		if (f == "." || f == "..")
+		if (f == "." || f == "..") {
 			f = da->get_next();
-		continue;
+			continue;
+		}
 		if (p_pr->step(p_rel.plus_file(f), 0, true)) {
 			p_cancel = true;
 			return offset;
