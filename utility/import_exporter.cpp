@@ -24,6 +24,27 @@
 Array ImportExporter::get_import_files() {
 	return files;
 }
+bool ImportExporter::check_if_dir_is_v4(const String &dir) {
+	Vector<String> wildcards;
+	// these are files that will only show up in version 4
+	wildcards.push_back("*.ctex");
+	if (gdreutil::get_recursive_dir_list(dir, wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool ImportExporter::check_if_dir_is_v3(const String &dir) {
+	Vector<String> wildcards;
+	// these are files that will only show up in version 3
+	wildcards.push_back("*.stex");
+	if (gdreutil::get_recursive_dir_list(dir, wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 bool ImportExporter::check_if_dir_is_v2(const String &dir) {
 	Vector<String> wildcards;
@@ -54,11 +75,10 @@ Vector<String> ImportExporter::get_v2_wildcards() {
 	wildcards.push_back("*.xl");
 	wildcards.push_back("*.cbm");
 	wildcards.push_back("*.pbm");
-	wildcards.push_back("*engine.cfb");
+	wildcards.push_back("*.gdc");
 
 	return wildcards;
 }
-
 Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_major, const uint32_t p_ver_minor = 0) {
 	project_dir = dir;
 	Vector<String> file_names;
@@ -67,9 +87,38 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	if (dir != "" && !dir.begins_with("res://")) {
 		GDRESettings::get_singleton()->set_project_path(dir);
 	}
+	String bin_proj_file;
+	bool ver_major_not_input = false;
 
+	//TODO: Get version number from AndroidManifest.xml if this is an APK
 	if (ver_major == 0) {
-		ver_major = check_if_dir_is_v2(dir) ? 2 : 3; // we just assume 3 for now
+		ver_major = check_if_dir_is_v2(dir) ? 2 : 0;
+		if (ver_major == 0) {
+			ver_major = check_if_dir_is_v3(dir) ? 3 : 0;
+		}
+		if (ver_major == 0) {
+			ver_major = check_if_dir_is_v4(dir) ? 4 : 0;
+		}
+		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_FILE_UNRECOGNIZED, "Can't determine project version, cannot load");
+		//for the sake of decompiling scripts
+		if (ver_major == 2) {
+			ver_minor = 1;
+		} else if (ver_major == 3) {
+			ver_minor = 3;
+		}
+	}
+
+	if (!FileAccess::exists(project_dir.plus_file("project.godot")) && !FileAccess::exists(project_dir.plus_file("engine.cfg"))) {
+		pcfg_loader.instantiate();
+		if (FileAccess::exists(project_dir.plus_file("project.binary"))) {
+			bin_proj_file = project_dir.plus_file("project.binary");
+		} else if (FileAccess::exists(project_dir.plus_file("engine.cfb"))) {
+			bin_proj_file = project_dir.plus_file("engine.cfb");
+		}
+		// We fail hard here because we may have guessed the version wrong
+		ERR_FAIL_COND_V_MSG(bin_proj_file.is_empty(), ERR_CANT_OPEN, "Could not load project file");
+		Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
+		ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
 	}
 
 	if (ver_major <= 2) {
@@ -81,7 +130,8 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	} else {
 		Vector<String> wildcards;
 		wildcards.push_back("*.import");
-		wildcards.push_back("*project.binary");
+		wildcards.push_back("*.gdc");
+
 		if ((dir == "" || dir.begins_with("res://")) && GDRESettings::get_singleton()->is_pack_loaded()) {
 			file_names = GDRESettings::get_singleton()->get_file_list(wildcards);
 		} else {
@@ -90,17 +140,9 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	}
 
 	for (int i = 0; i < file_names.size(); i++) {
-		if (file_names[i] == "project.binary" || file_names[i] == "engine.cfb") {
-			// we wont replace it if it already exists
-			if (FileAccess::exists("project.godot") || FileAccess::exists("engine.cfg")) {
-				continue;
-			}
-			Ref<ProjectConfigLoader> pcfg_loader;
-			pcfg_loader.instantiate();
-			pcfg_loader->load_cfb(file_names[i], ver_major, ver_minor);
-			pcfg_loader->save_cfb(dir, ver_major, ver_minor);
-		}
-		if (load_import_file(file_names[i]) != OK) {
+		if (file_names[i].get_extension() == "gdc") {
+			code_files.push_back(file_names[i]);
+		} else if (load_import_file(file_names[i]) != OK) {
 			WARN_PRINT("Can't load import file: " + file_names[i]);
 		}
 	}
@@ -123,6 +165,11 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
 	recreate_plugin_configs(output_dir);
+
+	if (pcfg_loader.is_valid() && pcfg_loader->is_loaded()) {
+		pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
+	}
+	Ref<DirAccess> dir = DirAccess::open(output_dir);
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
@@ -181,6 +228,9 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->source_file);
+			if (ver_major == 2 && !err && iinfo->is_auto_converted()) {
+				dir->remove(iinfo->import_path.replace("res://", ""));
+			}
 		} else {
 			WARN_PRINT_ONCE("Conversion for " + type + " not implemented");
 			print_line("Did not convert " + type + " resource " + path);
@@ -209,6 +259,82 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 		}
 	}
 	print_report();
+	return OK;
+}
+
+Error ImportExporter::decompile_scripts(const String &p_out_dir) {
+	GDScriptDecomp *decomp;
+	// TODO: instead of doing this, run the detect bytecode script
+	switch (ver_major) {
+		case 1:
+			switch (ver_minor) {
+				case 0:
+					decomp = memnew(GDScriptDecomp_e82dc40);
+					break;
+				case 1:
+					decomp = memnew(GDScriptDecomp_e82dc40);
+					break;
+			}
+			break;
+		case 2:
+			switch (ver_minor) {
+				case 0:
+					decomp = memnew(GDScriptDecomp_23441ec);
+					break;
+				case 1:
+					decomp = memnew(GDScriptDecomp_ed80f45);
+					break;
+			}
+			break;
+		case 3:
+			switch (ver_minor) {
+				case 0:
+					decomp = memnew(GDScriptDecomp_054a2ac);
+					break;
+				case 1:
+					decomp = memnew(GDScriptDecomp_514a3fb);
+					break;
+				case 2:
+					decomp = memnew(GDScriptDecomp_5565f55);
+					break;
+				case 3:
+				case 4:
+				case 5:
+					decomp = memnew(GDScriptDecomp_5565f55);
+					break;
+			}
+			break;
+		case 4:
+			decomp = memnew(GDScriptDecomp_5565f55);
+			break;
+		default:
+			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
+	}
+	print_line("Script version " + itos(ver_major) + "." + itos(ver_minor) + ".x detected");
+
+	for (String f : code_files) {
+		Ref<DirAccess> da = DirAccess::open(p_out_dir);
+		print_line("decompiling " + f);
+		Error err = decomp->decompile_byte_code(project_dir.plus_file(f));
+		if (err) {
+			memdelete(decomp);
+			ERR_FAIL_V_MSG(err, "error decompiling " + f);
+		} else {
+			String text = decomp->get_script_text();
+			Ref<FileAccess> fa = FileAccess::open(p_out_dir.plus_file(f.replace(".gdc", ".gd")), FileAccess::WRITE);
+			if (fa.is_null()) {
+				memdelete(decomp);
+				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
+			}
+			fa->store_string(text);
+			da->remove(f);
+			if (da->file_exists(f.replace(".gdc", ".gd.remap"))) {
+				da->remove(f.replace(".gdc", ".gd.remap"));
+			}
+			print_line("successfully decompiled " + f);
+		}
+	}
+	memdelete(decomp);
 	return OK;
 }
 
@@ -589,7 +715,7 @@ void ImportExporter::print_report() {
 		print_line("Lossy not converted: 	" + itos(lossy_imports.size()));
 	}
 	print_line("Rewrote metadata: " + itos(rewrote_metadata.size()));
-	print_line("Require rewritten metadata but weren't: " + itos(failed_rewrite_md.size()));
+	print_line("Failed to rewrite metadata: " + itos(failed_rewrite_md.size()));
 	print_line("Not converted: " + itos(not_converted.size()));
 	print_line("Failed conversions: " + itos(failed.size()));
 	print_line("-------------\n");
@@ -637,6 +763,7 @@ void ImportExporter::print_report() {
 }
 
 void ImportExporter::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("decompile_scripts"), &ImportExporter::decompile_scripts);
 	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
 	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
 	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports);

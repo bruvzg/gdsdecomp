@@ -39,11 +39,11 @@ public:
 };
 
 class GDRELogger : public Logger {
+	Ref<FileAccess> file;
 	String base_path;
 
-	Ref<FileAccess> file;
-
 public:
+	String get_path() { return base_path; };
 	GDRELogger();
 	Error open_file(const String &p_base_path);
 	void close_file();
@@ -134,6 +134,8 @@ public:
 	String get_res_path(const String &p_path, const String &resource_dir = "");
 	bool has_res_path(const String &p_path, const String &resource_dir = "");
 	Error open_log_file(const String &output_dir);
+	String get_log_file_path();
+
 	bool is_fs_path(const String &p_path);
 	Error close_log_file();
 	String get_cwd() { return GDRESettings::_get_cwd(); };
