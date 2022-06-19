@@ -70,7 +70,15 @@ Version strings have following formats:
 Copy executable to the `helpers` folder.
 Run `./{executable_name} -s detect_bytecode_ver.gd --path .`.
 
-## Downloading and compiling
+## Usage
+
+This software can be used either as a standalone executable or as a Godot module.
+
+### Usage as a standalone executable
+
+Go the the [releases](https://github.com/bruvzg/gdsdecomp/releases) and download the latest `zip` file for your operating system from the assets.
+
+### Usage as a Godot module
 
 Clone this repository into Godot's `modules` subfolder as `gdsdecomp`.
 Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/development/compiling/index.html.
