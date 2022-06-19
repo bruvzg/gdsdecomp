@@ -54,6 +54,7 @@ Vector<String> ImportExporter::get_v2_wildcards() {
 	wildcards.push_back("*.xl");
 	wildcards.push_back("*.cbm");
 	wildcards.push_back("*.pbm");
+	wildcards.push_back("*engine.cfb");
 
 	return wildcards;
 }
@@ -80,6 +81,7 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	} else {
 		Vector<String> wildcards;
 		wildcards.push_back("*.import");
+		wildcards.push_back("*project.binary");
 		if ((dir == "" || dir.begins_with("res://")) && GDRESettings::get_singleton()->is_pack_loaded()) {
 			file_names = GDRESettings::get_singleton()->get_file_list(wildcards);
 		} else {
@@ -88,6 +90,16 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	}
 
 	for (int i = 0; i < file_names.size(); i++) {
+		if (file_names[i] == "project.binary" || file_names[i] == "engine.cfb") {
+			// we wont replace it if it already exists
+			if (FileAccess::exists("project.godot") || FileAccess::exists("engine.cfg")) {
+				continue;
+			}
+			Ref<ProjectConfigLoader> pcfg_loader;
+			pcfg_loader.instantiate();
+			pcfg_loader->load_cfb(file_names[i], ver_major, ver_minor);
+			pcfg_loader->save_cfb(dir, ver_major, ver_minor);
+		}
 		if (load_import_file(file_names[i]) != OK) {
 			WARN_PRINT("Can't load import file: " + file_names[i]);
 		}
