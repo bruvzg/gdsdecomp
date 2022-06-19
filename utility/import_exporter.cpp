@@ -197,8 +197,10 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 			failed_rewrite_md.push_back(iinfo);
 		} else if (err == ERR_UNAVAILABLE) {
 			not_converted.push_back(iinfo);
+			print_line("Did not convert " + type + " resource " + path);
 		} else if (err != OK) {
 			failed.push_back(iinfo);
+			print_line("Failed to convert " + type + " resource " + path);
 		} else {
 			if (loss_type != ImportInfo::LOSSLESS) {
 				lossy_imports.push_back(iinfo);
@@ -475,6 +477,11 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	}
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
+	if (img->is_compressed()) {
+		err = img->decompress();
+		ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, err, "Decompression not implemented yet for texture " + p_path);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress texture " + p_path);
+	}
 	if (dest_path.get_extension() == "jpg" || dest_path.get_extension() == "jpeg") {
 		err = gdreutil::save_image_as_jpeg(dest_path, img);
 	} else if (dest_path.get_extension() == "webp") {
@@ -484,7 +491,8 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	} else {
 		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path);
+
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
 
 	print_line("Converted " + p_path + " to " + p_dst);
 	return OK;
