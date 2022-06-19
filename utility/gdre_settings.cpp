@@ -44,6 +44,9 @@ String GDRESettings::_get_cwd() {
 }
 
 GDRESettings *GDRESettings::singleton = nullptr;
+
+// We have to set this in the singleton here, since after Godot is done initializing,
+// it will change the CWD to the executable dir
 String GDRESettings::exec_dir = GDRESettings::_get_cwd();
 
 GDRESettings::GDRESettings() {
