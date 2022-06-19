@@ -177,10 +177,10 @@ func print_usage():
 	print("Without any CLI options, the tool will start in GUI mode")
 	print("\nGeneral options:")
 	print("  -h, --help: Display this help message")
-	print("\nExport to Project options:")
-	print("Usage: GDRE_Tools.exe --no-window --extract=<PAK_OR_EXE> --output-dir=<DIR> [options]")
+	print("\nFull Project Recovery options:")
+	print("Usage: GDRE_Tools.exe --headless --recover=<PAK_OR_EXE_OR_EXTRACTED_ASSETS_DIR> --output-dir=<DIR> [options]")
 	print("")
-	print("--extract=<PAK_OR_EXE>\t\tThe Pak or EXE to extract")
+	print("--recover=<PAK_OR_EXE_OR_EXTRACTED_ASSETS_DIR>\t\tThe Pak, EXE, or extracted project directory to perform full project recovery on")
 	print("--output-dir=<DIR>\t\tOutput directory")
 	print("\nOptions:\n")
 	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted (hex string)")
@@ -197,29 +197,44 @@ func handle_cli():
 		if arg == "--help":
 			print_usage()
 			get_tree().quit()
-		if arg.begins_with("--extract"):
+		if arg.begins_with("--recover"):
 			exe_file = normalize_path(get_arg_value(arg))
 		elif arg.begins_with("--output-dir"):
 			output_dir = normalize_path(get_arg_value(arg))
 		elif arg.begins_with("--key"):
 			enc_key = get_arg_value(arg)
 	if exe_file != "":
+		var main = GDRECLIMain.new()
+		var da:Directory = Directory.new()				
+		exe_file = main.get_cli_abs_path(exe_file)
+		print(exe_file)
 		if output_dir == "":
-			print("Error: use --output-dir=<dir> when using --extract")
-			print("")
-			print_usage()
+			output_dir = exe_file.get_basename() + "_recovery"
 		else:
-			var main = GDRECLIMain.new()
-			exe_file = main.get_cli_abs_path(exe_file)
 			output_dir = main.get_cli_abs_path(output_dir)
-			main.open_log(output_dir)
-			#debugging
-			#print_import_info(output_dir)
-			#print_import_info_from_pak(exe_file)
+		main.open_log(output_dir)
+		#debugging
+		#print_import_info(output_dir)
+		#print_import_info_from_pak(exe_file)
+		#actually an directory, just run export_imports
+		if da.dir_exists(exe_file):
+			if !da.dir_exists(exe_file.plus_file(".import")):
+				print("Error: This does not appear to be a project directory")
+			else:
+				export_imports(exe_file)
+		elif da.file_exists(exe_file):
 			var err = dump_files(exe_file, output_dir, enc_key)
 			if (err == OK):
 				export_imports(output_dir)
 			else:
 				print("Error: failed to extract PAK file, not exporting assets")
-			main.close_log()
+		else:
+			print("Error: failed to load " + exe_file)
+
+		main.close_log()
+		get_tree().quit()
+	else:
+		print("ERROR: invalid option")
+
+		print_usage()
 		get_tree().quit()
