@@ -166,5 +166,6 @@ void PckDumper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_loaded_files"), &PckDumper::get_loaded_files);
 	ClassDB::bind_method(D_METHOD("get_engine_version"), &PckDumper::get_engine_version);
 	ClassDB::bind_method(D_METHOD("clear_data"), &PckDumper::clear_data);
+	ClassDB::bind_method(D_METHOD("set_key"), &PckDumper::set_key);
 	//ClassDB::bind_method(D_METHOD("get_dumped_files"), &PckDumper::get_dumped_files);
 }
