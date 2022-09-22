@@ -3,12 +3,12 @@
 /*************************************************************************/
 
 #include "bytecode_base.h"
-
 #include "core/config/engine.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/image.h"
 #include "core/io/marshalls.h"
+#include "utility/file_access_encrypted_v3.h"
 
 #include <limits.h>
 
@@ -69,25 +69,41 @@ void GDScriptDecomp::_ensure_space(String &p_code) {
 	}
 }
 
-Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
+Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key, bool is_version_3) {
 	Vector<uint8_t> bytecode;
 
 	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V(fa.is_null(), ERR_FILE_CANT_OPEN);
 
-	Ref<FileAccessEncrypted> fae;
-	fae.instantiate();
-	ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
+	// Godot v3 only encrypted the scripts and used a different format with different header fields,
+	// So we need to use an older version of FAE to access them
+	if (is_version_3) {
+		Ref<FileAccessEncryptedv3> fae;
+		fae.instantiate();
+		ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
 
-	Error err = fae->open_and_parse(fa, p_key, FileAccessEncrypted::MODE_READ);
+		Error err = fae->open_and_parse(fa, p_key, FileAccessEncryptedv3::MODE_READ);
 
-	if (err) {
-		ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
+		if (err) {
+			ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
+		}
+
+		bytecode.resize(fae->get_length());
+		fae->get_buffer(bytecode.ptrw(), bytecode.size());
+	} else {
+		Ref<FileAccessEncrypted> fae;
+		fae.instantiate();
+		ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
+
+		Error err = fae->open_and_parse(fa, p_key, FileAccessEncrypted::MODE_READ);
+
+		if (err) {
+			ERR_FAIL_COND_V(err, ERR_FILE_CORRUPT);
+		}
+
+		bytecode.resize(fae->get_length());
+		fae->get_buffer(bytecode.ptrw(), bytecode.size());
 	}
-
-	bytecode.resize(fae->get_length());
-	fae->get_buffer(bytecode.ptrw(), bytecode.size());
-
 	error_message = RTR("No error");
 
 	return decompile_buffer(bytecode);
