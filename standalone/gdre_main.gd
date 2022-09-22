@@ -25,8 +25,11 @@ func get_arg_value(arg):
 		get_tree().quit()
 	return split_args[1]
 
-func export_imports(output_dir:String):
+func export_imports(output_dir:String, enc_key:String):
 	var importer:ImportExporter = ImportExporter.new()
+	if enc_key:
+		main.set_key(enc_key)
+	
 	importer.load_import_files(output_dir, ver_major, ver_minor)
 	importer.decompile_scripts(output_dir)
 	var arr = importer.get_import_files()
@@ -161,12 +164,12 @@ func recovery(input_file:String, output_dir:String, enc_key:String):
 					print("Error: failed to copy " + input_file + " to " + output_dir)
 					return
 			main.open_log(output_dir)
-			export_imports(output_dir)
+			export_imports(output_dir, enc_key)
 	elif da.file_exists(input_file):
 		main.open_log(output_dir)
 		var err = dump_files(input_file, output_dir, enc_key)
 		if (err == OK):
-			export_imports(output_dir)
+			export_imports(output_dir, enc_key)
 		else:
 			print("Error: failed to extract PAK file, not exporting assets")
 	else:

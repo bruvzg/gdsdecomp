@@ -131,6 +131,7 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 		Vector<String> wildcards;
 		wildcards.push_back("*.import");
 		wildcards.push_back("*.gdc");
+		wildcards.push_back("*.gde");
 
 		if ((dir == "" || dir.begins_with("res://")) && GDRESettings::get_singleton()->is_pack_loaded()) {
 			file_names = GDRESettings::get_singleton()->get_file_list(wildcards);
@@ -140,7 +141,7 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 	}
 
 	for (int i = 0; i < file_names.size(); i++) {
-		if (file_names[i].get_extension() == "gdc") {
+		if (file_names[i].get_extension() == "gdc" || file_names[i].get_extension() == "gde") {
 			code_files.push_back(file_names[i]);
 		} else if (load_import_file(file_names[i]) != OK) {
 			WARN_PRINT("Can't load import file: " + file_names[i]);
@@ -315,7 +316,12 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	for (String f : code_files) {
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
 		print_line("decompiling " + f);
-		Error err = decomp->decompile_byte_code(project_dir.plus_file(f));
+		Error err;
+		if (f.get_extension() == "gde") {
+			err = decomp->decompile_byte_code_encrypted(project_dir.plus_file(f), GDRESettings::get_singleton()->get_encryption_key());
+		} else {
+			err = decomp->decompile_byte_code(project_dir.plus_file(f));
+		}
 		if (err) {
 			memdelete(decomp);
 			ERR_FAIL_V_MSG(err, "error decompiling " + f);

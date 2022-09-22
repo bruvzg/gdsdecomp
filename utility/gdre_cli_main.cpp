@@ -1,4 +1,4 @@
-#include "utility/gdre_cli_main.h"
+#include "gdre_cli_main.h"
 
 Error GDRECLIMain::open_log(const String &path) {
 	return GDRESettings::get_singleton()->open_log_file(path);
@@ -28,8 +28,13 @@ Error GDRECLIMain::copy_dir(const String &src_path, const String dst_path) {
 	Error err = f->copy_dir(src_path, dst_path);
 	return err;
 }
+Error GDRECLIMain::set_key(const String &key) {
+	GDRESettings::get_singleton()->set_encryption_key(key);
+	return OK;
+}
 
 void GDRECLIMain::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("set_key"), &GDRECLIMain::set_key);
 	ClassDB::bind_method(D_METHOD("copy_dir"), &GDRECLIMain::copy_dir);
 	ClassDB::bind_method(D_METHOD("open_log"), &GDRECLIMain::open_log);
 	ClassDB::bind_method(D_METHOD("close_log"), &GDRECLIMain::close_log);
