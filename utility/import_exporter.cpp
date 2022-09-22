@@ -318,7 +318,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		print_line("decompiling " + f);
 		Error err;
 		if (f.get_extension() == "gde") {
-			err = decomp->decompile_byte_code_encrypted(project_dir.plus_file(f), GDRESettings::get_singleton()->get_encryption_key());
+			err = decomp->decompile_byte_code_encrypted(project_dir.plus_file(f), GDRESettings::get_singleton()->get_encryption_key(), ver_major == 3);
 		} else {
 			err = decomp->decompile_byte_code(project_dir.plus_file(f));
 		}
@@ -327,7 +327,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			ERR_FAIL_V_MSG(err, "error decompiling " + f);
 		} else {
 			String text = decomp->get_script_text();
-			Ref<FileAccess> fa = FileAccess::open(p_out_dir.plus_file(f.replace(".gdc", ".gd")), FileAccess::WRITE);
+			Ref<FileAccess> fa = FileAccess::open(p_out_dir.plus_file(f.replace(".gdc", ".gd").replace(".gde", ".gd")), FileAccess::WRITE);
 			if (fa.is_null()) {
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
