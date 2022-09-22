@@ -13,6 +13,8 @@ protected:
 	static void _bind_methods();
 
 public:
+	Error set_key(const String &key);
+
 	Error open_log(const String &path);
 	Error close_log();
 	String get_cli_abs_path(const String &path);
