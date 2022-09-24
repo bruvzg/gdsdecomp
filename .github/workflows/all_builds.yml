@@ -24,7 +24,7 @@ on:
 env:
   GODOT_BASE_BRANCH: master
   # Change the README too
-  GODOT_MAIN_SYNC_REF: 4366f8bcd455714a5cd29374726d83b674ff0430
+  GODOT_MAIN_SYNC_REF: f74491fdee9bc2d68668137fbacd8f3a7e7e8df7
   SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes debug_symbols=no
   SCONSFLAGS_TEMPLATE: no_editor_splash=yes module_bmp_enabled=no module_camera_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_noise_enabled=no module_websocket_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libogg=yes module_csg_enabled=yes module_gridmap_enabled=yes disable_3d=no
   SCONS_CACHE_MSVC_CONFIG: true
@@ -46,7 +46,7 @@ jobs:
             os: "windows-latest"
             platform: windows
             sconsflags-template: ""
-            command-export: ${env:GITHUB_WORKSPACE}\bin\godot.windows.opt.tools.64.exe
+            command-export: ${env:GITHUB_WORKSPACE}\bin\godot.windows.opt.tools.x86_64.exe
             export-preset: "Windows Desktop"
             export-name: .export\gdre_tools.exe
 
@@ -54,18 +54,19 @@ jobs:
             os: "ubuntu-20.04"
             platform: linux
             sconsflags-template: optimize=size use_lto=yes 
-            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.linuxbsd.opt.tools.64
+            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.linuxbsd.opt.tools.x86_64
             export-preset: "Linux/X11"
             export-name: .export/gdre_tools.x86_64
 
           - name: "🍎 macOS"
             os: "macos-latest"
-            platform: osx
-            sconsflags: use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
-            sconsflags-template: optimize=size use_lto=yes use_volk=no VULKAN_SDK_PATH=$VULKAN_SDK_PATH
-            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.osx.opt.tools.64
+            platform: macos
+            sconsflags: use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
+            sconsflags-template: optimize=size use_lto=yes use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
+            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.macos.opt.tools.x86_64
             export-preset: "macOS"
             export-name: .export/gdre_tools.x86_64.zip
+            template_bin: godot.macos.opt.x86_64
 
     steps:
       - name: checkout-godot
@@ -106,7 +107,7 @@ jobs:
         
       - name: Install Vulkan SDK
         uses: ./.github/actions/install-swiftshader
-        if: matrix.platform == 'osx'
+        if: matrix.platform == 'macos'
         with:
           install_vulkan_sdk: true
           install_swiftshader: false
@@ -147,13 +148,13 @@ jobs:
         uses: ./.github/actions/godot-prepare-artifact
 
       - name: Make macOS template
-        if: matrix.platform == 'osx'
+        if: matrix.platform == 'macos'
         run: |
-          mkdir -p "bin/osx_template.app/Contents/MacOS"
-          cp "bin/godot.osx.opt.debug.64" "bin/osx_template.app/Contents/MacOS/godot_osx_debug.64"
-          cp "bin/godot.osx.opt.debug.64" "bin/osx_template.app/Contents/MacOS/godot_osx_release.64"
+          mkdir -p "bin/macos_template.app/Contents/MacOS"
+          cp "${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.x86_64"
+          cp "${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_release.x86_64"
           cd bin/
-          zip -r9 "osx.zip" "osx_template.app/"
+          zip -r9 "macos.zip" "macos_template.app/"
           cd ..
 
       - name: Download rcedit.exe
