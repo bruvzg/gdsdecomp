@@ -14,7 +14,6 @@
 
 #include "core/io/file_access_encrypted.h"
 #include "core/io/resource_format_binary.h"
-#include "editor/editor_settings.h"
 #include "modules/svg/image_loader_svg.h"
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/main/canvas_item.h"
@@ -35,6 +34,10 @@
 
 #include "core/crypto/crypto_core.h"
 
+/*************************************************************************/
+#ifdef TOOLS_ENABLED
+#include "editor/editor_settings.h"
+#endif
 /*************************************************************************/
 
 #ifndef TOOLS_ENABLED
@@ -87,7 +90,7 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 	} else {
 		cancel_hb->hide();
 	}
-	cancel_hb->raise();
+	cancel_hb->move_to_front();
 	cancelled = false;
 	_popup();
 	if (p_can_cancel) {
@@ -143,7 +146,7 @@ void ProgressDialog::_bind_methods() {
 ProgressDialog::ProgressDialog() {
 	main = memnew(VBoxContainer);
 	add_child(main);
-	main->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	main->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	set_exclusive(true);
 	last_progress_tick = 0;
 	singleton = this;
