@@ -57,7 +57,7 @@ Error PckDumper::pck_dump_to_dir(const String &dir) {
 			failed_files += files.get(i)->get_path() + " (FileAccess error)\n";
 			continue;
 		}
-		String target_name = dir.plus_file(files.get(i)->get_path().replace("res://", ""));
+		String target_name = dir.path_join(files.get(i)->get_path().replace("res://", ""));
 		da->make_dir_recursive(target_name.get_base_dir());
 		Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (fa.is_null()) {

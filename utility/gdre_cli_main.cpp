@@ -20,7 +20,7 @@ String GDRECLIMain::get_cli_abs_path(const String &path) {
 		return path;
 	}
 	String exec_path = GDRESettings::get_singleton()->get_exec_dir();
-	return exec_path.plus_file(path).replace("\\", "/");
+	return exec_path.path_join(path).replace("\\", "/");
 }
 Error GDRECLIMain::copy_dir(const String &src_path, const String dst_path) {
 	Ref<DirAccess> f = DirAccess::open(src_path);

@@ -44,13 +44,13 @@ func test_decomp(fname):
 	if f.get_extension() == "gdc":
 		print("decompiling " + f)
 		#
-		#if decomp.decompile_byte_code(output_dir.plus_file(f)) != OK: 
+		#if decomp.decompile_byte_code(output_dir.path_join(f)) != OK: 
 		if decomp.decompile_byte_code(f) != OK: 
 			print("error decompiling " + f)
 		else:
 			var text = decomp.get_script_text()
-			var gdfile:File = File.new()
-			if gdfile.open(f.replace(".gdc",".gd"), File.WRITE) == OK:
+			var gdfile:FileAccess = FileAccess.open(f.replace(".gdc",".gd"), FileAccess.WRITE)
+			if gdfile == null:
 				gdfile.store_string(text)
 				gdfile.close()
 				#da.remove(f)
@@ -141,7 +141,7 @@ func print_usage():
 
 	#print("View Godot assets, extract Godot PAK files, and export Godot projects")
 func recovery(input_file:String, output_dir:String, enc_key:String):
-	var da:Directory = Directory.new()
+	var da:DirAccess
 	input_file = main.get_cli_abs_path(input_file)
 	print(input_file)
 	if output_dir == "":
@@ -150,13 +150,14 @@ func recovery(input_file:String, output_dir:String, enc_key:String):
 			output_dir += "_recovery"
 	else:
 		output_dir = main.get_cli_abs_path(output_dir)
-	#debugging
+	# debugging
 	#print_import_info(output_dir)
 	#print_import_info_from_pak(input_file)
 	#actually an directory, just run export_imports
+	da = DirAccess.open(input_file.get_base_dir())
 	if da.dir_exists(input_file):
 		
-		if !da.dir_exists(input_file.plus_file(".import")):
+		if !da.dir_exists(input_file.path_join(".import")):
 			print("Error: This does not appear to be a project directory")
 		else:
 			if output_dir != input_file:

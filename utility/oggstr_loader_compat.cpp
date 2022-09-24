@@ -35,7 +35,7 @@ Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path,
 	Vector<uint8_t> data;
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.", loader);
 	if (loader->engine_ver_major == 4) {
-		Ref<AudioStreamOGGVorbis> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+		Ref<AudioStreamOggVorbis> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
 		if (r_err) {
 			*r_err = err;
 		}

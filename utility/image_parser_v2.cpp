@@ -1,7 +1,7 @@
 
 #include "image_parser_v2.h"
 #include "core/io/image.h"
-
+#include "webp_compat.h"
 namespace V2Image {
 enum Type {
 	IMAGE_ENCODING_EMPTY = 0,
@@ -148,10 +148,15 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
+		// We do not want to resave the image as lossy because of:
+		// 1) We lose fidelity from the original asset if we do
+		// 2) V4 encoding is incompatible with V2 and V3
+		else if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSY && Image::png_packer) {
+			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
+		}
 	}
 
 	f->store_32(encoding); //raw encoding
-
 	if (encoding == V2Image::IMAGE_ENCODING_RAW) {
 		f->store_32(val->get_width());
 		f->store_32(val->get_height());
@@ -231,9 +236,8 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		_advance_padding(f, dlen);
 	} else {
 		Vector<uint8_t> data;
-		if (encoding == V2Image::IMAGE_ENCODING_LOSSY) {
-			data = Image::webp_lossy_packer(val, quality);
-		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS) {
+
+		if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS) {
 			data = Image::png_packer(val);
 		}
 
@@ -390,8 +394,8 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 		uint8_t *w = data.ptrw();
 		f->get_buffer(w, data.size());
 
-		if (encoding == V2Image::IMAGE_ENCODING_LOSSY && Image::webp_unpacker) {
-			img = img->webp_unpacker(data);
+		if (encoding == V2Image::IMAGE_ENCODING_LOSSY) {
+			img = WebPCompat::webp_unpack_v2v3(data);
 		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS && Image::png_unpacker) {
 			img = img->png_unpacker(data);
 		}

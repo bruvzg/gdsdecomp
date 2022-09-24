@@ -12,7 +12,7 @@
 #include "oggstr_loader_compat.h"
 #include "pcfg_loader.h"
 #include "resource_loader_compat.h"
-#include "scene/resources/audio_stream_sample.h"
+#include "scene/resources/audio_stream_wav.h"
 #include "texture_loader_compat.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 #include "util_functions.h"
@@ -108,12 +108,12 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 		}
 	}
 
-	if (!FileAccess::exists(project_dir.plus_file("project.godot")) && !FileAccess::exists(project_dir.plus_file("engine.cfg"))) {
+	if (!FileAccess::exists(project_dir.path_join("project.godot")) && !FileAccess::exists(project_dir.path_join("engine.cfg"))) {
 		pcfg_loader.instantiate();
-		if (FileAccess::exists(project_dir.plus_file("project.binary"))) {
-			bin_proj_file = project_dir.plus_file("project.binary");
-		} else if (FileAccess::exists(project_dir.plus_file("engine.cfb"))) {
-			bin_proj_file = project_dir.plus_file("engine.cfb");
+		if (FileAccess::exists(project_dir.path_join("project.binary"))) {
+			bin_proj_file = project_dir.path_join("project.binary");
+		} else if (FileAccess::exists(project_dir.path_join("engine.cfb"))) {
+			bin_proj_file = project_dir.path_join("engine.cfb");
 		}
 		// We fail hard here because we may have guessed the version wrong
 		ERR_FAIL_COND_V_MSG(bin_proj_file.is_empty(), ERR_CANT_OPEN, "Could not load project file");
@@ -318,16 +318,16 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		print_line("decompiling " + f);
 		Error err;
 		if (f.get_extension() == "gde") {
-			err = decomp->decompile_byte_code_encrypted(project_dir.plus_file(f), GDRESettings::get_singleton()->get_encryption_key(), ver_major == 3);
+			err = decomp->decompile_byte_code_encrypted(project_dir.path_join(f), GDRESettings::get_singleton()->get_encryption_key(), ver_major == 3);
 		} else {
-			err = decomp->decompile_byte_code(project_dir.plus_file(f));
+			err = decomp->decompile_byte_code(project_dir.path_join(f));
 		}
 		if (err) {
 			memdelete(decomp);
 			ERR_FAIL_V_MSG(err, "error decompiling " + f);
 		} else {
 			String text = decomp->get_script_text();
-			Ref<FileAccess> fa = FileAccess::open(p_out_dir.plus_file(f.replace(".gdc", ".gd").replace(".gde", ".gd")), FileAccess::WRITE);
+			Ref<FileAccess> fa = FileAccess::open(p_out_dir.path_join(f.replace(".gdc", ".gd").replace(".gde", ".gd")), FileAccess::WRITE);
 			if (fa.is_null()) {
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
@@ -348,11 +348,11 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	Error err;
 	Vector<String> wildcards;
 	wildcards.push_back("*.gd");
-	String abs_plugin_path = output_dir.plus_file("addons").plus_file(plugin_dir);
+	String abs_plugin_path = output_dir.path_join("addons").path_join(plugin_dir);
 	auto gd_scripts = gdreutil::get_recursive_dir_list(abs_plugin_path, wildcards, false);
 	String main_script;
 	for (int j = 0; j < gd_scripts.size(); j++) {
-		String gd_script_abs_path = abs_plugin_path.plus_file(gd_scripts[j]);
+		String gd_script_abs_path = abs_plugin_path.path_join(gd_scripts[j]);
 		String gd_text = FileAccess::get_file_as_string(gd_script_abs_path, &err);
 		ERR_FAIL_COND_V_MSG(err, err, "failed to open gd_script " + gd_script_abs_path + "!");
 		if (gd_text.find("extends EditorPlugin") != -1) {
@@ -367,7 +367,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 			"author=\"Unknown\"\n" +
 			"version=\"1.0\"\n" +
 			"script=\"" + main_script + "\"";
-	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.plus_file("plugin.cfg"), FileAccess::WRITE, &err);
+	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.path_join("plugin.cfg"), FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
 	f->store_string(plugin_cfg_text);
 	return OK;
@@ -376,11 +376,11 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 // Recreates the "plugin.cfg" files for each plugin to avoid loading errors.
 Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 	Error err;
-	if (!DirAccess::exists(output_dir.plus_file("addons"))) {
+	if (!DirAccess::exists(output_dir.path_join("addons"))) {
 		return OK;
 	}
 	Vector<String> dirs;
-	Ref<DirAccess> da = DirAccess::open(output_dir.plus_file("addons"), &err);
+	Ref<DirAccess> da = DirAccess::open(output_dir.path_join("addons"), &err);
 	da->list_dir_begin();
 	String f = da->get_next();
 	while (!f.is_empty()) {
@@ -436,7 +436,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 						if (dest.begins_with("res://")) {
 							prefix = "res://.assets";
 						}
-						dest = prefix.plus_file(dest.replace("res://", ""));
+						dest = prefix.path_join(dest.replace("res://", ""));
 					}
 				}
 			}
@@ -458,7 +458,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 			if (dest.begins_with("res://")) {
 				prefix = "res://.assets";
 			}
-			dest = prefix.plus_file(dest.replace("res://", ""));
+			dest = prefix.path_join(dest.replace("res://", ""));
 		}
 		err = _convert_tex(output_dir, path, dest, &r_name, false);
 		ERR_FAIL_COND_V(err != OK, err);
@@ -539,7 +539,7 @@ Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String 
 			String md5 = imd->get_source_md5(i);
 			String dst_path = rel_dest_path;
 			if (output_dir != "") {
-				dst_path = output_dir.plus_file(rel_dest_path.replace("res://", ""));
+				dst_path = output_dir.path_join(rel_dest_path.replace("res://", ""));
 			}
 			String new_hash = FileAccess::get_md5(dst_path);
 			if (new_hash == "") {
@@ -560,7 +560,7 @@ Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String 
 
 Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir) {
 	Error err;
-	String orig_file = output_dir.plus_file(p_path.replace("res://", ""));
+	String orig_file = output_dir.path_join(p_path.replace("res://", ""));
 	auto imd = change_v2import_data(p_path, p_dst, p_res_name, output_dir, false);
 	ERR_FAIL_COND_V_MSG(imd.is_null(), ERR_FILE_NOT_FOUND, "Failed to get metadata for " + p_path);
 
@@ -597,8 +597,8 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 }
 
 Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {
-	String dst_dir = output_dir.plus_file(p_dst.get_base_dir().replace("res://", ""));
-	String dest_path = output_dir.plus_file(p_dst.replace("res://", ""));
+	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
+	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 	TextureLoaderCompat tl;
 
@@ -639,7 +639,7 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 		if (p_path.is_absolute_path()) {
 			return p_path;
 		} else {
-			return output_dir.plus_file(p_path.replace("res://", ""));
+			return output_dir.path_join(p_path.replace("res://", ""));
 		}
 	}
 	if (GDRESettings::get_singleton()->has_res_path(p_path)) {
@@ -647,16 +647,16 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 	} else if (GDRESettings::get_singleton()->has_res_path(p_path, output_dir)) {
 		return GDRESettings::get_singleton()->get_res_path(p_path, output_dir);
 	} else {
-		return output_dir.plus_file(p_path.replace("res://", ""));
+		return output_dir.path_join(p_path.replace("res://", ""));
 	}
 }
 
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
-	String dst_path = output_dir.plus_file(p_dst.replace("res://", ""));
+	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 
-	Ref<AudioStreamSample> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	Ref<AudioStreamWAV> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
 
 	err = ensure_dir(dst_path.get_base_dir());
@@ -671,7 +671,7 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 
 Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
-	String dst_path = output_dir.plus_file(p_dst.replace("res://", ""));
+	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 	OggStreamLoaderCompat oslc;
 	PackedByteArray data = oslc.get_ogg_stream_data(src_path, &err);
@@ -691,7 +691,7 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 
 Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
-	String dst_path = output_dir.plus_file(p_dst.replace("res://", ""));
+	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 
 	Ref<AudioStreamMP3> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);

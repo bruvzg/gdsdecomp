@@ -106,7 +106,7 @@ Error FileAccessEncryptedv3::open_and_parse_password(Ref<FileAccess> p_base, con
 	return open_and_parse(p_base, key, p_mode);
 }
 
-Error FileAccessEncryptedv3::_open(const String &p_path, int p_mode_flags) {
+Error FileAccessEncryptedv3::open_internal(const String &p_path, int p_mode_flags) {
 	return OK;
 }
 

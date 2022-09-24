@@ -15,8 +15,8 @@ _global_script_class_icons={}
 
 config/name="Godot RE Tools"
 run/main_scene="res://gdre_main.tscn"
-config/icon="res://gdre_icon.png"
 config/features=PackedStringArray("4.0")
+config/icon="res://gdre_icon.png"
 
 [display]
 

@@ -14,12 +14,12 @@
 
 #include "core/io/file_access_encrypted.h"
 #include "core/io/resource_format_binary.h"
+#include "editor/editor_settings.h"
 #include "modules/svg/image_loader_svg.h"
-#include "scene/resources/resource_format_text.h"
-
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/main/canvas_item.h"
-#include "scene/resources/audio_stream_sample.h"
+#include "scene/resources/audio_stream_wav.h"
+#include "scene/resources/resource_format_text.h"
 
 #include "core/version_generated.gen.h"
 #include "utility/oggstr_loader_compat.h"
@@ -593,9 +593,8 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 
 void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
 	char timestamp[21];
-	OS::Date date = OS::get_singleton()->get_date();
-	OS::Time time = OS::get_singleton()->get_time();
-	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", (uint16_t)date.year, date.month, date.day, time.hour, time.minute, time.second);
+	OS::DateTime date = OS::get_singleton()->get_datetime();
+	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", (uint16_t)date.year, date.month, date.day, date.hour, date.minute, date.second);
 
 	Vector<String> lines = p_text.split("\n");
 	if (lines.size() > 1) {
@@ -637,7 +636,7 @@ void GodotREEditor::_decompile_files() {
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
+		String target_name = dir.path_join(files[i].get_file().get_basename() + ".gd");
 		if (da->file_exists(target_name)) {
 			overwrite_list += target_name + "\n";
 		}
@@ -647,7 +646,7 @@ void GodotREEditor::_decompile_files() {
 		_decompile_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_decompile_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_decompile_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -671,7 +670,7 @@ void GodotREEditor::_decompile_process() {
 	for (int i = 0; i < files.size(); i++) {
 		print_warning(RTR("decompiling") + " " + files[i].get_file(), RTR("Decompile"));
 
-		String target_name = dir.plus_file(files[i].get_file().get_basename() + ".gd");
+		String target_name = dir.path_join(files[i].get_file().get_basename() + ".gd");
 
 		bool cancel = pr->step(files[i].get_file(), i, true);
 		if (cancel) {
@@ -720,7 +719,7 @@ void GodotREEditor::_compile_files() {
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
+		String target_name = dir.path_join(files[i].get_file().get_basename() + ext);
 		if (da->file_exists(target_name)) {
 			overwrite_list += target_name + "\n";
 		}
@@ -730,7 +729,7 @@ void GodotREEditor::_compile_files() {
 		_compile_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_compile_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_compile_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -749,7 +748,7 @@ void GodotREEditor::_compile_process() {
 	for (int i = 0; i < files.size(); i++) {
 
 		print_warning(RTR("compiling") + " " + files[i].get_file(), RTR("Compile"));
-		String target_name = dir.plus_file(files[i].get_file().get_basename() + ext);
+		String target_name = dir.path_join(files[i].get_file().get_basename() + ext);
 
 		bool cancel = pr->step(files[i].get_file(), i, true);
 		if (cancel) {
@@ -1101,7 +1100,7 @@ void GodotREEditor::_pck_extract_files() {
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files[i].get_file());
+		String target_name = dir.path_join(files[i].get_file());
 		if (da->file_exists(target_name)) {
 			overwrite_list += target_name + "\n";
 		}
@@ -1111,7 +1110,7 @@ void GodotREEditor::_pck_extract_files() {
 		_pck_extract_files_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1128,7 +1127,7 @@ void GodotREEditor::_pck_extract_files_process() {
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.plus_file(files[i]);
+		String target_name = dir.path_join(files[i]);
 
 		da->make_dir_recursive(target_name.get_base_dir());
 
@@ -1209,7 +1208,7 @@ void GodotREEditor::_res_smpl_2_wav_request(const Vector<String> &p_files) {
 		_res_smpl_2_wav_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_smpl_2_wav_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_smpl_2_wav_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1226,9 +1225,9 @@ void GodotREEditor::_res_smpl_2_wav_process() {
 			break;
 		}
 
-		Ref<AudioStreamSample> sample = rl->load(res_files[i]);
+		Ref<AudioStreamWAV> sample = rl->load(res_files[i]);
 		if (sample.is_null()) {
-			failed_files += res_files[i] + " (load AudioStreamSample error)\n";
+			failed_files += res_files[i] + " (load AudioStreamWAV error)\n";
 			continue;
 		}
 
@@ -1260,7 +1259,7 @@ void GodotREEditor::_res_ostr_2_ogg_request(const Vector<String> &p_files) {
 		_res_ostr_2_ogg_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_ostr_2_ogg_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_ostr_2_ogg_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1281,7 +1280,7 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 		OggStreamLoaderCompat oslc;
 		Vector<uint8_t> buf = oslc.get_ogg_stream_data(res_files[i], &err);
 		if (err) {
-			failed_files += res_files[i] + " (load AudioStreamOGGVorbis error)\n";
+			failed_files += res_files[i] + " (load AudioStreamOggVorbis error)\n";
 			continue;
 		}
 
@@ -1318,7 +1317,7 @@ void GodotREEditor::_res_stex_2_png_request(const Vector<String> &p_files) {
 		_res_stxt_2_png_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_stxt_2_png_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_stxt_2_png_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1389,7 +1388,7 @@ void GodotREEditor::_res_bin_2_txt_request(const Vector<String> &p_files) {
 		_res_bin_2_txt_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_bin_2_txt_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_bin_2_txt_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1462,7 +1461,7 @@ void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
 		_res_txt_2_bin_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_txt_2_bin_process), Vector<Variant>(), CONNECT_ONESHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_res_txt_2_bin_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
 		ovd->popup_centered();
 	}
 }
@@ -1504,7 +1503,7 @@ void GodotREEditor::_res_txt_2_bin_process() {
 
 Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const String &p_dst_path) {
 	Ref<ResourceFormatLoaderText> rl = memnew(ResourceFormatLoaderText);
-	return ResourceFormatSaverBinary::singleton->save(p_dst_path, rl->load(p_src_path));
+	return ResourceFormatSaverBinary::singleton->save(rl->load(p_src_path), p_dst_path);
 }
 
 /*************************************************************************/
@@ -1536,9 +1535,9 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 	Vector<String> enc_in_filters = pck_save_dialog->get_enc_filters_in().split(",");
 	Vector<String> enc_ex_filters = pck_save_dialog->get_enc_filters_ex().split(",");
 
-	Ref<DirAccess> da = DirAccess::open(p_path.plus_file(p_rel));
+	Ref<DirAccess> da = DirAccess::open(p_path.path_join(p_rel));
 	if (da.is_null()) {
-		show_warning(RTR("Error opening folder: ") + p_path.plus_file(p_rel), RTR("New PCK"));
+		show_warning(RTR("Error opening folder: ") + p_path.path_join(p_rel), RTR("New PCK"));
 		return offset;
 	}
 	da->list_dir_begin();
@@ -1548,18 +1547,18 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			f = da->get_next();
 			continue;
 		}
-		if (p_pr->step(p_rel.plus_file(f), 0, true)) {
+		if (p_pr->step(p_rel.path_join(f), 0, true)) {
 			p_cancel = true;
 			return offset;
 		}
 		if (da->current_is_dir()) {
-			offset = _pck_create_process_folder(p_pr, p_path, p_rel.plus_file(f), offset, p_cancel);
+			offset = _pck_create_process_folder(p_pr, p_path, p_rel.path_join(f), offset, p_cancel);
 			if (p_cancel) {
 				return offset;
 			}
 
 		} else {
-			String path = p_path.plus_file(p_rel).plus_file(f);
+			String path = p_path.path_join(p_rel).path_join(f);
 			Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
 
 			CryptoCore::MD5Context ctx;
@@ -1598,7 +1597,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			}
 
 			PackedFile finfo = PackedFile(offset, file->get_length(), flags);
-			finfo.name = p_rel.plus_file(f);
+			finfo.name = p_rel.path_join(f);
 			for (int j = 0; j < 16; j++) {
 				finfo.md5[j] = hash[j];
 			}
@@ -1800,7 +1799,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			ftmp = fae;
 		}
 
-		Ref<FileAccess> fa = FileAccess::open(pck_file.plus_file(pck_save_files[i].name), FileAccess::READ);
+		Ref<FileAccess> fa = FileAccess::open(pck_file.path_join(pck_save_files[i].name), FileAccess::READ);
 		if (fa.is_valid()) {
 			int64_t rq_size = pck_save_files[i].size;
 			uint8_t buf[16384];

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+import gdre_icon_builder
+from platform_methods import run_in_subprocess
 Import("env")
 Import("env_modules")
 
-from platform_methods import run_in_subprocess
-import gdre_icon_builder
 
 mmp3thirdparty_dir = "#thirdparty/minimp3/"
 liboggthirdparty_dir = "#thirdparty/libogg/"
+webpthirdparty_dir = "#thirdparty/libwebp/"
 
 env_gdsdecomp = env_modules.Clone()
 
@@ -26,16 +27,23 @@ icon_sources = Glob("icons/*.svg")
 
 env_gdsdecomp.Alias(
     "gdre_icons",
-    [env_gdsdecomp.MakeGDREIconsBuilder("editor/gdre_icons.gen.h", icon_sources)],
+    [env_gdsdecomp.MakeGDREIconsBuilder(
+        "editor/gdre_icons.gen.h", icon_sources)],
 )
 
 if env["builtin_libogg"]:
     env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])
+
 # Treat minimp3 headers as system headers to avoid raising warnings. Not supported on MSVC.
 if not env.msvc:
     env_gdsdecomp.Append(CPPFLAGS=["-isystem", Dir(mmp3thirdparty_dir).path])
 else:
     env_gdsdecomp.Prepend(CPPPATH=[mmp3thirdparty_dir])
+
+if env["builtin_libwebp"]:
+    env_gdsdecomp.Prepend(
+        CPPPATH=[webpthirdparty_dir, webpthirdparty_dir + "src/"])
+
 
 env_gdsdecomp.add_source_files(env.modules_sources, "*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "bytecode/*.cpp")

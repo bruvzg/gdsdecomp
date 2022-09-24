@@ -3,11 +3,14 @@
 #include "gdre_packed_data.h"
 #include "gdre_settings.h"
 #include "resource_loader_compat.h"
+#include "webp_compat.h"
 
 enum FormatBits {
 	FORMAT_MASK_IMAGE_FORMAT = (1 << 20) - 1,
-	FORMAT_BIT_LOSSLESS = 1 << 20,
-	FORMAT_BIT_LOSSY = 1 << 21,
+	FORMAT_BIT_LOSSLESS = 1 << 20, // v2
+	FORMAT_BIT_PNG = 1 << 20, // v3
+	FORMAT_BIT_LOSSY = 1 << 21, // v2
+	FORMAT_BIT_WEBP = 1 << 21, // v3
 	FORMAT_BIT_STREAM = 1 << 22,
 	FORMAT_BIT_HAS_MIPMAPS = 1 << 23,
 	FORMAT_BIT_DETECT_3D = 1 << 24,
@@ -74,7 +77,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 	if (!(df & FORMAT_BIT_STREAM)) {
 		// do something??
 	}
-	if (df & FORMAT_BIT_LOSSLESS || df & FORMAT_BIT_LOSSY) {
+	if (df & FORMAT_BIT_PNG || df & FORMAT_BIT_WEBP) {
 		//look for a PNG or WEBP file inside
 
 		int sw = tw;
@@ -111,10 +114,10 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 			}
 
 			Ref<Image> img;
-			if (df & FORMAT_BIT_LOSSLESS) {
+			if (df & FORMAT_BIT_PNG) {
 				img = Image::png_unpacker(pv);
 			} else {
-				img = Image::webp_unpacker(pv);
+				img = WebPCompat::webp_unpack_v2v3(pv);
 			}
 			ERR_FAIL_COND_V_MSG(img.is_null() || img->is_empty(), ERR_FILE_CORRUPT, "File is corrupt");
 

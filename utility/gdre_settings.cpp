@@ -77,7 +77,7 @@ String get_standalone_pck_path() {
 	String exec_filename = exec_path.get_file();
 	String exec_basename = exec_filename.get_basename();
 
-	return exec_dir.plus_file(exec_basename + ".pck");
+	return exec_dir.path_join(exec_basename + ".pck");
 }
 
 // This loads the pack into PackedData so that the paths are globally accessible with FileAccess.
@@ -247,11 +247,11 @@ String GDRESettings::localize_path(const String &p_path, const String &resource_
 		String cwd = dir->get_current_dir();
 		cwd = cwd.replace("\\", "/");
 
-		res_path = res_path.plus_file("");
+		res_path = res_path.path_join("");
 
 		// DirAccess::get_current_dir() is not guaranteed to return a path that with a trailing '/',
 		// so we must make sure we have it as well in order to compare with 'res_path'.
-		cwd = cwd.plus_file("");
+		cwd = cwd.path_join("");
 
 		if (!cwd.begins_with(res_path)) {
 			return p_path;
@@ -293,7 +293,7 @@ String GDRESettings::globalize_path(const String &p_path, const String &resource
 		}
 		return p_path.replace("user://", "");
 	} else if (!p_path.is_absolute_path()) {
-		return res_path.plus_file(p_path);
+		return res_path.path_join(p_path);
 	}
 
 	return p_path;
@@ -415,7 +415,7 @@ String GDRESettings::get_log_file_path() {
 }
 
 Error GDRESettings::open_log_file(const String &output_dir) {
-	String logfile = output_dir.plus_file("gdre_export.log");
+	String logfile = output_dir.path_join("gdre_export.log");
 	Error err = logger->open_file(logfile);
 	ERR_FAIL_COND_V_MSG(err == ERR_ALREADY_IN_USE, err, "Already logging to another file");
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open log file " + logfile);

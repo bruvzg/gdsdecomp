@@ -4,12 +4,16 @@
 [ext_resource type="Script" path="res://gdre_main.gd" id="2"]
 
 [node name="root" type="Control"]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme = ExtResource( "1" )
-script = ExtResource( "2" )
+theme = ExtResource("1")
+script = ExtResource("2")
 
 [node name="log_window" type="RichTextLabel" parent="."]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 focus_mode = 2
@@ -18,9 +22,13 @@ theme_override_constants/line_separation = 5
 selection_enabled = true
 
 [node name="menu_background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 10
 anchor_right = 1.0
 
 [node name="version_lbl" type="Button" parent="menu_background"]
+layout_mode = 1
+anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
@@ -29,6 +37,8 @@ text = "$$$"
 flat = true
 
 [node name="re_editor_standalone" type="GodotREEditorStandalone" parent="."]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 

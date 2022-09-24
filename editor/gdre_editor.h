@@ -25,9 +25,9 @@
 #include "scene/gui/texture_rect.h"
 
 #ifdef TOOLS_ENABLED
-#include "editor/editor_export.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/export/editor_export.h"
 #else
 #define EDSCALE 1.0
 #endif

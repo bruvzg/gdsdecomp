@@ -32,7 +32,7 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 		file = "engine.cfg";
 	}
 
-	return save_custom(dir.plus_file(file), ver_major, ver_minor);
+	return save_custom(dir.path_join(file), ver_major, ver_minor);
 }
 
 Variant ProjectConfigLoader::get_setting(String p_var, Variant default_value) const {

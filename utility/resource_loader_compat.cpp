@@ -17,7 +17,7 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 
 	//Relative path
 	if (!output_dir.is_empty() && GDRESettings::get_singleton()) {
-		dst_path = output_dir.plus_file(dst.replace_first("res://", ""));
+		dst_path = output_dir.path_join(dst.replace_first("res://", ""));
 	}
 
 	ResourceLoaderBinaryCompat *loader = _open(p_path, output_dir, true, &error, r_progress);
@@ -413,7 +413,7 @@ Ref<Resource> ResourceLoaderBinaryCompat::instance_internal_resource(const Strin
 	// we don't populate the cache by default, so we likely won't hit this (?)
 	if (cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE && ResourceCache::has(path)) {
 		//use the existing one
-		Resource *r = ResourceCache::get(path);
+		Ref<Resource> r = ResourceCache::get_ref(path);
 		if (r->get_class() == type) {
 			r->reset_state();
 			res = Ref<Resource>(r);
@@ -2009,7 +2009,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fac.instantiate();
 		fac->configure("RSCC");
 		fw = fac;
-		err = fac->_open(p_path, FileAccess::WRITE);
+		err = fac->open_internal(p_path, FileAccess::WRITE);
 	} else {
 		fw = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	}

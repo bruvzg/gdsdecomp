@@ -135,8 +135,8 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		} else {
 			item->set_text(1, String::num((double)p_size / (1024 * 1024 * 1024), 2) + " GiB");
 		}
-		item->set_tooltip(0, p_error);
-		item->set_tooltip(1, p_error);
+		item->set_tooltip_text(0, p_error);
+		item->set_tooltip_text(1, p_error);
 		item->set_text(2, p_enc ? "Encrypted" : "");
 
 		_validate_selection();

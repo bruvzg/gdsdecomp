@@ -153,7 +153,7 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 			if (split.size() == 4) {
 				// for example, "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.s3tc.stex"
 				// will become "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.stex"
-				String new_path = basedir.plus_file(split[0] + "." + split[1] + "." + split[3]);
+				String new_path = basedir.path_join(split[0] + "." + split[1] + "." + split[3]);
 				// if we have the ghost texture, set it to be the import path
 				if (GDRESettings::get_singleton()->has_res_path(new_path)) {
 					import_path = new_path;
@@ -193,7 +193,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
 			if (get_source_file().begins_with("../") ||
 					(get_source_file().is_absolute_path() && GDRESettings::get_singleton()->is_fs_path(get_source_file()))) {
-				dest = String(".assets").plus_file(p_path.replace("res://", "").get_base_dir().plus_file(get_source_file().get_file()));
+				dest = String(".assets").path_join(p_path.replace("res://", "").get_base_dir().path_join(get_source_file().get_file()));
 				source_file = dest;
 			}
 			return OK;
@@ -212,7 +212,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 			new_ext = "fixme";
 		}
 		// others??
-		dest = String(".assets").plus_file(p_path.replace("res://", "").get_base_dir().plus_file(spl[0] + "." + new_ext));
+		dest = String(".assets").path_join(p_path.replace("res://", "").get_base_dir().path_join(spl[0] + "." + new_ext));
 		// File either didn't load or metadata was corrupt
 	} else {
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Can't open imported file " + p_path);
@@ -223,7 +223,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 		auto_converted_export = true;
 		// if this doesn't match "filename.ext.converted.newext"
 		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
-		dest = p_path.get_base_dir().plus_file(spl[0] + "." + spl[1]);
+		dest = p_path.get_base_dir().path_join(spl[0] + "." + spl[1]);
 	}
 
 	// either it's an import file without metadata or a converted file
@@ -259,7 +259,7 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 Error ImportInfo::rename_source(const String &p_new_source) {
 	ERR_FAIL_COND_V_MSG(ver_major <= 2, ERR_BUG, "Don't use this for version <= 2 ");
 	String old_import_path = import_md_path;
-	String new_import_path = import_md_path.get_base_dir().plus_file(p_new_source.get_file() + ".import");
+	String new_import_path = import_md_path.get_base_dir().path_join(p_new_source.get_file() + ".import");
 
 	Ref<ConfigFile> import_file;
 	import_file.instantiate();
