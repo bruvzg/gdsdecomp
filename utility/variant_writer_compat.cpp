@@ -15,7 +15,7 @@ static String rtosfix(double p_value) {
 		return rtoss(p_value);
 }
 
-Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
+Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool is_pcfg) {
 	// use the v4 write function instead for v4
 	if (ver_major == 4) {
 		return VariantWriter::write(p_variant, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
@@ -120,7 +120,11 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 		} break;
 		case Variant::COLOR: {
 			Color c = p_variant;
-			p_store_string_func(p_store_string_ud, "Color( " + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + " )");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, "#" + c.to_html());
+			} else {
+				p_store_string_func(p_store_string_ud, "Color( " + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + " )");
+			}
 
 		} break;
 		case Variant::NODE_PATH: {
@@ -186,7 +190,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 					}
 
 					p_store_string_func(p_store_string_ud, "\"" + E->get().name + "\":");
-					write_compat(obj->get(E->get().name), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
+					write_compat(obj->get(E->get().name), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
 				}
 			}
 
@@ -211,9 +215,9 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				if (!_check_type(dict[E->get()]))
 					continue;
 				*/
-				write_compat(E->get(), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
+				write_compat(E->get(), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
 				p_store_string_func(p_store_string_ud, ": ");
-				write_compat(dict[E->get()], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
+				write_compat(dict[E->get()], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
 				if (E->next())
 					p_store_string_func(p_store_string_ud, ",\n");
 			}
@@ -228,13 +232,18 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			for (int i = 0; i < len; i++) {
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
-				write_compat(array[i], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud);
+				write_compat(array[i], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
 			}
 			p_store_string_func(p_store_string_ud, " ]");
 
 		} break;
 
 		case Variant::PACKED_BYTE_ARRAY: { // v2 ByteArray, v3 POOL_BYTE_ARRAY
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, "[ ");
+			} else {
+				p_store_string_func(p_store_string_ud, ver_major == 2 ? "ByteArray( " : "PoolByteArray( ");
+			}
 			String s;
 			Vector<uint8_t> data = p_variant;
 			int len = data.size();
@@ -246,11 +255,18 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 				p_store_string_func(p_store_string_ud, itos(ptr[i]));
 			}
-
-			p_store_string_func(p_store_string_ud, " )");
-
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, " ]");
+			} else {
+				p_store_string_func(p_store_string_ud, " )");
+			}
 		} break;
 		case Variant::PACKED_INT32_ARRAY: { // v2 IntArray, v3 POOL_INT_ARRAY
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, "[ ");
+			} else {
+				p_store_string_func(p_store_string_ud, ver_major == 2 ? "IntArray( " : "PoolIntArray( ");
+			}
 			Vector<int> data = p_variant;
 			int len = data.size();
 
@@ -263,12 +279,20 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				p_store_string_func(p_store_string_ud, itos(ptr[i]));
 			}
 
-			p_store_string_func(p_store_string_ud, " )");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, " ]");
+			} else {
+				p_store_string_func(p_store_string_ud, " )");
+			}
 
 		} break;
 		//case Variant::PACKED_INT64_ARRAY: { // v2 and v3 did not have 64-bit ints
 		case Variant::PACKED_FLOAT32_ARRAY: { // v2 FloatArray, v3 POOL_REAL_ARRAY
-			p_store_string_func(p_store_string_ud, ver_major == 2 ? "FloatArray( " : "PoolRealArray( ");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, "[ ");
+			} else {
+				p_store_string_func(p_store_string_ud, ver_major == 2 ? "FloatArray( " : "PoolRealArray( ");
+			}
 			Vector<real_t> data = p_variant;
 			int len = data.size();
 			const real_t *ptr = data.ptr();
@@ -279,12 +303,20 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				p_store_string_func(p_store_string_ud, rtosfix(ptr[i]));
 			}
 
-			p_store_string_func(p_store_string_ud, " )");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, " ]");
+			} else {
+				p_store_string_func(p_store_string_ud, " )");
+			}
 
 		} break;
 		//case Variant::PACKED_FLOAT64_ARRAY: { // v2 and v3 did not have 64-bit floats
 		case Variant::PACKED_STRING_ARRAY: { // v2 StringArray, v3 POOL_STRING_ARRAY
-			p_store_string_func(p_store_string_ud, ver_major == 2 ? "StringArray( " : "PoolStringArray( ");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, "[ ");
+			} else {
+				p_store_string_func(p_store_string_ud, ver_major == 2 ? "StringArray( " : "PoolStringArray( ");
+			}
 			Vector<String> data = p_variant;
 			int len = data.size();
 
@@ -299,7 +331,11 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				p_store_string_func(p_store_string_ud, "\"" + str.c_escape() + "\"");
 			}
 
-			p_store_string_func(p_store_string_ud, " )");
+			if (ver_major == 2 && is_pcfg) {
+				p_store_string_func(p_store_string_ud, " ]");
+			} else {
+				p_store_string_func(p_store_string_ud, " )");
+			}
 
 		} break;
 		// no pcfg variants for the rest of the arrays
@@ -364,8 +400,12 @@ static Error _write_to_str(void *ud, const String &p_string) {
 	(*str) += p_string;
 	return OK;
 }
-
+// project.cfg variants are written differently than resource variants in Godot 2.x
+Error VariantWriterCompat::write_to_string_pcfg(const Variant &p_variant, String &r_string, const uint32_t ver_major, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
+	r_string = String();
+	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, true);
+}
 Error VariantWriterCompat::write_to_string(const Variant &p_variant, String &r_string, const uint32_t ver_major, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
 	r_string = String();
-	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud);
+	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, false);
 }

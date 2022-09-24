@@ -42,14 +42,14 @@ void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	}
 }
 
-String ImageParserV2::image_v2_to_string(const Variant &r_v) {
+String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
 	Ref<Image> img = r_v;
-
+	String imgstr = is_pcfg ? "img(" : "Image(";
 	if (img.is_null() || img->is_empty()) {
-		return String("Image()");
+		return String(imgstr + ")");
 	}
 
-	String imgstr = "Image( ";
+	imgstr += " ";
 	imgstr += itos(img->get_width());
 	imgstr += ", " + itos(img->get_height());
 	String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";

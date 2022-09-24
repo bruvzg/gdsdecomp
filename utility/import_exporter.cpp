@@ -166,11 +166,32 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
 	recreate_plugin_configs(output_dir);
-
-	if (pcfg_loader.is_valid() && pcfg_loader->is_loaded()) {
-		pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
+	// we have to remove remaps in the project config for v2
+	// TODO: make this idempotent
+	if (ver_major == 2) {
+		if (!pcfg_loader.is_valid()) {
+			pcfg_loader.instantiate();
+		}
+		if (!pcfg_loader->is_loaded()) {
+			String bin_proj_file = project_dir.path_join("engine.cfb");
+			Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
+			ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
+		}
+	} else {
+		// for other versions, we don't need to modify the project file; if the text version doesn't exist, just save it.
+		if (pcfg_loader.is_valid() && pcfg_loader->is_loaded()) {
+			pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
+		}
 	}
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
+	PackedStringArray v2remaps;
+	bool has_remaps = false;
+	if (ver_major == 2) {
+		if (pcfg_loader->has_setting("remap/all")) {
+			v2remaps = pcfg_loader->get_setting("remap/all", PackedStringArray());
+			has_remaps = true;
+		}
+	}
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
@@ -258,6 +279,26 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 			}
 			success.push_back(iinfo);
 		}
+		// remove v2 remaps
+		if (ver_major == 2 && has_remaps) {
+			if ((v2remaps.has(iinfo->source_file) || v2remaps.has("res://" + iinfo->source_file)) && v2remaps.has(iinfo->import_path)) {
+				v2remaps.erase("res://" + iinfo->source_file);
+				v2remaps.erase(iinfo->source_file);
+				v2remaps.erase(iinfo->import_path);
+			}
+		}
+	}
+
+	// save changed config file
+	if (ver_major == 2) {
+		if (has_remaps) {
+			if (v2remaps.size() == 0) {
+				pcfg_loader->remove_setting("remap/all");
+			} else {
+				pcfg_loader->set_setting("remap/all", v2remaps);
+			}
+		}
+		pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
 	}
 	print_report();
 	return OK;
@@ -265,6 +306,25 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 
 Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	GDScriptDecomp *decomp;
+	// we have to remove remaps if they exist
+	if (ver_major == 2) {
+		if (!pcfg_loader.is_valid()) {
+			pcfg_loader.instantiate();
+		}
+		if (!pcfg_loader->is_loaded()) {
+			String bin_proj_file = project_dir.path_join("engine.cfb");
+			Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
+			ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
+		}
+	}
+	bool has_remaps = false;
+	PackedStringArray v2remaps;
+	if (ver_major == 2) {
+		if (pcfg_loader->has_setting("remap/all")) {
+			v2remaps = pcfg_loader->get_setting("remap/all", PackedStringArray());
+			has_remaps = true;
+		}
+	}
 	// TODO: instead of doing this, run the detect bytecode script
 	switch (ver_major) {
 		case 1:
@@ -337,10 +397,23 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			if (da->file_exists(f.replace(".gdc", ".gd.remap"))) {
 				da->remove(f.replace(".gdc", ".gd.remap"));
 			}
+			if (ver_major == 2 && has_remaps) {
+				if (v2remaps.has("res://" + f) && v2remaps.has("res://" + f.replace("gdc", "gd"))) {
+					v2remaps.erase("res://" + f);
+					v2remaps.erase("res://" + f.replace("gdc", "gd"));
+				}
+			}
 			print_line("successfully decompiled " + f);
 		}
 	}
 	memdelete(decomp);
+	// save changed config file
+	if (ver_major == 2) {
+		if (has_remaps) {
+			pcfg_loader->set_setting("remap/all", v2remaps);
+		}
+		pcfg_loader->save_cfb(p_out_dir, ver_major, ver_minor);
+	}
 	return OK;
 }
 

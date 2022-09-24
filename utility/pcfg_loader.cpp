@@ -35,11 +35,31 @@ Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, 
 	return save_custom(dir.path_join(file), ver_major, ver_minor);
 }
 
+bool ProjectConfigLoader::has_setting(String p_var) const {
+	return props.has(p_var);
+}
+
 Variant ProjectConfigLoader::get_setting(String p_var, Variant default_value) const {
 	if (props.has(p_var)) {
 		return props[p_var].variant;
 	}
 	return default_value;
+}
+
+Error ProjectConfigLoader::remove_setting(String p_var) {
+	if (props.has(p_var)) {
+		props.erase(p_var);
+		return OK;
+	}
+	return ERR_FILE_NOT_FOUND;
+}
+
+Error ProjectConfigLoader::set_setting(String p_var, Variant value) {
+	if (props.has(p_var)) {
+		props[p_var].variant = value;
+		return OK;
+	}
+	return ERR_FILE_NOT_FOUND;
 }
 
 Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {
@@ -185,7 +205,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const RBMap
 			value = props[key].variant;
 
 			String vstr;
-			VariantWriterCompat::write_to_string(value, vstr, ver_major);
+			VariantWriterCompat::write_to_string_pcfg(value, vstr, ver_major);
 			file->store_string(F->get().property_name_encode() + "=" + vstr + "\n");
 		}
 	}
