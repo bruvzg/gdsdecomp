@@ -491,11 +491,12 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 
 	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
 	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
-	if (source.get_extension() != "png") {
+	String source_ext = source.get_extension().to_lower();
+	if (source_ext != "png") {
 		if (iinfo->ver_major > 2) {
-			if ((source.get_extension() == "jpg" || source.get_extension() == "jpeg") && opt_export_jpg) {
+			if ((source_ext == "jpg" || source_ext == "jpeg") && opt_export_jpg) {
 				lossy = true;
-			} else if (source.get_extension() == "webp" && opt_export_webp) {
+			} else if (source_ext == "webp" && opt_export_webp) {
 				// if the engine is <3.4, it can't handle lossless encoded WEBPs
 				if (ver_major < 4 && !(ver_major == 3 && ver_minor >= 4)) {
 					lossy = true;

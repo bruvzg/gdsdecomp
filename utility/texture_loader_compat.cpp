@@ -206,7 +206,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 			image->create(sw, sh, true, format, img_data);
 		}
 	}
-
+	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), ERR_FILE_CORRUPT, "Failed to create image from texture");
 	return OK;
 }
 
@@ -782,6 +782,9 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *r_err) {
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	if (p_path == "res://.import/dark_village_bg.png-904fa288768c15733f63408ca8f9597d.stex") {
+		print_line("this is it!");
+	}
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE) {
 		if (r_err) {
