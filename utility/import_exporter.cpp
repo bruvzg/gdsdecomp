@@ -223,6 +223,8 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 					} else {
 						WARN_PRINT("Failed to load texture " + type + " " + path);
 					}
+					print_line("Did not convert " + type + " resource " + path);
+					not_converted.push_back(iinfo);
 					break;
 				default:
 					WARN_PRINT_ONCE("Conversion for " + type + " not yet implemented");
@@ -443,6 +445,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.path_join("plugin.cfg"), FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
 	f->store_string(plugin_cfg_text);
+	print_line("Recreated plugin config for " + plugin_dir);
 	return OK;
 }
 
@@ -784,7 +787,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 }
 
 void ImportExporter::print_report() {
-	print_line("\n\n*********EXPORT REPORT***********");
+	print_line("\n\n********************************EXPORT REPORT********************************");
 	print_line("Totals: ");
 	print_line("Imports for export session: 	" + itos(files.size()));
 	print_line("Successfully converted: 		" + itos(success.size()));
@@ -838,7 +841,12 @@ void ImportExporter::print_report() {
 			print_line(failed[i]->import_path);
 		}
 	}
-	print_line("*********************************\n\n");
+	print_line("\n---------------------------------------------------------------------------------");
+	print_line("Use Godot editor version " + itos(ver_major) + "." + itos(ver_minor) + " to edit the project.");
+	print_line("Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet.");
+	print_line("If you find that you have many non-import errors upon opening the project ");
+	print_line("(i.e. scripts or shaders have many errors), use the original game's binary as the export template.");
+	print_line("*******************************************************************************\n\n");
 }
 
 void ImportExporter::_bind_methods() {
