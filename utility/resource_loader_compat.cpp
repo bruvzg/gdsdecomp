@@ -15,7 +15,7 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 	Error error = OK;
 	String dst_path = dst;
 
-	//Relative path
+	// Relative path
 	if (!output_dir.is_empty() && GDRESettings::get_singleton()) {
 		dst_path = output_dir.path_join(dst.replace_first("res://", ""));
 	}
@@ -101,7 +101,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	if (loader->engine_ver_major == 2) {
 		i_info->dest_files.push_back(loader->local_path);
 		i_info->import_md_path = loader->res_path;
-		//these do not have any metadata info in them
+		// these do not have any metadata info in them
 		if (i_info->import_path.find(".converted.") != -1) {
 			memdelete(loader);
 			return OK;
@@ -262,13 +262,13 @@ Error ResourceLoaderBinaryCompat::open(Ref<FileAccess> p_f, bool p_no_resources,
 		using_uids = true;
 		uid = f->get_64();
 	} else {
-		// skip over uid field
+		// skip over res_uid field
 		f->get_64();
 		uid = ResourceUID::INVALID_ID;
 	}
 
 	for (int i = 0; i < ResourceFormatSaverBinaryInstance::RESERVED_FIELDS; i++) {
-		f->get_32(); //skip a few reserved fields
+		f->get_32(); // skip a few reserved fields
 	}
 
 	uint32_t string_table_size = f->get_32();
@@ -335,7 +335,7 @@ void ResourceLoaderBinaryCompat::debug_print_properties(String res_name, String 
 	}
 }
 
-// By default we do not load the external resources, we just load a "dummy" resource that has the path and the type.
+// By default we do not load the external resources, we just load a "dummy" resource that has the path and the res_type.
 // This is so we can convert the currently loading resource to binary/text without potentially loading an
 // unavailable and/or incompatible resource
 Error ResourceLoaderBinaryCompat::load_ext_resource(const uint32_t i) {
@@ -421,7 +421,7 @@ Ref<Resource> ResourceLoaderBinaryCompat::instance_internal_resource(const Strin
 	}
 
 	if (res.is_null()) {
-		//did not replace
+		// did not replace
 		Object *obj = ClassDB::instantiate(type);
 		if (!obj) {
 			error = ERR_FILE_CORRUPT;
@@ -579,7 +579,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 
 		// If type values don't match
 		if (pinfo->type != value.get_type()) {
-			//easy fixes for String/StringName swaps
+			// easy fixes for String/StringName swaps
 			if (pinfo->type == Variant::STRING_NAME && value.get_type() == Variant::STRING) {
 				value = StringName(value);
 			} else if (pinfo->type == Variant::STRING && value.get_type() == Variant::STRING_NAME) {
@@ -623,9 +623,9 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 
 			// If this is an object, we have to load the cached resource and walk the property list
 		} else if (pinfo->type == Variant::OBJECT) {
-			//let us hope that this is the name of the object class
+			// let us hope that this is the name of the object class
 			String hint = pinfo->class_name;
-			//String hint = pinfo->hint_string;
+			// String hint = pinfo->hint_string;
 			if (hint.is_empty()) {
 				ERR_EXIT_REPAIR_PROPERTY(ERR_FILE_UNRECOGNIZED, "Possible type difference in property " + name + "\nclass property type is of an unknown object, attempted set value type is " + value_type);
 			}
@@ -666,7 +666,7 @@ Error ResourceLoaderBinaryCompat::repair_property(const String &rtype, const Str
 					WARN_PRINT("Property " + name + " value of type " + res_type + " had an extra property in " + spinfo.name);
 					continue;
 				} else if (err != OK) {
-					//otherwise, fail
+					// otherwise, fail
 					ERR_EXIT_REPAIR_PROPERTY(err, "lol i dunno");
 				}
 			}
@@ -806,7 +806,7 @@ Error ResourceLoaderBinaryCompat::load() {
 			return OK;
 		}
 	}
-	//If we got here, we never loaded the main resource
+	// If we got here, we never loaded the main resource
 	return ERR_FILE_EOF;
 }
 
@@ -861,7 +861,7 @@ Ref<Resource> ResourceLoaderBinaryCompat::set_dummy_ext(const String &path, cons
 			return set_dummy_ext(i);
 		}
 	}
-	//If not found in cache...
+	// If not found in cache...
 	WARN_PRINT("External resource not found in cache???? Making dummy anyway...");
 	ExtResource er;
 	er.path = path;
@@ -876,7 +876,7 @@ void ResourceLoaderBinaryCompat::advance_padding(Ref<FileAccess> f, uint32_t p_l
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
-			f->get_8(); //pad to 32
+			f->get_8(); // pad to 32
 		}
 	}
 }
@@ -923,7 +923,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	if (main_res_path == "") {
 		main_res_path = local_path;
 	}
-	// the actual type in case this is a fake resource
+	// the actual res_type in case this is a fake resource
 	String main_type = get_internal_resource_type(main_res_path);
 
 	// Version 1 (Godot 2.x)
@@ -959,7 +959,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			}
 		}
 		wf->store_string(title);
-		wf->store_line("]\n"); //one empty line
+		wf->store_line("]\n"); // one empty line
 	}
 
 	for (int i = 0; i < external_resources.size(); i++) {
@@ -987,7 +987,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 	}
 
 	if (external_resources.size()) {
-		wf->store_line(String()); //separate
+		wf->store_line(String()); // separate
 	}
 	RBSet<String> used_unique_ids;
 	// Godot 4.x: Get all the unique ids for lookup
@@ -1012,7 +1012,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		bool main = i == (internal_resources.size() - 1);
 
 		if (main && is_scene) {
-			break; //save as a scene
+			break; // save as a scene
 		}
 
 		if (main) {
@@ -1025,7 +1025,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 			line += "type=\"" + type + "\" ";
 			// Godot 4.x
 			if (text_format_version >= 3) {
-				//if unique id == "", generate and then store
+				// if unique id == "", generate and then store
 				if (id == "") {
 					String new_id;
 					while (true) {
@@ -1066,7 +1066,7 @@ Error ResourceLoaderBinaryCompat::save_as_text_unloaded(const String &dest_path,
 		}
 	}
 
-	//if this is a scene, save nodes and connections!
+	// if this is a scene, save nodes and connections!
 	if (is_scene) {
 		Ref<SceneState> state = packed_scene->get_state();
 		ERR_FAIL_COND_V_MSG(!state.is_valid(), ERR_FILE_CORRUPT, "Packed scene is corrupt!");
@@ -1340,7 +1340,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		case VariantBin::VARIANT_STRING_NAME: {
 			r_v = StringName(get_unicode_string());
 		} break;
-		//Old Godot 2.x Image variant, convert into an object
+		// Old Godot 2.x Image variant, convert into an object
 		case VariantBin::VARIANT_IMAGE: {
 			//Have to decode the old Image variant here
 			if (ImageParserV2::decode_image_v2(f, r_v, convert_v2image_indexed) != OK) {
@@ -1367,7 +1367,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 			for (uint32_t i = 0; i < subname_count; i++) {
 				subnames.push_back(_get_string());
 			}
-			//empty property field, remove it
+			// empty property field, remove it
 			if (has_property && subnames[subnames.size() - 1] == "") {
 				subnames.remove_at(subnames.size() - 1);
 			}
@@ -1385,7 +1385,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 			switch (objtype) {
 				case VariantBin::OBJECT_EMPTY: {
-					//do none
+					// do none
 
 				} break;
 				case VariantBin::OBJECT_INTERNAL_RESOURCE: {
@@ -1408,7 +1408,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 					}
 				} break;
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE: {
-					//old file format, still around for compatibility
+					// old file format, still around for compatibility
 
 					String exttype = get_unicode_string();
 					String path = get_unicode_string();
@@ -1419,7 +1419,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 
 				} break;
 				case VariantBin::OBJECT_EXTERNAL_RESOURCE_INDEX: {
-					//new file format, just refers to an index in the external list
+					// new file format, just refers to an index in the external list
 					int erindex = f->get_32();
 					if (erindex < 0 || erindex >= external_resources.size()) {
 						WARN_PRINT("Broken external resource! (index out of size)");
@@ -1448,7 +1448,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		} break;
 		case VariantBin::VARIANT_DICTIONARY: {
 			uint32_t len = f->get_32();
-			Dictionary d; //last bit means shared
+			Dictionary d; // last bit means shared
 			len &= 0x7FFFFFFF;
 			for (uint32_t i = 0; i < len; i++) {
 				Variant key;
@@ -1463,7 +1463,7 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		} break;
 		case VariantBin::VARIANT_ARRAY: {
 			uint32_t len = f->get_32();
-			Array a; //last bit means shared
+			Array a; // last bit means shared
 			len &= 0x7FFFFFFF;
 			a.resize(len);
 			for (uint32_t i = 0; i < len; i++) {
@@ -2024,7 +2024,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	//bin_meta_idx = get_string_index("__bin_meta__"); //is often used, so create
 
 	if (!(p_flags & ResourceSaver::FLAG_COMPRESS)) {
-		//save header compressed
+		// save header compressed
 		static const uint8_t header[4] = { 'R', 'S', 'R', 'C' };
 		fw->store_buffer(header, 4);
 	}
@@ -2050,7 +2050,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 	//fw->store_32(saved_resources.size()+external_resources.size()); // load steps -not needed
 	save_ustring(fw, type);
 	uint64_t md_at = fw->get_position();
-	fw->store_64(0); //offset to impoty metadata
+	fw->store_64(0); // offset to impoty metadata
 
 	uint32_t flags = 0;
 	if (using_named_scene_ids) {
@@ -2069,7 +2069,7 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 		fw->store_32(0); // reserved
 	}
 
-	fw->store_32(string_map.size()); //string table size
+	fw->store_32(string_map.size()); // string table size
 	for (int i = 0; i < string_map.size(); i++) {
 		//print_bl("saving string: "+strings[i]);
 		save_ustring(fw, string_map[i]);
@@ -2099,11 +2099,11 @@ Error ResourceLoaderBinaryCompat::save_to_bin(const String &p_path, uint32_t p_f
 			save_ustring(fw, path);
 		}
 		ofs_pos.push_back(fw->get_position());
-		fw->store_64(0); //offset in 64 bits
+		fw->store_64(0); // offset in 64 bits
 	}
 
 	Vector<uint64_t> ofs_table;
-	//now actually save the resources
+	// now actually save the resources
 	for (int i = 0; i < internal_resources.size(); i++) {
 		Ref<Resource> re = get_internal_resource(internal_resources[i].path);
 		ERR_FAIL_COND_V_MSG(re.is_null(), ERR_CANT_ACQUIRE_RESOURCE, "Can't find internal resource " + internal_resources[i].path);

@@ -10,7 +10,7 @@
 
 static String rtosfix(double p_value) {
 	if (p_value == 0.0)
-		return "0"; //avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
+		return "0"; // avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
 	else
 		return rtoss(p_value);
 }
@@ -145,34 +145,34 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 			Ref<Resource> res = p_variant;
 			if (res.is_valid()) {
-				//is resource
+				// is resource
 				String res_text;
-				//Hack for V2 Images
+				// Hack for V2 Images
 				if (ver_major == 2 && res->is_class("Image")) {
 					res_text = ImageParserV2::image_v2_to_string(res, is_pcfg);
 				} else if (p_encode_res_func) {
-					//try external function
+					// try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
 				} else if (res->is_class("FakeResource")) {
-					//this is really just for debugging
+					// this is really just for debugging
 					res_text = "Resource( \"" + ((Ref<FakeResource>)res)->get_real_path() + "\")";
 				}
 
-				//try path because it's a file
+				// try path because it's a file
 				if (res_text == String() && res->get_path().is_resource_file()) {
-					//external resource
+					// external resource
 					String path = res->get_path();
 					res_text = "Resource( \"" + path + "\")";
 				}
 
-				//could come up with some sort of text
+				// could come up with some sort of text
 				if (res_text != String()) {
 					p_store_string_func(p_store_string_ud, res_text);
 					break;
 				}
 			}
 
-			//store as generic object
+			// store as generic object
 
 			p_store_string_func(p_store_string_ud, "Object(" + obj->get_class() + ",");
 
@@ -181,7 +181,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			bool first = true;
 			for (List<PropertyInfo>::Element *E = props.front(); E; E = E->next()) {
 				if (E->get().usage & PROPERTY_USAGE_STORAGE || E->get().usage & PROPERTY_USAGE_SCRIPT_VARIABLE) {
-					//must be serialized
+					// must be serialized
 
 					if (first) {
 						first = false;
@@ -322,7 +322,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 
 			const String *ptr = data.ptr();
 			String s;
-			//write_string("\n");
+			// write_string("\n");
 
 			for (int i = 0; i < len; i++) {
 				if (i > 0)

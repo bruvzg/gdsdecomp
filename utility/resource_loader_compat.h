@@ -18,11 +18,11 @@
 #endif
 namespace VariantBin {
 enum Type {
-	//numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
+	// numbering must be different from variant, in case new variant types are added (variant must be always contiguous for jumptable optimization)
 	VARIANT_NIL = 1,
 	VARIANT_BOOL = 2,
 	VARIANT_INT = 3,
-	VARIANT_REAL = 4, //Old name for VARIANT_FLOAT
+	VARIANT_REAL = 4, // Old name for VARIANT_FLOAT
 	VARIANT_FLOAT = 4,
 	VARIANT_STRING = 5,
 	VARIANT_VECTOR2 = 10,
@@ -43,9 +43,9 @@ enum Type {
 	VARIANT_DICTIONARY = 26,
 	VARIANT_ARRAY = 30,
 	VARIANT_RAW_ARRAY = 31,
-	VARIANT_INT_ARRAY = 32, //Old name for VARIANT_INT32_ARRAY
+	VARIANT_INT_ARRAY = 32, // Old name for VARIANT_INT32_ARRAY
 	VARIANT_INT32_ARRAY = 32,
-	VARIANT_REAL_ARRAY = 33, //Old name for VARIANT_FLOAT32_ARRAY
+	VARIANT_REAL_ARRAY = 33, // Old name for VARIANT_FLOAT32_ARRAY
 	VARIANT_FLOAT32_ARRAY = 33,
 	VARIANT_STRING_ARRAY = 34,
 	VARIANT_VECTOR3_ARRAY = 35,
@@ -66,7 +66,7 @@ enum Type {
 	OBJECT_INTERNAL_RESOURCE = 2,
 	OBJECT_EXTERNAL_RESOURCE_INDEX = 3,
 
-	//Old variant image enums
+	// Old variant image enums
 	IMAGE_ENCODING_EMPTY = 0,
 	IMAGE_ENCODING_RAW = 1,
 	IMAGE_ENCODING_LOSSLESS = 2,
@@ -164,7 +164,7 @@ class ResourceLoaderBinaryCompat {
 	bool hacks_for_deprecated_v2img_formats = true;
 	bool no_abort_on_ext_load_fail = true;
 
-	//Godot 4.x flags
+	// Godot 4.x flags
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
 
@@ -262,7 +262,7 @@ public:
 	~ResourceLoaderBinaryCompat();
 };
 
-//this is derived from PackedScene because node instances in PackedScene cannot be returned otherwise
+// this is derived from PackedScene because node instances in PackedScene cannot be returned otherwise
 class FakeResource : public PackedScene {
 	GDCLASS(FakeResource, PackedScene);
 	String real_path;
