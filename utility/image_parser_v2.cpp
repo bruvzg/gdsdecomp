@@ -2,135 +2,12 @@
 #include "image_parser_v2.h"
 #include "webp_compat.h"
 
-const char *format_names[V2Image::IMAGE_FORMAT_V2_MAX] = {
-	"Grayscale",
-	"Intensity",
-	"GrayscaleAlpha",
-	"RGB",
-	"RGBA",
-	"Indexed",
-	"IndexedAlpha",
-	"YUV422",
-	"YUV444",
-	"BC1",
-	"BC2",
-	"BC3",
-	"BC4",
-	"BC5",
-	"PVRTC2",
-	"PVRTC2Alpha",
-	"PVRTC4",
-	"PVRTC4Alpha",
-	"ETC",
-	"ATC",
-	"ATCAlphaExp",
-	"ATCAlphaInterp",
-};
-const char *format_identifiers[V2Image::IMAGE_FORMAT_V2_MAX] = {
-	"GRAYSCALE",
-	"INTENSITY",
-	"GRAYSCALE_ALPHA",
-	"RGB",
-	"RGBA",
-	"INDEXED",
-	"INDEXED_ALPHA",
-	"YUV422",
-	"YUV444",
-	"BC1",
-	"BC2",
-	"BC3",
-	"BC4",
-	"BC5",
-	"PVRTC2",
-	"PVRTC2_ALPHA",
-	"PVRTC4",
-	"PVRTC4_ALPHA",
-	"ETC",
-	"ATC",
-	"ATC_ALPHA_EXPLICIT",
-	"ATC_ALPHA_INTERPOLATED"
-};
-
 void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
 			f->get_8(); // pad to 32
 		}
-	}
-}
-
-V2Image::Format ImageParserV2::get_format_from_string(const String &fmt_id) {
-	if (fmt_id == "CUSTOM") {
-		return V2Image::IMAGE_FORMAT_CUSTOM;
-	}
-	for (int i = 0; i < V2Image::IMAGE_FORMAT_V2_MAX; i++) {
-		if (format_names[i] == fmt_id) {
-			return (V2Image::Format)i;
-		}
-	}
-	return V2Image::IMAGE_FORMAT_V2_MAX;
-}
-
-String ImageParserV2::get_format_name(V2Image::Format p_format) {
-	if (p_format == V2Image::IMAGE_FORMAT_CUSTOM) {
-		return "Custom";
-	}
-	ERR_FAIL_INDEX_V(p_format, V2Image::IMAGE_FORMAT_V2_MAX, String());
-	return format_names[p_format];
-}
-
-String ImageParserV2::get_format_identifier(V2Image::Format p_format) {
-	if (p_format == V2Image::IMAGE_FORMAT_CUSTOM) {
-		return "CUSTOM";
-	}
-	ERR_FAIL_INDEX_V(p_format, V2Image::IMAGE_FORMAT_V2_MAX, String());
-	return format_identifiers[p_format];
-}
-
-String ImageParserV2::get_format_identifier_pcfg(V2Image::Format p_format, int p_img_size) {
-	switch (p_format) {
-		case V2Image::IMAGE_FORMAT_GRAYSCALE:
-			return "grayscale";
-			break;
-		case V2Image::IMAGE_FORMAT_INTENSITY:
-			return "intensity";
-			break;
-		case V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA:
-			return "grayscale_alpha";
-			break;
-		case V2Image::IMAGE_FORMAT_RGB:
-			return "rgb";
-			break;
-		case V2Image::IMAGE_FORMAT_RGBA:
-			return "rgba";
-			break;
-		case V2Image::IMAGE_FORMAT_INDEXED:
-			return "indexed";
-			break;
-		case V2Image::IMAGE_FORMAT_INDEXED_ALPHA:
-			return "indexed_alpha";
-			break;
-		case V2Image::IMAGE_FORMAT_BC1:
-			return "bc1";
-			break;
-		case V2Image::IMAGE_FORMAT_BC2:
-			return "bc2";
-			break;
-		case V2Image::IMAGE_FORMAT_BC3:
-			return "bc3";
-			break;
-		case V2Image::IMAGE_FORMAT_BC4:
-			return "bc4";
-			break;
-		case V2Image::IMAGE_FORMAT_BC5:
-			return "bc5";
-			break;
-		case V2Image::IMAGE_FORMAT_CUSTOM:
-			return "custom custom_size=" + itos(p_img_size) + "";
-			break;
-		default:
-			return "UNKNOWN_IMAGE_FORMAT";
 	}
 }
 
@@ -186,65 +63,6 @@ Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata
 	return img;
 }
 
-V2Image::Format ImageParserV2::new_format_to_v2_format(Image::Format p_format) {
-	switch (p_format) {
-		// convert old image format types to new ones
-		case Image::FORMAT_L8:
-			return V2Image::IMAGE_FORMAT_GRAYSCALE;
-		case Image::FORMAT_LA8:
-			return V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA;
-		case Image::FORMAT_RGB8:
-			return V2Image::IMAGE_FORMAT_RGB;
-		case Image::FORMAT_RGBA8:
-			return V2Image::IMAGE_FORMAT_RGBA;
-		case Image::FORMAT_DXT1:
-			return V2Image::IMAGE_FORMAT_BC1;
-		case Image::FORMAT_DXT3:
-			return V2Image::IMAGE_FORMAT_BC2;
-		case Image::FORMAT_DXT5:
-			return V2Image::IMAGE_FORMAT_BC3;
-		case Image::FORMAT_RGTC_R:
-			return V2Image::IMAGE_FORMAT_BC4;
-		case Image::FORMAT_RGTC_RG:
-			return V2Image::IMAGE_FORMAT_BC5;
-		case Image::FORMAT_ETC:
-			return V2Image::IMAGE_FORMAT_ETC;
-		default: {
-		}
-	}
-	return V2Image::IMAGE_FORMAT_V2_MAX;
-}
-
-Image::Format ImageParserV2::v2_format_to_new_format(V2Image::Format p_format) {
-	switch (p_format) {
-		// convert old image format types to new ones
-		case V2Image::IMAGE_FORMAT_GRAYSCALE:
-			return Image::FORMAT_L8;
-		case V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA:
-			return Image::FORMAT_LA8;
-		case V2Image::IMAGE_FORMAT_RGB:
-			return Image::FORMAT_RGB8;
-		case V2Image::IMAGE_FORMAT_RGBA:
-			return Image::FORMAT_RGBA8;
-		case V2Image::IMAGE_FORMAT_BC1:
-			return Image::FORMAT_DXT1;
-		case V2Image::IMAGE_FORMAT_BC2:
-			return Image::FORMAT_DXT3;
-		case V2Image::IMAGE_FORMAT_BC3:
-			return Image::FORMAT_DXT5;
-		case V2Image::IMAGE_FORMAT_BC4:
-			return Image::FORMAT_RGTC_R;
-		case V2Image::IMAGE_FORMAT_BC5:
-			return Image::FORMAT_RGTC_RG;
-		case V2Image::IMAGE_FORMAT_ETC:
-			return Image::FORMAT_ETC;
-		// If this is a deprecated or unsupported format...
-		default: {
-		}
-	}
-	return Image::FORMAT_MAX;
-}
-
 String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
 	Ref<Image> img = r_v;
 	String imgstr = is_pcfg ? "img(" : "Image(";
@@ -257,7 +75,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
 	imgstr += ", " + itos(img->get_height());
 	String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";
 	Image::Format fmt = img->get_format();
-	String fmt_id = is_pcfg ? get_format_identifier_pcfg(new_format_to_v2_format(fmt), img->get_data().size()) : get_format_identifier(new_format_to_v2_format(fmt));
+	String fmt_id = is_pcfg ? ImageEnumCompat::get_v2_format_identifier_pcfg(ImageEnumCompat::convert_image_format_enum_v4_to_v2(fmt), img->get_data().size()) : ImageEnumCompat::get_v2_format_identifier(ImageEnumCompat::convert_image_format_enum_v4_to_v2(fmt));
 
 	imgstr += subimgstr + fmt_id;
 
@@ -304,7 +122,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		f->store_32(val->get_width());
 		f->store_32(val->get_height());
 		int mipmaps = val->get_mipmap_count();
-		V2Image::Format fmt = new_format_to_v2_format(val->get_format());
+		V2Image::Format fmt = ImageEnumCompat::convert_image_format_enum_v4_to_v2(val->get_format());
 		ERR_FAIL_COND_V_MSG(fmt == V2Image::IMAGE_FORMAT_V2_MAX, ERR_FILE_CORRUPT,
 				"Can't convert new image to v2 image variant!");
 		f->store_32(mipmaps);
@@ -343,7 +161,7 @@ Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool conve
 		uint32_t height = f->get_32();
 		uint32_t mipmaps = f->get_32();
 		uint32_t old_format = f->get_32();
-		Image::Format fmt = v2_format_to_new_format((V2Image::Format)old_format);
+		Image::Format fmt = ImageEnumCompat::convert_image_format_enum_v2_to_v4((V2Image::Format)old_format);
 
 		uint32_t datalen = f->get_32();
 
@@ -357,13 +175,13 @@ Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool conve
 			Error err;
 			img = ImageParserV2::convert_indexed_image(imgdata, width, height, mipmaps, (V2Image::Format)old_format, &err);
 			ERR_FAIL_COND_V_MSG(err, err,
-					"Can't convert deprecated image format " + get_format_name((V2Image::Format)old_format) + " to new image formats!");
+					"Can't convert deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " to new image formats!");
 		} else {
 			// We wait until we've skipped all the data to do this
 			ERR_FAIL_COND_V_MSG(
 					fmt == Image::FORMAT_MAX,
 					ERR_UNAVAILABLE,
-					"Converting deprecated image format " + get_format_name((V2Image::Format)old_format) + " not implemented.");
+					"Converting deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " not implemented.");
 			img.instantiate();
 			img->create(width, height, mipmaps > 0, fmt, imgdata);
 		}
@@ -432,8 +250,8 @@ Error ImageParserV2::parse_image_construct_v2(VariantParser::Stream *p_stream, V
 	// format string
 	VariantParser::get_token(p_stream, token, line, r_err_str);
 	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_STRING, "Expected format string in Image variant");
-	old_format = get_format_from_string(token.value);
-	fmt = v2_format_to_new_format(old_format);
+	old_format = ImageEnumCompat::get_v2_format_from_string(token.value);
+	fmt = ImageEnumCompat::convert_image_format_enum_v2_to_v4(old_format);
 	bool first = true;
 	EXPECT_COMMA();
 
@@ -461,12 +279,12 @@ Error ImageParserV2::parse_image_construct_v2(VariantParser::Stream *p_stream, V
 		Error err;
 		img = ImageParserV2::convert_indexed_image(data, width, height, mipmaps, (V2Image::Format)old_format, &err);
 		if (img->is_empty()) {
-			r_err_str = "Failed to convert deprecated image format " + get_format_name((V2Image::Format)old_format) + " to new image format!";
+			r_err_str = "Failed to convert deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " to new image format!";
 			return err;
 		}
 	} else {
 		if (fmt == Image::FORMAT_MAX) {
-			r_err_str = "Converting deprecated image format " + get_format_name((V2Image::Format)old_format) + " not implemented.";
+			r_err_str = "Converting deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " not implemented.";
 			return ERR_PARSE_ERROR;
 		}
 		img.instantiate();

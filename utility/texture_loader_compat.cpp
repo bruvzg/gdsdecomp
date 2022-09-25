@@ -1,5 +1,6 @@
 #include "texture_loader_compat.h"
 #include "gdre_settings.h"
+#include "image_enum_compat.h"
 #include "resource_loader_compat.h"
 #include "webp_compat.h"
 
@@ -150,7 +151,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 		}
 	} else {
 		//look for regular format
-		Image::Format format = convert_image_format_enum_v3_to_v4(ImageV3Fmt(df & FORMAT_MASK_IMAGE_FORMAT));
+		Image::Format format = ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format(df & FORMAT_MASK_IMAGE_FORMAT));
 		ERR_FAIL_COND_V_MSG(format == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Textured layer is in an invalid or deprecated format");
 
 		bool mipmaps = df & FORMAT_BIT_HAS_MIPMAPS;
@@ -284,25 +285,6 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 	return OK;
 }
 
-// V4 removed PVRTC, need to convert enums
-Image::Format TextureLoaderCompat::convert_image_format_enum_v3_to_v4(ImageV3Fmt fmt) const {
-	// V4 removed
-	if (fmt <= Image::Format::FORMAT_BPTC_RGBFU) {
-		return Image::Format(fmt);
-	}
-
-	// IF this is a PVRTC image, print a specific error
-	ERR_FAIL_COND_V_MSG(fmt >= ImageV3Fmt::FORMAT_PVRTC2 && fmt <= ImageV3Fmt::FORMAT_PVRTC4A, Image::FORMAT_MAX, "Cannot convert deprecated PVRTC formatted textures");
-
-	// They removed four PVRTC enum values after BPTC_RGBFU, so just subtract 4
-	if (fmt >= ImageV3Fmt::FORMAT_ETC && fmt < ImageV3Fmt::FORMAT_MAX) {
-		return Image::Format(fmt - 4);
-	}
-	// If this is an invalid value, return FORMAT_MAX
-
-	return Image::FORMAT_MAX;
-}
-
 Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
 	Error err;
 
@@ -317,8 +299,8 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 	th = f->get_16();
 	th_custom = f->get_16();
 
-	flags = f->get_32(); //texture flags!
-	uint32_t df = f->get_32(); //data format
+	flags = f->get_32(); // texture flags!
+	uint32_t df = f->get_32(); // data format
 	p_size_limit = 0;
 	if (image.is_null()) {
 		image.instantiate();
@@ -380,7 +362,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 	int td = f->get_32();
 	int flags = f->get_32(); //texture flags!
 
-	Image::Format format = convert_image_format_enum_v3_to_v4(ImageV3Fmt(f->get_32()));
+	Image::Format format = ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format(f->get_32()));
 	ERR_FAIL_COND_V_MSG(format == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Textured layer is in an invalid or deprecated format");
 
 	uint32_t compression = f->get_32(); // 0 - lossless (PNG), 1 - vram, 2 - uncompressed

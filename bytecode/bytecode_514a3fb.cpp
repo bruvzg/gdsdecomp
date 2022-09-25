@@ -249,7 +249,7 @@ Error GDScriptDecomp_514a3fb::decompile_buffer(Vector<uint8_t> p_buffer) {
 	for (int i = 0; i < constant_count; i++) {
 		Variant v;
 		int len;
-		Error err = decode_variant_3(v, b, total_len, &len);
+		Error err = VariantDecoderCompat::decode_variant_3(v, b, total_len, &len);
 		if (err) {
 			error_message = RTR("Invalid constant");
 			return err;
@@ -312,7 +312,7 @@ Error GDScriptDecomp_514a3fb::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "self";
 			} break;
 			case TK_BUILT_IN_TYPE: {
-				line += get_type_name_v2(tokens[i] >> TOKEN_BITS);
+				line += VariantDecoderCompat::get_variant_type_name_v2(tokens[i] >> TOKEN_BITS);
 			} break;
 			case TK_BUILT_IN_FUNC: {
 				line += func_names[tokens[i] >> TOKEN_BITS];

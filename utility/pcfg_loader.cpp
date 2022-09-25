@@ -1,5 +1,5 @@
 #include "pcfg_loader.h"
-#include "bytecode/bytecode_base.h"
+#include "utility/variant_decoder_compat.h"
 #include "utility/variant_writer_compat.h"
 
 #include "core/config/engine.h"
@@ -96,9 +96,9 @@ Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String
 		if (ver_major == 4) {
 			err = decode_variant(value, d.ptr(), d.size(), NULL, true);
 		} else if (ver_major == 3) {
-			err = GDScriptDecomp::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
+			err = VariantDecoderCompat::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
 		} else if (ver_major == 2) {
-			err = GDScriptDecomp::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
+			err = VariantDecoderCompat::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
 		} else {
 			err = ERR_INVALID_PARAMETER; //or some other error code
 		}
