@@ -270,10 +270,9 @@ protected:
 
 	Ref<Resource> instance_internal_resource(const String &path, const String &type, const String &id);
 	String get_internal_resource_path(const Ref<Resource> &res);
-	Ref<Resource> get_internal_resource(const int subindex);
+	Ref<Resource> get_internal_resource_by_subindex(const int subindex);
 	int get_internal_resource_save_order_by_path(const String &path);
 	Ref<Resource> get_internal_resource(const String &path);
-	Ref<Resource> get_internal_resource_by_id(const String &id);
 
 	String get_internal_resource_type(const String &path);
 	bool has_internal_resource(const Ref<Resource> &res);

@@ -544,7 +544,7 @@ String ResourceLoaderCompat::get_internal_resource_path(const Ref<Resource> &res
 	return String();
 }
 
-Ref<Resource> ResourceLoaderCompat::get_internal_resource(const int subindex) {
+Ref<Resource> ResourceLoaderCompat::get_internal_resource_by_subindex(const int subindex) {
 	for (auto R = internal_res_cache.front(); R; R = R->next()) {
 		if (R->value()->get_scene_unique_id() == itos(subindex)) {
 			return R->value();
@@ -552,12 +552,7 @@ Ref<Resource> ResourceLoaderCompat::get_internal_resource(const int subindex) {
 	}
 	return Ref<Resource>();
 }
-Ref<Resource> ResourceLoaderCompat::get_internal_resource_by_id(const String &id) {
-	if (has_internal_resource("local://" + id)) {
-		return internal_res_cache["local://" + id];
-	}
-	return Ref<Resource>();
-}
+
 int ResourceLoaderCompat::get_internal_resource_save_order_by_path(const String &path) {
 	if (has_internal_resource(path)) {
 		for (int i = 0; i < internal_resources.size(); i++) {
@@ -1536,7 +1531,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 						r_v = get_internal_resource(path);
 					} else {
 						path += res_path + "::" + itos(index);
-						r_v = get_internal_resource(index);
+						r_v = get_internal_resource_by_subindex(index);
 					}
 
 					if (!r_v) {
