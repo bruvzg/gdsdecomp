@@ -151,8 +151,8 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           mkdir -p "bin/macos_template.app/Contents/MacOS"
-          cp "${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.x86_64"
-          cp "${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_release.x86_64"
+          cp "bin/${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.x86_64"
+          cp "bin/${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_release.x86_64"
           cd bin/
           zip -r9 "macos.zip" "macos_template.app/"
           cd ..
