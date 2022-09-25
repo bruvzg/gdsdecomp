@@ -1,45 +1,248 @@
 
 #include "image_parser_v2.h"
-#include "core/io/image.h"
 #include "webp_compat.h"
-namespace V2Image {
-enum Type {
-	IMAGE_ENCODING_EMPTY = 0,
-	IMAGE_ENCODING_RAW = 1,
-	IMAGE_ENCODING_LOSSLESS = 2,
-	IMAGE_ENCODING_LOSSY = 3,
 
-	IMAGE_FORMAT_GRAYSCALE = 0,
-	IMAGE_FORMAT_INTENSITY = 1,
-	IMAGE_FORMAT_GRAYSCALE_ALPHA = 2,
-	IMAGE_FORMAT_RGB = 3,
-	IMAGE_FORMAT_RGBA = 4,
-	IMAGE_FORMAT_INDEXED = 5,
-	IMAGE_FORMAT_INDEXED_ALPHA = 6,
-	IMAGE_FORMAT_BC1 = 7,
-	IMAGE_FORMAT_BC2 = 8,
-	IMAGE_FORMAT_BC3 = 9,
-	IMAGE_FORMAT_BC4 = 10,
-	IMAGE_FORMAT_BC5 = 11,
-	IMAGE_FORMAT_PVRTC2 = 12,
-	IMAGE_FORMAT_PVRTC2_ALPHA = 13,
-	IMAGE_FORMAT_PVRTC4 = 14,
-	IMAGE_FORMAT_PVRTC4_ALPHA = 15,
-	IMAGE_FORMAT_ETC = 16,
-	IMAGE_FORMAT_ATC = 17,
-	IMAGE_FORMAT_ATC_ALPHA_EXPLICIT = 18,
-	IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED = 19,
-	IMAGE_FORMAT_CUSTOM = 30
+const char *format_names[V2Image::IMAGE_FORMAT_V2_MAX] = {
+	"Grayscale",
+	"Intensity",
+	"GrayscaleAlpha",
+	"RGB",
+	"RGBA",
+	"Indexed",
+	"IndexedAlpha",
+	"YUV422",
+	"YUV444",
+	"BC1",
+	"BC2",
+	"BC3",
+	"BC4",
+	"BC5",
+	"PVRTC2",
+	"PVRTC2Alpha",
+	"PVRTC4",
+	"PVRTC4Alpha",
+	"ETC",
+	"ATC",
+	"ATCAlphaExp",
+	"ATCAlphaInterp",
 };
-}
+const char *format_identifiers[V2Image::IMAGE_FORMAT_V2_MAX] = {
+	"GRAYSCALE",
+	"INTENSITY",
+	"GRAYSCALE_ALPHA",
+	"RGB",
+	"RGBA",
+	"INDEXED",
+	"INDEXED_ALPHA",
+	"YUV422",
+	"YUV444",
+	"BC1",
+	"BC2",
+	"BC3",
+	"BC4",
+	"BC5",
+	"PVRTC2",
+	"PVRTC2_ALPHA",
+	"PVRTC4",
+	"PVRTC4_ALPHA",
+	"ETC",
+	"ATC",
+	"ATC_ALPHA_EXPLICIT",
+	"ATC_ALPHA_INTERPOLATED"
+};
 
 void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
-			f->get_8(); //pad to 32
+			f->get_8(); // pad to 32
 		}
 	}
+}
+
+V2Image::Format ImageParserV2::get_format_from_string(const String &fmt_id) {
+	if (fmt_id == "CUSTOM") {
+		return V2Image::IMAGE_FORMAT_CUSTOM;
+	}
+	for (int i = 0; i < V2Image::IMAGE_FORMAT_V2_MAX; i++) {
+		if (format_names[i] == fmt_id) {
+			return (V2Image::Format)i;
+		}
+	}
+	return V2Image::IMAGE_FORMAT_V2_MAX;
+}
+
+String ImageParserV2::get_format_name(V2Image::Format p_format) {
+	if (p_format == V2Image::IMAGE_FORMAT_CUSTOM) {
+		return "Custom";
+	}
+	ERR_FAIL_INDEX_V(p_format, V2Image::IMAGE_FORMAT_V2_MAX, String());
+	return format_names[p_format];
+}
+
+String ImageParserV2::get_format_identifier(V2Image::Format p_format) {
+	if (p_format == V2Image::IMAGE_FORMAT_CUSTOM) {
+		return "CUSTOM";
+	}
+	ERR_FAIL_INDEX_V(p_format, V2Image::IMAGE_FORMAT_V2_MAX, String());
+	return format_identifiers[p_format];
+}
+
+String ImageParserV2::get_format_identifier_pcfg(V2Image::Format p_format, int p_img_size) {
+	switch (p_format) {
+		case V2Image::IMAGE_FORMAT_GRAYSCALE:
+			return "grayscale";
+			break;
+		case V2Image::IMAGE_FORMAT_INTENSITY:
+			return "intensity";
+			break;
+		case V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA:
+			return "grayscale_alpha";
+			break;
+		case V2Image::IMAGE_FORMAT_RGB:
+			return "rgb";
+			break;
+		case V2Image::IMAGE_FORMAT_RGBA:
+			return "rgba";
+			break;
+		case V2Image::IMAGE_FORMAT_INDEXED:
+			return "indexed";
+			break;
+		case V2Image::IMAGE_FORMAT_INDEXED_ALPHA:
+			return "indexed_alpha";
+			break;
+		case V2Image::IMAGE_FORMAT_BC1:
+			return "bc1";
+			break;
+		case V2Image::IMAGE_FORMAT_BC2:
+			return "bc2";
+			break;
+		case V2Image::IMAGE_FORMAT_BC3:
+			return "bc3";
+			break;
+		case V2Image::IMAGE_FORMAT_BC4:
+			return "bc4";
+			break;
+		case V2Image::IMAGE_FORMAT_BC5:
+			return "bc5";
+			break;
+		case V2Image::IMAGE_FORMAT_CUSTOM:
+			return "custom custom_size=" + itos(p_img_size) + "";
+			break;
+		default:
+			return "UNKNOWN_IMAGE_FORMAT";
+	}
+}
+
+Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata, int p_width, int p_height, int p_mipmaps, V2Image::Format p_format, Error *r_error) {
+	Vector<uint8_t> r_imgdata;
+	Image::Format r_format;
+	int datalen = p_imgdata.size();
+	if (r_error) {
+		*r_error = OK;
+	}
+	if ((p_format != 5 && p_format != 6 && p_format != 1)) {
+		if (r_error) {
+			*r_error = ERR_INVALID_PARAMETER;
+		}
+		return Ref<Image>();
+	}
+	if (p_format == V2Image::IMAGE_FORMAT_INTENSITY) {
+		r_format = Image::FORMAT_RGBA8;
+		r_imgdata.resize(datalen * 4);
+		for (uint32_t i = 0; i < datalen; i++) {
+			r_imgdata.write[i * 4] = 255;
+			r_imgdata.write[i * 4 + 1] = 255;
+			r_imgdata.write[i * 4 + 2] = 255;
+			r_imgdata.write[i * 4 + 3] = p_imgdata[i];
+		}
+	} else {
+		int pal_width;
+		if (p_format == V2Image::IMAGE_FORMAT_INDEXED) {
+			r_format = Image::FORMAT_RGB8;
+			pal_width = 3;
+		} else { // V2Image::IMAGE_FORMAT_INDEXED_ALPHA
+			r_format = Image::FORMAT_RGBA8;
+			pal_width = 4;
+		}
+
+		Vector<Vector<uint8_t>> palette;
+
+		// palette data starts at end of pixel data, is equal to 256 * pal_width
+		for (int dataidx = p_width * p_height; dataidx < p_imgdata.size(); dataidx += pal_width) {
+			palette.push_back(p_imgdata.slice(dataidx, dataidx + pal_width));
+		}
+		// pixel data is index into palette
+		for (uint32_t i = 0; i < p_width * p_height; i++) {
+			r_imgdata.append_array(palette[p_imgdata[i]]);
+		}
+	}
+	Ref<Image> img;
+	img.instantiate();
+	img->create(p_width, p_height, p_mipmaps > 0, r_format, r_imgdata);
+	if (img.is_null() && r_error) {
+		*r_error = ERR_PARSE_ERROR;
+	}
+	return img;
+}
+
+V2Image::Format ImageParserV2::new_format_to_v2_format(Image::Format p_format) {
+	switch (p_format) {
+		// convert old image format types to new ones
+		case Image::FORMAT_L8:
+			return V2Image::IMAGE_FORMAT_GRAYSCALE;
+		case Image::FORMAT_LA8:
+			return V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA;
+		case Image::FORMAT_RGB8:
+			return V2Image::IMAGE_FORMAT_RGB;
+		case Image::FORMAT_RGBA8:
+			return V2Image::IMAGE_FORMAT_RGBA;
+		case Image::FORMAT_DXT1:
+			return V2Image::IMAGE_FORMAT_BC1;
+		case Image::FORMAT_DXT3:
+			return V2Image::IMAGE_FORMAT_BC2;
+		case Image::FORMAT_DXT5:
+			return V2Image::IMAGE_FORMAT_BC3;
+		case Image::FORMAT_RGTC_R:
+			return V2Image::IMAGE_FORMAT_BC4;
+		case Image::FORMAT_RGTC_RG:
+			return V2Image::IMAGE_FORMAT_BC5;
+		case Image::FORMAT_ETC:
+			return V2Image::IMAGE_FORMAT_ETC;
+		default: {
+		}
+	}
+	return V2Image::IMAGE_FORMAT_V2_MAX;
+}
+
+Image::Format ImageParserV2::v2_format_to_new_format(V2Image::Format p_format) {
+	switch (p_format) {
+		// convert old image format types to new ones
+		case V2Image::IMAGE_FORMAT_GRAYSCALE:
+			return Image::FORMAT_L8;
+		case V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA:
+			return Image::FORMAT_LA8;
+		case V2Image::IMAGE_FORMAT_RGB:
+			return Image::FORMAT_RGB8;
+		case V2Image::IMAGE_FORMAT_RGBA:
+			return Image::FORMAT_RGBA8;
+		case V2Image::IMAGE_FORMAT_BC1:
+			return Image::FORMAT_DXT1;
+		case V2Image::IMAGE_FORMAT_BC2:
+			return Image::FORMAT_DXT3;
+		case V2Image::IMAGE_FORMAT_BC3:
+			return Image::FORMAT_DXT5;
+		case V2Image::IMAGE_FORMAT_BC4:
+			return Image::FORMAT_RGTC_R;
+		case V2Image::IMAGE_FORMAT_BC5:
+			return Image::FORMAT_RGTC_RG;
+		case V2Image::IMAGE_FORMAT_ETC:
+			return Image::FORMAT_ETC;
+		// If this is a deprecated or unsupported format...
+		default: {
+		}
+	}
+	return Image::FORMAT_MAX;
 }
 
 String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
@@ -53,71 +256,10 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
 	imgstr += itos(img->get_width());
 	imgstr += ", " + itos(img->get_height());
 	String subimgstr = ", " + itos(img->get_mipmap_count()) + ", ";
+	Image::Format fmt = img->get_format();
+	String fmt_id = is_pcfg ? get_format_identifier_pcfg(new_format_to_v2_format(fmt), img->get_data().size()) : get_format_identifier(new_format_to_v2_format(fmt));
 
-	switch (img->get_format()) {
-		case Image::FORMAT_L8:
-			subimgstr += "GRAYSCALE";
-			break;
-		case Image::FORMAT_LA8:
-			subimgstr += "GRAYSCALE_ALPHA";
-			break;
-		case Image::FORMAT_RGB8:
-			subimgstr += "RGB";
-			break;
-		case Image::FORMAT_RGBA8:
-			subimgstr += "RGBA";
-			break;
-		case Image::FORMAT_DXT1:
-			subimgstr += "BC1";
-			break;
-		case Image::FORMAT_DXT3:
-			subimgstr += "BC2";
-			break;
-		case Image::FORMAT_DXT5:
-			subimgstr += "BC3";
-			break;
-		case Image::FORMAT_RGTC_R:
-			subimgstr += "BC4";
-			break;
-		case Image::FORMAT_RGTC_RG:
-			subimgstr += "BC5";
-			break;
-		case Image::FORMAT_ETC:
-			subimgstr += "ETC";
-			break;
-		// Hacks for no-longer supported image formats
-		// If hacks_for_dropped_fmt is true in parse_image_v2():
-		// The mipmap counts for these will not be correct in the img data
-		// the v4 formats in "get_image_required_mipmaps" map to the required mipmaps for the deprecated formats
-		case Image::FORMAT_ETC2_R11:
-			//reset substr
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
-			subimgstr += "INTENSITY";
-			break;
-		case Image::FORMAT_ETC2_R11S:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
-			subimgstr += "INDEXED";
-			break;
-		case Image::FORMAT_ETC2_RG11:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_L8)) + ", ";
-			subimgstr += "INDEXED_ALPHA";
-			break;
-		case Image::FORMAT_ETC2_RGB8:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
-			subimgstr += "ATC_ALPHA_EXPLICIT";
-			break;
-		case Image::FORMAT_ETC2_RGB8A1:
-			subimgstr = ", " + itos(Image::get_image_required_mipmaps(img->get_width(), img->get_height(), Image::FORMAT_BPTC_RGBA)) + ", ";
-			subimgstr += "ATC_ALPHA_INTERPOLATED";
-			break;
-		case Image::FORMAT_ETC2_RA_AS_RG:
-			subimgstr = ", " + itos(1) + ", ";
-			subimgstr += "CUSTOM";
-			break;
-		default: {
-		}
-	}
-	imgstr += subimgstr;
+	imgstr += subimgstr + fmt_id;
 
 	String s;
 
@@ -144,7 +286,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 	float quality = 0.7;
 
 	if (val->get_format() <= Image::FORMAT_RGB565) {
-		//can only compress uncompressed stuff
+		// can only compress uncompressed stuff
 		if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
@@ -156,78 +298,15 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		}
 	}
 
-	f->store_32(encoding); //raw encoding
+	f->store_32(encoding); // raw encoding
+
 	if (encoding == V2Image::IMAGE_ENCODING_RAW) {
 		f->store_32(val->get_width());
 		f->store_32(val->get_height());
 		int mipmaps = val->get_mipmap_count();
-
-		V2Image::Type fmt;
-		switch (val->get_format()) {
-			//convert old image format types to new ones
-			case Image::FORMAT_L8: {
-				fmt = V2Image::IMAGE_FORMAT_GRAYSCALE;
-			} break;
-			case Image::FORMAT_LA8: {
-				fmt = V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA;
-			} break;
-			case Image::FORMAT_RGB8: {
-				fmt = V2Image::IMAGE_FORMAT_RGB;
-			} break;
-			case Image::FORMAT_RGBA8: {
-				fmt = V2Image::IMAGE_FORMAT_RGBA;
-			} break;
-			case Image::FORMAT_DXT1: {
-				fmt = V2Image::IMAGE_FORMAT_BC1;
-			} break;
-			case Image::FORMAT_DXT3: {
-				fmt = V2Image::IMAGE_FORMAT_BC2;
-			} break;
-			case Image::FORMAT_DXT5: {
-				fmt = V2Image::IMAGE_FORMAT_BC3;
-			} break;
-			case Image::FORMAT_RGTC_R: {
-				fmt = V2Image::IMAGE_FORMAT_BC4;
-			} break;
-			case Image::FORMAT_RGTC_RG: {
-				fmt = V2Image::IMAGE_FORMAT_BC5;
-			} break;
-
-			case Image::FORMAT_ETC: {
-				fmt = V2Image::IMAGE_FORMAT_ETC;
-			} break;
-			// Hacks for no-longer supported image formats
-			// If hacks_for_dropped_fmt is true in parse_image_v2()
-			// the v4 formats in "get_image_required_mipmaps" map to the required mipmaps for the deprecated formats
-			case Image::FORMAT_ETC2_R11: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-				fmt = V2Image::IMAGE_FORMAT_INTENSITY;
-			} break;
-			case Image::FORMAT_ETC2_R11S: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-				fmt = V2Image::IMAGE_FORMAT_INDEXED;
-			} break;
-			case Image::FORMAT_ETC2_RG11: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_L8);
-				fmt = V2Image::IMAGE_FORMAT_INDEXED_ALPHA;
-			} break;
-			case Image::FORMAT_ETC2_RGB8: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
-				fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT;
-			} break;
-			case Image::FORMAT_ETC2_RGB8A1: {
-				mipmaps = Image::get_image_required_mipmaps(val->get_width(), val->get_height(), Image::FORMAT_BPTC_RGBA);
-				fmt = V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED;
-			} break;
-			case Image::FORMAT_ETC2_RA_AS_RG: {
-				mipmaps = 0;
-				fmt = V2Image::IMAGE_FORMAT_CUSTOM;
-			} break;
-
-			default: {
-				ERR_FAIL_V(ERR_FILE_CORRUPT);
-			}
-		}
+		V2Image::Format fmt = new_format_to_v2_format(val->get_format());
+		ERR_FAIL_COND_V_MSG(fmt == V2Image::IMAGE_FORMAT_V2_MAX, ERR_FILE_CORRUPT,
+				"Can't convert new image to v2 image variant!");
 		f->store_32(mipmaps);
 		f->store_32(fmt);
 		int dlen = val->get_data().size();
@@ -251,95 +330,20 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 	return OK;
 }
 
-Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_for_dropped_fmt, bool convert_indexed) {
+Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool convert_indexed) {
 	uint32_t encoding = f->get_32();
 	Ref<Image> img;
-	img.instantiate();
 
 	if (encoding == V2Image::IMAGE_ENCODING_EMPTY) {
+		img.instantiate();
 		r_v = img;
 		return OK;
 	} else if (encoding == V2Image::IMAGE_ENCODING_RAW) {
 		uint32_t width = f->get_32();
 		uint32_t height = f->get_32();
 		uint32_t mipmaps = f->get_32();
-		uint32_t format = f->get_32();
-		Image::Format fmt = Image::FORMAT_MAX;
-		switch (format) {
-			//convert old image format types to new ones
-			case V2Image::IMAGE_FORMAT_GRAYSCALE: {
-				fmt = Image::FORMAT_L8;
-			} break;
-			case V2Image::IMAGE_FORMAT_GRAYSCALE_ALPHA: {
-				fmt = Image::FORMAT_LA8;
-			} break;
-			case V2Image::IMAGE_FORMAT_RGB: {
-				fmt = Image::FORMAT_RGB8;
-			} break;
-			case V2Image::IMAGE_FORMAT_RGBA: {
-				fmt = Image::FORMAT_RGBA8;
-			} break;
-			case V2Image::IMAGE_FORMAT_BC1: {
-				fmt = Image::FORMAT_DXT1;
-			} break;
-			case V2Image::IMAGE_FORMAT_BC2: {
-				fmt = Image::FORMAT_DXT3;
-			} break;
-			case V2Image::IMAGE_FORMAT_BC3: {
-				fmt = Image::FORMAT_DXT5;
-			} break;
-			case V2Image::IMAGE_FORMAT_BC4: {
-				fmt = Image::FORMAT_RGTC_R;
-			} break;
-			case V2Image::IMAGE_FORMAT_BC5: {
-				fmt = Image::FORMAT_RGTC_RG;
-			} break;
-			case V2Image::IMAGE_FORMAT_ETC: {
-				fmt = Image::FORMAT_ETC;
-			} break;
-
-			// If this is a deprecated or unsupported format...
-			default: {
-				// Hacks for no-longer supported image formats
-				// We change the format to something that V2 didn't have support for as a placeholder
-				// This is just in the case of converting a bin resource to a text resource
-				// It gets handled in the above converters
-				// TODO: this is of dubious value because the compressed textures SHOULD
-				// never have been stored inline in a resource in v2. Consider removing.
-				if (hacks_for_dropped_fmt) {
-					switch (format) {
-						case V2Image::IMAGE_FORMAT_INTENSITY: {
-							fmt = Image::FORMAT_ETC2_R11;
-						} break;
-						case V2Image::IMAGE_FORMAT_INDEXED: {
-							fmt = Image::FORMAT_ETC2_R11S;
-						} break;
-						case V2Image::IMAGE_FORMAT_INDEXED_ALPHA: {
-							fmt = Image::FORMAT_ETC2_RG11;
-						} break;
-						case V2Image::IMAGE_FORMAT_ATC: {
-							fmt = Image::FORMAT_ETC2_RG11S;
-						} break;
-						case V2Image::IMAGE_FORMAT_ATC_ALPHA_EXPLICIT: {
-							fmt = Image::FORMAT_ETC2_RGB8;
-						} break;
-						case V2Image::IMAGE_FORMAT_ATC_ALPHA_INTERPOLATED: {
-							fmt = Image::FORMAT_ETC2_RGB8A1;
-						} break;
-						case V2Image::IMAGE_FORMAT_CUSTOM: {
-							fmt = Image::FORMAT_ETC2_RA_AS_RG;
-						} break;
-							// We can't convert YUV format, PVRTC formats, or ETC2_RG11S
-						default: {
-							fmt = Image::FORMAT_MAX;
-						} break;
-					}
-				} else {
-					// We'll error out after we've skipped over the data
-					fmt = Image::FORMAT_MAX;
-				}
-			}
-		}
+		uint32_t old_format = f->get_32();
+		Image::Format fmt = v2_format_to_new_format((V2Image::Format)old_format);
 
 		uint32_t datalen = f->get_32();
 
@@ -349,46 +353,22 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 		f->get_buffer(w, datalen);
 		_advance_padding(f, datalen);
 		// This is for if we're saving the image as a png.
-		if (convert_indexed && (format == 5 || format == 6 || format == 1)) {
-			Vector<uint8_t> new_imgdata;
-
-			if (format == V2Image::IMAGE_FORMAT_INTENSITY) {
-				fmt = Image::FORMAT_RGBA8;
-				new_imgdata.resize(datalen * 4);
-				for (uint32_t i = 0; i < datalen; i++) {
-					new_imgdata.write[i * 4] = 255;
-					new_imgdata.write[i * 4 + 1] = 255;
-					new_imgdata.write[i * 4 + 2] = 255;
-					new_imgdata.write[i * 4 + 3] = imgdata[i];
-				}
-			} else {
-				int p_width;
-				if (format == V2Image::IMAGE_FORMAT_INDEXED) {
-					fmt = Image::FORMAT_RGB8;
-					p_width = 3;
-				} else { //V2Image::IMAGE_FORMAT_INDEXED_ALPHA
-					fmt = Image::FORMAT_RGBA8;
-					p_width = 4;
-				}
-
-				Vector<Vector<uint8_t>> palette;
-
-				//palette data starts at end of pixel data, is equal to 256 * p_width
-				for (int dataidx = width * height; dataidx < imgdata.size(); dataidx += p_width) {
-					palette.push_back(imgdata.slice(dataidx, dataidx + p_width));
-				}
-				//pixel data is index into palette
-				for (uint32_t i = 0; i < width * height; i++) {
-					new_imgdata.append_array(palette[imgdata[i]]);
-				}
-			}
-			imgdata = new_imgdata;
+		if (convert_indexed && (old_format == 5 || old_format == 6 || old_format == 1)) {
+			Error err;
+			img = ImageParserV2::convert_indexed_image(imgdata, width, height, mipmaps, (V2Image::Format)old_format, &err);
+			ERR_FAIL_COND_V_MSG(err, err,
+					"Can't convert deprecated image format " + get_format_name((V2Image::Format)old_format) + " to new image formats!");
+		} else {
+			// We wait until we've skipped all the data to do this
+			ERR_FAIL_COND_V_MSG(
+					fmt == Image::FORMAT_MAX,
+					ERR_UNAVAILABLE,
+					"Converting deprecated image format " + get_format_name((V2Image::Format)old_format) + " not implemented.");
+			img.instantiate();
+			img->create(width, height, mipmaps > 0, fmt, imgdata);
 		}
-		//We wait until we've skipped all the data to do this
-		ERR_FAIL_COND_V_MSG(fmt == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Can't convert deprecated image formats to new image formats!");
-		img->create(width, height, mipmaps > 0, fmt, imgdata);
 	} else {
-		//compressed
+		// compressed
 		Vector<uint8_t> data;
 		data.resize(f->get_32());
 		uint8_t *w = data.ptrw();
@@ -401,6 +381,102 @@ Error ImageParserV2::parse_image_v2(Ref<FileAccess> f, Variant &r_v, bool hacks_
 		}
 		_advance_padding(f, data.size());
 	}
+	r_v = img;
+	return OK;
+}
+
+#define ERR_PARSE_V2IMAGE_FAIL(c_type, error_string) \
+	if (token.type != c_type) {                      \
+		r_err_str = error_string;                    \
+		return ERR_PARSE_ERROR;                      \
+	}
+
+#define EXPECT_COMMA()                                          \
+	VariantParser::get_token(p_stream, token, line, r_err_str); \
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_COMMA, "Expected comma in Image variant")
+
+Error ImageParserV2::parse_image_construct_v2(VariantParser::Stream *p_stream, Variant &r_v, bool convert_indexed, int &line, String &p_err_str) {
+	String r_err_str;
+	VariantParser::Token token;
+	uint32_t width;
+	uint32_t height;
+	uint32_t mipmaps;
+	V2Image::Format old_format;
+	Image::Format fmt = Image::FORMAT_MAX;
+	Vector<uint8_t> data;
+	Ref<Image> img;
+
+	// The "Image" identifier has already been parsed, start with parantheses
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_PARENTHESIS_OPEN, "Expected '(' in constructor");
+
+	// w, h, mipmap count, format string, data...
+	// width
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_NUMBER, "Expected width in Image variant");
+	width = token.value;
+	EXPECT_COMMA();
+
+	// height
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_NUMBER, "Expected height in Image variant");
+	height = token.value;
+	EXPECT_COMMA();
+
+	// mipmaps
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_NUMBER, "Expected mipmap count in Image variant");
+	mipmaps = token.value;
+	EXPECT_COMMA();
+
+	// format string
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_STRING, "Expected format string in Image variant");
+	old_format = get_format_from_string(token.value);
+	fmt = v2_format_to_new_format(old_format);
+	bool first = true;
+	EXPECT_COMMA();
+
+	// data
+	while (true) {
+		if (!first) {
+			VariantParser::get_token(p_stream, token, line, r_err_str);
+			if (token.type == VariantParser::TK_PARENTHESIS_CLOSE) {
+				break;
+			} else {
+				ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_COMMA, "Expected ',' or ')'");
+			}
+		}
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (first && token.type == VariantParser::TK_PARENTHESIS_CLOSE) {
+			break;
+		}
+		ERR_PARSE_V2IMAGE_FAIL(VariantParser::TK_NUMBER, "Expected int in image data");
+
+		data.push_back(token.value);
+		first = false;
+	}
+
+	if (convert_indexed && (old_format == 5 || old_format == 6 || old_format == 1)) {
+		Error err;
+		img = ImageParserV2::convert_indexed_image(data, width, height, mipmaps, (V2Image::Format)old_format, &err);
+		if (img->is_empty()) {
+			r_err_str = "Failed to convert deprecated image format " + get_format_name((V2Image::Format)old_format) + " to new image format!";
+			return err;
+		}
+	} else {
+		if (fmt == Image::FORMAT_MAX) {
+			r_err_str = "Converting deprecated image format " + get_format_name((V2Image::Format)old_format) + " not implemented.";
+			return ERR_PARSE_ERROR;
+		}
+		img.instantiate();
+		img->create(width, height, mipmaps > 0, fmt, data);
+	}
+	if (img->is_empty()) {
+		r_err_str = "Failed to create image";
+		return ERR_PARSE_ERROR;
+	}
+
 	r_v = img;
 	return OK;
 }

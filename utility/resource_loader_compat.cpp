@@ -1342,8 +1342,8 @@ Error ResourceLoaderBinaryCompat::parse_variant(Variant &r_v) {
 		} break;
 		//Old Godot 2.x Image variant, convert into an object
 		case VariantBin::VARIANT_IMAGE: {
-			//Have to parse Image here
-			if (ImageParserV2::parse_image_v2(f, r_v, hacks_for_deprecated_v2img_formats, convert_v2image_indexed) != OK) {
+			//Have to decode the old Image variant here
+			if (ImageParserV2::decode_image_v2(f, r_v, convert_v2image_indexed) != OK) {
 				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Couldn't load resource: embedded image");
 				//WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
 			}
