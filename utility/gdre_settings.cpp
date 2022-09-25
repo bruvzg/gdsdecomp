@@ -303,7 +303,7 @@ String GDRESettings::globalize_path(const String &p_path, const String &resource
 	return p_path;
 }
 
-bool GDRESettings::is_fs_path(const String &p_path) {
+bool GDRESettings::is_fs_path(const String &p_path) const {
 	if (!p_path.is_absolute_path()) {
 		return true;
 	}

@@ -106,6 +106,7 @@ public:
 
 protected:
 	static void _bind_methods() {
+		ClassDB::bind_method(D_METHOD("load_from_file"), &ImportInfo::load_from_file);
 		ClassDB::bind_method(D_METHOD("get_ver_major"), &ImportInfo::get_ver_major);
 		ClassDB::bind_method(D_METHOD("get_path"), &ImportInfo::get_path);
 		ClassDB::bind_method(D_METHOD("get_import_md_path"), &ImportInfo::get_import_md_path);

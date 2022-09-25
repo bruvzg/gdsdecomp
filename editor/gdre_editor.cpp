@@ -1505,8 +1505,9 @@ void GodotREEditor::_res_txt_2_bin_process() {
 }
 
 Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const String &p_dst_path) {
-	Ref<ResourceFormatLoaderText> rl = memnew(ResourceFormatLoaderText);
-	return ResourceFormatSaverBinary::singleton->save(rl->load(p_src_path), p_dst_path);
+	ResourceFormatLoaderCompat rl;
+	Error err = rl.convert_txt_to_bin(p_src_path, p_dst_path);
+	return err;
 }
 
 /*************************************************************************/

@@ -65,6 +65,7 @@ public:
 	Error recreate_plugin_config(const String &output_dir, const String &plugin_dir);
 	Error recreate_plugin_configs(const String &output_dir);
 	Error remap_resource(const String &output_dir, Ref<ImportInfo> &iinfo);
+	Error convert_res_txt_2_bin(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst);

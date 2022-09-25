@@ -90,6 +90,7 @@ Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream,
 					} else {
 						err = parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
 					}
+					return err;
 				}
 				// end hacks
 				err = parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);

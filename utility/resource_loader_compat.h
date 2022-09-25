@@ -167,11 +167,13 @@ protected:
 		String type;
 		ResourceUID::ID uid = ResourceUID::INVALID_ID;
 		String id;
+		int save_order;
 		Ref<Resource> cache;
 	};
 	struct IntResource {
 		String path;
 		uint64_t offset;
+		int save_order;
 	};
 
 	bool translation_remapped = false;
@@ -189,7 +191,8 @@ protected:
 	String error_text;
 	Ref<Resource> resource;
 	Ref<ResourceImportMetadatav2> imd;
-	uint32_t ver_format = 0;
+	uint32_t ver_format_bin = 0;
+	uint32_t ver_format_text = 0;
 	uint32_t engine_ver_major = 0;
 	uint32_t engine_ver_minor = 0;
 	bool convert_v2image_indexed = false;
@@ -257,6 +260,7 @@ protected:
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 
 	Error load_ext_resource(const uint32_t i);
+	int get_external_resource_save_order_by_path(const String &path);
 	String get_external_resource_path(const Ref<Resource> &path);
 	Ref<Resource> get_external_resource(const int subindex);
 	Ref<Resource> get_external_resource_by_id(const String &id);
@@ -267,6 +271,7 @@ protected:
 	Ref<Resource> instance_internal_resource(const String &path, const String &type, const String &id);
 	String get_internal_resource_path(const Ref<Resource> &res);
 	Ref<Resource> get_internal_resource(const int subindex);
+	int get_internal_resource_save_order_by_path(const String &path);
 	Ref<Resource> get_internal_resource(const String &path);
 	Ref<Resource> get_internal_resource_by_id(const String &id);
 
@@ -276,12 +281,11 @@ protected:
 	List<ResourceProperty> get_internal_resource_properties(const String &path);
 
 	static String get_resource_path(const Ref<Resource> &res);
-	int get_string_index(const String &p_string);
+	int get_string_index(const String &p_string, bool add = false);
 
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(Ref<FileAccess> p_f, bool p_skip_first_tag);
-	Error fake_load_text(Ref<FileAccess> p_f, const String &p_path);
 	Error write_variant_bin(Ref<FileAccess> fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
 	struct DummyReadData {
@@ -296,9 +300,10 @@ protected:
 
 	Error _parse_sub_resource_dummy(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
 	Error _parse_ext_resource_dummy(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
-	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser);
+	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser, List<ResourceProperty> &lrp);
 
 public:
+	Error fake_load_text();
 	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
 	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_res_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
@@ -351,10 +356,12 @@ public:
 class ResourceFormatLoaderCompat : public ResourceFormatLoader {
 private:
 	ResourceLoaderCompat *_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+	ResourceLoaderCompat *_open_text(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
 
 public:
 	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
+	Error convert_txt_to_bin(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Ref<Resource> load(const String &p_path, const String &project_dir = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_IGNORE);
 };

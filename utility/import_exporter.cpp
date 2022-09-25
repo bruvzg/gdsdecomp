@@ -665,6 +665,14 @@ Error ImportExporter::ensure_dir(const String &dst_dir) {
 	return err;
 }
 
+Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const String &p_path, const String &p_dst) {
+	ResourceFormatLoaderCompat rlc;
+	Error err = rlc.convert_txt_to_bin(p_path, p_dst, output_dir);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
+	print_line("Converted " + p_path + " to " + p_dst);
+	return err;
+}
+
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
 	ResourceFormatLoaderCompat rlc;
 	Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
@@ -855,6 +863,7 @@ void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
 	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
 	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports);
+	ClassDB::bind_method(D_METHOD("convert_res_txt_2_bin"), &ImportExporter::convert_res_txt_2_bin);
 	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
 	ClassDB::bind_method(D_METHOD("convert_tex_to_png"), &ImportExporter::convert_tex_to_png);
 	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
