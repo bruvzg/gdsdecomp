@@ -24,7 +24,7 @@ Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path,
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Cannot open file '" + p_path + "'.");
 
-	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
+	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
 	loader->fake_load = true;
 	loader->local_path = p_path;
 	loader->res_path = p_path;

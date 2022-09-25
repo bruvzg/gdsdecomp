@@ -4,7 +4,6 @@
 #define RESOURCE_LOADER_COMPAT_H
 
 #include "import_info.h"
-#include "resource_import_metadatav2.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
@@ -135,85 +134,115 @@ enum Type {
 	} else                                                 \
 		((void)0)
 
+#define _printerr() ERR_PRINT(String(res_path + ":" + itos(lines) + " - Parse Error: " + error_text).utf8().get_data());
+
 struct ResourceProperty {
 	String name;
 	Variant::Type type;
 	Variant value;
+	StringName class_name;
 };
 
-class ResourceLoaderBinaryCompat {
-	bool translation_remapped = false;
-	bool fake_load = false;
-	// The localized (i.e. res://) path to the resource
-	String local_path;
-	// The actual path to the resource (either "res://" in pack or file system)
-	String res_path;
-
-	// Godot 4.x UID
-	ResourceUID::ID uid;
-
-	String type;
-	String project_dir;
-	Ref<Resource> resource;
+struct ResourceData {
+	String name;
+	String path;
+	StringName class_name;
 	Ref<ResourceImportMetadatav2> imd;
-	uint32_t ver_format = 0;
-	uint32_t engine_ver_major = 0;
-	uint32_t engine_ver_minor = 0;
+	ResourceUID::ID uid;
+	uint32_t engine_ver_major;
+	uint32_t engine_ver_minor;
+	bool is_text;
+	RBMap<String, List<ResourceProperty>> props;
+};
 
-	bool stored_big_endian = false;
-	bool stored_use_real64 = false;
-	bool convert_v2image_indexed = false;
-	bool hacks_for_deprecated_v2img_formats = true;
-	bool no_abort_on_ext_load_fail = true;
-
-	// Godot 4.x flags
-	bool using_named_scene_ids = false;
-	bool using_uids = false;
-
-	Ref<FileAccess> f;
-
-	uint64_t importmd_ofs = 0;
-
-	Vector<char> str_buf;
-	Vector<StringName> string_map;
-
-	StringName _get_string();
+class ResourceLoaderCompat {
+protected:
+	friend class ResourceFormatLoaderCompat;
+	// TODO: make a fake_load() or something so we don't have to do this
+	friend class TextureLoaderCompat;
+	friend class OggStreamLoaderCompat;
 
 	struct ExtResource {
 		String path;
 		String type;
 		ResourceUID::ID uid = ResourceUID::INVALID_ID;
+		String id;
 		Ref<Resource> cache;
-	};
-
-	bool use_sub_threads = false;
-	float *progress = nullptr;
-	Vector<ExtResource> external_resources;
-	struct PropPair {
-		StringName name;
-		Variant value;
 	};
 	struct IntResource {
 		String path;
 		uint64_t offset;
 	};
 
+	bool translation_remapped = false;
+	bool fake_load = true;
+	// The localized (i.e. res://) path to the resource
+	String local_path;
+	// The actual path to the resource (either "res://" in pack or file system)
+	String res_path;
+
+	// Godot 4.x UID
+	ResourceUID::ID res_uid;
+
+	String res_type;
+	String project_dir;
+	String error_text;
+	Ref<Resource> resource;
+	Ref<ResourceImportMetadatav2> imd;
+	uint32_t ver_format = 0;
+	uint32_t engine_ver_major = 0;
+	uint32_t engine_ver_minor = 0;
+	bool convert_v2image_indexed = false;
+	bool hacks_for_deprecated_v2img_formats = true;
+	bool no_abort_on_ext_load_fail = true;
+
+	// bin
+	uint64_t importmd_ofs = 0;
+	bool stored_big_endian = false;
+	bool stored_use_real64 = false;
+	// Godot 4.x flags
+	bool using_named_scene_ids = false;
+	bool using_uids = false;
+
+	// text
+	int lines;
+	int resource_current;
+	int resources_total = 0;
+	bool is_scene;
+	VariantParser::StreamFile stream;
+	VariantParser::ResourceParser rp;
+	VariantParser::Tag next_tag;
+
+	Ref<FileAccess> f = nullptr;
+
+	Vector<char> str_buf;
+	Vector<StringName> string_map;
+
+	bool use_sub_threads = false;
+	float *progress = nullptr;
+
+	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
+	RBMap<String, String> remaps;
+	Error error = OK;
+	RBMap<String, Ref<Resource>> dependency_cache;
+
+	Vector<ExtResource> external_resources;
 	Vector<IntResource> internal_resources;
-	RBMap<String, Ref<Resource>> internal_index_cache;
+	RBMap<String, Ref<Resource>> internal_res_cache;
 	RBMap<String, String> internal_type_cache;
 	RBMap<String, List<ResourceProperty>> internal_index_cached_properties;
 
-	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 	void save_unicode_string(const String &p_string);
 	static void save_ustring(Ref<FileAccess> f, const String &p_string);
+
 	Error repair_property(const String &rtype, const StringName &name, Variant &value);
 
+	void _populate_string_map(const Variant &p_variant, bool p_main);
+
+	StringName _get_string();
 	String get_unicode_string();
 	static void advance_padding(Ref<FileAccess> f, uint32_t p_len);
 	void _advance_padding(uint32_t p_len);
-
-	RBMap<String, String> remaps;
-	Error error = OK;
 
 	friend class ResourceFormatLoaderCompat;
 	//TODO: make a fake_load() or something so we don't have to do this
@@ -228,29 +257,50 @@ class ResourceLoaderBinaryCompat {
 	void debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp);
 
 	Error load_ext_resource(const uint32_t i);
+	String get_external_resource_path(const Ref<Resource> &path);
 	Ref<Resource> get_external_resource(const int subindex);
+	Ref<Resource> get_external_resource_by_id(const String &id);
 	Ref<Resource> get_external_resource(const String &path);
 	bool has_external_resource(const String &path);
+	bool has_external_resource(const Ref<Resource> &path);
 
 	Ref<Resource> instance_internal_resource(const String &path, const String &type, const String &id);
+	String get_internal_resource_path(const Ref<Resource> &res);
 	Ref<Resource> get_internal_resource(const int subindex);
 	Ref<Resource> get_internal_resource(const String &path);
+	Ref<Resource> get_internal_resource_by_id(const String &id);
+
 	String get_internal_resource_type(const String &path);
+	bool has_internal_resource(const Ref<Resource> &res);
 	bool has_internal_resource(const String &path);
 	List<ResourceProperty> get_internal_resource_properties(const String &path);
 
 	static String get_resource_path(const Ref<Resource> &res);
+	int get_string_index(const String &p_string);
 
 	Error load_internal_resource(const int i);
 	Error real_load_internal_resource(const int i);
 	Error open_text(Ref<FileAccess> p_f, bool p_skip_first_tag);
+	Error fake_load_text(Ref<FileAccess> p_f, const String &p_path);
 	Error write_variant_bin(Ref<FileAccess> fa, const Variant &p_property, const PropertyInfo &p_hint = PropertyInfo());
 	Error parse_variant(Variant &r_v);
-	RBMap<String, Ref<Resource>> dependency_cache;
+	struct DummyReadData {
+		RBMap<Ref<Resource>, int> external_resources;
+		RBMap<String, Ref<Resource>> rev_external_resources;
+		RBMap<Ref<Resource>, int> resource_index_map;
+		RBMap<String, Ref<Resource>> resource_map;
+	};
+	// text
+	static Error _parse_sub_resource_dummys(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
+	static Error _parse_ext_resource_dummys(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
+
+	Error _parse_sub_resource_dummy(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
+	Error _parse_ext_resource_dummy(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
+	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser);
 
 public:
 	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
-	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_index_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
+	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_res_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static RBMap<String, String> get_version_and_type(const String &p_path, Error *r_error);
 	Error open(Ref<FileAccess> p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
@@ -260,8 +310,15 @@ public:
 	static String _write_rlc_resources(void *ud, const Ref<Resource> &p_resource);
 	String _write_rlc_resource(const Ref<Resource> &res);
 	Error _rewrite_new_import_md(const String &p_path, Ref<ResourceImportMetadatav2> new_imd);
-	ResourceLoaderBinaryCompat();
-	~ResourceLoaderBinaryCompat();
+	String recognize(Ref<FileAccess> p_f);
+	ResourceLoaderCompat();
+	~ResourceLoaderCompat();
+};
+
+class ResourceLoaderBinaryCompat : public ResourceLoaderCompat {
+};
+
+class ResourceLoaderTextCompat : public ResourceLoaderCompat {
 };
 
 // this is derived from PackedScene because node instances in PackedScene cannot be returned otherwise
@@ -293,7 +350,7 @@ public:
 
 class ResourceFormatLoaderCompat : public ResourceFormatLoader {
 private:
-	ResourceLoaderBinaryCompat *_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+	ResourceLoaderCompat *_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
 
 public:
 	Error get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info);

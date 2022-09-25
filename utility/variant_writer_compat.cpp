@@ -1,13 +1,105 @@
 #include "variant_writer_compat.h"
 #include "image_parser_v2.h"
 #include "input_event_parser_v2.h"
-#include "resource_loader_compat.h"
 
 static String rtosfix(double p_value) {
 	if (p_value == 0.0)
 		return "0"; // avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
 	else
 		return rtoss(p_value);
+}
+
+// Don't think this is necessary at the moment? The only objects that get stored inline in text resources are Position3D objects and those are unchanged from Godot 2.x
+Error VariantParserCompat::fake_parse_object(VariantParser::Token &token, Variant &r_value, VariantParser::Stream *p_stream, int &line, String &r_err_str, VariantParser::ResourceParser *p_res_parser) {
+	return parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
+}
+Error VariantParserCompat::parse_tag(VariantParser::Stream *p_stream, int &line, String &r_err_str, Tag &r_tag, VariantParser::ResourceParser *p_res_parser, bool p_simple_tag) {
+	return VariantParser::parse_tag(p_stream, line, r_err_str, r_tag, p_res_parser, p_simple_tag);
+}
+
+Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream, int &line, String &r_err_str, Tag &r_tag, String &r_assign, Variant &r_value, VariantParser::ResourceParser *p_res_parser, bool p_simple_tag) {
+	// assign..
+	r_assign = "";
+	String what;
+
+	while (true) {
+		char32_t c;
+		if (p_stream->saved) {
+			c = p_stream->saved;
+			p_stream->saved = 0;
+		} else {
+			c = p_stream->get_char();
+		}
+
+		if (p_stream->is_eof()) {
+			return ERR_FILE_EOF;
+		}
+
+		if (c == ';') { // comment
+			while (true) {
+				char32_t ch = p_stream->get_char();
+				if (p_stream->is_eof()) {
+					return ERR_FILE_EOF;
+				}
+				if (ch == '\n') {
+					break;
+				}
+			}
+			continue;
+		}
+
+		if (c == '[' && what.length() == 0) {
+			// it's a tag!
+			p_stream->saved = '['; // go back one
+			Error err = parse_tag(p_stream, line, r_err_str, r_tag, p_res_parser, p_simple_tag);
+			return err;
+		}
+
+		if (c > 32) {
+			if (c == '"') { // quoted
+				p_stream->saved = '"';
+				Token tk;
+				Error err = get_token(p_stream, tk, line, r_err_str);
+				if (err) {
+					return err;
+				}
+				if (tk.type != TK_STRING) {
+					r_err_str = "Error reading quoted string";
+					return ERR_INVALID_DATA;
+				}
+
+				what = tk.value;
+
+			} else if (c != '=') {
+				what += String::chr(c);
+			} else {
+				r_assign = what;
+				Token token;
+				get_token(p_stream, token, line, r_err_str);
+				Error err;
+				// VariantParserCompat hacks for compatibility
+				if (token.type == TK_IDENTIFIER) {
+					String id = token.value;
+					// Old V2 Image
+					if (id == "Image") {
+						err = ImageParserV2::parse_image_construct_v2(p_stream, r_value, true, line, r_err_str);
+					} else if (id == "InputEvent") {
+						err = InputEventParserV2::parse_input_event_construct_v2(p_stream, r_value, line, r_err_str);
+					} else if (id == "Object") {
+						err = fake_parse_object(token, r_value, p_stream, line, r_err_str, p_res_parser);
+					} else {
+						err = parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
+					}
+				}
+				// end hacks
+				err = parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
+				return err;
+			}
+		} else if (c == '\n') {
+			line++;
+		}
+	}
+	return OK;
 }
 
 Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool is_pcfg) {

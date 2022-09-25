@@ -243,7 +243,7 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
 
-	ResourceLoaderBinaryCompat *loader = memnew(ResourceLoaderBinaryCompat);
+	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
 	loader->fake_load = true;
 	loader->local_path = p_path;
 	loader->res_path = p_path;
