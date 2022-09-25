@@ -3,10 +3,10 @@
 #ifndef PCFG_LOADER_H
 #define PCFG_LOADER_H
 
+#include "core/io/file_access.h"
 #include "core/object/class_db.h"
+#include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include <core/io/file_access.h>
-#include <core/object/object.h>
 
 typedef RBMap<String, Variant> CustomMap;
 

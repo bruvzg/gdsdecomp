@@ -1,14 +1,15 @@
 #include "pcfg_loader.h"
 #include "bytecode/bytecode_base.h"
 #include "utility/variant_writer_compat.h"
-#include <core/config/engine.h>
-#include <core/input/input_event.h>
-#include <core/io/compression.h>
-#include <core/io/file_access.h>
-#include <core/io/marshalls.h>
-#include <core/os/keyboard.h>
+
+#include "core/config/engine.h"
+#include "core/input/input_event.h"
+#include "core/io/compression.h"
+#include "core/io/file_access.h"
+#include "core/io/marshalls.h"
+#include "core/os/keyboard.h"
+#include "core/variant/variant_parser.h"
 #include <core/templates/rb_set.h>
-#include <core/variant/variant_parser.h>
 
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	cfb_path = path;

@@ -1,15 +1,17 @@
 #ifndef IMPORT_EXPORTER_H
 #define IMPORT_EXPORTER_H
 
+#include "import_info.h"
+#include "pcfg_loader.h"
+#include "resource_import_metadatav2.h"
+
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
 #include "core/templates/rb_map.h"
-#include "import_info.h"
-#include "pcfg_loader.h"
-#include "resource_import_metadatav2.h"
+
 class ImportExporter : public RefCounted {
 	GDCLASS(ImportExporter, RefCounted)
 	Array files;

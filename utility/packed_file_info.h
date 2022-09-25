@@ -1,8 +1,8 @@
 #ifndef GDRE_PACKED_FILE_INFO_H
 #define GDRE_PACKED_FILE_INFO_H
-#include "core/object/object.h"
 
 #include "core/io/file_access_pack.h"
+#include "core/object/object.h"
 #include "core/object/ref_counted.h"
 
 class PackedFileInfo : public RefCounted {

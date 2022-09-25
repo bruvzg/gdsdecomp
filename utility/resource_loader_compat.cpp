@@ -1,15 +1,16 @@
 #include "resource_loader_compat.h"
+#include "gdre_settings.h"
+#include "image_parser_v2.h"
+#include "texture_loader_compat.h"
+#include "variant_writer_compat.h"
+
 #include "core/crypto/crypto_core.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access_compressed.h"
 #include "core/string/ustring.h"
 #include "core/variant/variant_parser.h"
 #include "core/version.h"
-#include "gdre_packed_data.h"
-#include "gdre_settings.h"
-#include "image_parser_v2.h"
-#include "texture_loader_compat.h"
-#include "variant_writer_compat.h"
+#include "scene/resources/resource_format_text.h"
 
 Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir, float *r_progress) {
 	Error error = OK;

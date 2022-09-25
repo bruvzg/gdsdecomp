@@ -1,11 +1,6 @@
 #include "variant_writer_compat.h"
-#include "core/input/input_event.h"
-#include "core/io/image.h"
-#include "core/io/resource_loader.h"
-#include "core/os/keyboard.h"
-#include "core/string/string_buffer.h"
-#include "core/variant/variant_parser.h"
 #include "image_parser_v2.h"
+#include "input_event_parser_v2.h"
 #include "resource_loader_compat.h"
 
 static String rtosfix(double p_value) {
@@ -153,11 +148,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				} else if (p_encode_res_func) {
 					// try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
-				} else if (res->is_class("FakeResource")) {
-					// this is really just for debugging
-					res_text = "Resource( \"" + ((Ref<FakeResource>)res)->get_real_path() + "\")";
 				}
-
 				// try path because it's a file
 				if (res_text == String() && res->get_path().is_resource_file()) {
 					// external resource

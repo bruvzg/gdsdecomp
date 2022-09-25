@@ -1,13 +1,14 @@
 #ifndef GDRE_SETTINGS_H
 #define GDRE_SETTINGS_H
+#include "packed_file_info.h"
+
 #include "core/io/logger.h"
 #include "core/object/class_db.h"
 #include "core/object/object.h"
 #include "core/os/os.h"
 #include "core/os/thread_safe.h"
 #include "core/templates/rb_set.h"
-#include "gdre_packed_data.h"
-#include "packed_file_info.h"
+
 #ifdef WINDOWS_ENABLED
 #include "platform/windows/os_windows.h"
 #endif
@@ -50,6 +51,12 @@ public:
 	virtual void logv(const char *p_format, va_list p_list, bool p_err) _PRINTF_FORMAT_ATTRIBUTE_2_0;
 
 	virtual ~GDRELogger();
+};
+
+class GDREPackedSource : public PackSource {
+public:
+	virtual bool try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset);
+	virtual Ref<FileAccess> get_file(const String &p_path, PackedData::PackedFile *p_file);
 };
 
 class GDRESettings : public Object {

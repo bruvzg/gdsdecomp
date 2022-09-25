@@ -1,7 +1,5 @@
-
-
-#ifndef V2_IMAGE_PARSER_H
-#define V2_IMAGE_PARSER_H
+#ifndef IMAGE_PARSER_V2_H
+#define IMAGE_PARSER_V2_H
 
 #include "core/io/file_access.h"
 #include "core/io/image.h"
@@ -41,7 +39,6 @@ enum Format {
 	IMAGE_FORMAT_V2_MAX = 22,
 	IMAGE_FORMAT_CUSTOM = 30
 };
-
 } // namespace V2Image
 
 class ImageParserV2 {
@@ -62,4 +59,4 @@ public:
 	static Error write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, const PropertyHint p_hint);
 };
 
-#endif // V2_IMAGE_PARSER_H
+#endif // IMAGE_PARSER_V2_H

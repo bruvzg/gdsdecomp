@@ -1,8 +1,8 @@
 #include "oggstr_loader_compat.h"
-#include "core/io/file_access.h"
-#include "gdre_packed_data.h"
 #include "gdre_settings.h"
 #include "resource_loader_compat.h"
+
+#include "core/io/file_access.h"
 
 Vector<uint8_t> packet_data_to_byte_array(Array page_data) {
 	Vector<uint8_t> data;

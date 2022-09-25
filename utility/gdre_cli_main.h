@@ -2,6 +2,7 @@
 #define GDRE_CLI_MAIN_H
 
 #include "core/object/ref_counted.h"
+
 #include "gdre_settings.h"
 class GDRECLIMain : public RefCounted {
 	GDCLASS(GDRECLIMain, RefCounted);

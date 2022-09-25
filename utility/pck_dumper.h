@@ -1,5 +1,5 @@
-#ifndef RE_PCK_DUMPER_H
-#define RE_PCK_DUMPER_H
+#ifndef PCK_DUMPER_H
+#define PCK_DUMPER_H
 
 #include "core/io/file_access.h"
 #include "core/io/file_access_pack.h"
@@ -9,8 +9,7 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/rb_map.h"
 
-#include "gdre_packed_data.h"
-
+#include "packed_file_info.h"
 class PckDumper : public RefCounted {
 	GDCLASS(PckDumper, RefCounted)
 	bool skip_malformed_paths = false;
@@ -41,4 +40,4 @@ public:
 	Vector<String> get_loaded_files();
 };
 
-#endif //RE_PCK_DUMPER_H
+#endif // PCK_DUMPER_H

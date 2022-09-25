@@ -1,9 +1,9 @@
 #include "texture_loader_compat.h"
-#include "core/io/file_access.h"
-#include "gdre_packed_data.h"
 #include "gdre_settings.h"
 #include "resource_loader_compat.h"
 #include "webp_compat.h"
+
+#include "core/io/file_access.h"
 
 enum FormatBits {
 	FORMAT_MASK_IMAGE_FORMAT = (1 << 20) - 1,

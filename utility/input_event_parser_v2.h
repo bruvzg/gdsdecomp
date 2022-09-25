@@ -1,7 +1,7 @@
 #ifndef INPUT_EVENT_PARSER_V2_H
 #define INPUT_EVENT_PARSER_V2_H
 
-#include <core/variant/variant_parser.h>
+#include "core/variant/variant_parser.h"
 
 namespace V2InputEvent {
 enum MouseMap {

@@ -1,17 +1,16 @@
 #include "pck_dumper.h"
-#include "bytecode/bytecode_versions.h"
-#include "core/variant/variant_parser.h"
-#include "modules/regex/regex.h"
+#include "gdre_settings.h"
 #include "pcfg_loader.h"
 #include "resource_loader_compat.h"
-#include <core/io/dir_access.h>
-#include <core/io/file_access.h>
-#include <core/io/file_access_encrypted.h>
-#include <core/os/os.h>
-#include <core/version_generated.gen.h>
 
 #include "core/crypto/crypto_core.h"
-#include "gdre_settings.h"
+#include "core/io/dir_access.h"
+#include "core/io/file_access.h"
+#include "core/io/file_access_encrypted.h"
+#include "core/os/os.h"
+#include "core/variant/variant_parser.h"
+#include "core/version_generated.gen.h"
+#include "modules/regex/regex.h"
 
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
 	// Loading an encrypted file automatically checks the md5

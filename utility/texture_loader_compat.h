@@ -1,3 +1,5 @@
+#ifndef TEXTURE_LOADER_COMPAT_H
+#define TEXTURE_LOADER_COMPAT_H
 
 #include "core/io/file_access.h"
 #include "core/io/image.h"
@@ -6,8 +8,6 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/vector.h"
 #include "scene/resources/texture.h"
-#ifndef TEXTURE_LOADER_COMPAT_H
-#define TEXTURE_LOADER_COMPAT_H
 
 class TextureLoaderCompat : public RefCounted {
 public:

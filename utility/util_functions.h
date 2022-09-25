@@ -2,9 +2,10 @@
 #define GDRE_UTIL_FUNCTIONS_H
 
 #include "external/toojpeg/toojpeg.h"
-#include <core/io/dir_access.h>
-#include <core/io/file_access.h>
-#include <core/io/resource.h>
+
+#include "core/io/dir_access.h"
+#include "core/io/file_access.h"
+#include "core/io/resource.h"
 
 namespace gdreutil {
 static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = "", const bool &res = false) {
