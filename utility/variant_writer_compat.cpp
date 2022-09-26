@@ -85,6 +85,8 @@ Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream,
 						err = ImageParserV2::parse_image_construct_v2(p_stream, r_value, true, line, r_err_str);
 					} else if (id == "InputEvent") {
 						err = InputEventParserV2::parse_input_event_construct_v2(p_stream, r_value, line, r_err_str);
+					} else if (id == "mbutton" || id == "key" || id == "jbutton" || id == "jaxis") {
+						err = InputEventParserV2::parse_input_event_construct_v2(p_stream, r_value, line, r_err_str, id);
 					} else if (id == "Object") {
 						err = fake_parse_object(token, r_value, p_stream, line, r_err_str, p_res_parser);
 					} else {
@@ -238,6 +240,8 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				// Hack for V2 Images
 				if (ver_major == 2 && res->is_class("Image")) {
 					res_text = ImageParserV2::image_v2_to_string(res, is_pcfg);
+				} else if (res->is_class("InputEvent")) {
+					res_text = InputEventParserV2::v4_input_event_to_v2_string(res, is_pcfg);
 				} else if (p_encode_res_func) {
 					// try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
@@ -281,9 +285,8 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			p_store_string_func(p_store_string_ud, ")\n");
 
 		} break;
-		//case Variant::INPUT_EVENT: { // only in V2, does not exist in v3 and v4
-		// binary resource formats don't support storing input events,
-		// so we don't bother writing them.
+		//case Variant::INPUT_EVENT: {  only in V2, does not exist in v3 and v4
+		// this is an object handled above.
 		//	WARN_PRINT("Attempted to save Input Event!");
 		//} break;
 		case Variant::DICTIONARY: {

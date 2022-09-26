@@ -1,7 +1,688 @@
 #include "input_event_parser_v2.h"
 
 #include "core/input/input_event.h"
+#include "core/io/marshalls.h"
+#include "core/variant/variant_parser.h"
+using namespace V2InputEvent;
+struct _KeyCodeText {
+	Key code;
+	const char *text;
+};
 
-Error InputEventParserV2::parse_input_event_construct_v2(VariantParser::Stream *p_stream, Variant &r_v, int &line, String &r_err_str) {
-	ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Godot 2.x Input Event variant parsing not implemented yet");
+static const _KeyCodeText _keycodes[] = {
+
+	/* clang-format off */
+		{Key::ESCAPE                        ,"Escape"},
+		{Key::TAB                           ,"Tab"},
+		{Key::BACKTAB                       ,"BackTab"}, //v2 "BackTab", v4 "Backtab"
+		{Key::BACKSPACE                     ,"BackSpace"}, //v2 "BackSpace", v4 "Backspace"
+		{Key::ENTER                         ,"Return"}, //v2 "Return", v4 "Enter"
+		{Key::KP_ENTER                      ,"Enter"}, //v2 "Enter", v4 "Kp Enter"
+		{Key::INSERT                        ,"Insert"},
+		{Key::KEY_DELETE                    ,"Delete"},
+		{Key::PAUSE                         ,"Pause"},
+		{Key::PRINT                         ,"Print"},
+		{Key::SYSREQ                        ,"SysReq"},
+		{Key::CLEAR                         ,"Clear"},
+		{Key::HOME                          ,"Home"},
+		{Key::END                           ,"End"},
+		{Key::LEFT                          ,"Left"},
+		{Key::UP                            ,"Up"},
+		{Key::RIGHT                         ,"Right"},
+		{Key::DOWN                          ,"Down"},
+		{Key::PAGEUP                        ,"PageUp"},
+		{Key::PAGEDOWN                      ,"PageDown"},
+		{Key::SHIFT                         ,"Shift"},
+		{Key::CTRL                       	  ,"Control"}, //v2 "Control", v4 "Ctrl"
+		{Key::META                          ,"Meta"},    //v2 "Meta", v4 "Windows" or "Command"
+		{Key::ALT                           ,"Alt"},     //v2 "Alt", v4 "Alt" or "Option"
+		{Key::CAPSLOCK                      ,"CapsLock"},
+		{Key::NUMLOCK                       ,"NumLock"},
+		{Key::SCROLLLOCK                    ,"ScrollLock"},
+		{Key::F1                            ,"F1"},
+		{Key::F2                            ,"F2"},
+		{Key::F3                            ,"F3"},
+		{Key::F4                            ,"F4"},
+		{Key::F5                            ,"F5"},
+		{Key::F6                            ,"F6"},
+		{Key::F7                            ,"F7"},
+		{Key::F8                            ,"F8"},
+		{Key::F9                            ,"F9"},
+		{Key::F10                           ,"F10"},
+		{Key::F11                           ,"F11"},
+		{Key::F12                           ,"F12"},
+		{Key::F13                           ,"F13"},
+		{Key::F14                           ,"F14"},
+		{Key::F15                           ,"F15"},
+		{Key::F16                           ,"F16"},
+		//{Key::KP_ENTER                    ,"Kp Enter"}, //the v2 value of this keycode doesn't exist in v4
+		{Key::KP_MULTIPLY                   ,"Kp Multiply"},
+		{Key::KP_DIVIDE                     ,"Kp Divide"},
+		{Key::KP_SUBTRACT                   ,"Kp Subtract"},
+		{Key::KP_PERIOD                     ,"Kp Period"},
+		{Key::KP_ADD                        ,"Kp Add"},
+		{Key::KP_0                          ,"Kp 0"},
+		{Key::KP_1                          ,"Kp 1"},
+		{Key::KP_2                          ,"Kp 2"},
+		{Key::KP_3                          ,"Kp 3"},
+		{Key::KP_4                          ,"Kp 4"},
+		{Key::KP_5                          ,"Kp 5"},
+		{Key::KP_6                          ,"Kp 6"},
+		{Key::KP_7                          ,"Kp 7"},
+		{Key::KP_8                          ,"Kp 8"},
+		{Key::KP_9                          ,"Kp 9"},
+		{Key::SUPER_L                       ,"Super L"},
+		{Key::SUPER_R                       ,"Super R"},
+		{Key::MENU                          ,"Menu"},
+		{Key::HYPER_L                       ,"Hyper L"},
+		{Key::HYPER_R                       ,"Hyper R"},
+		{Key::HELP                          ,"Help"},
+		{Key::DIRECTION_L                   ,"Direction L"},
+		{Key::DIRECTION_R                   ,"Direction R"},
+		{Key::BACK                          ,"Back"},
+		{Key::FORWARD                       ,"Forward"},
+		{Key::STOP                          ,"Stop"},
+		{Key::REFRESH                       ,"Refresh"},
+		{Key::VOLUMEDOWN                    ,"VolumeDown"},
+		{Key::VOLUMEMUTE                    ,"VolumeMute"},
+		{Key::VOLUMEUP                      ,"VolumeUp"},
+		{Key::BASSBOOST                     ,"BassBoost"},
+		{Key::BASSUP                        ,"BassUp"},
+		{Key::BASSDOWN                      ,"BassDown"},
+		{Key::TREBLEUP                      ,"TrebleUp"},
+		{Key::TREBLEDOWN                    ,"TrebleDown"},
+		{Key::MEDIAPLAY                     ,"MediaPlay"},
+		{Key::MEDIASTOP                     ,"MediaStop"},
+		{Key::MEDIAPREVIOUS                 ,"MediaPrevious"},
+		{Key::MEDIANEXT                     ,"MediaNext"},
+		{Key::MEDIARECORD                   ,"MediaRecord"},
+		{Key::HOMEPAGE                      ,"HomePage"},
+		{Key::FAVORITES                     ,"Favorites"},
+		{Key::SEARCH                        ,"Search"},
+		{Key::STANDBY                       ,"StandBy"},
+		{Key::LAUNCHMAIL                    ,"LaunchMail"},
+		{Key::LAUNCHMEDIA                   ,"LaunchMedia"},
+		{Key::LAUNCH0                       ,"Launch0"},
+		{Key::LAUNCH1                       ,"Launch1"},
+		{Key::LAUNCH2                       ,"Launch2"},
+		{Key::LAUNCH3                       ,"Launch3"},
+		{Key::LAUNCH4                       ,"Launch4"},
+		{Key::LAUNCH5                       ,"Launch5"},
+		{Key::LAUNCH6                       ,"Launch6"},
+		{Key::LAUNCH7                       ,"Launch7"},
+		{Key::LAUNCH8                       ,"Launch8"},
+		{Key::LAUNCH9                       ,"Launch9"},
+		{Key::LAUNCHA                       ,"LaunchA"},
+		{Key::LAUNCHB                       ,"LaunchB"},
+		{Key::LAUNCHC                       ,"LaunchC"},
+		{Key::LAUNCHD                       ,"LaunchD"},
+		{Key::LAUNCHE                       ,"LaunchE"},
+		{Key::LAUNCHF                       ,"LaunchF"},
+
+		{Key::UNKNOWN                       ,"Unknown"},
+
+		{Key::SPACE                         ,"Space"},
+		{Key::EXCLAM                        ,"Exclam"},
+		{Key::QUOTEDBL                      ,"QuoteDbl"},
+		{Key::NUMBERSIGN                    ,"NumberSign"},
+		{Key::DOLLAR                        ,"Dollar"},
+		{Key::PERCENT                       ,"Percent"},
+		{Key::AMPERSAND                     ,"Ampersand"},
+		{Key::APOSTROPHE                    ,"Apostrophe"},
+		{Key::PARENLEFT                     ,"ParenLeft"},
+		{Key::PARENRIGHT                    ,"ParenRight"},
+		{Key::ASTERISK                      ,"Asterisk"},
+		{Key::PLUS                          ,"Plus"},
+		{Key::COMMA                         ,"Comma"},
+		{Key::MINUS                         ,"Minus"},
+		{Key::PERIOD                        ,"Period"},
+		{Key::SLASH                         ,"Slash"},
+		{Key::KEY_0                         ,"0"},
+		{Key::KEY_1                         ,"1"},
+		{Key::KEY_2                         ,"2"},
+		{Key::KEY_3                         ,"3"},
+		{Key::KEY_4                         ,"4"},
+		{Key::KEY_5                         ,"5"},
+		{Key::KEY_6                         ,"6"},
+		{Key::KEY_7                         ,"7"},
+		{Key::KEY_8                         ,"8"},
+		{Key::KEY_9                         ,"9"},
+		{Key::COLON                         ,"Colon"},
+		{Key::SEMICOLON                     ,"Semicolon"},
+		{Key::LESS                          ,"Less"},
+		{Key::EQUAL                         ,"Equal"},
+		{Key::GREATER                       ,"Greater"},
+		{Key::QUESTION                      ,"Question"},
+		{Key::AT                            ,"At"},
+		{Key::A                             ,"A"},
+		{Key::B                             ,"B"},
+		{Key::C                             ,"C"},
+		{Key::D                             ,"D"},
+		{Key::E                             ,"E"},
+		{Key::F                             ,"F"},
+		{Key::G                             ,"G"},
+		{Key::H                             ,"H"},
+		{Key::I                             ,"I"},
+		{Key::J                             ,"J"},
+		{Key::K                             ,"K"},
+		{Key::L                             ,"L"},
+		{Key::M                             ,"M"},
+		{Key::N                             ,"N"},
+		{Key::O                             ,"O"},
+		{Key::P                             ,"P"},
+		{Key::Q                             ,"Q"},
+		{Key::R                             ,"R"},
+		{Key::S                             ,"S"},
+		{Key::T                             ,"T"},
+		{Key::U                             ,"U"},
+		{Key::V                             ,"V"},
+		{Key::W                             ,"W"},
+		{Key::X                             ,"X"},
+		{Key::Y                             ,"Y"},
+		{Key::Z                             ,"Z"},
+		{Key::BRACKETLEFT                   ,"BracketLeft"},
+		{Key::BACKSLASH                     ,"BackSlash"},
+		{Key::BRACKETRIGHT                  ,"BracketRight"},
+		{Key::ASCIICIRCUM                   ,"AsciiCircum"},
+		{Key::UNDERSCORE                    ,"UnderScore"},
+		{Key::QUOTELEFT                     ,"QuoteLeft"},
+		{Key::BRACELEFT                     ,"BraceLeft"},
+		{Key::BAR                           ,"Bar"},
+		{Key::BRACERIGHT                    ,"BraceRight"},
+		{Key::ASCIITILDE                    ,"AsciiTilde"},
+		{Key::NOBREAKSPACE                  ,"NoBreakSpace"},
+		{Key::EXCLAMDOWN                    ,"ExclamDown"},
+		{Key::CENT                          ,"Cent"},
+		{Key::STERLING                      ,"Sterling"},
+		{Key::CURRENCY                      ,"Currency"},
+		{Key::YEN                           ,"Yen"},
+		{Key::BROKENBAR                     ,"BrokenBar"},
+		{Key::SECTION                       ,"Section"},
+		{Key::DIAERESIS                     ,"Diaeresis"},
+		{Key::COPYRIGHT                     ,"Copyright"},
+		{Key::ORDFEMININE                   ,"Ordfeminine"},
+		{Key::GUILLEMOTLEFT                 ,"GuillemotLeft"},
+		{Key::NOTSIGN                       ,"NotSign"},
+		{Key::HYPHEN                        ,"Hyphen"},
+		{Key::KEY_REGISTERED                ,"Registered"},
+		{Key::MACRON                        ,"Macron"},
+		{Key::DEGREE                        ,"Degree"},
+		{Key::PLUSMINUS                     ,"PlusMinus"},
+		{Key::TWOSUPERIOR                   ,"TwoSuperior"},
+		{Key::THREESUPERIOR                 ,"ThreeSuperior"},
+		{Key::ACUTE                         ,"Acute"},
+		{Key::MU                            ,"Mu"},
+		{Key::PARAGRAPH                     ,"Paragraph"},
+		{Key::PERIODCENTERED                ,"PeriodCentered"},
+		{Key::CEDILLA                       ,"Cedilla"},
+		{Key::ONESUPERIOR                   ,"OneSuperior"},
+		{Key::MASCULINE                     ,"Masculine"},
+		{Key::GUILLEMOTRIGHT                ,"GuillemotRight"},
+		{Key::ONEQUARTER                    ,"OneQuarter"},
+		{Key::ONEHALF                       ,"OneHalf"},
+		{Key::THREEQUARTERS                 ,"ThreeQuarters"},
+		{Key::QUESTIONDOWN                  ,"QuestionDown"},
+		{Key::AGRAVE                        ,"Agrave"},
+		{Key::AACUTE                        ,"Aacute"},
+		{Key::ACIRCUMFLEX                   ,"AcircumFlex"},
+		{Key::ATILDE                        ,"Atilde"},
+		{Key::ADIAERESIS                    ,"Adiaeresis"},
+		{Key::ARING                         ,"Aring"},
+		{Key::AE                            ,"Ae"},
+		{Key::CCEDILLA                      ,"Ccedilla"},
+		{Key::EGRAVE                        ,"Egrave"},
+		{Key::EACUTE                        ,"Eacute"},
+		{Key::ECIRCUMFLEX                   ,"Ecircumflex"},
+		{Key::EDIAERESIS                    ,"Ediaeresis"},
+		{Key::IGRAVE                        ,"Igrave"},
+		{Key::IACUTE                        ,"Iacute"},
+		{Key::ICIRCUMFLEX                   ,"Icircumflex"},
+		{Key::IDIAERESIS                    ,"Idiaeresis"},
+		{Key::ETH                           ,"Eth"},
+		{Key::NTILDE                        ,"Ntilde"},
+		{Key::OGRAVE                        ,"Ograve"},
+		{Key::OACUTE                        ,"Oacute"},
+		{Key::OCIRCUMFLEX                   ,"Ocircumflex"},
+		{Key::OTILDE                        ,"Otilde"},
+		{Key::ODIAERESIS                    ,"Odiaeresis"},
+		{Key::MULTIPLY                      ,"Multiply"},
+		{Key::OOBLIQUE                      ,"Ooblique"},
+		{Key::UGRAVE                        ,"Ugrave"},
+		{Key::UACUTE                        ,"Uacute"},
+		{Key::UCIRCUMFLEX                   ,"Ucircumflex"},
+		{Key::UDIAERESIS                    ,"Udiaeresis"},
+		{Key::YACUTE                        ,"Yacute"},
+		{Key::THORN                         ,"Thorn"},
+		{Key::SSHARP                        ,"Ssharp"},
+
+		{Key::DIVISION                      ,"Division"},
+		{Key::YDIAERESIS                    ,"Ydiaeresis"},
+		{Key::NONE                                 ,0}
+	/* clang-format on */
+};
+
+Key convert_v2_key_to_v4_key(V2KeyList spkey) {
+	if (spkey & V2InputEvent::SPKEY) {
+		if (spkey == V2KeyList::KEY_KP_ENTER) {
+			return Key::KP_ENTER;
+		}
+		if (spkey == V2KeyList::KEY_RETURN) {
+			return Key::ENTER;
+		}
+		return Key(spkey ^ V2InputEvent::SPKEY) | Key::SPECIAL;
+	}
+	return Key(spkey);
+}
+
+V2JoyButton convert_v4_joy_button_to_v2_joy_button(JoyButton jb) {
+	switch (jb) {
+		case JoyButton::LEFT_SHOULDER:
+			return V2InputEvent::JOY_L;
+		case JoyButton::RIGHT_SHOULDER:
+			return V2InputEvent::JOY_R;
+		case JoyButton::LEFT_STICK:
+			return V2InputEvent::JOY_L3;
+		case JoyButton::RIGHT_STICK:
+			return V2InputEvent::JOY_R3;
+		case JoyButton::BACK:
+			return V2InputEvent::JOY_SELECT;
+		case JoyButton::START:
+			return V2InputEvent::JOY_START;
+		case JoyButton::DPAD_UP:
+			return V2InputEvent::JOY_DPAD_UP;
+		case JoyButton::DPAD_DOWN:
+			return V2InputEvent::JOY_DPAD_DOWN;
+		case JoyButton::DPAD_LEFT:
+			return V2InputEvent::JOY_DPAD_LEFT;
+		case JoyButton::DPAD_RIGHT:
+			return V2InputEvent::JOY_DPAD_RIGHT;
+	}
+	return V2JoyButton(jb);
+}
+
+JoyButton convert_v2_joy_button_to_v4_joy_button(V2JoyButton jb) {
+	switch (jb) {
+		case V2InputEvent::JOY_L:
+			return JoyButton::LEFT_SHOULDER;
+		case V2InputEvent::JOY_R:
+			return JoyButton::RIGHT_SHOULDER;
+		case V2InputEvent::JOY_L3:
+			return JoyButton::LEFT_STICK;
+		case V2InputEvent::JOY_R3:
+			return JoyButton::RIGHT_STICK;
+		case V2InputEvent::JOY_SELECT:
+			return JoyButton::BACK;
+		case V2InputEvent::JOY_START:
+			return JoyButton::START;
+		case V2InputEvent::JOY_DPAD_UP:
+			return JoyButton::DPAD_UP;
+		case V2InputEvent::JOY_DPAD_DOWN:
+			return JoyButton::DPAD_DOWN;
+		case V2InputEvent::JOY_DPAD_LEFT:
+			return JoyButton::DPAD_LEFT;
+		case V2InputEvent::JOY_DPAD_RIGHT:
+			return JoyButton::DPAD_RIGHT;
+	}
+	return JoyButton(jb);
+}
+
+String keycode_get_string(uint32_t p_code) {
+	String codestr;
+
+	p_code &= (uint32_t)KeyModifierMask::CODE_MASK;
+
+	const _KeyCodeText *kct = &_keycodes[0];
+
+	while (kct->text) {
+		if (kct->code == (Key)p_code) {
+			codestr += kct->text;
+			return codestr;
+		}
+		kct++;
+	}
+	// Couldn't find it in keycode mapping
+	codestr += String::chr(p_code);
+
+	return codestr;
+}
+String InputEventParserV2::v4_input_event_to_v2_string(const Variant &r_v, bool is_pcfg) {
+	Ref<InputEvent> ev = r_v;
+	String prefix = is_pcfg ? "" : "InputEvent( ";
+
+	String suffix = is_pcfg ? "" : " )";
+	if (ev->is_class("InputEventKey")) {
+		Ref<InputEventKey> evk = ev;
+		String mods;
+		if (evk->is_ctrl_pressed())
+			mods += "C";
+		if (evk->is_shift_pressed())
+			mods += "S";
+		if (evk->is_alt_pressed())
+			mods += "A";
+		if (evk->is_meta_pressed())
+			mods += "M";
+		if (mods != "")
+			mods = ", " + mods;
+		prefix += is_pcfg ? "key(" : "KEY(";
+		return prefix + keycode_get_string(evk->get_keycode()) + mods + ")" + suffix;
+	}
+	if (ev->is_class("InputEventMouseButton")) {
+		Ref<InputEventMouseButton> evk = ev;
+		prefix += is_pcfg ? "mbutton(" : "MBUTTON(";
+		return prefix + itos(evk->get_device()) + ", " + itos((int64_t)evk->get_button_index()) + ")" + suffix;
+	}
+	if (ev->is_class("InputEventJoypadButton")) {
+		Ref<InputEventJoypadButton> evk = ev;
+		prefix += is_pcfg ? "jbutton(" : "JBUTTON(";
+		return prefix + itos(evk->get_device()) + ", " + itos((convert_v4_joy_button_to_v2_joy_button(evk->get_button_index()))) + ")" + suffix;
+	}
+	if (ev->is_class("InputEventJoypadMotion")) {
+		Ref<InputEventJoypadMotion> evk = ev;
+		prefix += is_pcfg ? "jaxis(" : "JAXIS(";
+		return prefix + itos(evk->get_device()) + ", " + itos((int64_t)evk->get_axis() * 2 + (evk->get_axis_value() < 0 ? 0 : 1)) + ")" + suffix;
+	}
+	ERR_FAIL_V_MSG("", "Cannot store input events of type " + ev->get_class_name() + " in v2 input event strings!");
+}
+
+Error InputEventParserV2::decode_input_event(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len) {
+	ERR_FAIL_COND_V(p_len < 8, ERR_INVALID_DATA);
+	Ref<InputEvent> ie;
+	uint32_t ie_type = decode_uint32(&p_buffer[0]);
+	uint32_t ie_device = decode_uint32(&p_buffer[4]);
+	if (r_len) {
+		(*r_len) += 12;
+	}
+
+	switch (ie_type) {
+		case 1: { // KEY
+			ERR_FAIL_COND_V(p_len < 20, ERR_INVALID_DATA);
+			uint32_t mods = decode_uint32(&p_buffer[12]);
+			uint32_t scancode = decode_uint32(&p_buffer[16]);
+			Ref<InputEventKey> iek;
+			iek = InputEventKey::create_reference(convert_v2_key_to_v4_key(V2InputEvent::V2KeyList(scancode)));
+
+			if (mods & V2InputEvent::KEY_MASK_SHIFT) {
+				iek->set_shift_pressed(true);
+			}
+			if (mods & V2InputEvent::KEY_MASK_CTRL) {
+				iek->set_ctrl_pressed(true);
+			}
+			if (mods & V2InputEvent::KEY_MASK_ALT) {
+				iek->set_alt_pressed(true);
+			}
+			if (mods & V2InputEvent::KEY_MASK_META) {
+				iek->set_meta_pressed(true);
+			}
+			// It looks like KPAD and GROUP_SWITCH were not actually used in v2?
+			// In either case, their masks are the same in v2 and v4
+			ie = iek;
+			if (r_len) {
+				(*r_len) += 8;
+			}
+
+		} break;
+		case 3: { // MOUSE_BUTTON
+			ERR_FAIL_COND_V(p_len < 16, ERR_INVALID_DATA);
+			uint32_t btn_index = decode_uint32(&p_buffer[12]);
+			Ref<InputEventMouseButton> iem;
+			iem.instantiate();
+			iem->set_button_index(MouseButton(btn_index));
+			ie = iem;
+			if (r_len) {
+				(*r_len) += 4;
+			}
+
+		} break;
+		case 5: { // JOYSTICK_BUTTON
+			ERR_FAIL_COND_V(p_len < 16, ERR_INVALID_DATA);
+			V2JoyButton btn_index = V2JoyButton(decode_uint32(&p_buffer[12]));
+			switch (btn_index) {
+				case V2InputEvent::JOY_L2:
+				case V2InputEvent::JOY_R2: {
+					Ref<InputEventJoypadMotion> iejm;
+					iejm.instantiate();
+					iejm->set_axis(btn_index == V2InputEvent::JOY_L2 ? JoyAxis::TRIGGER_LEFT : JoyAxis::TRIGGER_RIGHT);
+					iejm->set_axis_value(1.0);
+					ie = iejm;
+					break;
+				}
+				default: {
+					Ref<InputEventJoypadButton> iej;
+					iej.instantiate();
+					iej->set_button_index(JoyButton(btn_index));
+					ie = iej;
+					break;
+				}
+			}
+			if (r_len) {
+				(*r_len) += 4;
+			}
+		} break;
+		case 6: { // SCREEN_TOUCH
+			ERR_FAIL_COND_V(p_len < 16, ERR_INVALID_DATA);
+			uint32_t index = decode_uint32(&p_buffer[12]);
+			Ref<InputEventScreenTouch> iej;
+			iej.instantiate();
+			iej->set_index(index);
+			ie = iej;
+			if (r_len) {
+				(*r_len) += 4;
+			}
+
+		} break;
+		case 4: { // JOYSTICK_MOTION
+			ERR_FAIL_COND_V(p_len < 20, ERR_INVALID_DATA);
+			uint32_t axis = decode_uint32(&p_buffer[12]);
+			uint32_t axis_value = decode_float(&p_buffer[16]);
+			Ref<InputEventJoypadMotion> iej;
+			iej.instantiate();
+			iej->set_axis(JoyAxis(axis));
+			iej->set_axis_value(axis_value);
+			ie = iej;
+			if (r_len) {
+				(*r_len) += 8;
+			}
+		} break;
+	}
+	r_variant = ie;
+	return OK;
+}
+
+Key convert_v2_key_string_to_v4_keycode(const String &p_code) {
+	const _KeyCodeText *kct = &_keycodes[0];
+	// Doesn't exist in v4
+	if (p_code == "Kp Enter") {
+		return Key::KP_ENTER;
+	}
+	while (kct->text) {
+		if (p_code.nocasecmp_to(kct->text) == 0) {
+			return kct->code;
+		}
+		kct++;
+	}
+
+	return Key::NONE;
+}
+
+Error InputEventParserV2::parse_input_event_construct_v2(VariantParser::Stream *p_stream, Variant &r_v, int &line, String &r_err_str, String id) {
+	VariantParser::Token token;
+	VariantParser::get_token(p_stream, token, line, r_err_str);
+	if (token.type != VariantParser::TK_PARENTHESIS_OPEN) {
+		r_err_str = "Expected '('";
+		return ERR_PARSE_ERROR;
+	}
+	// Old versions of engine.kfg did not have the "InputEvent" identifier before the input event type,
+	if (id == "") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+
+		if (token.type != VariantParser::TK_IDENTIFIER) {
+			r_err_str = "Expected identifier";
+			return ERR_PARSE_ERROR;
+		}
+
+		id = token.value;
+	} else {
+		id = id.to_upper();
+	}
+
+	Ref<InputEvent> ie;
+
+	if (id == "NONE") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+
+		if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+			r_err_str = "Expected ')'";
+			return ERR_PARSE_ERROR;
+		}
+
+	} else if (id == "KEY") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_COMMA) {
+			r_err_str = "Expected ','";
+			return ERR_PARSE_ERROR;
+		}
+		Ref<InputEventKey> iek;
+		iek.instantiate();
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type == VariantParser::TK_IDENTIFIER) {
+			String name = token.value;
+			iek->set_keycode(convert_v2_key_string_to_v4_keycode(name));
+		} else if (token.type == VariantParser::TK_NUMBER) {
+			iek->set_keycode(Key((uint32_t)token.value));
+		} else {
+			r_err_str = "Expected string or integer for keycode";
+			return ERR_PARSE_ERROR;
+		}
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+
+		if (token.type == VariantParser::TK_COMMA) {
+			VariantParser::get_token(p_stream, token, line, r_err_str);
+
+			if (token.type != VariantParser::TK_IDENTIFIER) {
+				r_err_str = "Expected identifier with modifier flas";
+				return ERR_PARSE_ERROR;
+			}
+
+			String mods = token.value;
+
+			if (mods.findn("C") != -1) {
+				iek->set_ctrl_pressed(true);
+			}
+			if (mods.findn("A") != -1) {
+				iek->set_alt_pressed(true);
+			}
+			if (mods.findn("S") != -1) {
+				iek->set_shift_pressed(true);
+			}
+			if (mods.findn("M") != -1) {
+				iek->set_ctrl_pressed(true);
+			}
+			VariantParser::get_token(p_stream, token, line, r_err_str);
+			if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+				r_err_str = "Expected ')'";
+				return ERR_PARSE_ERROR;
+			}
+
+		} else if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+			r_err_str = "Expected ')' or modifier flags.";
+			return ERR_PARSE_ERROR;
+		}
+		ie = iek;
+	} else if (id == "MBUTTON") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_COMMA) {
+			r_err_str = "Expected ','";
+			return ERR_PARSE_ERROR;
+		}
+
+		Ref<InputEventMouseButton> iek;
+		iek.instantiate();
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_NUMBER) {
+			r_err_str = "Expected button index";
+			return ERR_PARSE_ERROR;
+		}
+
+		iek->set_button_index(MouseButton((int)token.value));
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+			r_err_str = "Expected ')'";
+			return ERR_PARSE_ERROR;
+		}
+		ie = iek;
+	} else if (id == "JBUTTON") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_COMMA) {
+			r_err_str = "Expected ','";
+			return ERR_PARSE_ERROR;
+		}
+
+		Ref<InputEventJoypadButton> iek;
+		iek.instantiate();
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_NUMBER) {
+			r_err_str = "Expected button index";
+			return ERR_PARSE_ERROR;
+		}
+		iek->set_button_index(JoyButton((int)token.value));
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+			r_err_str = "Expected ')'";
+			return ERR_PARSE_ERROR;
+		}
+		ie = iek;
+	} else if (id == "JAXIS") {
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_COMMA) {
+			r_err_str = "Expected ','";
+			return ERR_PARSE_ERROR;
+		}
+
+		Ref<InputEventJoypadMotion> iek;
+		iek.instantiate();
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_NUMBER) {
+			r_err_str = "Expected axis index";
+			return ERR_PARSE_ERROR;
+		}
+
+		iek->set_axis(JoyAxis((int)token.value));
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+
+		if (token.type != VariantParser::TK_COMMA) {
+			r_err_str = "Expected ',' after axis index";
+			return ERR_PARSE_ERROR;
+		}
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+		if (token.type != VariantParser::TK_NUMBER) {
+			r_err_str = "Expected axis sign";
+			return ERR_PARSE_ERROR;
+		}
+
+		iek->set_axis_value(token.value);
+
+		VariantParser::get_token(p_stream, token, line, r_err_str);
+
+		if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
+			r_err_str = "Expected ')' for jaxis";
+			return ERR_PARSE_ERROR;
+		}
+		ie = iek;
+	} else {
+		r_err_str = "Invalid input event type.";
+		return ERR_PARSE_ERROR;
+	}
+
+	r_v = ie;
+
+	return OK;
 }
