@@ -24,7 +24,7 @@ on:
 env:
   GODOT_BASE_BRANCH: master
   # Change the README too
-  GODOT_MAIN_SYNC_REF: f74491fdee9bc2d68668137fbacd8f3a7e7e8df7
+  GODOT_MAIN_SYNC_REF: ef266183598401d89482c5d2035d7e4cd3f64cb9
   SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes debug_symbols=no
   SCONSFLAGS_TEMPLATE: no_editor_splash=yes module_bmp_enabled=no module_camera_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_noise_enabled=no module_websocket_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libogg=yes module_csg_enabled=yes module_gridmap_enabled=yes disable_3d=no
   SCONS_CACHE_MSVC_CONFIG: true
@@ -53,7 +53,7 @@ jobs:
           - name: "🐧 Linux"
             os: "ubuntu-20.04"
             platform: linux
-            sconsflags-template: optimize=size use_lto=yes 
+            sconsflags-template: optimize=size use_lto=yes
             command-export: ${env:GITHUB_WORKSPACE}/bin/godot.linuxbsd.opt.tools.x86_64
             export-preset: "Linux/X11"
             export-name: .export/gdre_tools.x86_64
