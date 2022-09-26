@@ -5,7 +5,7 @@
 #ifndef GDSCRIPT_DECOMP_H
 #define GDSCRIPT_DECOMP_H
 
-#include "utility/variant_decoder_compat.h"
+#include "compat/variant_decoder_compat.h"
 
 #include "core/object/class_db.h"
 #include "core/object/object.h"

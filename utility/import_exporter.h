@@ -1,9 +1,9 @@
 #ifndef IMPORT_EXPORTER_H
 #define IMPORT_EXPORTER_H
 
+#include "compat/resource_import_metadatav2.h"
 #include "import_info.h"
 #include "pcfg_loader.h"
-#include "resource_import_metadatav2.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource.h"

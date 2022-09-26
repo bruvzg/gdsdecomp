@@ -1,11 +1,11 @@
 
 #include "import_exporter.h"
 #include "bytecode/bytecode_versions.h"
+#include "compat/oggstr_loader_compat.h"
+#include "compat/resource_loader_compat.h"
+#include "compat/texture_loader_compat.h"
 #include "gdre_settings.h"
-#include "oggstr_loader_compat.h"
 #include "pcfg_loader.h"
-#include "resource_loader_compat.h"
-#include "texture_loader_compat.h"
 #include "util_functions.h"
 
 #include "core/crypto/crypto_core.h"

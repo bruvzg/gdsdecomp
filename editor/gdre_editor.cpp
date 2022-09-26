@@ -6,11 +6,15 @@
 
 #include "gdre_editor.h"
 
+#include "bytecode/bytecode_versions.h"
+#include "compat/oggstr_loader_compat.h"
+#include "compat/resource_loader_compat.h"
+#include "compat/texture_loader_compat.h"
+#include "utility/pcfg_loader.h"
+
 #include "modules/gdscript/gdscript.h"
 #include "modules/gdscript/gdscript_tokenizer.h"
 #include "modules/gdscript/gdscript_utility_functions.h"
-
-#include "bytecode/bytecode_versions.h"
 
 #include "core/io/file_access_encrypted.h"
 #include "core/io/resource_format_binary.h"
@@ -21,10 +25,6 @@
 #include "scene/resources/resource_format_text.h"
 
 #include "core/version_generated.gen.h"
-#include "utility/oggstr_loader_compat.h"
-#include "utility/pcfg_loader.h"
-#include "utility/resource_loader_compat.h"
-#include "utility/texture_loader_compat.h"
 
 #include "gdre_icons.gen.h"
 

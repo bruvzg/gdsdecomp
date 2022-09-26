@@ -1,7 +1,7 @@
 #ifndef GDRE_IMPORT_INFO_H
 #define GDRE_IMPORT_INFO_H
 
-#include "resource_import_metadatav2.h"
+#include "compat/resource_import_metadatav2.h"
 
 #include "core/io/config_file.h"
 #include "core/io/resource.h"

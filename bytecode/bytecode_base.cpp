@@ -3,12 +3,13 @@
 /*************************************************************************/
 
 #include "bytecode_base.h"
+#include "compat/file_access_encrypted_v3.h"
+
 #include "core/config/engine.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/image.h"
 #include "core/io/marshalls.h"
-#include "utility/file_access_encrypted_v3.h"
 
 #include <limits.h>
 

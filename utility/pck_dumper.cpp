@@ -1,7 +1,7 @@
 #include "pck_dumper.h"
+#include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
-#include "resource_loader_compat.h"
 
 #include "core/crypto/crypto_core.h"
 #include "core/io/dir_access.h"

@@ -1,6 +1,6 @@
 #include "pcfg_loader.h"
-#include "utility/variant_decoder_compat.h"
-#include "utility/variant_writer_compat.h"
+#include "compat/variant_decoder_compat.h"
+#include "compat/variant_writer_compat.h"
 
 #include "core/config/engine.h"
 #include "core/input/input_event.h"

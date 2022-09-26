@@ -1,6 +1,6 @@
 #include "import_info.h"
+#include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
-#include "resource_loader_compat.h"
 
 String ImportInfo::to_string() {
 	String s = "ImportInfo: {";

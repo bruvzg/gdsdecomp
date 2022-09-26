@@ -1,8 +1,9 @@
 #include "texture_loader_compat.h"
-#include "gdre_settings.h"
 #include "image_enum_compat.h"
 #include "resource_loader_compat.h"
 #include "webp_compat.h"
+
+#include "utility/gdre_settings.h"
 
 #include "core/io/file_access.h"
 

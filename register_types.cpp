@@ -6,13 +6,13 @@
 #include "core/object/class_db.h"
 
 #include "bytecode/bytecode_versions.h"
+#include "compat/oggstr_loader_compat.h"
+#include "compat/texture_loader_compat.h"
 #include "editor/gdre_editor.h"
 #include "utility/gdre_cli_main.h"
 #include "utility/gdre_settings.h"
 #include "utility/import_exporter.h"
-#include "utility/oggstr_loader_compat.h"
 #include "utility/pck_dumper.h"
-#include "utility/texture_loader_compat.h"
 
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {

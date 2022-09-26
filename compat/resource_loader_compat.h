@@ -3,7 +3,7 @@
 #ifndef RESOURCE_LOADER_COMPAT_H
 #define RESOURCE_LOADER_COMPAT_H
 
-#include "import_info.h"
+#include "utility/import_info.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource.h"

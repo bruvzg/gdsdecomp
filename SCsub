@@ -47,7 +47,7 @@ if env["builtin_libwebp"]:
 
 env_gdsdecomp.add_source_files(env.modules_sources, "*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "bytecode/*.cpp")
-
+env_gdsdecomp.add_source_files(env.modules_sources, "compat/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "editor/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "utility/*.cpp")
 

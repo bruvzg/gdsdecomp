@@ -1,8 +1,9 @@
 #include "resource_loader_compat.h"
-#include "gdre_settings.h"
 #include "image_parser_v2.h"
 #include "texture_loader_compat.h"
 #include "variant_writer_compat.h"
+
+#include "utility/gdre_settings.h"
 
 #include "core/crypto/crypto_core.h"
 #include "core/io/dir_access.h"
