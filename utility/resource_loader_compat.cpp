@@ -1567,10 +1567,10 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			}
 		} break;
 
-		// Old Godot 2.x InputEvent variant, should never encounter these
-		// They were never saved into the binary resource files.
+		// Old Godot 2.x InputEvent variant
+		// They were never saved into the binary resource files, we will only encounter the type number
 		case VariantBin::VARIANT_INPUT_EVENT: {
-			WARN_PRINT("Encountered a Input event variant?!?!?");
+			WARN_PRINT("Encountered a Input event variant, someone screwed up when exporting this project");
 		} break;
 		case VariantBin::VARIANT_CALLABLE: {
 			r_v = Callable();

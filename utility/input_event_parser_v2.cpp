@@ -263,6 +263,7 @@ static const _KeyCodeText _keycodes[] = {
 
 Key convert_v2_key_to_v4_key(V2KeyList spkey) {
 	if (spkey & V2InputEvent::SPKEY) {
+		// KP_ENTER changed from v2 to v4
 		if (spkey == V2KeyList::KEY_KP_ENTER) {
 			return Key::KP_ENTER;
 		}
@@ -272,6 +273,20 @@ Key convert_v2_key_to_v4_key(V2KeyList spkey) {
 		return Key(spkey ^ V2InputEvent::SPKEY) | Key::SPECIAL;
 	}
 	return Key(spkey);
+}
+
+V2KeyList convert_v4_key_to_v2_key(Key spkey) {
+	if (((uint32_t)spkey & (uint32_t)Key::SPECIAL)) {
+		// KP_ENTER changed from v2 to v4
+		if (spkey == Key::KP_ENTER) {
+			return V2KeyList::KEY_KP_ENTER;
+		}
+		if (spkey == Key::ENTER) {
+			return V2KeyList::KEY_RETURN;
+		}
+		return V2KeyList(((uint32_t)spkey ^ (uint32_t)Key::SPECIAL) | (uint32_t)V2InputEvent::SPKEY);
+	}
+	return V2KeyList(spkey);
 }
 
 V2JoyButton convert_v4_joy_button_to_v2_joy_button(JoyButton jb) {
@@ -326,7 +341,7 @@ JoyButton convert_v2_joy_button_to_v4_joy_button(V2JoyButton jb) {
 	return JoyButton(jb);
 }
 
-String keycode_get_string(uint32_t p_code) {
+String keycode_get_v2_string(uint32_t p_code) {
 	String codestr;
 
 	p_code &= (uint32_t)KeyModifierMask::CODE_MASK;
@@ -345,14 +360,15 @@ String keycode_get_string(uint32_t p_code) {
 
 	return codestr;
 }
+
 String InputEventParserV2::v4_input_event_to_v2_string(const Variant &r_v, bool is_pcfg) {
 	Ref<InputEvent> ev = r_v;
 	String prefix = is_pcfg ? "" : "InputEvent( ";
 
-	String suffix = is_pcfg ? "" : " )";
 	if (ev->is_class("InputEventKey")) {
 		Ref<InputEventKey> evk = ev;
 		String mods;
+		Key keycode = evk->get_keycode();
 		if (evk->is_ctrl_pressed())
 			mods += "C";
 		if (evk->is_shift_pressed())
@@ -363,25 +379,81 @@ String InputEventParserV2::v4_input_event_to_v2_string(const Variant &r_v, bool 
 			mods += "M";
 		if (mods != "")
 			mods = ", " + mods;
-		prefix += is_pcfg ? "key(" : "KEY(";
-		return prefix + keycode_get_string(evk->get_keycode()) + mods + ")" + suffix;
+		if (is_pcfg) {
+			prefix += "key(";
+			if (keycode == Key::KP_ENTER && (uint32_t)evk->get_physical_keycode() == V2KeyList::KEY_KP_ENTER) {
+				prefix += "Kp Enter";
+			} else {
+				prefix += keycode_get_v2_string((uint32_t)evk->get_keycode());
+			}
+		} else {
+			prefix += "KEY,";
+			if (keycode == Key::KP_ENTER && (uint32_t)evk->get_physical_keycode() == V2KeyList::KEY_KP_ENTER) {
+				prefix += itos(V2KeyList::KEY_KP_ENTER);
+			} else {
+				prefix += itos(convert_v4_key_to_v2_key(evk->get_keycode()));
+			};
+		}
+		return prefix + mods + ")";
 	}
 	if (ev->is_class("InputEventMouseButton")) {
 		Ref<InputEventMouseButton> evk = ev;
-		prefix += is_pcfg ? "mbutton(" : "MBUTTON(";
-		return prefix + itos(evk->get_device()) + ", " + itos((int64_t)evk->get_button_index()) + ")" + suffix;
+		if (is_pcfg) {
+			prefix += "mbutton(" + itos(evk->get_device()) + ", ";
+		} else {
+			prefix += "MBUTTON,";
+		}
+		return prefix + itos((int64_t)evk->get_button_index()) + ")";
 	}
 	if (ev->is_class("InputEventJoypadButton")) {
 		Ref<InputEventJoypadButton> evk = ev;
-		prefix += is_pcfg ? "jbutton(" : "JBUTTON(";
-		return prefix + itos(evk->get_device()) + ", " + itos((convert_v4_joy_button_to_v2_joy_button(evk->get_button_index()))) + ")" + suffix;
+		if (is_pcfg) {
+			prefix += "jbutton(" + itos(evk->get_device()) + ", ";
+		} else {
+			prefix += "JBUTTON,";
+		}
+		return prefix + itos((convert_v4_joy_button_to_v2_joy_button(evk->get_button_index()))) + ")";
 	}
 	if (ev->is_class("InputEventJoypadMotion")) {
 		Ref<InputEventJoypadMotion> evk = ev;
-		prefix += is_pcfg ? "jaxis(" : "JAXIS(";
-		return prefix + itos(evk->get_device()) + ", " + itos((int64_t)evk->get_axis() * 2 + (evk->get_axis_value() < 0 ? 0 : 1)) + ")" + suffix;
+		JoyAxis joyaxis = evk->get_axis();
+		// Undo mapping of JOY_L2 to TRIGGER_LEFT and JOY_R2 to TRIGGER_RIGHT
+		if ((joyaxis == JoyAxis::TRIGGER_LEFT || joyaxis == JoyAxis::TRIGGER_RIGHT) && evk->get_axis_value() == 1.0) {
+			if (is_pcfg) {
+				prefix += "jbutton(" + itos(evk->get_device()) + ", ";
+			} else {
+				prefix += "JBUTTON,";
+			}
+			return prefix + itos(joyaxis == JoyAxis::TRIGGER_LEFT ? V2JoyButton::JOY_L2 : V2JoyButton::JOY_R2) + ")";
+		}
+		if (is_pcfg) {
+			prefix += "jaxis(" + itos(evk->get_device()) + ", ";
+		} else {
+			prefix += "JAXIS,";
+		}
+		return prefix + itos((int64_t)joyaxis * 2 + (evk->get_axis_value() < 0 ? 0 : 1)) + ")";
 	}
 	ERR_FAIL_V_MSG("", "Cannot store input events of type " + ev->get_class_name() + " in v2 input event strings!");
+}
+
+Ref<InputEvent> convert_v2_joy_button_event_to_v4(uint32_t btn_index) {
+	switch (btn_index) {
+			// Godot 4.x doesn't have buttons for L2 and R2, it maps those buttons to Axis
+		case V2InputEvent::JOY_L2:
+		case V2InputEvent::JOY_R2: {
+			Ref<InputEventJoypadMotion> iejm;
+			iejm.instantiate();
+			iejm->set_axis(btn_index == V2InputEvent::JOY_L2 ? JoyAxis::TRIGGER_LEFT : JoyAxis::TRIGGER_RIGHT);
+			iejm->set_axis_value(1.0);
+			return iejm;
+		}
+		default: {
+			Ref<InputEventJoypadButton> iej;
+			iej.instantiate();
+			iej->set_button_index(convert_v2_joy_button_to_v4_joy_button(V2JoyButton(btn_index)));
+			return iej;
+		}
+	}
 }
 
 Error InputEventParserV2::decode_input_event(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len) {
@@ -400,7 +472,10 @@ Error InputEventParserV2::decode_input_event(Variant &r_variant, const uint8_t *
 			uint32_t scancode = decode_uint32(&p_buffer[16]);
 			Ref<InputEventKey> iek;
 			iek = InputEventKey::create_reference(convert_v2_key_to_v4_key(V2InputEvent::V2KeyList(scancode)));
-
+			// this was removed in v4, workaround
+			if (scancode == V2KeyList::KEY_KP_ENTER) {
+				iek->set_physical_keycode(Key(V2KeyList::KEY_KP_ENTER));
+			}
 			if (mods & V2InputEvent::KEY_MASK_SHIFT) {
 				iek->set_shift_pressed(true);
 			}
@@ -435,25 +510,8 @@ Error InputEventParserV2::decode_input_event(Variant &r_variant, const uint8_t *
 		} break;
 		case 5: { // JOYSTICK_BUTTON
 			ERR_FAIL_COND_V(p_len < 16, ERR_INVALID_DATA);
-			V2JoyButton btn_index = V2JoyButton(decode_uint32(&p_buffer[12]));
-			switch (btn_index) {
-				case V2InputEvent::JOY_L2:
-				case V2InputEvent::JOY_R2: {
-					Ref<InputEventJoypadMotion> iejm;
-					iejm.instantiate();
-					iejm->set_axis(btn_index == V2InputEvent::JOY_L2 ? JoyAxis::TRIGGER_LEFT : JoyAxis::TRIGGER_RIGHT);
-					iejm->set_axis_value(1.0);
-					ie = iejm;
-					break;
-				}
-				default: {
-					Ref<InputEventJoypadButton> iej;
-					iej.instantiate();
-					iej->set_button_index(JoyButton(btn_index));
-					ie = iej;
-					break;
-				}
-			}
+			uint32_t btn_index = decode_uint32(&p_buffer[12]);
+			ie = convert_v2_joy_button_event_to_v4(btn_index);
 			if (r_len) {
 				(*r_len) += 4;
 			}
@@ -548,6 +606,9 @@ Error InputEventParserV2::parse_input_event_construct_v2(VariantParser::Stream *
 		if (token.type == VariantParser::TK_IDENTIFIER) {
 			String name = token.value;
 			iek->set_keycode(convert_v2_key_string_to_v4_keycode(name));
+			if (name == "Kp Enter") {
+				iek->set_physical_keycode(Key(V2KeyList::KEY_KP_ENTER));
+			}
 		} else if (token.type == VariantParser::TK_NUMBER) {
 			iek->set_keycode(Key((uint32_t)token.value));
 		} else {
@@ -620,23 +681,19 @@ Error InputEventParserV2::parse_input_event_construct_v2(VariantParser::Stream *
 			r_err_str = "Expected ','";
 			return ERR_PARSE_ERROR;
 		}
-
-		Ref<InputEventJoypadButton> iek;
-		iek.instantiate();
-
 		VariantParser::get_token(p_stream, token, line, r_err_str);
 		if (token.type != VariantParser::TK_NUMBER) {
 			r_err_str = "Expected button index";
 			return ERR_PARSE_ERROR;
 		}
-		iek->set_button_index(JoyButton((int)token.value));
-
+		uint32_t btn_index = token.value;
+		ie = convert_v2_joy_button_event_to_v4(btn_index);
 		VariantParser::get_token(p_stream, token, line, r_err_str);
 		if (token.type != VariantParser::TK_PARENTHESIS_CLOSE) {
 			r_err_str = "Expected ')'";
+			ie = Ref<InputEvent>();
 			return ERR_PARSE_ERROR;
 		}
-		ie = iek;
 	} else if (id == "JAXIS") {
 		VariantParser::get_token(p_stream, token, line, r_err_str);
 		if (token.type != VariantParser::TK_COMMA) {
