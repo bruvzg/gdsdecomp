@@ -699,11 +699,12 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 		ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, err, "Decompression not implemented yet for texture " + p_path);
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress texture " + p_path);
 	}
-	if (dest_path.get_extension() == "jpg" || dest_path.get_extension() == "jpeg") {
+	String dest_ext = dest_path.get_extension().to_lower();
+	if (dest_ext == "jpg" || dest_ext == "jpeg") {
 		err = gdreutil::save_image_as_jpeg(dest_path, img);
-	} else if (dest_path.get_extension() == "webp") {
+	} else if (dest_ext == "webp") {
 		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
-	} else if (dest_path.get_extension() == "png") {
+	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
 	} else {
 		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
