@@ -20,11 +20,12 @@ String GDRECLIMain::get_cli_abs_path(const String &path) {
 		return path;
 	}
 	String exec_path = GDRESettings::get_singleton()->get_exec_dir();
-	return exec_path.path_join(path).replace("\\", "/");
+	return exec_path.path_join(path).simplify_path();
 }
 Error GDRECLIMain::copy_dir(const String &src_path, const String dst_path) {
 	Ref<DirAccess> f = DirAccess::open(src_path);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_CANT_OPEN, "Can't open " + src_path);
+	f->make_dir_recursive(dst_path);
 	Error err = f->copy_dir(src_path, dst_path);
 	return err;
 }
