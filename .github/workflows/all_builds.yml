@@ -65,8 +65,7 @@ jobs:
             sconsflags-template: optimize=size use_lto=yes use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
             command-export: ${env:GITHUB_WORKSPACE}/bin/godot.macos.opt.tools.x86_64
             export-preset: "macOS"
-            export-name: .export/gdre_tools.x86_64.zip
-            template_bin: godot.macos.opt.debug.x86_64
+            export-name: .export/gdre_tools.universal.zip
 
     steps:
       - name: checkout-godot
@@ -133,10 +132,22 @@ jobs:
           retention-days: 90
 
       # target release makes CLI flags not work; use release_debug instead and then just strip it
-      - name: Compile godot export template
+      - name: Compile godot export template (x86_64)
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
+          sconsflags: arch=x86_64 ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
+          platform: ${{ matrix.platform }}
+          target: release_debug
+          tools: false
+          tests: false
+          scons-cache-limit: 4096
+        continue-on-error: true
+
+      - name: Compile godot export template for macos arm64
+        uses: ./.github/actions/godot-build
+        if: matrix.platform == 'macos'
+        with:
+          sconsflags: arch=arm64 ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
           platform: ${{ matrix.platform }}
           target: release_debug
           tools: false
@@ -151,11 +162,14 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           mkdir -p "bin/macos_template.app/Contents/MacOS"
-          cp "bin/${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.x86_64"
-          cp "bin/${{ matrix.template_bin }}" "bin/macos_template.app/Contents/MacOS/godot_macos_release.x86_64"
+          lipo -create bin/godot.macos.opt.debug.x86_64 bin/godot.macos.opt.debug.arm64 -output bin/godot.macos.opt.debug.universal
+          cp "bin/godot.macos.opt.debug.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.universal"
+          cp "bin/godot.macos.opt.debug.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_release.universal"
           cd bin/
           zip -r9 "macos.zip" "macos_template.app/"
           cd ..
+        continue-on-error: true
+
 
       - name: Download rcedit.exe
         uses: robinraju/release-downloader@v1
