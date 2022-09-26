@@ -26,6 +26,7 @@ const char *v2_format_names[V2Image::IMAGE_FORMAT_V2_MAX] = {
 	"ATCAlphaExp",
 	"ATCAlphaInterp",
 };
+
 const char *v2_format_identifiers[V2Image::IMAGE_FORMAT_V2_MAX] = {
 	"GRAYSCALE",
 	"INTENSITY",
@@ -50,6 +51,126 @@ const char *v2_format_identifiers[V2Image::IMAGE_FORMAT_V2_MAX] = {
 	"ATC_ALPHA_EXPLICIT",
 	"ATC_ALPHA_INTERPOLATED"
 };
+
+const char *v3_format_identifiers[V3Image::FORMAT_MAX] = {
+
+	"L8", //luminance
+	"LA8", //luminance-alpha
+	"R8",
+	"RG8",
+	"RGB8",
+	"RGBA8",
+	"RGBA4444",
+	"RGBA5551",
+	"RF", //float
+	"RGF",
+	"RGBF",
+	"RGBAF",
+	"RH", //half float
+	"RGH",
+	"RGBH",
+	"RGBAH",
+	"RGBE9995",
+	"DXT1", //s3tc bc1
+	"DXT3", //bc2
+	"DXT5", //bc3
+	"RGTC_R",
+	"RGTC_RG",
+	"BPTC_RGBA", //btpc bc7
+	"BPTC_RGBF", //float bc6h
+	"BPTC_RGBFU", //unsigned float bc6hu
+	"PVRTC2", //pvrtc
+	"PVRTC2A",
+	"PVRTC4",
+	"PVRTC4A",
+	"ETC", //etc1
+	"ETC2_R11", //etc2
+	"ETC2_R11S", //signed, NOT srgb.
+	"ETC2_RG11",
+	"ETC2_RG11S",
+	"ETC2_RGB8",
+	"ETC2_RGBA8",
+	"ETC2_RGB8A1"
+};
+
+const char *v3_format_names[V3Image::FORMAT_MAX] = {
+	"Lum8", //luminance
+	"LumAlpha8", //luminance-alpha
+	"Red8",
+	"RedGreen",
+	"RGB8",
+	"RGBA8",
+	"RGBA4444",
+	"RGBA5551",
+	"RFloat", //float
+	"RGFloat",
+	"RGBFloat",
+	"RGBAFloat",
+	"RHalf", //half float
+	"RGHalf",
+	"RGBHalf",
+	"RGBAHalf",
+	"RGBE9995",
+	"DXT1 RGB8", //s3tc
+	"DXT3 RGBA8",
+	"DXT5 RGBA8",
+	"RGTC Red8",
+	"RGTC RedGreen8",
+	"BPTC_RGBA",
+	"BPTC_RGBF",
+	"BPTC_RGBFU",
+	"PVRTC2", //pvrtc
+	"PVRTC2A",
+	"PVRTC4",
+	"PVRTC4A",
+	"ETC", //etc1
+	"ETC2_R11", //etc2
+	"ETC2_R11S", //signed", NOT srgb.
+	"ETC2_RG11",
+	"ETC2_RG11S",
+	"ETC2_RGB8",
+	"ETC2_RGBA8",
+	"ETC2_RGB8A1",
+};
+
+const char *v4_format_identifiers[Image::FORMAT_MAX] = {
+	"L8", //luminance
+	"LA8", //luminance-alpha
+	"R8",
+	"RG8",
+	"RGB8",
+	"RGBA8",
+	"RGBA4444",
+	"RGB565",
+	"RF", //float
+	"RGF",
+	"RGBF",
+	"RGBAF",
+	"RH", //half float
+	"RGH",
+	"RGBH",
+	"RGBAH",
+	"RGBE9995",
+	"DXT1", //s3tc bc1
+	"DXT3", //bc2
+	"DXT5", //bc3
+	"RGTC_R",
+	"RGTC_RG",
+	"BPTC_RGBA", //btpc bc7
+	"BPTC_RGBF", //float bc6h
+	"BPTC_RGBFU", //unsigned float bc6hu
+	"ETC", //etc1
+	"ETC2_R11", //etc2
+	"ETC2_R11S", //signed, NOT srgb.
+	"ETC2_RG11",
+	"ETC2_RG11S",
+	"ETC2_RGB8",
+	"ETC2_RGBA8",
+	"ETC2_RGB8A1",
+	"ETC2_RA_AS_RG", //used to make basis universal happy
+	"DXT5_RA_AS_RG" //used to make basis universal happy
+};
+
 V2Image::Format ImageEnumCompat::get_v2_format_from_string(const String &fmt_id) {
 	if (fmt_id == "CUSTOM") {
 		return V2Image::IMAGE_FORMAT_CUSTOM;
@@ -76,6 +197,21 @@ String ImageEnumCompat::get_v2_format_identifier(V2Image::Format p_format) {
 	}
 	ERR_FAIL_INDEX_V(p_format, V2Image::IMAGE_FORMAT_V2_MAX, String());
 	return v2_format_identifiers[p_format];
+}
+
+String ImageEnumCompat::get_v3_format_name(V3Image::Format p_format) {
+	ERR_FAIL_INDEX_V(p_format, V3Image::FORMAT_MAX, String());
+	return v3_format_names[p_format];
+}
+
+String ImageEnumCompat::get_v3_format_identifier(V3Image::Format p_format) {
+	ERR_FAIL_INDEX_V(p_format, V3Image::FORMAT_MAX, String());
+	return v3_format_identifiers[p_format];
+}
+
+String ImageEnumCompat::get_v4_format_identifier(Image::Format p_format) {
+	ERR_FAIL_INDEX_V(p_format, Image::FORMAT_MAX, String());
+	return v4_format_identifiers[p_format];
 }
 
 String ImageEnumCompat::get_v2_format_identifier_pcfg(V2Image::Format p_format, int p_img_size) {
@@ -181,6 +317,8 @@ Image::Format ImageEnumCompat::convert_image_format_enum_v2_to_v4(V2Image::Forma
 		default: {
 		}
 	}
+	ERR_FAIL_COND_V_MSG(p_format < V2Image::IMAGE_FORMAT_V2_MAX && p_format > 0, Image::FORMAT_MAX,
+			"Cannot convert deprecated texture format " + get_v2_format_name(p_format));
 	return Image::FORMAT_MAX;
 }
 Image::Format ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format fmt) {

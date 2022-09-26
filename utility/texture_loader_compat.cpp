@@ -75,6 +75,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 }
 
 Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
+	Image::Format format;
 	if (!(df & FORMAT_BIT_STREAM)) {
 		// do something??
 	}
@@ -132,6 +133,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 		}
 
 		//print_line("mipmap read total: " + itos(mipmap_images.size()));
+		format = mipmap_images[0]->get_format();
 
 		if (mipmap_images.size() == 1) {
 			image = mipmap_images[0];
@@ -151,12 +153,17 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 					ofs += len;
 				}
 			}
-			image->create(tw, th, true, mipmap_images[0]->get_format(), img_data);
+			image->create(tw, th, true, format, img_data);
 		}
 	} else {
 		//look for regular format
-		Image::Format format = ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format(df & FORMAT_MASK_IMAGE_FORMAT));
-		ERR_FAIL_COND_V_MSG(format == Image::FORMAT_MAX, ERR_FILE_CORRUPT, "Textured layer is in an invalid or deprecated format");
+		uint32_t v3_fmt = df & FORMAT_MASK_IMAGE_FORMAT;
+		format = ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format(v3_fmt));
+		if (format == Image::FORMAT_MAX) {
+			ERR_FAIL_COND_V_MSG(v3_fmt < V3Image::FORMAT_MAX, ERR_UNAVAILABLE,
+					"Support for deprecated texture format " + ImageEnumCompat::get_v3_format_name(V3Image::Format(v3_fmt)) + " is unimplemented.");
+			ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Texture is in an invalid format");
+		}
 
 		bool mipmaps = df & FORMAT_BIT_HAS_MIPMAPS;
 
@@ -189,7 +196,8 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 
 			int ofs = Image::get_image_mipmap_offset(tw, th, format, idx);
 
-			ERR_FAIL_COND_V(total_size - ofs <= 0, ERR_FILE_CORRUPT);
+			ERR_FAIL_COND_V_MSG(total_size - ofs <= 0, ERR_FILE_CORRUPT,
+					"Failed to create image of format " + Image::get_format_name(format) + "from texture");
 
 			f->seek(f->get_position() + ofs);
 
@@ -211,7 +219,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 			image->create(sw, sh, true, format, img_data);
 		}
 	}
-	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), ERR_FILE_CORRUPT, "Failed to create image from texture");
+	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), ERR_FILE_CORRUPT, "Failed to create image of format " + Image::get_format_name(format) + "from texture");
 	return OK;
 }
 

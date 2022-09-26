@@ -82,6 +82,9 @@ public:
 	static String get_v2_format_name(V2Image::Format p_format);
 	static String get_v2_format_identifier(V2Image::Format p_format);
 	static String get_v2_format_identifier_pcfg(V2Image::Format p_format, int p_img_size);
+	static String get_v3_format_name(V3Image::Format p_format);
+	static String get_v3_format_identifier(V3Image::Format p_format);
+	static String get_v4_format_identifier(Image::Format p_format);
 
 	static Image::Format convert_image_format_enum_v3_to_v4(V3Image::Format fmt);
 	static V2Image::Format convert_image_format_enum_v4_to_v2(Image::Format p_format);

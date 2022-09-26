@@ -256,7 +256,7 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 				dir->remove(iinfo->import_path.replace("res://", ""));
 			}
 		} else {
-			WARN_PRINT_ONCE("Conversion for " + type + " not implemented");
+			WARN_PRINT_ONCE("Conversion for Resource of type " + type + "and format " + iinfo->source_file.get_extension() + " not implemented");
 			print_line("Did not convert " + type + " resource " + path);
 			not_converted.push_back(iinfo);
 			continue;
@@ -696,8 +696,9 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	if (img->is_compressed()) {
 		err = img->decompress();
-		ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, err, "Decompression not implemented yet for texture " + p_path);
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress texture " + p_path);
+		String fmt_name = Image::get_format_name(img->get_format());
+		ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, err, "Decompression not implemented yet for texture format " + fmt_name);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
 	}
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
