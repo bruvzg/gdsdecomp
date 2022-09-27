@@ -210,6 +210,8 @@ func handle_cli():
 	var output_dir: String = ""
 	var enc_key: String = ""
 	var txt_to_bin: String = ""
+	if (args.size() == 0):
+		return
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
