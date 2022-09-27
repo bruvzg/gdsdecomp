@@ -8,6 +8,8 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme = ExtResource("1")
 script = ExtResource("2")
 
@@ -16,6 +18,8 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 focus_mode = 2
 theme_override_colors/default_color = Color(0.470588, 0.45098, 0.45098, 1)
 theme_override_constants/line_separation = 5
@@ -25,6 +29,7 @@ selection_enabled = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
+grow_horizontal = 2
 
 [node name="version_lbl" type="Button" parent="menu_background"]
 layout_mode = 1
@@ -33,6 +38,8 @@ anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
+grow_horizontal = 0
+grow_vertical = 2
 text = "$$$"
 flat = true
 
@@ -41,6 +48,8 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [connection signal="pressed" from="menu_background/version_lbl" to="." method="_on_version_lbl_pressed"]
 [connection signal="write_log_message" from="re_editor_standalone" to="." method="_on_re_editor_standalone_write_log_message"]
