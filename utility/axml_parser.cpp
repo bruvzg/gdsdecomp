@@ -1,7 +1,6 @@
 #include "axml_parser.h"
 
 #include <core/io/marshalls.h>
-#include <platform/android/export/gradle_export_util.h>
 
 Error get_next_attr(Vector<uint8_t> &p_manifest, int &iofs, const Vector<String> &string_table) {
 	uint32_t attr_nspace = decode_uint32(&p_manifest[iofs]);
