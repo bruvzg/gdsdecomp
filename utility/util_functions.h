@@ -56,8 +56,7 @@ Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool los
 	Error err;
 	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, vformat("Can't save WEBP at path: '%s'.", p_path));
-	// skip the 4 byte "WEBP" at the beginning of the buffer, not present in real WEBP files
-	file->store_buffer(buffer.ptr() + 4, buffer.size() - 4);
+
 	if (file->get_error() != OK && file->get_error() != ERR_FILE_EOF) {
 		return ERR_CANT_CREATE;
 	}
