@@ -6,6 +6,7 @@
 #include "core/io/file_access_zip.h"
 #include "core/object/script_language.h"
 #include "core/version.h"
+#include "file_access_apk.h"
 #include "modules/regex/regex.h"
 
 #if defined(WINDOWS_ENABLED)
@@ -109,9 +110,8 @@ Error GDRESettings::load_pack(const String &p_path) {
 	new_singleton->set_disabled(false);
 // main.cpp normally adds this
 #ifdef MINIZIP_ENABLED
-	// We have to create a new one instead of a singleton because the old one will still be around as a pointer in PackedData
-	// which will cause a double free if we use that and then memdelete the new PackedData
-	new_singleton->add_pack_source(memnew(ZipArchive));
+	// For loading APKs
+	new_singleton->add_pack_source(memnew(APKArchive));
 #endif
 
 	// If we're not in the editor, we have to add project pack back
@@ -516,6 +516,9 @@ void GDRESettings::add_logger() {
 }
 
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
+	if (p_path.get_extension().to_lower() == "apk") {
+		return false;
+	}
 	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
 	Ref<FileAccess> f = FileAccess::open(pck_path, FileAccess::READ);
 	if (f.is_null()) {
@@ -598,7 +601,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	// Everything worked, now set the data
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
-	pckinfo->init(pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count);
+	pckinfo->init(pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count, itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev));
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	for (int i = 0; i < file_count; i++) {

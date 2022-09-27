@@ -27,6 +27,11 @@ Error PckDumper::load_pck(const String &p_path) {
 }
 
 Error PckDumper::check_md5_all_files() {
+	String ext = GDRESettings::get_singleton()->get_pack_path().get_extension();
+	if (ext != "pck" || ext != "exe") {
+		print_line("Not a pack file, skipping MD5 check...");
+		return OK;
+	}
 	Error err = OK;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	for (int i = 0; i < files.size(); i++) {

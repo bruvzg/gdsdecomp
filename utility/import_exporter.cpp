@@ -101,6 +101,8 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 		}
 		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_FILE_UNRECOGNIZED, "Can't determine project version, cannot load");
 		//for the sake of decompiling scripts
+		// TODO: Need to get minor version number from binary resource for 2.x,
+		// there were breaking changes between 2.0 and 2.1
 		if (ver_major == 2) {
 			ver_minor = 1;
 		} else if (ver_major == 3) {

@@ -138,6 +138,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 		if (loader->imd->get_source_count() > 1) {
 			WARN_PRINT("More than one source?!?!");
 		}
+		// TODO: 2.0 resources did not always have sources; handle this gracefully
 		ERR_RFLBC_COND_V_MSG_CLEANUP(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + loader->res_path + "'", loader);
 		i_info->v2metadata = loader->imd;
 		i_info->source_file = loader->imd->get_source_path(0);

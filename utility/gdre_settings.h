@@ -75,9 +75,10 @@ public:
 		uint32_t pack_flags = 0;
 		uint64_t file_base = 0;
 		uint32_t file_count = 0;
+		String version_string = "";
 
 	public:
-		void init(String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count) {
+		void init(String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, String ver_string) {
 			ver_major = vmaj;
 			ver_minor = vmin;
 			ver_rev = vrev;
@@ -85,6 +86,7 @@ public:
 			pack_flags = flags;
 			file_base = base;
 			file_count = count;
+			version_string = ver_string;
 		}
 	};
 
@@ -128,8 +130,9 @@ public:
 	void add_pack_file(const Ref<PackedFileInfo> &f_info) { files.push_back(f_info); };
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
+	String get_pack_path() { return is_pack_loaded() ? current_pack->pack_file : ""; }
 	uint32_t get_pack_version() { return is_pack_loaded() ? current_pack->fmt_version : 0; }
-	String get_version_string() { return is_pack_loaded() ? String(itos(current_pack->ver_major) + "." + itos(current_pack->ver_minor) + "." + itos(current_pack->ver_rev)) : String(); }
+	String get_version_string() { return is_pack_loaded() ? current_pack->version_string : String(); }
 	uint32_t get_ver_major() { return is_pack_loaded() ? current_pack->ver_major : 0; }
 	uint32_t get_ver_minor() { return is_pack_loaded() ? current_pack->ver_minor : 0; }
 	uint32_t get_ver_rev() { return is_pack_loaded() ? current_pack->ver_rev : 0; }

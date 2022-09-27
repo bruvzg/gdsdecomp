@@ -10,6 +10,7 @@ class PackedFileInfo : public RefCounted {
 	friend class GDRESettings;
 	friend class PckDumper;
 	friend class GDREPackedSource;
+	friend class APKArchive;
 
 	String path;
 	String raw_path;
