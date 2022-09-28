@@ -61,16 +61,18 @@ private:
 	String import_md_path; // path to the ".import" file
 	int ver_major; //2, 3, 4
 	int ver_minor = 0;
+	bool not_an_import = false;
 	String type;
+	String uid;
 	String importer;
 	String source_file; // file to import
+	Vector<String> additional_sources; // For v2 Atlas and large textures
 	Vector<String> dest_files;
 	String preferred_dest;
 	Dictionary params; // import options (like compression mode, lossy quality, etc.)
 	Ref<ConfigFile> cf; // raw v3-v4 import data
 	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
 	Dictionary v3metadata_prop; // 'metadata' property of "remap" tag in an import file
-	bool no_import;
 	bool auto_converted_export;
 	void _init();
 	Error load_from_file_v2(const String &p_path);
@@ -103,7 +105,8 @@ public:
 	virtual String to_string() override;
 	int get_import_loss_type() const;
 	Error rename_source(const String &p_new_source);
-	bool is_auto_converted() { return auto_converted_export; }
+	bool is_auto_converted() const { return auto_converted_export; }
+	bool is_import() const { return !not_an_import; }
 
 protected:
 	static void _bind_methods() {

@@ -106,8 +106,11 @@ Error GDRESettings::load_pack(const String &p_path) {
 	// the PackedData constructor will set the singleton to the newly instanced one
 	new_singleton = memnew(PackedData);
 	GDREPackedSource *src = memnew(GDREPackedSource);
+	Error err;
+
 	new_singleton->add_pack_source(src);
 	new_singleton->set_disabled(false);
+
 // main.cpp normally adds this
 #ifdef MINIZIP_ENABLED
 	// For loading APKs
@@ -117,12 +120,17 @@ Error GDRESettings::load_pack(const String &p_path) {
 	// If we're not in the editor, we have to add project pack back
 	if (!in_editor) {
 		// using the base PackedSourcePCK here
-		new_singleton->add_pack(get_standalone_pck_path(), false, 0);
+		// TODO: We should fail hard if we fail to add the pack back in,
+		// but the way of detecting of whether or not we have the pck
+		// is insufficient, find another way.
+		err = new_singleton->add_pack(get_standalone_pck_path(), false, 0);
+		//ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Failed to load GDRE pack!");
 	}
 	// set replace to true so that project.binary gets overwritten in case its loaded
 	// Project settings have already been loaded by this point and this won't affect them,
 	// so it's fine
-	new_singleton->add_pack(pack_path, true, 0);
+	err = new_singleton->add_pack(pack_path, true, 0);
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Failed to load project pack!");
 
 	// If we're in a first load, the old PackedData singleton is still held by main.cpp
 	// If we delete it, we'll cause a double free when the program closes because main.cpp deletes it
@@ -131,7 +139,20 @@ Error GDRESettings::load_pack(const String &p_path) {
 	} else {
 		first_load = false;
 	}
-
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
+	if (get_version_string() == "unknown") {
+		//we have to get it from the binary files
+	}
+	if (get_ver_major() == 2) {
+		if (has_res_path("res://engine.cfb")) {
+			current_pack->pcfg.load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
+		}
+	}
+	if (get_ver_minor() == 3 || get_ver_minor() == 4) {
+		if (has_res_path("res://project.binary")) {
+			current_pack->pcfg.load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
+		}
+	}
 	return OK;
 }
 
@@ -601,7 +622,9 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	// Everything worked, now set the data
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
-	pckinfo->init(pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count, itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev));
+	pckinfo->init(
+			pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count,
+			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), GDRESettings::PackInfo::PCK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	for (int i = 0; i < file_count; i++) {

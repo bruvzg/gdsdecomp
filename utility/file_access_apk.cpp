@@ -272,7 +272,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	}
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
-	pckinfo->init(pack_path, ver_major, ver_minor, ver_rev, version, 0, 0, asset_count, ver_string);
+	pckinfo->init(pack_path, ver_major, ver_minor, ver_rev, version, 0, 0, asset_count, ver_string, GDRESettings::PackInfo::APK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	return true;

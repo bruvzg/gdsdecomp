@@ -487,7 +487,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	// Rewrite the metadata for v2
 	// This is essentially mandatory for v2 resources because they can be imported outside the
 	// project directory tree and the import metadata often points to locations that don't exist.
-	if (iinfo->ver_major == 2 && opt_rewrite_imd_v2) {
+	if (iinfo->ver_major == 2 && opt_rewrite_imd_v2 && iinfo->is_import()) {
 		rewrite_metadata = true;
 	}
 
@@ -506,7 +506,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 			} else {
 				dest = source.get_basename() + ".png";
 				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
-				if (opt_rewrite_imd_v3) {
+				if (opt_rewrite_imd_v3 && iinfo->is_import()) {
 					rewrite_metadata = true;
 				} else {
 					// save it under .assets, which won't be picked up for import by the godot editor
@@ -542,14 +542,14 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 		err = _convert_tex(output_dir, path, dest, &r_name, false);
 		ERR_FAIL_COND_V(err != OK, err);
 	}
-	if (iinfo->ver_major == 2) {
+	if (iinfo->ver_major == 2 && iinfo->is_import()) {
 		if (rewrite_metadata) {
 			err = rewrite_v2_import_metadata(path, iinfo->preferred_dest, r_name, output_dir);
 			ERR_FAIL_COND_V_MSG(err != OK, ERR_DATABASE_CANT_WRITE, "Failed to rewrite import metadata for " + iinfo->source_file);
 			return ERR_PRINTER_ON_FIRE;
 		}
 		return ERR_DATABASE_CANT_WRITE;
-	} else if (iinfo->ver_major >= 3) {
+	} else if (iinfo->ver_major >= 3 && iinfo->is_import()) {
 		if (rewrite_metadata) {
 			err = ERR_DATABASE_CANT_WRITE;
 			ERR_FAIL_COND_V_MSG(err != OK, ERR_DATABASE_CANT_WRITE, "Failed to remap resource " + iinfo->source_file);

@@ -1,6 +1,7 @@
 #ifndef GDRE_SETTINGS_H
 #define GDRE_SETTINGS_H
 #include "packed_file_info.h"
+#include "pcfg_loader.h"
 
 #include "core/io/logger.h"
 #include "core/object/class_db.h"
@@ -67,6 +68,16 @@ public:
 		GDCLASS(PackInfo, RefCounted);
 
 		friend class GDRESettings;
+
+	public:
+		enum PackType {
+			PCK,
+			APK,
+			ZIP,
+			DIR
+		};
+
+	private:
 		String pack_file = "";
 		uint32_t ver_major = 0;
 		uint32_t ver_minor = 0;
@@ -75,10 +86,13 @@ public:
 		uint32_t pack_flags = 0;
 		uint64_t file_base = 0;
 		uint32_t file_count = 0;
-		String version_string = "";
+		PackType type = PCK;
+		String version_string = "unknown";
+		ProjectConfigLoader pcfg;
 
 	public:
-		void init(String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, String ver_string) {
+		void init(
+				String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, String ver_string, PackType tp) {
 			ver_major = vmaj;
 			ver_minor = vmin;
 			ver_rev = vrev;
@@ -87,6 +101,9 @@ public:
 			file_base = base;
 			file_count = count;
 			version_string = ver_string;
+			type = tp;
+		}
+		void set_project_config() {
 		}
 	};
 

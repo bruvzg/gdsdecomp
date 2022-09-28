@@ -105,6 +105,7 @@ Error ImportInfo::load_from_file(const String &p_path, int v_major, int v_minor 
 	import_md_path = path;
 	import_path = cf->get_value("remap", "path", "");
 	type = ClassDB::get_compatibility_remapped_class(cf->get_value("remap", "type", ""));
+	uid = v_major == 4 ? cf->get_value("remap", "uid", "") : "";
 	importer = cf->get_value("remap", "importer", "");
 	source_file = cf->get_value("deps", "source_file", "");
 	dest_files = cf->get_value("deps", "dest_files", Array());
@@ -197,9 +198,12 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 				source_file = dest;
 			}
 			return OK;
+		} else {
+			not_an_import = true;
 		}
 		// The file loaded, but there was no metadata and it was not a ".converted." file
 	} else if (err == ERR_PRINTER_ON_FIRE) {
+		not_an_import = true;
 		WARN_PRINT("Could not load metadata from " + p_path);
 		String new_ext;
 		if (p_path.get_extension() == "tex") {

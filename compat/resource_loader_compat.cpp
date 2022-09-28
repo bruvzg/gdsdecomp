@@ -133,15 +133,29 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 			return OK;
 		}
 		error = loader->load_import_metadata();
-		ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, ERR_PRINTER_ON_FIRE, "failed to get metadata for '" + loader->res_path + "'", loader);
-
-		if (loader->imd->get_source_count() > 1) {
-			WARN_PRINT("More than one source?!?!");
+		// If this is a 2.x resource with no imports, it will have no import metadata
+		if (error != OK) {
+			memdelete(loader);
+			return ERR_PRINTER_ON_FIRE;
 		}
-		// TODO: 2.0 resources did not always have sources; handle this gracefully
+
+		// Atlas and MODE_LARGE textures in 2.x had more than one source
+		if (loader->imd->get_source_count() > 1) {
+			WARN_PRINT("More than one source, likely a 2.x atlas/large texture");
+		}
+		// 2.0 resources often had import data but did not always have sources; handle this gracefully
+		if (loader->imd->get_source_count() == 0 && loader->imd->get_editor().is_empty()) {
+			memdelete(loader);
+			return OK;
+		}
+
 		ERR_RFLBC_COND_V_MSG_CLEANUP(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + loader->res_path + "'", loader);
 		i_info->v2metadata = loader->imd;
 		i_info->source_file = loader->imd->get_source_path(0);
+		for (int i = 1; i < loader->imd->get_source_count(); i++) {
+			i_info->additional_sources.push_back(loader->imd->get_source_path(i));
+		}
+
 		i_info->importer = loader->imd->get_editor();
 		i_info->params = loader->imd->get_options_as_dictionary();
 	}
