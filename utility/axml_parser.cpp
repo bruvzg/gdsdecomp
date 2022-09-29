@@ -2,18 +2,6 @@
 
 #include <core/io/marshalls.h>
 
-Error get_next_attr(Vector<uint8_t> &p_manifest, int &iofs, const Vector<String> &string_table) {
-	uint32_t attr_nspace = decode_uint32(&p_manifest[iofs]);
-	uint32_t attr_name = decode_uint32(&p_manifest[iofs + 4]);
-	uint32_t attr_value = decode_uint32(&p_manifest[iofs + 8]);
-	uint32_t attr_resid = decode_uint32(&p_manifest[iofs + 16]);
-
-	const String value = (attr_value != 0xFFFFFFFF) ? string_table[attr_value] : "Res #" + itos(attr_resid);
-	String attrname = string_table[attr_name];
-	const String nspace = (attr_nspace != 0xFFFFFFFF) ? string_table[attr_nspace] : "";
-	return OK;
-}
-
 Error AXMLParser::parse_manifest(Vector<uint8_t> &p_manifest) {
 	// Leaving the unused types commented because looking these constants up
 	// again later would be annoying
