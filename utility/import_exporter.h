@@ -15,9 +15,7 @@
 class ImportExporter : public RefCounted {
 	GDCLASS(ImportExporter, RefCounted)
 	Array files;
-	Ref<ProjectConfigLoader> pcfg_loader;
 	Vector<String> code_files;
-	String project_dir;
 	bool opt_bin2text = true;
 	bool opt_export_textures = true;
 	bool opt_export_samples = true;
@@ -26,11 +24,9 @@ class ImportExporter : public RefCounted {
 	bool opt_lossy = true;
 	bool opt_export_jpg = true;
 	bool opt_export_webp = true;
-
 	bool opt_rewrite_imd_v2 = true;
 	bool opt_rewrite_imd_v3 = false;
-	int ver_major = 0;
-	int ver_minor = 0;
+
 	Vector<String> files_lossy_exported;
 	Vector<String> files_rewrote_metadata;
 	int import_count;
@@ -52,9 +48,6 @@ class ImportExporter : public RefCounted {
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
 
 	static Error ensure_dir(const String &dst_dir);
-	static bool check_if_dir_is_v2(const String &dir);
-	static bool check_if_dir_is_v3(const String &dir);
-	static bool check_if_dir_is_v4(const String &dir);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
 
@@ -72,7 +65,7 @@ public:
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
 	Error decompile_scripts(const String &output_dir);
-	Error load_import_files(const String &dir, const uint32_t ver_major, const uint32_t p_ver_minor);
+	Error load_import_files();
 
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);

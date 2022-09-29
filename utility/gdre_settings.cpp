@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+#include "util_functions.h"
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
@@ -53,11 +54,87 @@ GDRESettings *GDRESettings::singleton = nullptr;
 // We have to set this in the singleton here, since after Godot is done initializing,
 // it will change the CWD to the executable dir
 String GDRESettings::exec_dir = GDRESettings::_get_cwd();
+GDRESettings *GDRESettings::get_singleton() {
+	return singleton;
+}
 
 GDRESettings::GDRESettings() {
 	singleton = this;
+	gdre_resource_path = ProjectSettings::get_singleton()->get_resource_path();
 	logger = memnew(GDRELogger);
 	add_logger();
+}
+
+GDRESettings::~GDRESettings() {
+	remove_current_pack();
+	if (new_singleton != nullptr) {
+		memdelete(new_singleton);
+	}
+	singleton = nullptr;
+	// logger doesn't get memdeleted because the OS singleton will do so
+	// gdre_os doesn't get deleted because it's the OS singleton
+}
+String GDRESettings::get_cwd() {
+	return GDRESettings::_get_cwd();
+};
+String GDRESettings::get_exec_dir() {
+	return GDRESettings::exec_dir;
+};
+
+String GDRESettings::get_gdre_resource_path() const {
+	return gdre_resource_path;
+}
+
+Vector<uint8_t> GDRESettings::get_encryption_key() {
+	return enc_key;
+}
+String GDRESettings::get_encryption_key_string() {
+	return enc_key_str;
+}
+bool GDRESettings::is_pack_loaded() const {
+	return current_pack.is_valid();
+}
+
+void GDRESettings::add_pack_file(const Ref<PackedFileInfo> &f_info) {
+	files.push_back(f_info);
+}
+
+GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() {
+	return is_pack_loaded() ? current_pack->type : PackInfo::UNKNOWN;
+}
+String GDRESettings::get_pack_path() {
+	return is_pack_loaded() ? current_pack->pack_file : "";
+}
+uint32_t GDRESettings::get_pack_version() {
+	return is_pack_loaded() ? current_pack->fmt_version : 0;
+}
+String GDRESettings::get_version_string() {
+	return is_pack_loaded() ? current_pack->version_string : String();
+}
+uint32_t GDRESettings::get_ver_major() {
+	return is_pack_loaded() ? current_pack->ver_major : 0;
+}
+uint32_t GDRESettings::get_ver_minor() {
+	return is_pack_loaded() ? current_pack->ver_minor : 0;
+}
+uint32_t GDRESettings::get_ver_rev() {
+	return is_pack_loaded() ? current_pack->ver_rev : 0;
+}
+uint32_t GDRESettings::get_file_count() {
+	return is_pack_loaded() ? current_pack->file_count : 0;
+}
+void GDRESettings::set_project_path(const String &p_path) {
+	project_path = p_path;
+}
+String GDRESettings::get_project_path() {
+	return project_path;
+}
+bool GDRESettings::is_project_config_loaded() const {
+	if (!is_pack_loaded()) {
+		return false;
+	}
+	bool is_loaded = current_pack->pcfg->is_loaded();
+	return is_loaded;
 }
 
 void GDRESettings::remove_current_pack() {
@@ -85,6 +162,60 @@ String get_standalone_pck_path() {
 	return exec_dir.path_join(exec_basename + ".pck");
 }
 
+// This loads project directories by setting the global resource path to the project directory
+// We have to be very careful about this, this means that any GDRE resources we have loaded
+// could fail to reload if they somehow became unloaded while we were messing with the project.
+Error GDRESettings::load_dir(const String &p_path) {
+	if (is_pack_loaded()) {
+		return ERR_ALREADY_IN_USE;
+	}
+	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
+	ERR_FAIL_COND_V_MSG(da.is_null(), ERR_FILE_CANT_OPEN, "Can't find folder!");
+	ERR_FAIL_COND_V_MSG(!da->dir_exists(p_path), ERR_FILE_CANT_OPEN, "Can't find folder!");
+
+	// This is a hack to get the resource path set to the project folder
+	ProjectSettings *settings_singleton = ProjectSettings::get_singleton();
+	GDREPackSettings *new_singleton = static_cast<GDREPackSettings *>(settings_singleton);
+	new_singleton->set_resource_path(p_path);
+
+	da = da->open("res://");
+	project_path = p_path;
+	PackedStringArray pa = da->get_files_at("res://");
+	for (auto s : pa) {
+		print_line(s);
+	}
+	// TODO: Need to get minor version number from binary resource for 2.x,
+	// there were breaking changes between 2.0 and 2.1
+	int ver_major = gdreutil::get_ver_major_from_dir("res://");
+	ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
+	int ver_minor;
+	//for the sake of decompiling scripts
+	if (ver_major == 2) {
+		ver_minor = 1;
+	} else if (ver_major == 3) {
+		ver_minor = 3;
+	}
+	int ver_rev = 0;
+	int version = 1;
+
+	Ref<PackInfo> pckinfo;
+	pckinfo.instantiate();
+	pckinfo->init(
+			p_path, ver_major, ver_minor, ver_rev, version, 0, 0, pa.size(),
+			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), PackInfo::DIR);
+	add_pack_info(pckinfo);
+	load_project_config();
+	return OK;
+}
+Error GDRESettings::unload_dir() {
+	remove_current_pack();
+	ProjectSettings *settings_singleton = ProjectSettings::get_singleton();
+	GDREPackSettings *new_singleton = static_cast<GDREPackSettings *>(settings_singleton);
+	new_singleton->set_resource_path(gdre_resource_path);
+	project_path = "";
+	return OK;
+}
+
 // This loads the pack into PackedData so that the paths are globally accessible with FileAccess.
 // This is VERY hacky. We have to make a new PackedData singleton when loading a pack, and then
 // delete it and make another new one while unloading.
@@ -96,6 +227,10 @@ String get_standalone_pck_path() {
 Error GDRESettings::load_pack(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
+	}
+	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
+	if (da->dir_exists(p_path)) {
+		return load_dir(p_path);
 	}
 	// So that we don't use PackedSourcePCK when we load this
 	String pack_path = p_path + "_GDRE_a_really_dumb_hack";
@@ -111,7 +246,6 @@ Error GDRESettings::load_pack(const String &p_path) {
 	new_singleton->add_pack_source(src);
 	new_singleton->set_disabled(false);
 
-// main.cpp normally adds this
 #ifdef MINIZIP_ENABLED
 	// For loading APKs
 	new_singleton->add_pack_source(memnew(APKArchive));
@@ -141,25 +275,48 @@ Error GDRESettings::load_pack(const String &p_path) {
 	}
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 	if (get_version_string() == "unknown") {
-		//we have to get it from the binary files
+		// TODO: we have to get it from the binary files
 	}
+	load_project_config();
+	return OK;
+}
+
+Error GDRESettings::load_project_config() {
+	Error err;
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_OPEN, "Pack not loaded!");
+	ERR_FAIL_COND_V_MSG(is_project_config_loaded(), ERR_ALREADY_IN_USE, "Project config is already loaded!");
+
 	if (get_ver_major() == 2) {
-		if (has_res_path("res://engine.cfb")) {
-			current_pack->pcfg.load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
-		}
+		ERR_FAIL_COND_V_MSG(!has_res_path("res://engine.cfb"), ERR_FILE_NOT_FOUND,
+				"Cannot find project config in pack/project folder!");
+		err = current_pack->pcfg->load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
+		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	}
 	if (get_ver_minor() == 3 || get_ver_minor() == 4) {
-		if (has_res_path("res://project.binary")) {
-			current_pack->pcfg.load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
-		}
+		ERR_FAIL_COND_V_MSG(!has_res_path("res://project.binary"), ERR_FILE_NOT_FOUND,
+				"Cannot find project config in pack/project folder!");
+		err = current_pack->pcfg->load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
+		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	}
 	return OK;
+}
+
+Error GDRESettings::save_project_config(const String &p_out_dir = "") {
+	String output_dir = p_out_dir;
+	if (output_dir.is_empty()) {
+		output_dir = project_path;
+	}
+	return current_pack->pcfg->save_cfb(output_dir, get_ver_major(), get_ver_minor());
 }
 
 Error GDRESettings::unload_pack() {
 	if (!is_pack_loaded()) {
 		return ERR_DOES_NOT_EXIST;
 	}
+	if (get_pack_type() == PackInfo::DIR) {
+		return unload_dir();
+	}
+
 	remove_current_pack();
 	// we have to re-init PackedData to clear the paths
 	PackedData *new_old_singleton = memnew(PackedData);
@@ -179,7 +336,7 @@ Error GDRESettings::unload_pack() {
 
 void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 	packs.push_back(packinfo);
-	current_pack = packinfo.ptr();
+	current_pack = packinfo;
 }
 
 void GDRESettings::set_encryption_key(const String &key_str) {
@@ -225,6 +382,9 @@ void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 
 Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 	Vector<String> ret;
+	if (get_pack_type() == PackInfo::DIR) {
+		return gdreutil::get_recursive_dir_list("res://", filters, true);
+	}
 	Vector<Ref<PackedFileInfo>> flist = get_file_info_list(filters);
 	for (int i = 0; i < flist.size(); i++) {
 		ret.push_back(flist[i]->path);
@@ -241,6 +401,7 @@ Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String
 		for (int j = 0; j < filters.size(); j++) {
 			if (files.get(i)->get_path().get_file().match(filters[j])) {
 				ret.push_back(files.get(i));
+				break;
 			}
 		}
 	}
@@ -354,7 +515,7 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 	String res_dir = resource_dir != "" ? resource_dir : project_path;
 	String res_path;
 	// Try and find it in the packed data
-	if (is_pack_loaded()) {
+	if (is_pack_loaded() && get_pack_type() != PackInfo::DIR) {
 		if (PackedData::get_singleton()->has_path(p_path)) {
 			return p_path;
 		}
@@ -402,6 +563,57 @@ bool GDRESettings::has_res_path(const String &p_path, const String &resource_dir
 
 String GDRESettings::get_res_path(const String &p_path, const String &resource_dir) {
 	return _get_res_path(p_path, resource_dir, false);
+}
+bool GDRESettings::has_any_remaps() const {
+	if (is_pack_loaded()) {
+		if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+			return true;
+		}
+	}
+	return false;
+}
+
+//only works on 2.x right now
+bool GDRESettings::has_remap(const String &src, const String &dst) const {
+	if (is_pack_loaded()) {
+		if (is_project_config_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+			PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+			if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+//only works on 2.x right now
+Error GDRESettings::add_remap(const String &src, const String &dst) {
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
+	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+	v2remaps.push_back(localize_path(src));
+	v2remaps.push_back(localize_path(dst));
+	current_pack->pcfg->set_setting("remap/all", v2remaps);
+	return OK;
+}
+
+//only works on 2.x right now
+Error GDRESettings::remove_remap(const String &src, const String &dst) {
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
+	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+	Error err;
+	if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
+		v2remaps.erase(localize_path(src));
+		v2remaps.erase(localize_path(dst));
+		if (v2remaps.size()) {
+			err = current_pack->pcfg->set_setting("remap/all", v2remaps);
+		} else {
+			err = current_pack->pcfg->remove_setting("remap/all");
+		}
+		return err;
+	}
+	ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
 }
 
 void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {

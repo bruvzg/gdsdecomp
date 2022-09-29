@@ -6,7 +6,6 @@
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
-
 namespace gdreutil {
 static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = "", const bool &res = false) {
 	Vector<String> ret;
@@ -25,17 +24,17 @@ static Vector<String> get_recursive_dir_list(const String dir, const Vector<Stri
 			f = da->get_next();
 			continue;
 		} else if (da->current_is_dir()) {
-			ret.append_array(get_recursive_dir_list(dir, wildcards, absolute, rel.path_join(f), res));
+			ret.append_array(get_recursive_dir_list(dir, wildcards, absolute, rel.path_join(f)));
 		} else {
 			if (wildcards.size() > 0) {
 				for (int i = 0; i < wildcards.size(); i++) {
 					if (f.get_file().match(wildcards[i])) {
-						ret.append((res ? "res://" : "") + base.path_join(rel).path_join(f));
+						ret.append(base.path_join(rel).path_join(f));
 						break;
 					}
 				}
 			} else {
-				ret.append((res ? "res://" : "") + base.path_join(rel).path_join(f));
+				ret.append(base.path_join(rel).path_join(f));
 			}
 		}
 		f = da->get_next();
@@ -43,9 +42,55 @@ static Vector<String> get_recursive_dir_list(const String dir, const Vector<Stri
 	da->list_dir_end();
 	return ret;
 }
-Ref<FileAccess> _____tmp_file;
 
-Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy = false) {
+static bool check_if_dir_is_v4(const String &dir) {
+	Vector<String> wildcards;
+	// these are files that will only show up in version 4
+	wildcards.push_back("*.ctex");
+	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static bool check_if_dir_is_v3(const String &dir) {
+	Vector<String> wildcards;
+	// these are files that will only show up in version 3
+	wildcards.push_back("*.stex");
+	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static bool check_if_dir_is_v2(const String &dir) {
+	Vector<String> wildcards;
+	// these are files that will only show up in version 2
+	wildcards.push_back("*.converted.*");
+	wildcards.push_back("*.tex");
+	wildcards.push_back("*.smp");
+	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static int get_ver_major_from_dir(const String &dir) {
+	if (check_if_dir_is_v4(dir))
+		return 4;
+	if (check_if_dir_is_v3(dir))
+		return 3;
+	if (check_if_dir_is_v2(dir))
+		return 2;
+	return 0;
+}
+
+static Ref<FileAccess> _____tmp_file;
+
+static Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy = false) {
 	Ref<Image> source_image = p_img->duplicate();
 	Vector<uint8_t> buffer;
 	if (lossy) {
@@ -63,7 +108,7 @@ Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool los
 	return OK;
 }
 
-Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
+static Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 	Vector<uint8_t> buffer;
 	Ref<Image> source_image = p_img->duplicate();
 

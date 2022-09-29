@@ -31,18 +31,43 @@ func get_arg_value(arg):
 		get_tree().quit()
 	return split_args[1]
 
-func export_imports(output_dir:String, enc_key:String):
-	var importer:ImportExporter = ImportExporter.new()
-	if enc_key:
-		main.set_key(enc_key)
+func normalize_path(path: String):
+	return path.replace("\\","/")
 	
-	importer.load_import_files(output_dir, ver_major, ver_minor)
-	importer.decompile_scripts(output_dir)
-	var arr = importer.get_import_files()
-	print("Number of import files: " + str(arr.size()))
-	importer.export_imports(output_dir)
-	importer.reset()
-			
+# func print_import_info_from_pak(pak_file: String):
+# 	var pckdump = PckDumper.new()
+# 	pckdump.load_pck(pak_file)
+# 	var importer:ImportExporter = ImportExporter.new()
+# 	importer.load_import_files()
+# 	var arr = importer.get_import_files()
+# 	print("size is " + str(arr.size()))
+# 	for ifo in arr:
+# 		var s:String = ifo.get_source_file() + " is "
+# 		if ifo.get_import_loss_type() == 0:
+# 			print(s + "lossless")
+# 		elif ifo.get_import_loss_type() == -1:
+# 			print(s + "unknown")
+# 		else:
+# 			print(s + "lossy")
+# 		print((ifo as ImportInfo).to_string())
+# 	pckdump.clear_data()
+# 	importer.reset()
+	
+# func print_import_info(output_dir: String):
+# 	var importer:ImportExporter = ImportExporter.new()
+# 	importer.load_import_files()
+# 	var arr = importer.get_import_files()
+# 	print("size is " + str(arr.size()))
+# 	for ifo in arr:
+# 		var s:String = ifo.get_source_file() + " is "
+# 		if ifo.get_import_loss_type() == 0:
+# 			print(s + "lossless")
+# 		elif ifo.get_import_loss_type() == -1:
+# 			print(s + "unknown")
+# 		else:
+# 			print(s + "lossy")
+# 		print((ifo as ImportInfo).to_string())
+# 	importer.reset()
 
 func test_decomp(fname):
 	var decomp = GDScriptDecomp_ed80f45.new()
@@ -64,72 +89,34 @@ func test_decomp(fname):
 			else:
 				print("error failed to save "+ f)
 
+func export_imports(output_dir:String):
+	var importer:ImportExporter = ImportExporter.new()
+	var err = importer.load_import_files()
+	if err != OK:
+		print("Error: failed to load import files!")
+		return
+	importer.decompile_scripts(output_dir)
+	var arr = importer.get_import_files()
+	print("Number of import files: " + str(arr.size()))
+	importer.export_imports(output_dir)
+	importer.reset()
+				
 	
-func dump_files(input_file:String, output_dir:String, enc_key:String = "") -> int:
+func dump_files(output_dir:String) -> int:
 	var err:int = OK;
 	var pckdump = PckDumper.new()
-	print(input_file)
-	if (enc_key != ""):
-		pckdump.set_key(enc_key)
-	err = pckdump.load_pck(input_file)
 	if err == OK:
-		print("Successfully loaded PCK!")
-		ver_major = pckdump.get_engine_version().split(".")[0].to_int()
-		ver_minor = pckdump.get_engine_version().split(".")[1].to_int()
-		var version:String = pckdump.get_engine_version()
-		print("Version: " + version)
 		err = pckdump.check_md5_all_files()
 		if err != OK:
 			print("Error md5")
-			pckdump.clear_data()
 			return err
 		err = pckdump.pck_dump_to_dir(output_dir)
 		if err != OK:
 			print("error dumping to dir")
-			pckdump.clear_data()
 			return err
 	else:
 		print("ERROR: failed to load exe")
-	pckdump.clear_data()
 	return err;
-
-func normalize_path(path: String):
-	return path.replace("\\","/")
-
-func print_import_info_from_pak(pak_file: String):
-	var pckdump = PckDumper.new()
-	pckdump.load_pck(pak_file)
-	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files("res://", 0, 0)
-	var arr = importer.get_import_files()
-	print("size is " + str(arr.size()))
-	for ifo in arr:
-		var s:String = ifo.get_source_file() + " is "
-		if ifo.get_import_loss_type() == 0:
-			print(s + "lossless")
-		elif ifo.get_import_loss_type() == -1:
-			print(s + "unknown")
-		else:
-			print(s + "lossy")
-		print((ifo as ImportInfo).to_string())
-	pckdump.clear_data()
-	importer.reset()
-	
-func print_import_info(output_dir: String):
-	var importer:ImportExporter = ImportExporter.new()
-	importer.load_import_files(output_dir, 0, 0)
-	var arr = importer.get_import_files()
-	print("size is " + str(arr.size()))
-	for ifo in arr:
-		var s:String = ifo.get_source_file() + " is "
-		if ifo.get_import_loss_type() == 0:
-			print(s + "lossless")
-		elif ifo.get_import_loss_type() == -1:
-			print(s + "unknown")
-		else:
-			print(s + "lossy")
-		print((ifo as ImportInfo).to_string())
-	importer.reset()
 
 func print_usage():
 	print("Godot Reverse Engineering Tools")
@@ -138,15 +125,19 @@ func print_usage():
 	print("\nGeneral options:")
 	print("  -h, --help: Display this help message")
 	print("\nFull Project Recovery options:")
-	print("Usage: GDRE_Tools.exe --headless --recover=<PAK_OR_EXE_OR_EXTRACTED_ASSETS_DIR> [options]")
+	print("Usage: GDRE_Tools.exe --headless --recover=<PCK_OR_EXE_OR_EXTRACTED_ASSETS_DIR> [options]")
 	print("")
-	print("--recover=<PAK_OR_EXE_OR_EXTRACTED_ASSETS_DIR>\t\tThe Pak, EXE, or extracted project directory to perform full project recovery on")
+	print("--recover=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, EXE, or extracted project directory to perform full project recovery on")
+	print("--extract=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, or EXE to extract")
+
 	print("\nOptions:\n")
-	print("--key=<KEY>\t\tThe Key to use if PAK/EXE is encrypted (hex string)")
+	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
 
-func extract(input_file:String, output_dir:String, enc_key:String):
+func recovery(input_file:String, output_dir:String, enc_key:String, extract_only:bool):
 	var da:DirAccess
+	var is_dir:bool = false
+	var err: int = OK
 	input_file = main.get_cli_abs_path(input_file)
 	print(input_file)
 	if output_dir == "":
@@ -155,51 +146,59 @@ func extract(input_file:String, output_dir:String, enc_key:String):
 			output_dir += "_recovery"
 	else:
 		output_dir = main.get_cli_abs_path(output_dir)
-	da = DirAccess.open(input_file.get_base_dir())
-	if da.file_exists(input_file):
-		main.open_log(output_dir)
-		var err = dump_files(input_file, output_dir, enc_key)
-		if err:
-			print("ERROR: FAILED TO EXTRACT")
-	else:
-		print("Error: failed to find PCK file")
 
-func recovery(input_file:String, output_dir:String, enc_key:String):
-	var da:DirAccess
-	input_file = main.get_cli_abs_path(input_file)
-	print(input_file)
-	if output_dir == "":
-		output_dir = input_file.get_basename()
-		if output_dir.get_extension():
-			output_dir += "_recovery"
-	else:
-		output_dir = main.get_cli_abs_path(output_dir)
-	# debugging
-	#print_import_info(output_dir)
-	#print_import_info_from_pak(input_file)
-	#actually an directory, just run export_imports
 	da = DirAccess.open(input_file.get_base_dir())
+
+	#directory
 	if da.dir_exists(input_file):
-		
 		if !da.dir_exists(input_file.path_join(".import")):
-			print("Error: This does not appear to be a project directory")
+			print("Error: " + input_file + " does not appear to be a project directory")
+			return
 		else:
-			if output_dir != input_file:
-				if main.copy_dir(input_file, output_dir) != OK:
-					print("Error: failed to copy " + input_file + " to " + output_dir)
-					return
-			main.open_log(output_dir)
-			export_imports(output_dir, enc_key)
-	elif da.file_exists(input_file):
-		main.open_log(output_dir)
-		var err = dump_files(input_file, output_dir, enc_key)
-		if (err == OK):
-			export_imports(output_dir, enc_key)
-		else:
-			print("Error: failed to extract PAK file, not exporting assets")
-	else:
-		print("Error: failed to load " + input_file)
+			is_dir = true
+	#PCK/APK
+	elif not da.file_exists(input_file):
+		print("Error: failed to locate " + input_file)
+		return
+
+	main.open_log(output_dir)
+	if (enc_key != ""):
+		err = main.set_key(enc_key)
+		if (err != OK):
+			print("Error: failed to set key!")
+			return
 	
+	err = main.load_pack(input_file)
+	if (err != OK):
+		print("Error: failed to open " + input_file)
+		return
+
+	print("Successfully loaded PCK!") 
+	ver_major = main.get_engine_version().split(".")[0].to_int()
+	ver_minor = main.get_engine_version().split(".")[1].to_int()
+	var version:String = main.get_engine_version()
+	print("Version: " + version)
+
+	if output_dir != input_file and not is_dir: 
+		if (da.file_exists(output_dir)):
+			print("Error: output dir appears to be a file, not extracting...")
+			return
+	if is_dir:
+		if extract_only:
+			print("Why did you open a folder to extract it??? What's wrong with you?!!?")
+			return
+		if main.copy_dir(input_file, output_dir) != OK:
+			print("Error: failed to copy " + input_file + " to " + output_dir)
+			return
+	else:
+		err = dump_files(output_dir)
+		if (err != OK):
+			print("Error: failed to extract PAK file, not exporting assets")
+			return
+	if (extract_only):
+		return
+	export_imports(output_dir)
+
 
 
 func handle_cli():
@@ -230,12 +229,14 @@ func handle_cli():
 			enc_key = get_arg_value(arg)
 	if input_file != "":
 		main = GDRECLIMain.new()
-		recovery(input_file, output_dir, enc_key)
+		recovery(input_file, output_dir, enc_key, false)
+		main.clear_data()
 		main.close_log()
 		get_tree().quit()
 	elif input_extract_file != "":
 		main = GDRECLIMain.new()
-		extract(input_extract_file, output_dir, enc_key)
+		recovery(input_extract_file, output_dir, enc_key, true)
+		main.clear_data()
 		main.close_log()
 		get_tree().quit()
 	elif txt_to_bin != "":

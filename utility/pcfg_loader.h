@@ -38,9 +38,9 @@ class ProjectConfigLoader : public RefCounted {
 	};
 	RBMap<StringName, VariantContainer> props;
 	RBMap<StringName, PropertyInfo> custom_prop_info;
-	String cfb_path;
+	String cfb_path = "";
 	int last_builtin_order;
-	bool loaded;
+	bool loaded = false;
 
 public:
 	Error load_cfb(const String path, uint32_t ver_major, uint32_t ver_minor);

@@ -21,44 +21,13 @@
 #include "scene/resources/audio_stream_wav.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 
+GDRESettings *get_settings() {
+	return GDRESettings::get_singleton();
+}
+
 Array ImportExporter::get_import_files() {
 	return files;
 }
-bool ImportExporter::check_if_dir_is_v4(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 4
-	wildcards.push_back("*.ctex");
-	if (gdreutil::get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool ImportExporter::check_if_dir_is_v3(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 3
-	wildcards.push_back("*.stex");
-	if (gdreutil::get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool ImportExporter::check_if_dir_is_v2(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 2
-	wildcards.push_back("*.converted.*");
-	wildcards.push_back("*.tex");
-	wildcards.push_back("*.smp");
-	if (gdreutil::get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
 Vector<String> ImportExporter::get_v2_wildcards() {
 	Vector<String> wildcards;
 	// We look for file names with ".converted." in the name
@@ -79,67 +48,30 @@ Vector<String> ImportExporter::get_v2_wildcards() {
 
 	return wildcards;
 }
-Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_major, const uint32_t p_ver_minor = 0) {
-	project_dir = dir;
+
+int get_ver_major() {
+	return get_settings()->get_ver_major();
+}
+int get_ver_minor() {
+	return get_settings()->get_ver_minor();
+}
+Error ImportExporter::load_import_files() {
 	Vector<String> file_names;
-	ver_major = p_ver_major;
-	ver_minor = p_ver_minor;
-	if (dir != "" && !dir.begins_with("res://")) {
-		GDRESettings::get_singleton()->set_project_path(dir);
-	}
+	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
+
 	String bin_proj_file;
 	bool ver_major_not_input = false;
 
-	//TODO: Get version number from AndroidManifest.xml if this is an APK
-	if (ver_major == 0) {
-		ver_major = check_if_dir_is_v2(dir) ? 2 : 0;
-		if (ver_major == 0) {
-			ver_major = check_if_dir_is_v3(dir) ? 3 : 0;
-		}
-		if (ver_major == 0) {
-			ver_major = check_if_dir_is_v4(dir) ? 4 : 0;
-		}
-		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_FILE_UNRECOGNIZED, "Can't determine project version, cannot load");
-		//for the sake of decompiling scripts
-		// TODO: Need to get minor version number from binary resource for 2.x,
-		// there were breaking changes between 2.0 and 2.1
-		if (ver_major == 2) {
-			ver_minor = 1;
-		} else if (ver_major == 3) {
-			ver_minor = 3;
-		}
-	}
-
-	if (!FileAccess::exists(project_dir.path_join("project.godot")) && !FileAccess::exists(project_dir.path_join("engine.cfg"))) {
-		pcfg_loader.instantiate();
-		if (FileAccess::exists(project_dir.path_join("project.binary"))) {
-			bin_proj_file = project_dir.path_join("project.binary");
-		} else if (FileAccess::exists(project_dir.path_join("engine.cfb"))) {
-			bin_proj_file = project_dir.path_join("engine.cfb");
-		}
-		// We fail hard here because we may have guessed the version wrong
-		ERR_FAIL_COND_V_MSG(bin_proj_file.is_empty(), ERR_CANT_OPEN, "Could not load project file");
-		Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
-		ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
-	}
-
-	if (ver_major <= 2) {
-		if ((dir == "" || dir.begins_with("res://")) && GDRESettings::get_singleton()->is_pack_loaded()) {
-			file_names = GDRESettings::get_singleton()->get_file_list(get_v2_wildcards());
-		} else {
-			file_names = gdreutil::get_recursive_dir_list(dir, get_v2_wildcards(), false);
+	if (get_ver_major() <= 2) {
+		if (get_settings()->is_pack_loaded()) {
+			file_names = get_settings()->get_file_list(get_v2_wildcards());
 		}
 	} else {
 		Vector<String> wildcards;
 		wildcards.push_back("*.import");
 		wildcards.push_back("*.gdc");
 		wildcards.push_back("*.gde");
-
-		if ((dir == "" || dir.begins_with("res://")) && GDRESettings::get_singleton()->is_pack_loaded()) {
-			file_names = GDRESettings::get_singleton()->get_file_list(wildcards);
-		} else {
-			file_names = gdreutil::get_recursive_dir_list(dir, wildcards, false);
-		}
+		file_names = get_settings()->get_file_list(wildcards);
 	}
 
 	for (int i = 0; i < file_names.size(); i++) {
@@ -155,45 +87,20 @@ Error ImportExporter::load_import_files(const String &dir, const uint32_t p_ver_
 Error ImportExporter::load_import_file(const String &p_path) {
 	Ref<ImportInfo> i_info;
 	i_info.instantiate();
-	i_info->load_from_file(p_path, ver_major, ver_minor);
+	i_info->load_from_file(p_path, get_ver_major(), get_ver_minor());
 	files.push_back(i_info);
 	return OK;
 }
 
 // export all the imported resources
 Error ImportExporter::export_imports(const String &p_out_dir) {
-	String output_dir = !p_out_dir.is_empty() ? p_out_dir : GDRESettings::get_singleton()->get_project_path();
+	String output_dir = !p_out_dir.is_empty() ? p_out_dir : get_settings()->get_project_path();
 	Error err = OK;
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
 	recreate_plugin_configs(output_dir);
-	// we have to remove remaps in the project config for v2
-	// TODO: make this idempotent
-	if (ver_major == 2) {
-		if (!pcfg_loader.is_valid()) {
-			pcfg_loader.instantiate();
-		}
-		if (!pcfg_loader->is_loaded()) {
-			String bin_proj_file = project_dir.path_join("engine.cfb");
-			Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
-			ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
-		}
-	} else {
-		// for other versions, we don't need to modify the project file; if the text version doesn't exist, just save it.
-		if (pcfg_loader.is_valid() && pcfg_loader->is_loaded()) {
-			pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
-		}
-	}
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
-	PackedStringArray v2remaps;
-	bool has_remaps = false;
-	if (ver_major == 2) {
-		if (pcfg_loader->has_setting("remap/all")) {
-			v2remaps = pcfg_loader->get_setting("remap/all", PackedStringArray());
-			has_remaps = true;
-		}
-	}
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
@@ -254,7 +161,7 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->source_file);
-			if (ver_major == 2 && !err && iinfo->is_auto_converted()) {
+			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
 				dir->remove(iinfo->import_path.replace("res://", ""));
 			}
 		} else {
@@ -284,26 +191,14 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 			success.push_back(iinfo);
 		}
 		// remove v2 remaps
-		if (ver_major == 2 && has_remaps) {
-			if ((v2remaps.has(iinfo->source_file) || v2remaps.has("res://" + iinfo->source_file)) && v2remaps.has(iinfo->import_path)) {
-				v2remaps.erase("res://" + iinfo->source_file);
-				v2remaps.erase(iinfo->source_file);
-				v2remaps.erase(iinfo->import_path);
+		if (get_ver_major() == 2 && get_settings()->has_any_remaps()) {
+			if (get_settings()->has_remap(iinfo->source_file, iinfo->import_path)) {
+				get_settings()->remove_remap(iinfo->source_file, iinfo->import_path);
 			}
 		}
 	}
 
-	// save changed config file
-	if (ver_major == 2) {
-		if (has_remaps) {
-			if (v2remaps.size() == 0) {
-				pcfg_loader->remove_setting("remap/all");
-			} else {
-				pcfg_loader->set_setting("remap/all", v2remaps);
-			}
-		}
-		pcfg_loader->save_cfb(output_dir, ver_major, ver_minor);
-	}
+	get_settings()->save_project_config(output_dir);
 	print_report();
 	return OK;
 }
@@ -311,28 +206,11 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	GDScriptDecomp *decomp;
 	// we have to remove remaps if they exist
-	if (ver_major == 2) {
-		if (!pcfg_loader.is_valid()) {
-			pcfg_loader.instantiate();
-		}
-		if (!pcfg_loader->is_loaded()) {
-			String bin_proj_file = project_dir.path_join("engine.cfb");
-			Error err = pcfg_loader->load_cfb(bin_proj_file, ver_major, ver_minor);
-			ERR_FAIL_COND_V_MSG(err, err, "Could not load project file");
-		}
-	}
-	bool has_remaps = false;
-	PackedStringArray v2remaps;
-	if (ver_major == 2) {
-		if (pcfg_loader->has_setting("remap/all")) {
-			v2remaps = pcfg_loader->get_setting("remap/all", PackedStringArray());
-			has_remaps = true;
-		}
-	}
+	bool has_remaps = get_settings()->has_any_remaps();
 	// TODO: instead of doing this, run the detect bytecode script
-	switch (ver_major) {
+	switch (get_ver_major()) {
 		case 1:
-			switch (ver_minor) {
+			switch (get_ver_minor()) {
 				case 0:
 					decomp = memnew(GDScriptDecomp_e82dc40);
 					break;
@@ -342,7 +220,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			}
 			break;
 		case 2:
-			switch (ver_minor) {
+			switch (get_ver_minor()) {
 				case 0:
 					decomp = memnew(GDScriptDecomp_23441ec);
 					break;
@@ -352,7 +230,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			}
 			break;
 		case 3:
-			switch (ver_minor) {
+			switch (get_ver_minor()) {
 				case 0:
 					decomp = memnew(GDScriptDecomp_054a2ac);
 					break;
@@ -375,48 +253,46 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		default:
 			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
-	print_line("Script version " + itos(ver_major) + "." + itos(ver_minor) + ".x detected");
+	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + ".x detected");
+	Error err;
 
 	for (String f : code_files) {
+		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
 		print_line("decompiling " + f);
-		Error err;
 		if (f.get_extension() == "gde") {
-			err = decomp->decompile_byte_code_encrypted(project_dir.path_join(f), GDRESettings::get_singleton()->get_encryption_key(), ver_major == 3);
+			err = decomp->decompile_byte_code_encrypted(f, get_settings()->get_encryption_key(), get_ver_major() == 3);
 		} else {
-			err = decomp->decompile_byte_code(project_dir.path_join(f));
+			err = decomp->decompile_byte_code(f);
 		}
 		if (err) {
 			memdelete(decomp);
 			ERR_FAIL_V_MSG(err, "error decompiling " + f);
 		} else {
 			String text = decomp->get_script_text();
-			Ref<FileAccess> fa = FileAccess::open(p_out_dir.path_join(f.replace(".gdc", ".gd").replace(".gde", ".gd")), FileAccess::WRITE);
+			String out_path = p_out_dir.path_join(dest_file.replace("res://", ""));
+			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
 			fa->store_string(text);
-			da->remove(f);
-			if (da->file_exists(f.replace(".gdc", ".gd.remap"))) {
-				da->remove(f.replace(".gdc", ".gd.remap"));
+			da->remove(f.replace("res://", ""));
+			if (has_remaps && get_settings()->has_remap(f, dest_file)) {
+				get_settings()->remove_remap(f, dest_file);
 			}
-			if (ver_major == 2 && has_remaps) {
-				if (v2remaps.has("res://" + f) && v2remaps.has("res://" + f.replace("gdc", "gd"))) {
-					v2remaps.erase("res://" + f);
-					v2remaps.erase("res://" + f.replace("gdc", "gd"));
-				}
+			// TODO: make "remove_remap" do this instead
+			if (da->file_exists(f.replace(".gdc", ".gd.remap").replace("res://", ""))) {
+				da->remove(f.replace(".gdc", ".gd.remap").replace("res://", ""));
 			}
 			print_line("successfully decompiled " + f);
 		}
 	}
 	memdelete(decomp);
 	// save changed config file
-	if (ver_major == 2) {
-		if (has_remaps) {
-			pcfg_loader->set_setting("remap/all", v2remaps);
-		}
-		pcfg_loader->save_cfb(p_out_dir, ver_major, ver_minor);
+	err = get_settings()->save_project_config(p_out_dir);
+	if (err) {
+		WARN_PRINT("Failed to save changed project config!");
 	}
 	return OK;
 }
@@ -500,7 +376,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 				lossy = true;
 			} else if (source_ext == "webp" && opt_export_webp) {
 				// if the engine is <3.4, it can't handle lossless encoded WEBPs
-				if (ver_major < 4 && !(ver_major == 3 && ver_minor >= 4)) {
+				if (get_ver_major() < 4 && !(get_ver_major() == 3 && get_ver_minor() >= 4)) {
 					lossy = true;
 				}
 			} else {
@@ -724,17 +600,17 @@ Error ImportExporter::convert_tex_to_png(const String &output_dir, const String 
 }
 
 String ImportExporter::_get_path(const String &output_dir, const String &p_path) {
-	if (GDRESettings::get_singleton()->get_project_path() == "" && !GDRESettings::get_singleton()->is_pack_loaded()) {
+	if (get_settings()->get_project_path() == "" && !get_settings()->is_pack_loaded()) {
 		if (p_path.is_absolute_path()) {
 			return p_path;
 		} else {
 			return output_dir.path_join(p_path.replace("res://", ""));
 		}
 	}
-	if (GDRESettings::get_singleton()->has_res_path(p_path)) {
-		return GDRESettings::get_singleton()->get_res_path(p_path);
-	} else if (GDRESettings::get_singleton()->has_res_path(p_path, output_dir)) {
-		return GDRESettings::get_singleton()->get_res_path(p_path, output_dir);
+	if (get_settings()->has_res_path(p_path)) {
+		return get_settings()->get_res_path(p_path);
+	} else if (get_settings()->has_res_path(p_path, output_dir)) {
+		return get_settings()->get_res_path(p_path, output_dir);
 	} else {
 		return output_dir.path_join(p_path.replace("res://", ""));
 	}
@@ -829,7 +705,7 @@ void ImportExporter::print_report() {
 		}
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
-	if (rewrote_metadata.size() > 0 && ver_major != 2) {
+	if (rewrote_metadata.size() > 0 && get_ver_major() != 2) {
 		print_line("\nThe following files had their import data rewritten:");
 		for (int i = 0; i < rewrote_metadata.size(); i++) {
 			print_line(rewrote_metadata[i]->import_path + " to " + rewrote_metadata[i]->preferred_dest);
@@ -855,7 +731,7 @@ void ImportExporter::print_report() {
 		}
 	}
 	print_line("\n---------------------------------------------------------------------------------");
-	print_line("Use Godot editor version " + itos(ver_major) + "." + itos(ver_minor) + " to edit the project.");
+	print_line("Use Godot editor version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + " to edit the project.");
 	print_line("Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet.");
 	print_line("If you find that you have many non-import errors upon opening the project ");
 	print_line("(i.e. scripts or shaders have many errors), use the original game's binary as the export template.");
@@ -885,7 +761,6 @@ void ImportExporter::reset() {
 	opt_export_mp3 = true;
 	opt_lossy = true;
 	opt_rewrite_imd_v2 = true;
-	GDRESettings::get_singleton()->set_project_path("");
 	files_lossy_exported.clear();
 	files_rewrote_metadata.clear();
 }

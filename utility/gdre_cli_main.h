@@ -15,19 +15,22 @@ protected:
 
 public:
 	Error set_key(const String &key);
+	Error load_pack(const String &path);
 
 	Error open_log(const String &path);
 	Error close_log();
 	String get_cli_abs_path(const String &path);
 	Error copy_dir(const String &src_path, const String dst_path);
+	Vector<uint8_t> get_key() const;
+	String get_key_str() const;
+	void clear_data();
+	bool is_loaded();
+	String get_engine_version();
+	int get_file_count();
+	Vector<String> get_loaded_files();
 
-	GDRECLIMain() {
-		gdres_singleton = memnew(GDRESettings);
-	}
-	~GDRECLIMain() {
-		close_log();
-		memdelete(gdres_singleton);
-	}
+	GDRECLIMain();
+	~GDRECLIMain();
 };
 
 #endif
