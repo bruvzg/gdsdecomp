@@ -8,6 +8,7 @@
 #include "core/io/resource.h"
 #include "core/templates/rb_map.h"
 
+#include "scene/gui/check_box.h"
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/file_dialog.h"

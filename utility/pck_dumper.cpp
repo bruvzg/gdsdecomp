@@ -66,9 +66,9 @@ Error PckDumper::pck_dump_to_dir(const String &dir, const Vector<String> &files_
 
 Error PckDumper::_pck_dump_to_dir(
 		const String &dir,
-		const Vector<String> &files_to_extract = Vector<String>(),
-		EditorProgressGDDC *pr = nullptr,
-		String &error_string = String()) {
+		const Vector<String> &files_to_extract,
+		EditorProgressGDDC *pr,
+		String &error_string) {
 	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->is_pack_loaded(), ERR_DOES_NOT_EXIST,
 			"Pack not loaded!");
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);

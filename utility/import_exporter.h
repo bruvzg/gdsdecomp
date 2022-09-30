@@ -71,7 +71,7 @@ public:
 
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
-	Error _export_imports(const String &output_dir = "", const Vector<String> &files_to_export = Vector<String>(), EditorProgressGDDC *pr = nullptr, String &error_string = String());
+	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
 	Error export_imports(const String &output_dir = "");
 	void print_report();
 
