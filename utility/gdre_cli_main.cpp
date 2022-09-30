@@ -81,9 +81,9 @@ String GDRECLIMain::get_engine_version() {
 	return GDRESettings::get_singleton()->get_version_string();
 }
 GDRECLIMain::GDRECLIMain() {
-	gdres_singleton = memnew(GDRESettings);
+	//gdres_singleton = memnew(GDRESettings);
 }
 GDRECLIMain::~GDRECLIMain() {
 	close_log();
-	memdelete(gdres_singleton);
+	//memdelete(gdres_singleton);
 }

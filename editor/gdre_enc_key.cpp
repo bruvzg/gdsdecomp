@@ -3,6 +3,7 @@
 /*************************************************************************/
 
 #include "gdre_enc_key.h"
+#include "utility/gdre_settings.h"
 
 EncKeyDialog::EncKeyDialog() {
 	set_title(RTR("Set encryption key"));

@@ -94,6 +94,12 @@ Error ImportExporter::load_import_file(const String &p_path) {
 
 // export all the imported resources
 Error ImportExporter::export_imports(const String &p_out_dir) {
+	return _export_imports(p_out_dir, Vector<String>(), nullptr, String());
+}
+
+Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
+	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
+
 	String output_dir = !p_out_dir.is_empty() ? p_out_dir : get_settings()->get_project_path();
 	Error err = OK;
 	if (opt_lossy) {
@@ -109,6 +115,28 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 		String type = iinfo->get_type();
 		String importer = iinfo->importer;
 		auto loss_type = iinfo->get_import_loss_type();
+		if (files_to_export.size()) {
+			auto dest_files = iinfo->get_dest_files();
+			bool has_path = false;
+			for (auto dest : dest_files) {
+				if (files_to_export.has(path)) {
+					has_path = true;
+					break;
+				}
+			}
+			if (!has_path) {
+				continue;
+			}
+		}
+		if (pr) {
+			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 10000) {
+				last_progress_upd = OS::get_singleton()->get_ticks_usec();
+				bool cancel = pr->step(path, i, true);
+				if (cancel) {
+					return ERR_PRINTER_ON_FIRE;
+				}
+			}
+		}
 		if (loss_type != ImportInfo::LOSSLESS) {
 			if (!opt_lossy) {
 				lossy_imports.push_back(iinfo);

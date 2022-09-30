@@ -37,45 +37,10 @@
 #include "gdre_enc_key.h"
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
+#include "gdre_progress.h"
 
-#ifndef TOOLS_ENABLED
-class ProgressDialog : public Popup {
-	GDCLASS(ProgressDialog, Popup);
-	struct Task {
-		String task;
-		VBoxContainer *vb;
-		ProgressBar *progress;
-		Label *state;
-	};
-	HBoxContainer *cancel_hb;
-	Button *cancel;
-
-	RBMap<String, Task> tasks;
-	VBoxContainer *main;
-	uint64_t last_progress_tick;
-
-	static ProgressDialog *singleton;
-	void _popup();
-
-	void _cancel_pressed();
-	bool cancelled;
-
-protected:
-	void _notification(int p_what);
-	static void _bind_methods();
-
-public:
-	static ProgressDialog *get_singleton() { return singleton; }
-	void add_task(const String &p_task, const String &p_label, int p_steps, bool p_can_cancel = false);
-	bool task_step(const String &p_task, const String &p_state, int p_step = -1, bool p_force_redraw = true);
-	void end_task(const String &p_task);
-
-	ProgressDialog();
-};
-#else
-#include "editor/progress_dialog.h"
-#endif
-
+#include "utility/gdre_settings.h"
+#include "utility/packed_file_info.h"
 class ResultDialog : public AcceptDialog {
 	GDCLASS(ResultDialog, AcceptDialog)
 
@@ -110,90 +75,17 @@ public:
 	~OverwriteDialog();
 };
 
-struct EditorProgressGDDC {
-	String task;
-	ProgressDialog *progress_dialog;
-	bool step(const String &p_state, int p_step = -1, bool p_force_refresh = true) {
-#ifdef TOOLS_ENABLED
-		if (EditorNode::get_singleton()) {
-			return EditorNode::progress_task_step(task, p_state, p_step, p_force_refresh);
-		} else {
-#else
-		{
-#endif
-
-			return (progress_dialog) ? progress_dialog->task_step(task, p_state, p_step, p_force_refresh) : false;
-		}
-	}
-
-	EditorProgressGDDC(Control *p_parent, const String &p_task, const String &p_label, int p_amount, bool p_can_cancel = false) {
-#ifdef TOOLS_ENABLED
-		if (EditorNode::get_singleton()) {
-			progress_dialog = NULL;
-			EditorNode::progress_add_task(p_task, p_label, p_amount, p_can_cancel);
-		} else {
-#else
-		{
-#endif
-			if (!ProgressDialog::get_singleton()) {
-				progress_dialog = memnew(ProgressDialog);
-				if (p_parent)
-					p_parent->add_child(progress_dialog);
-			} else {
-				progress_dialog = ProgressDialog::get_singleton();
-			}
-			if (progress_dialog)
-				progress_dialog->add_task(p_task, p_label, p_amount, p_can_cancel);
-		}
-		task = p_task;
-	}
-	~EditorProgressGDDC() {
-#ifdef TOOLS_ENABLED
-		if (EditorNode::get_singleton()) {
-			EditorNode::progress_end_task(task);
-		} else {
-#else
-		{
-#endif
-			if (progress_dialog)
-				progress_dialog->end_task(task);
-		}
-	}
-};
-
 class GodotREEditor : public Node {
 	GDCLASS(GodotREEditor, Node)
 
 private:
-	struct PackedFile {
-		String name;
-		uint64_t offset;
-		uint64_t size;
-		uint8_t md5[16];
-		uint32_t flags;
-		bool encrypted;
-
-		PackedFile() {
-			flags = 0;
-			offset = 0;
-			size = 0;
-			encrypted = false;
-		}
-
-		PackedFile(uint64_t p_offset, uint64_t p_size, uint32_t p_flags, bool p_encrypted = false) {
-			flags = p_flags;
-			offset = p_offset;
-			size = p_size;
-			encrypted = p_encrypted;
-		}
-	};
-
 #ifdef TOOLS_ENABLED
-	EditorNode *editor;
+	EditorNode *editor = nullptr;
 #else
 	Node *editor;
 #endif
 	Control *ne_parent;
+	Dictionary icons;
 
 	OverwriteDialog *ovd;
 	ResultDialog *rdl;
@@ -208,8 +100,8 @@ private:
 	uint32_t pck_ver_major;
 	uint32_t pck_ver_minor;
 	uint32_t pck_ver_rev;
-	RBMap<String, PackedFile> pck_files;
-	Vector<PackedFile> pck_save_files;
+	RBMap<String, Ref<PackedFileInfo>> pck_files;
+	Vector<Ref<PackedFileInfo>> pck_save_files;
 
 	NewPackDialog *pck_save_dialog;
 	FileDialog *pck_source_folder;
@@ -238,6 +130,7 @@ private:
 	void _compile_process();
 
 	void _pck_select_request(const String &p_path);
+	void _pck_unload();
 	void _pck_extract_files();
 	void _pck_extract_files_process();
 
@@ -312,6 +205,7 @@ class GodotREEditorStandalone : public Control {
 
 	GodotREEditor *editor_ctx;
 	HBoxContainer *menu_hb;
+	GDRESettings *gdres_singleton;
 
 protected:
 	void _notification(int p_notification);

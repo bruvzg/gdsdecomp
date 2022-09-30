@@ -20,6 +20,9 @@ class PackedFileInfo : public RefCounted {
 	bool md5_passed;
 	uint32_t flags;
 
+	void set_md5_match(bool pass) { md5_passed = pass; }
+
+public:
 	void init(const String &p_path, const PackedData::PackedFile *pfstruct) {
 		pf = *pfstruct;
 		raw_path = p_path;
@@ -37,23 +40,20 @@ class PackedFileInfo : public RefCounted {
 		pf.src = p_src;
 		fix_path();
 	}
-	void set_md5_match(bool pass) { md5_passed = pass; }
-
-public:
-	String get_pack() { return pf.pack; }
-	String get_path() { return path; }
-	String get_raw_path() { return raw_path; }
-	uint64_t get_offset() { return pf.offset; }
-	uint64_t get_size() { return pf.size; }
-	Vector<uint8_t> get_md5() {
+	String get_pack() const { return pf.pack; }
+	String get_path() const { return path; }
+	String get_raw_path() const { return raw_path; }
+	uint64_t get_offset() const { return pf.offset; }
+	uint64_t get_size() const { return pf.size; }
+	Vector<uint8_t> get_md5() const {
 		Vector<uint8_t> ret;
 		ret.resize(16);
 		memcpy(ret.ptrw(), pf.md5, 16);
 		return ret;
 	}
-	bool is_malformed() { return !malformed_path; }
-	bool is_encrypted() { return pf.encrypted; }
-	bool is_checksum_validated() { return md5_passed; }
+	bool is_malformed() const { return malformed_path; }
+	bool is_encrypted() const { return pf.encrypted; }
+	bool is_checksum_validated() const { return md5_passed; }
 
 private:
 	void fix_path() {

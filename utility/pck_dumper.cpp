@@ -22,50 +22,87 @@ bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
 }
 
 Error PckDumper::check_md5_all_files() {
-	String ext = GDRESettings::get_singleton()->get_pack_path().get_extension();
-	if (ext != "pck" || ext != "exe") {
+	Vector<String> f;
+	int ch;
+	return _check_md5_all_files(f, ch, nullptr);
+}
+
+Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked_files, EditorProgressGDDC *pr) {
+	String ext = GDRESettings::get_singleton()->get_pack_path().get_extension().to_lower();
+	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
+
+	if (ext != "pck" && ext != "exe") {
 		print_line("Not a pack file, skipping MD5 check...");
 		return OK;
 	}
 	Error err = OK;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
+
 	for (int i = 0; i < files.size(); i++) {
+		if (pr) {
+			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
+				last_progress_upd = OS::get_singleton()->get_ticks_usec();
+				bool cancel = pr->step(files[i]->path, i, true);
+				if (cancel) {
+					return ERR_PRINTER_ON_FIRE;
+				}
+			}
+		}
 		files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
 		if (files[i]->md5_passed) {
 			print_line("Verified " + files[i]->path);
 		} else {
 			print_error("Checksum failed for " + files[i]->path);
+			broken_files.push_back(files[i]->path);
 			err = ERR_BUG;
 		}
+		checked_files++;
 	}
 	return err;
 }
-
 Error PckDumper::pck_dump_to_dir(const String &dir, const Vector<String> &files_to_extract = Vector<String>()) {
+	return _pck_dump_to_dir(dir, files_to_extract, nullptr, String());
+}
+
+Error PckDumper::_pck_dump_to_dir(
+		const String &dir,
+		const Vector<String> &files_to_extract = Vector<String>(),
+		EditorProgressGDDC *pr = nullptr,
+		String &error_string = String()) {
 	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->is_pack_loaded(), ERR_DOES_NOT_EXIST,
 			"Pack not loaded!");
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	Vector<uint8_t> key = GDRESettings::get_singleton()->get_encryption_key();
+	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
+
 	if (da.is_null()) {
 		return ERR_FILE_CANT_WRITE;
 	}
-	String failed_files;
 	Error err;
 	for (int i = 0; i < files.size(); i++) {
 		if (files_to_extract.size() && !files_to_extract.has(files.get(i)->get_path())) {
 			continue;
 		}
+		if (pr) {
+			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
+				last_progress_upd = OS::get_singleton()->get_ticks_usec();
+				bool cancel = pr->step(files.get(i)->get_path(), i, true);
+				if (cancel) {
+					return ERR_PRINTER_ON_FIRE;
+				}
+			}
+		}
 		Ref<FileAccess> pck_f = FileAccess::open(files.get(i)->get_path(), FileAccess::READ, &err);
 		if (pck_f.is_null()) {
-			failed_files += files.get(i)->get_path() + " (FileAccess error)\n";
+			error_string += files.get(i)->get_path() + " (FileAccess error)\n";
 			continue;
 		}
 		String target_name = dir.path_join(files.get(i)->get_path().replace("res://", ""));
 		da->make_dir_recursive(target_name.get_base_dir());
 		Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
 		if (fa.is_null()) {
-			failed_files += files.get(i)->get_path() + " (FileWrite error)\n";
+			error_string += files.get(i)->get_path() + " (FileWrite error)\n";
 			continue;
 		}
 
@@ -80,8 +117,8 @@ Error PckDumper::pck_dump_to_dir(const String &dir, const Vector<String> &files_
 		print_line("Extracted " + target_name);
 	}
 
-	if (failed_files.length() > 0) {
-		print_error("At least one error was detected while extracting pack!\n" + failed_files);
+	if (error_string.length() > 0) {
+		print_error("At least one error was detected while extracting pack!\n" + error_string);
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
 		print_line("No errors detected!");

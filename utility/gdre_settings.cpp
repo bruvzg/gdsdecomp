@@ -55,6 +55,10 @@ GDRESettings *GDRESettings::singleton = nullptr;
 // it will change the CWD to the executable dir
 String GDRESettings::exec_dir = GDRESettings::_get_cwd();
 GDRESettings *GDRESettings::get_singleton() {
+	// TODO: get rid of this hack (again), the in-editor menu requires this.
+	// if (!singleton) {
+	// 	memnew(GDRESettings);
+	// }
 	return singleton;
 }
 

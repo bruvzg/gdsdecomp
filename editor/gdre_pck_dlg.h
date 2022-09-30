@@ -35,14 +35,21 @@ class PackDialog : public AcceptDialog {
 	TreeItem *root;
 
 	Label *script_key_error;
+	Label *opt_label;
 
 	LineEdit *target_dir;
 	Button *select_dir;
 
+	CheckBox *extract_only;
+	CheckBox *full_recovery;
+
+	bool is_full_recovery = true;
 	bool have_malformed_names;
 	bool updating;
 	void _update_subitems(TreeItem *p_item, bool p_check, bool p_first = false);
 	void _item_edited();
+	void _extract_only_pressed();
+	void _full_recovery_pressed();
 
 	void _dir_select_pressed();
 	void _dir_select_request(const String &p_path);
@@ -58,14 +65,14 @@ protected:
 
 public:
 	void clear();
-	void add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_malformed_name, bool p_enc);
-	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_enc);
+	void add_file(const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_malformed_name, bool p_enc);
+	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_enc);
 	void set_version(const String &p_version);
 	void set_info(const String &p_info);
 
 	Vector<String> get_selected_files() const;
 	String get_target_dir() const;
-
+	bool get_is_full_recovery() const;
 	PackDialog();
 	~PackDialog();
 };

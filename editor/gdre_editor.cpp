@@ -10,10 +10,12 @@
 #include "compat/oggstr_loader_compat.h"
 #include "compat/resource_loader_compat.h"
 #include "compat/texture_loader_compat.h"
+#include "utility/gdre_settings.h"
+#include "utility/import_exporter.h"
 #include "utility/pcfg_loader.h"
+#include "utility/pck_dumper.h"
 
 #include "modules/gdscript/gdscript.h"
-#include "modules/gdscript/gdscript_tokenizer.h"
 #include "modules/gdscript/gdscript_utility_functions.h"
 
 #include "core/io/file_access_encrypted.h"
@@ -45,121 +47,6 @@
 #include "core/os/os.h"
 #include "main/main.h"
 
-ProgressDialog *ProgressDialog::singleton = NULL;
-
-void ProgressDialog::_notification(int p_what) {
-}
-
-void ProgressDialog::_popup() {
-	Size2 ms = main->get_combined_minimum_size();
-	ms.width = MAX(500 * EDSCALE, ms.width);
-
-	Ref<StyleBox> style = get_theme_stylebox("panel", "PopupMenu");
-	ms += style->get_minimum_size();
-	main->set_offset(SIDE_LEFT, style->get_margin(SIDE_LEFT));
-	main->set_offset(SIDE_RIGHT, -style->get_margin(SIDE_RIGHT));
-	main->set_offset(SIDE_TOP, style->get_margin(SIDE_TOP));
-	main->set_offset(SIDE_BOTTOM, -style->get_margin(SIDE_BOTTOM));
-
-	popup_centered(ms);
-}
-
-void ProgressDialog::add_task(const String &p_task, const String &p_label, int p_steps, bool p_can_cancel) {
-	if (MessageQueue::get_singleton()->is_flushing()) {
-		ERR_PRINT("Do not use progress dialog (task) while flushing the message queue or using call_deferred()!");
-		return;
-	}
-
-	ERR_FAIL_COND(tasks.has(p_task));
-	ProgressDialog::Task t;
-	t.vb = memnew(VBoxContainer);
-	VBoxContainer *vb2 = memnew(VBoxContainer);
-	t.vb->add_margin_child(p_label, vb2);
-	t.progress = memnew(ProgressBar);
-	t.progress->set_max(p_steps);
-	t.progress->set_value(p_steps);
-	vb2->add_child(t.progress);
-	t.state = memnew(Label);
-	t.state->set_clip_text(true);
-	vb2->add_child(t.state);
-	main->add_child(t.vb);
-
-	tasks[p_task] = t;
-	if (p_can_cancel) {
-		cancel_hb->show();
-	} else {
-		cancel_hb->hide();
-	}
-	cancel_hb->move_to_front();
-	cancelled = false;
-	_popup();
-	if (p_can_cancel) {
-		cancel->grab_focus();
-	}
-}
-
-bool ProgressDialog::task_step(const String &p_task, const String &p_state, int p_step, bool p_force_redraw) {
-	ERR_FAIL_COND_V(!tasks.has(p_task), cancelled);
-
-	if (!p_force_redraw) {
-		uint64_t tus = OS::get_singleton()->get_ticks_usec();
-		if (tus - last_progress_tick < 200000) //200ms
-			return cancelled;
-	}
-
-	Task &t = tasks[p_task];
-	if (p_step < 0)
-		t.progress->set_value(t.progress->get_value() + 1);
-	else
-		t.progress->set_value(p_step);
-
-	t.state->set_text(p_state);
-	last_progress_tick = OS::get_singleton()->get_ticks_usec();
-	if (cancel_hb->is_visible()) {
-		DisplayServer::get_singleton()->process_events();
-	}
-	Main::iteration(); // this will not work on a lot of platforms, so it's only meant for the editor
-	return cancelled;
-}
-
-void ProgressDialog::end_task(const String &p_task) {
-	ERR_FAIL_COND(!tasks.has(p_task));
-	Task &t = tasks[p_task];
-
-	memdelete(t.vb);
-	tasks.erase(p_task);
-
-	if (tasks.is_empty())
-		hide();
-	else
-		_popup();
-}
-
-void ProgressDialog::_cancel_pressed() {
-	cancelled = true;
-}
-
-void ProgressDialog::_bind_methods() {
-	ClassDB::bind_method("_cancel_pressed", &ProgressDialog::_cancel_pressed);
-}
-
-ProgressDialog::ProgressDialog() {
-	main = memnew(VBoxContainer);
-	add_child(main);
-	main->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	set_exclusive(true);
-	last_progress_tick = 0;
-	singleton = this;
-	cancel_hb = memnew(HBoxContainer);
-	main->add_child(cancel_hb);
-	cancel_hb->hide();
-	cancel = memnew(Button);
-	cancel_hb->add_spacer();
-	cancel_hb->add_child(cancel);
-	cancel->set_text(RTR("Cancel"));
-	cancel_hb->add_spacer();
-	cancel->connect("pressed", callable_mp(this, &ProgressDialog::_cancel_pressed));
-}
 #endif
 
 /*************************************************************************/
@@ -258,7 +145,6 @@ static int _get_pad(int p_alignment, int p_n) {
 }
 
 static Ref<ImageTexture> generate_icon(int p_index) {
-	Ref<ImageTexture> icon = memnew(ImageTexture);
 	Ref<Image> img = memnew(Image);
 
 #ifdef MODULE_SVG_ENABLED
@@ -268,9 +154,8 @@ static Ref<ImageTexture> generate_icon(int p_index) {
 	ImageLoaderSVG img_loader;
 	img_loader.create_image_from_string(img, gdre_icons_sources[p_index], 1.0, false, false);
 #endif
-	icon->create_from_image(img);
 
-	return icon;
+	return ImageTexture::create_from_image(img);
 }
 
 #ifdef TOOLS_ENABLED
@@ -284,7 +169,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 #endif
 
 GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
-	editor = NULL;
+	//editor = NULL;
 	ne_parent = p_control;
 
 	init_gui(p_control, p_menu, true);
@@ -298,9 +183,9 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	// Convert the generated icon sources to a dictionary for easier access.
 	// Unlike the editor icons, there is no central repository of icons in the Theme resource itself to keep it tidy.
-	Dictionary icons;
 	for (int i = 0; i < gdre_icons_count; i++) {
 		icons[gdre_icons_names[i]] = generate_icon(i);
+		ne_parent->add_theme_icon_override(gdre_icons_names[i], icons[gdre_icons_names[i]]);
 	}
 
 	ovd = memnew(OverwriteDialog);
@@ -322,6 +207,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	pck_dialog = memnew(PackDialog);
 	pck_dialog->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files));
+	pck_dialog->connect("cancelled", callable_mp(this, &GodotREEditor::_pck_unload));
 	p_control->add_child(pck_dialog);
 
 	pck_source_folder = memnew(FileDialog);
@@ -805,301 +691,73 @@ void GodotREEditor::_compile_process() {
 /*************************************************************************/
 
 void GodotREEditor::_pck_select_request(const String &p_path) {
-	pck_file = String();
 	pck_dialog->clear();
 	pck_files.clear();
+	pck_file = p_path;
+	if (key_dialog->get_key().size() > 0) {
+		GDRESettings::get_singleton()->set_encryption_key(key_dialog->get_key());
+	}
 
-	Ref<FileAccess> pck = FileAccess::open(p_path, FileAccess::READ);
-	if (pck.is_null()) {
+	Error err = GDRESettings::get_singleton()->load_pack(p_path);
+	if (err) {
 		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
 		return;
 	}
+	pck_file_selection->set_visible(false);
+	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_md5",
+			RTR("Reading PCK archive, click cancel to skip MD5 checking..."),
+			GDRESettings::get_singleton()->get_file_count(), true));
 
-	uint32_t magic = pck->get_32();
-	bool is_emb = false;
-
-	if (magic != 0x43504447) {
-		//maybe at he end.... self contained exe
-		pck->seek_end();
-		pck->seek(pck->get_position() - 4);
-		magic = pck->get_32();
-		if (magic != 0x43504447) {
-			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
-			return;
-		}
-		pck->seek(pck->get_position() - 12);
-
-		uint64_t ds = pck->get_64();
-		pck->seek(pck->get_position() - ds - 8);
-
-		magic = pck->get_32();
-		if (magic != 0x43504447) {
-			show_warning(RTR("Invalid PCK file"), RTR("Read PCK"));
-			return;
-		}
-		is_emb = true;
-	}
-
-	print_warning(RTR("filename") + " " + p_path, RTR("Read PCK"));
-
-	uint32_t version = pck->get_32();
-
-	if (version > 2) {
-		show_warning(RTR("Pack version unsupported: ") + itos(version), RTR("Read PCK"));
-		return;
-	}
-
-	pck_ver_major = pck->get_32();
-	pck_ver_minor = pck->get_32();
-	pck_ver_rev = pck->get_32();
-
-	if ((pck_ver_major < 3) || ((pck_ver_major == 3) && (pck_ver_minor < 2))) {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + ".x; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
-	} else {
-		pck_dialog->set_version(String("    ") + RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")));
-		print_warning(RTR("PCK version: ") + itos(version) + "; " + RTR("created by Godot engine: ") + itos(pck_ver_major) + "." + itos(pck_ver_minor) + "." + itos(pck_ver_rev) + "; " + ((is_emb) ? RTR("self contained exe") : RTR("standalone")), RTR("Read PCK"));
-	}
-	uint32_t pack_flags = 0;
-	uint64_t file_base = 0;
-	if (version == 2) {
-		pack_flags = pck->get_32();
-		file_base = pck->get_64();
-	}
-	bool enc_directory = (pack_flags & (1 << 0));
-
-	for (int i = 0; i < 16; i++) {
-		pck->get_32();
-	}
-
-	uint32_t file_count = pck->get_32();
-
-	Vector<uint8_t> key = key_dialog->get_key();
-
-	if (enc_directory) {
-		Ref<FileAccessEncrypted> fae;
-		fae.instantiate();
-		if (fae.is_null()) {
-			ERR_FAIL_MSG("Can't open encrypted pack directory.");
-		}
-		Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
-		if (err) {
-			ERR_FAIL_MSG("Can't open encrypted pack directory.");
-		}
-		pck = fae;
-	}
-
-	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_md5", RTR("Reading PCK archive, click cancel to skip MD5 checking..."), file_count, true));
-
-	bool p_check_md5 = true;
+	Ref<PckDumper> pckdump;
+	pckdump.instantiate();
+	Vector<String> broken_files;
 	int files_checked = 0;
 	int files_broken = 0;
 
-	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
-
-	for (uint32_t i = 0; i < file_count; i++) {
-		uint32_t sl = pck->get_32();
-		CharString cs;
-		cs.resize(sl + 1);
-		pck->get_buffer((uint8_t *)cs.ptr(), sl);
-		cs[sl] = 0;
-
-		String path;
-		path.parse_utf8(cs.ptr());
-
-		path = path.replace("res://", "");
-		String raw_path = path;
-
-		bool malformed = false;
-		while (path.begins_with("~")) {
-			path = path.substr(1, path.length() - 1);
-			malformed = true;
-		}
-		while (path.begins_with("/")) {
-			path = path.substr(1, path.length() - 1);
-			malformed = true;
-		}
-		while (path.find("...") >= 0) {
-			path = path.replace("...", "_");
-			malformed = true;
-		}
-		while (path.find("..") >= 0) {
-			path = path.replace("..", "_");
-			malformed = true;
-		}
-		if (path.find("\\.") >= 0) {
-			path = path.replace("\\.", "_");
-			malformed = true;
-		}
-		if (path.find("//") >= 0) {
-			path = path.replace("//", "_");
-			malformed = true;
-		}
-		if (path.find("\\") >= 0) {
-			path = path.replace("\\", "_");
-			malformed = true;
-		}
-		if (path.find(":") >= 0) {
-			path = path.replace(":", "_");
-			malformed = true;
-		}
-		if (path.find("|") >= 0) {
-			path = path.replace("|", "_");
-			malformed = true;
-		}
-		if (path.find("?") >= 0) {
-			path = path.replace("?", "_");
-			malformed = true;
-		}
-		if (path.find(">") >= 0) {
-			path = path.replace(">", "_");
-			malformed = true;
-		}
-		if (path.find("<") >= 0) {
-			path = path.replace("<", "_");
-			malformed = true;
-		}
-		if (path.find("*") >= 0) {
-			path = path.replace("*", "_");
-			malformed = true;
-		}
-		if (path.find("\"") >= 0) {
-			path = path.replace("\"", "_");
-			malformed = true;
-		}
-		if (path.find("\'") >= 0) {
-			path = path.replace("\'", "_");
-			malformed = true;
-		}
-
-		uint64_t ofs = pck->get_64();
-		if (version == 2) {
-			ofs += file_base;
-		}
-
-		uint64_t size = pck->get_64();
-		uint8_t md5_saved[16];
-		pck->get_buffer(md5_saved, 16);
-
-		if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
-			last_progress_upd = OS::get_singleton()->get_ticks_usec();
-
-			bool cancel = pr->step(path, i, true);
-			if (cancel) {
-				if (p_check_md5) {
-					memdelete(pr);
-					pr = memnew(EditorProgressGDDC(ne_parent, "re_read_pck_no_md5", RTR("Reading PCK archive, click cancel again to abort..."), file_count, true));
-					p_check_md5 = false;
-				} else {
-					memdelete(pr);
-
-					pck_dialog->clear();
-					pck_files.clear();
-					return;
-				}
-			}
-		}
-
-		uint32_t flags = 0;
-		if (version == 2) {
-			flags = pck->get_32();
-		}
-
-		if (p_check_md5) {
-			String error_msg = "";
-			Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
-			f->seek(ofs);
-			if (flags & (1 << 0)) {
-				Ref<FileAccessEncrypted> fae;
-				fae.instantiate();
-				if (fae.is_null()) {
-					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
-				}
-
-				Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_READ, false);
-				if (err) {
-					ERR_FAIL_MSG("Can't open encrypted pack-referenced file '" + String(p_path) + "'.");
-				}
-				f = fae;
-			}
-			files_checked++;
-
-			CryptoCore::MD5Context ctx;
-			ctx.start();
-
-			int64_t rq_size = size;
-			uint8_t buf[32768];
-
-			while (rq_size > 0) {
-				int got = f->get_buffer(buf, MIN(32768, rq_size));
-				if (got > 0) {
-					ctx.update(buf, got);
-				}
-				if (got < 4096)
-					break;
-				rq_size -= 32768;
-			}
-
-			unsigned char hash[16];
-			ctx.finish(hash);
-
-			String file_md5;
-			String saved_md5;
-
-			bool md5_match = true;
-			for (int j = 0; j < 16; j++) {
-				md5_match &= (hash[j] == md5_saved[j]);
-				file_md5 += String::num_uint64(hash[j], 16);
-				saved_md5 += String::num_uint64(md5_saved[j], 16);
-			}
-			if (!md5_match) {
-				files_broken++;
-				error_msg += RTR("MD5 mismatch, calculated") + " [" + file_md5 + "] " + RTR("expected") + " [" + saved_md5 + "]\n";
-			}
-
-			if (malformed) {
-				files_broken++;
-				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
-			}
-			pck_dialog->add_file(path, size, (!md5_match || malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFileOk", "EditorIcons"), error_msg, malformed, (flags & (1 << 0)));
-		} else {
-			String error_msg = RTR("MD5 check skipped") + "\n";
-			if (malformed) {
-				files_broken++;
-				error_msg += RTR("Malformed path") + " \"" + raw_path + "\"";
-			}
-			pck_dialog->add_file(path, size, (malformed) ? ne_parent->get_theme_icon("REFileBroken", "EditorIcons") : ne_parent->get_theme_icon("REFile", "EditorIcons"), error_msg, malformed, (flags & (1 << 0)));
-		}
-
-		pck_files[path] = PackedFile(ofs, size, flags);
-	};
-
-	pck_dialog->set_info(String("    ") + RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken));
-	print_warning(RTR("Total files: ") + itos(file_count) + "; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken), RTR("Read PCK"));
-
+	err = pckdump->_check_md5_all_files(broken_files, files_checked, pr);
 	memdelete(pr);
-	pck_file = p_path;
-
+	// cancelled
+	bool p_check_md5 = true;
+	pck_dialog->set_info(String("    ") + RTR("Total files: ") +
+			GDRESettings::get_singleton()->get_file_count() + "; " + RTR("Checked: ") +
+			itos(files_checked) + "; " + RTR("Broken: ") + itos(broken_files.size()));
+	print_line(RTR("Total files: ") + itos(GDRESettings::get_singleton()->get_file_count()) +
+					"; " + RTR("Checked: ") + itos(files_checked) + "; " + RTR("Broken: ") + itos(files_broken),
+			RTR("Read PCK"));
+	if (err == ERR_PRINTER_ON_FIRE) {
+		//do things
+		p_check_md5 = false;
+	}
+	auto files = GDRESettings::get_singleton()->get_file_info_list();
+	for (auto file : files) {
+		Ref<Texture2D> icon;
+		String error_string = "";
+		bool md5_error = !file->is_checksum_validated();
+		bool is_malformed = file->is_malformed();
+		if (md5_error || is_malformed) {
+			icon = icons["REFileBroken"];
+			if (!file->is_checksum_validated()) {
+				error_string += "MD5 mismatch";
+			}
+			if (file->is_malformed()) {
+				error_string += String(error_string.length() > 0 ? ", " : "") + "Malformed_path";
+			}
+		} else {
+			icon = icons["REFileOk"];
+		}
+		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, file->is_malformed(), file->is_encrypted());
+	}
 	pck_dialog->popup_centered(Size2(600, 400));
 }
 
-void convert_cfb_to_cfg(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
-	ProjectConfigLoader pcfgldr;
-	Error e1 = pcfgldr.load_cfb(path, ver_major, ver_minor);
-	if (e1 == OK) {
-		printf("Failed to load project config, no project file output.");
-		return;
-	}
-	Error e2 = pcfgldr.save_cfb(path.get_base_dir(), ver_major, ver_minor);
-	if (e2 == OK) {
-		printf("Failed to save project config, no project file output.");
-	}
+void GodotREEditor::_pck_unload() {
+	GDRESettings::get_singleton()->unload_pack();
 }
 
 void GodotREEditor::_pck_extract_files() {
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
-
+	bool is_full_recovery = pck_dialog->get_is_full_recovery();
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
@@ -1113,7 +771,9 @@ void GodotREEditor::_pck_extract_files() {
 		_pck_extract_files_process();
 	} else {
 		ovd->set_message(overwrite_list);
-		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files_process).bind(Vector<Variant>()), CONNECT_ONE_SHOT);
+		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files_process).bind(), CONNECT_ONE_SHOT);
+		ovd->connect("cancelled", callable_mp(this, &GodotREEditor::_pck_unload).bind(), CONNECT_ONE_SHOT);
+
 		ovd->popup_centered();
 	}
 }
@@ -1121,70 +781,30 @@ void GodotREEditor::_pck_extract_files() {
 void GodotREEditor::_pck_extract_files_process() {
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
+	bool is_full_recovery = pck_dialog->get_is_full_recovery();
 
 	String failed_files;
-
-	Vector<uint8_t> key = key_dialog->get_key();
-
+	pck_dialog->set_visible(false);
+	ovd->set_visible(false);
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck", RTR("Extracting files..."), files.size(), true));
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	Ref<PckDumper> pckdumper;
+	pckdumper.instantiate();
+	pckdumper->_pck_dump_to_dir(dir, files, pr, failed_files);
+	if (is_full_recovery) {
+		memdelete(pr);
 
-	for (int i = 0; i < files.size(); i++) {
-		String target_name = dir.path_join(files[i]);
-
-		da->make_dir_recursive(target_name.get_base_dir());
-
-		print_warning("extracting " + files[i], RTR("Read PCK"));
-		bool cancel = pr->step(files[i], i, true);
-		if (cancel) {
-			break;
-		}
-
-		Ref<FileAccess> pck = FileAccess::open(pck_file, FileAccess::READ);
-		if (pck.is_null()) {
-			failed_files += files[i] + " (FileAccess error)\n";
-			continue;
-		}
-		pck->seek(pck_files[files[i]].offset);
-
-		if (pck_files[files[i]].flags & (1 << 0)) {
-			Ref<FileAccessEncrypted> fae;
-			fae.instantiate();
-			if (fae.is_null()) {
-				failed_files += files[i] + " (FileAccess error)\n";
-				continue;
-			}
-
-			Error err = fae->open_and_parse(pck, key, FileAccessEncrypted::MODE_READ, false);
-			if (err) {
-				failed_files += files[i] + " (FileAccess error)\n";
-				continue;
-			}
-			pck = fae;
-		}
-
-		Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
-		if (fa.is_valid()) {
-			int64_t rq_size = pck_files[files[i]].size;
-			uint8_t buf[16384];
-
-			while (rq_size > 0) {
-				int got = pck->get_buffer(buf, MIN(16384, rq_size));
-				fa->store_buffer(buf, got);
-				rq_size -= 16384;
-			}
-		} else {
-			failed_files += files[i] + " (FileAccess error)\n";
-		}
-		if (target_name.get_file() == "engine.cfb" || target_name.get_file() == "project.binary") {
-			convert_cfb_to_cfg(target_name, pck_ver_major, pck_ver_minor);
-		}
+		Ref<ImportExporter> ie;
+		ie.instantiate();
+		ie->load_import_files();
+		pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck_res", RTR("Exporting resources..."), ie->get_import_files().size(), true));
+		String error_string;
+		ie->_export_imports(dir, files, pr, error_string);
 	}
 	memdelete(pr);
+	GDRESettings::get_singleton()->save_project_config(dir);
 
-	pck_files.clear();
 	pck_file = String();
-
+	_pck_unload();
 	if (failed_files.length() > 0) {
 		show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
@@ -1482,7 +1102,7 @@ void GodotREEditor::_res_txt_2_bin_process() {
 
 		String ext = res_files[i].get_extension().to_lower();
 		String new_ext = ".bin";
-		if (ext == "tscn") {
+		if (ext == "tscn" || ext == "escn") {
 			new_ext = ".scn";
 		} else if (ext == "tres") {
 			new_ext = ".res";
@@ -1600,11 +1220,12 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 				}
 			}
 
-			PackedFile finfo = PackedFile(offset, file->get_length(), flags);
-			finfo.name = p_rel.path_join(f);
-			for (int j = 0; j < 16; j++) {
-				finfo.md5[j] = hash[j];
-			}
+			Ref<PackedFileInfo> finfo;
+			finfo.instantiate();
+
+			String name = p_rel.path_join(f);
+			finfo->init(p_path, name, p_offset, file->get_length(), hash, nullptr, flags == (1 << 0));
+
 			pck_save_files.push_back(finfo);
 
 			offset += file->get_length();
@@ -1727,7 +1348,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
 		header_size += 4; // size of path string (32 bits is enough)
-		uint32_t string_len = pck_save_files[i].name.utf8().length() + 6;
+		uint32_t string_len = pck_save_files[i]->get_path().utf8().length() + 6;
 		header_size += string_len + _get_pad(4, string_len); ///size of path string
 		header_size += 8; // offset to file _with_ header size included
 		header_size += 8; // size of file
@@ -1739,25 +1360,25 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	pr->step("Directory...", 0, true);
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
-		uint32_t string_len = pck_save_files[i].name.utf8().length() + 6;
+		uint32_t string_len = pck_save_files[i]->get_path().utf8().length() + 6;
 		uint32_t pad = _get_pad(4, string_len);
 
 		fhead->store_32(string_len + pad);
-		String name = "res://" + pck_save_files[i].name;
+		String name = "res://" + pck_save_files[i]->get_path();
 		fhead->store_buffer((const uint8_t *)name.utf8().get_data(), string_len);
 		for (uint32_t j = 0; j < pad; j++) {
 			fhead->store_8(0);
 		}
 
 		if (version == 2) {
-			fhead->store_64(pck_save_files[i].offset);
+			fhead->store_64(pck_save_files[i]->get_offset());
 		} else {
-			fhead->store_64(pck_save_files[i].offset + header_padding + header_size);
+			fhead->store_64(pck_save_files[i]->get_offset() + header_padding + header_size);
 		}
-		fhead->store_64(pck_save_files[i].size); // pay attention here, this is where file is
-		fhead->store_buffer((const uint8_t *)&pck_save_files[i].md5, 16); //also save md5 for file
+		fhead->store_64(pck_save_files[i]->get_size()); // pay attention here, this is where file is
+		fhead->store_buffer((const uint8_t *)&pck_save_files[i]->get_md5(), 16); //also save md5 for file
 		if (version == 2) {
-			if (pck_save_files[i].encrypted) {
+			if (pck_save_files[i]->is_encrypted()) {
 				fhead->store_32(1);
 			} else {
 				fhead->store_32(0);
@@ -1787,14 +1408,14 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 	String failed_files;
 
 	for (int i = 0; i < pck_save_files.size(); i++) {
-		print_warning("saving " + pck_save_files[i].name, RTR("New PCK"));
-		if (pr->step(pck_save_files[i].name, i + 2, true)) {
+		print_warning("saving " + pck_save_files[i]->get_path(), RTR("New PCK"));
+		if (pr->step(pck_save_files[i]->get_path(), i + 2, true)) {
 			break;
 		}
 
 		fae = Ref<FileAccess>();
 		Ref<FileAccess> ftmp = f;
-		if (pck_save_files[i].encrypted) {
+		if (pck_save_files[i]->is_encrypted()) {
 			fae.instantiate();
 			ERR_FAIL_COND(fae.is_null());
 
@@ -1803,9 +1424,9 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			ftmp = fae;
 		}
 
-		Ref<FileAccess> fa = FileAccess::open(pck_file.path_join(pck_save_files[i].name), FileAccess::READ);
+		Ref<FileAccess> fa = FileAccess::open(pck_file.path_join(pck_save_files[i]->get_path()), FileAccess::READ);
 		if (fa.is_valid()) {
-			int64_t rq_size = pck_save_files[i].size;
+			int64_t rq_size = pck_save_files[i]->get_size();
 			uint8_t buf[16384];
 
 			while (rq_size > 0) {
@@ -1814,7 +1435,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 				rq_size -= 16384;
 			}
 		} else {
-			failed_files += pck_save_files[i].name + " (FileAccess error)\n";
+			failed_files += pck_save_files[i]->get_path() + " (FileAccess error)\n";
 		}
 
 		if (fae.is_valid()) {
@@ -2099,13 +1720,18 @@ void GodotREEditorStandalone::_bind_methods() {
 GodotREEditorStandalone::GodotREEditorStandalone() {
 	menu_hb = memnew(HBoxContainer);
 	add_child(menu_hb);
-
-	editor_ctx = memnew(GodotREEditor(this, menu_hb));
-	editor_ctx->connect("write_log_message", callable_mp(this, &GodotREEditorStandalone::_write_log_message));
-
-	add_child(editor_ctx);
+	if (GodotREEditor::get_singleton() == nullptr) {
+		editor_ctx = memnew(GodotREEditor(this, menu_hb));
+		editor_ctx->connect("write_log_message", callable_mp(this, &GodotREEditorStandalone::_write_log_message));
+		add_child(editor_ctx);
+	} else {
+		editor_ctx = GodotREEditor::get_singleton();
+		editor_ctx->connect("write_log_message", callable_mp(this, &GodotREEditorStandalone::_write_log_message));
+	}
+	gdres_singleton = memnew(GDRESettings);
 }
 
 GodotREEditorStandalone::~GodotREEditorStandalone() {
 	editor_ctx = NULL;
+	memdelete(gdres_singleton);
 }

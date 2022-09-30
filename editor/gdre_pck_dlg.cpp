@@ -4,6 +4,8 @@
 
 #include "gdre_pck_dlg.h"
 
+#include "utility/gdre_settings.h"
+
 PackDialog::PackDialog() {
 	set_title(RTR("PCK explorer"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
@@ -59,7 +61,28 @@ PackDialog::PackDialog() {
 	file_list->connect("item_edited", callable_mp(this, &PackDialog::_item_edited));
 
 	script_vb->add_margin_child(RTR("Files:"), file_list, true);
+	VBoxContainer *options = memnew(VBoxContainer);
+	HBoxContainer *extract_only_options = memnew(HBoxContainer);
+	HBoxContainer *full_recovery_options = memnew(HBoxContainer);
 
+	auto button_group = memnew(ButtonGroup);
+	extract_only = memnew(CheckBox);
+	extract_only->set_text("Extract only");
+	extract_only->set_button_group(button_group);
+	extract_only->connect("pressed", callable_mp(this, &PackDialog::_extract_only_pressed));
+
+	full_recovery = memnew(CheckBox);
+	full_recovery->set_text("Full Recovery");
+	full_recovery->set_button_group(button_group);
+	full_recovery->set_pressed(true);
+	full_recovery->connect("pressed", callable_mp(this, &PackDialog::_full_recovery_pressed));
+
+	extract_only_options->add_child(extract_only);
+	full_recovery_options->add_child(full_recovery);
+	options->add_child(extract_only_options);
+	options->add_child(full_recovery_options);
+
+	script_vb->add_margin_child(RTR("Options:"), options);
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 	target_dir = memnew(LineEdit);
@@ -104,17 +127,17 @@ void PackDialog::clear() {
 	_validate_selection();
 }
 
-void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_malformed_name, bool p_enc) {
+void PackDialog::add_file(const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_malformed_name, bool p_enc) {
 	if (p_malformed_name) {
 		have_malformed_names = true;
 	}
 
 	updating = true;
-	add_file_to_item(root, p_name, p_name, p_size, p_icon, p_error, p_enc);
+	add_file_to_item(root, p_name, p_name.replace_first("res://", ""), p_size, p_icon, p_error, p_enc);
 	updating = false;
 }
 
-void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture> p_icon, String p_error, bool p_enc) {
+void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_enc) {
 	int pp = p_name.find("/");
 	if (pp == -1) {
 		//Add file
@@ -163,7 +186,16 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		add_file_to_item(item, p_fullname, path, p_size, p_icon, p_error, false);
 	}
 }
+void PackDialog::_extract_only_pressed() {
+	is_full_recovery = false;
+}
 
+void PackDialog::_full_recovery_pressed() {
+	is_full_recovery = true;
+}
+bool PackDialog::get_is_full_recovery() const {
+	return is_full_recovery;
+}
 void PackDialog::_dir_select_pressed() {
 	target_folder_selection->popup_centered(Size2(600, 400));
 }

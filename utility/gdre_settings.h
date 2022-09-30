@@ -110,6 +110,7 @@ public:
 	public:
 		void init(
 				String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, String ver_string, PackType tp) {
+			pack_file = f;
 			ver_major = vmaj;
 			ver_minor = vmin;
 			ver_rev = vrev;

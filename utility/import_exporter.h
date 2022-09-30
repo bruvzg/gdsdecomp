@@ -5,6 +5,8 @@
 #include "import_info.h"
 #include "pcfg_loader.h"
 
+#include "editor/gdre_progress.h"
+
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_importer.h"
@@ -69,6 +71,7 @@ public:
 
 	Array get_import_files();
 	Ref<ImportInfo> get_import_info(const String &p_path);
+	Error _export_imports(const String &output_dir = "", const Vector<String> &files_to_export = Vector<String>(), EditorProgressGDDC *pr = nullptr, String &error_string = String());
 	Error export_imports(const String &output_dir = "");
 	void print_report();
 

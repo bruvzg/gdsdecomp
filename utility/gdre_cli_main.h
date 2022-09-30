@@ -7,8 +7,8 @@
 class GDRECLIMain : public RefCounted {
 	GDCLASS(GDRECLIMain, RefCounted);
 
-private:
-	GDRESettings *gdres_singleton;
+	// private:
+	// 	GDRESettings *gdres_singleton;
 
 protected:
 	static void _bind_methods();
