@@ -78,6 +78,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           path: modules/gdsdecomp
+          fetch-depth: 0
 
       - name: copy actions
         shell: bash
