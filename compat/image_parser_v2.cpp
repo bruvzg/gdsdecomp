@@ -27,7 +27,7 @@ Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata
 	if (p_format == V2Image::IMAGE_FORMAT_INTENSITY) {
 		r_format = Image::FORMAT_RGBA8;
 		r_imgdata.resize(datalen * 4);
-		for (uint32_t i = 0; i < datalen; i++) {
+		for (int i = 0; i < datalen; i++) {
 			r_imgdata.write[i * 4] = 255;
 			r_imgdata.write[i * 4 + 1] = 255;
 			r_imgdata.write[i * 4 + 2] = 255;
@@ -50,7 +50,7 @@ Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata
 			palette.push_back(p_imgdata.slice(dataidx, dataidx + pal_width));
 		}
 		// pixel data is index into palette
-		for (uint32_t i = 0; i < p_width * p_height; i++) {
+		for (int i = 0; i < p_width * p_height; i++) {
 			r_imgdata.append_array(palette[p_imgdata[i]]);
 		}
 	}
@@ -101,7 +101,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 	}
 
 	int encoding = V2Image::IMAGE_ENCODING_RAW;
-	float quality = 0.7;
+	//float quality = 0.7;
 
 	if (val->get_format() <= Image::FORMAT_RGB565) {
 		// can only compress uncompressed stuff

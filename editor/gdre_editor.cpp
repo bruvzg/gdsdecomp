@@ -757,7 +757,6 @@ void GodotREEditor::_pck_unload() {
 void GodotREEditor::_pck_extract_files() {
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
-	bool is_full_recovery = pck_dialog->get_is_full_recovery();
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	String overwrite_list = String();
 	for (int i = 0; i < files.size(); i++) {
@@ -1390,7 +1389,7 @@ void GodotREEditor::_pck_save_request(const String &p_path) {
 			fhead->store_64(pck_save_files[i]->get_offset() + header_padding + header_size);
 		}
 		fhead->store_64(pck_save_files[i]->get_size()); // pay attention here, this is where file is
-		fhead->store_buffer((const uint8_t *)&pck_save_files[i]->get_md5(), 16); //also save md5 for file
+		fhead->store_buffer(pck_save_files[i]->get_md5().ptr(), 16); //also save md5 for file
 		if (version == 2) {
 			if (pck_save_files[i]->is_encrypted()) {
 				fhead->store_32(1);

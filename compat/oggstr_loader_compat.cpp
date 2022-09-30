@@ -50,8 +50,8 @@ Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path,
 
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Vector<uint8_t>(), "Cannot load resource '" + p_path + "'.", loader);
 	String name;
-	bool loop;
-	float loop_offset;
+	// bool loop;
+	// float loop_offset;
 	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
 	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
 		ResourceProperty pe = PE->get();
@@ -59,10 +59,10 @@ Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path,
 			name = pe.value;
 		} else if (pe.name == "data") {
 			data = pe.value;
-		} else if (pe.name == "loop") {
-			loop = pe.value;
-		} else if (pe.name == "loop_offset") {
-			loop_offset = pe.value;
+			// } else if (pe.name == "loop") {
+			// 	loop = pe.value;
+			// } else if (pe.name == "loop_offset") {
+			// 	loop_offset = pe.value;
 		}
 	}
 	memdelete(loader);

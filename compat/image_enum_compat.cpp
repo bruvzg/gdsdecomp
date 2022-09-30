@@ -321,7 +321,7 @@ Image::Format ImageEnumCompat::convert_image_format_enum_v2_to_v4(V2Image::Forma
 }
 Image::Format ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format fmt) {
 	// V4 removed
-	if (fmt <= Image::Format::FORMAT_BPTC_RGBFU) {
+	if (Image::Format(fmt) <= Image::Format::FORMAT_BPTC_RGBFU) {
 		return Image::Format(fmt);
 	}
 

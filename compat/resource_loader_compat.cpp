@@ -2264,10 +2264,10 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "can't open " + p_path + " for writing");
 
-	bool takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
+	//bool takeover_paths = p_flags & ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
 	bool big_endian = p_flags & ResourceSaver::FLAG_SAVE_BIG_ENDIAN || stored_big_endian;
-	if (!p_path.begins_with("res://"))
-		takeover_paths = false;
+	// if (!p_path.begins_with("res://"))
+	// 	takeover_paths = false;
 
 	//bin_meta_idx = get_string_index("__bin_meta__"); //is often used, so create
 
