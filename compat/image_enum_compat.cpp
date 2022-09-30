@@ -317,8 +317,6 @@ Image::Format ImageEnumCompat::convert_image_format_enum_v2_to_v4(V2Image::Forma
 		default: {
 		}
 	}
-	ERR_FAIL_COND_V_MSG(p_format < V2Image::IMAGE_FORMAT_V2_MAX && p_format > 0, Image::FORMAT_MAX,
-			"Cannot convert deprecated texture format " + get_v2_format_name(p_format));
 	return Image::FORMAT_MAX;
 }
 Image::Format ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format fmt) {
@@ -326,9 +324,6 @@ Image::Format ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Forma
 	if (fmt <= Image::Format::FORMAT_BPTC_RGBFU) {
 		return Image::Format(fmt);
 	}
-
-	// IF this is a PVRTC image, print a specific error
-	ERR_FAIL_COND_V_MSG(fmt >= V3Image::Format::FORMAT_PVRTC2 && fmt <= V3Image::Format::FORMAT_PVRTC4A, Image::FORMAT_MAX, "Cannot convert deprecated PVRTC formatted textures");
 
 	// They removed four PVRTC enum values after BPTC_RGBFU, so just subtract 4
 	if (fmt >= V3Image::Format::FORMAT_ETC && fmt < V3Image::Format::FORMAT_MAX) {

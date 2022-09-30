@@ -7,14 +7,17 @@ Error GDRECLIMain::load_pack(const String &path) {
 	return GDRESettings::get_singleton()->load_pack(path);
 }
 Error GDRECLIMain::close_log() {
+	if (GDRESettings::get_singleton() == nullptr) {
+		return OK;
+	}
 	String path = GDRESettings::get_singleton()->get_log_file_path();
 	if (path == "") {
 		return OK;
 	}
-	GDRESettings::get_singleton()->close_log_file();
+	Error err = GDRESettings::get_singleton()->close_log_file();
 	print_line("Log file written to " + path);
 	print_line("Please include this file when reporting an issue!");
-	return GDRESettings::get_singleton()->close_log_file();
+	return err;
 }
 
 String GDRECLIMain::get_cli_abs_path(const String &path) {
@@ -81,6 +84,7 @@ String GDRECLIMain::get_engine_version() {
 	return GDRESettings::get_singleton()->get_version_string();
 }
 GDRECLIMain::GDRECLIMain() {
+	//GDRESettings::get_singleton()->set_is_gui(false);
 	//gdres_singleton = memnew(GDRESettings);
 }
 GDRECLIMain::~GDRECLIMain() {

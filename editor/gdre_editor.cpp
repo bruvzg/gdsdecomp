@@ -66,7 +66,7 @@ ResultDialog::ResultDialog() {
 
 	message = memnew(TextEdit);
 	message->set_editable(false);
-	message->set_custom_minimum_size(Size2(600, 100) * EDSCALE);
+	message->set_custom_minimum_size(Size2(600, 200) * EDSCALE);
 	message->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	message->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	script_vb->add_child(message);
@@ -782,34 +782,48 @@ void GodotREEditor::_pck_extract_files_process() {
 	Vector<String> files = pck_dialog->get_selected_files();
 	String dir = pck_dialog->get_target_dir();
 	bool is_full_recovery = pck_dialog->get_is_full_recovery();
-
+	GDRESettings::get_singleton()->open_log_file(dir);
 	String failed_files;
 	pck_dialog->set_visible(false);
 	ovd->set_visible(false);
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck", RTR("Extracting files..."), files.size(), true));
 	Ref<PckDumper> pckdumper;
 	pckdumper.instantiate();
-	pckdumper->_pck_dump_to_dir(dir, files, pr, failed_files);
-	if (is_full_recovery) {
-		memdelete(pr);
+	Error err = pckdumper->_pck_dump_to_dir(dir, files, pr, failed_files);
+	Ref<ImportExporter> ie;
 
-		Ref<ImportExporter> ie;
+	if (is_full_recovery && !err) {
+		memdelete(pr);
 		ie.instantiate();
 		ie->load_import_files();
 		pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck_res", RTR("Exporting resources..."), ie->get_import_files().size(), true));
 		String error_string;
-		ie->_export_imports(dir, files, pr, error_string);
+		err = ie->_export_imports(dir, files, pr, error_string);
 	}
 	memdelete(pr);
-	GDRESettings::get_singleton()->save_project_config(dir);
-
 	pck_file = String();
-	_pck_unload();
-	if (failed_files.length() > 0) {
-		show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
-	} else {
-		show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
+	String log_path = GDRESettings::get_singleton()->get_log_file_path();
+	String report = "Log file written to " + log_path;
+	report += "\nPlease include this file when reporting an issue!\n";
+	if (is_full_recovery) {
+		report += ie->get_editor_message();
+		report += ie->get_report();
 	}
+
+	_pck_unload();
+	GDRESettings::get_singleton()->close_log_file();
+
+	if (failed_files.length() > 0) {
+		show_warning(report + failed_files, RTR("Read PCK"), RTR("At least one error was detected!") + (is_full_recovery ? "\nSkipping full recovery!" : ""));
+	} else if (is_full_recovery && !err) {
+		show_warning(report, RTR("Read PCK"), RTR("Recovery report"));
+	} else if (!is_full_recovery && !err) {
+		show_warning(RTR("No errors detected.") + String("\n") + report, RTR("Read PCK"), RTR("The operation completed successfully!"));
+	} else if (err) {
+		show_warning("Resource export failed." + String("\n") + report, RTR("Read PCK"), RTR("At least one error was detected!") + (is_full_recovery ? "\nSkipping full recovery!" : ""));
+	}
+	print_warning("Log file written to " + log_path, RTR("Read PCK"));
+	print_warning("Please include this file when reporting an issue!", RTR("Read PCK"));
 }
 
 /*************************************************************************/

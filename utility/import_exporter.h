@@ -28,10 +28,11 @@ class ImportExporter : public RefCounted {
 	bool opt_export_webp = true;
 	bool opt_rewrite_imd_v2 = true;
 	bool opt_rewrite_imd_v3 = false;
+	bool opt_decompile = true;
+	bool opt_only_decompile = false;
+	Vector<String> decompiled_scripts;
+	Vector<String> failed_scripts;
 
-	Vector<String> files_lossy_exported;
-	Vector<String> files_rewrote_metadata;
-	int import_count;
 	Vector<Ref<ImportInfo>> lossy_imports;
 	Vector<Ref<ImportInfo>> rewrote_metadata;
 	Vector<Ref<ImportInfo>> failed_rewrite_md;
@@ -74,7 +75,9 @@ public:
 	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
 	Error export_imports(const String &output_dir = "");
 	void print_report();
-
+	String get_editor_message();
+	String get_report();
+	void reset_log();
 	void reset();
 	ImportExporter();
 	~ImportExporter();

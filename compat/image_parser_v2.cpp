@@ -179,9 +179,14 @@ Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool conve
 		} else {
 			// We wait until we've skipped all the data to do this
 			ERR_FAIL_COND_V_MSG(
-					fmt == Image::FORMAT_MAX,
+					fmt == Image::FORMAT_MAX && (old_format > 0 && old_format < V2Image::IMAGE_FORMAT_V2_MAX),
 					ERR_UNAVAILABLE,
 					"Converting deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " not implemented.");
+			ERR_FAIL_COND_V_MSG(
+					fmt == Image::FORMAT_MAX,
+					ERR_FILE_CORRUPT,
+					"Invalid format");
+
 			img.instantiate();
 			img->create(width, height, mipmaps > 0, fmt, imgdata);
 		}

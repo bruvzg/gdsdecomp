@@ -76,7 +76,6 @@ GDRESettings::~GDRESettings() {
 	}
 	singleton = nullptr;
 	// logger doesn't get memdeleted because the OS singleton will do so
-	// gdre_os doesn't get deleted because it's the OS singleton
 }
 String GDRESettings::get_cwd() {
 	return GDRESettings::_get_cwd();
@@ -652,6 +651,9 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 }
 
 String GDRESettings::get_log_file_path() {
+	if (!logger) {
+		return "";
+	}
 	return logger->get_path();
 }
 

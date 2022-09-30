@@ -132,7 +132,6 @@ private:
 	PackedData *old_pack_data_singleton = nullptr;
 	PackedData *new_singleton = nullptr;
 	GDRELogger *logger;
-	void *gdre_os;
 
 	String gdre_resource_path = "";
 
@@ -143,7 +142,6 @@ private:
 	Vector<uint8_t> enc_key;
 	String enc_key_str = "";
 	bool in_editor = false;
-	bool encrypted = false;
 	bool first_load = true;
 	String project_path = "";
 	static GDRESettings *singleton;

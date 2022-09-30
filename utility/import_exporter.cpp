@@ -57,6 +57,7 @@ int get_ver_minor() {
 }
 Error ImportExporter::load_import_files() {
 	Vector<String> file_names;
+	reset();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
 
 	String bin_proj_file;
@@ -98,8 +99,9 @@ Error ImportExporter::export_imports(const String &p_out_dir) {
 }
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
+	reset_log();
+	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
-
 	String output_dir = !p_out_dir.is_empty() ? p_out_dir : get_settings()->get_project_path();
 	Error err = OK;
 	if (opt_lossy) {
@@ -108,6 +110,9 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	recreate_plugin_configs(output_dir);
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 
+	if (opt_decompile) {
+		decompile_scripts(output_dir);
+	}
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
 		String path = iinfo->get_path();
@@ -295,12 +300,15 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		}
 		if (err) {
 			memdelete(decomp);
+			failed_scripts.push_back(f);
 			ERR_FAIL_V_MSG(err, "error decompiling " + f);
 		} else {
 			String text = decomp->get_script_text();
 			String out_path = p_out_dir.path_join(dest_file.replace("res://", ""));
 			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
+				failed_scripts.push_back(f);
+
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
@@ -314,6 +322,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				da->remove(f.replace(".gdc", ".gd.remap").replace("res://", ""));
 			}
 			print_line("successfully decompiled " + f);
+			decompiled_scripts.push_back(f);
 		}
 	}
 	memdelete(decomp);
@@ -432,6 +441,9 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	String r_name;
 	Error err;
 	err = _convert_tex(output_dir, path, dest, &r_name, lossy);
+	if (err == ERR_UNAVAILABLE) {
+		return ERR_UNAVAILABLE;
+	}
 	ERR_FAIL_COND_V(err, err);
 	// If lossy, also convert it as a png
 	if (lossy) {
@@ -444,6 +456,9 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 			dest = prefix.path_join(dest.replace("res://", ""));
 		}
 		err = _convert_tex(output_dir, path, dest, &r_name, false);
+		if (err == ERR_UNAVAILABLE) {
+			return ERR_UNAVAILABLE;
+		}
 		ERR_FAIL_COND_V(err != OK, err);
 	}
 	if (iinfo->ver_major == 2 && iinfo->is_import()) {
@@ -594,6 +609,10 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	TextureLoaderCompat tl;
 
 	Ref<Image> img = tl.load_image_from_tex(p_path, &err);
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		return ERR_UNAVAILABLE;
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
 	if (r_name) {
 		*r_name = String(img->get_name());
@@ -702,68 +721,82 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	print_line("Converted " + src_path + " to " + dst_path);
 	return OK;
 }
+String ImportExporter::get_editor_message() {
+	String report = "";
+	report += "Use Godot editor version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + " to edit the project." + String("\n");
+	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
+	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
+	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");
+	return report;
+}
+String ImportExporter::get_report() {
+	String report;
 
-void ImportExporter::print_report() {
-	print_line("\n\n********************************EXPORT REPORT********************************");
-	print_line("Totals: ");
-	print_line("Imports for export session: 	" + itos(files.size()));
-	print_line("Successfully converted: 		" + itos(success.size()));
+	report += "Totals: " + String("\n");
+	report += "Decompiled scripts: " + itos(decompiled_scripts.size()) + String("\n");
+	report += "Failed scripts: " + itos(failed_scripts.size()) + String("\n");
+	report += "Imported resources for export session: 	" + itos(files.size()) + String("\n");
+	report += "Successfully converted: 		" + itos(success.size()) + String("\n");
 	if (opt_lossy) {
-		print_line("Lossy: 		" + itos(lossy_imports.size()));
+		report += "Lossy: 		" + itos(lossy_imports.size()) + String("\n");
 	} else {
-		print_line("Lossy not converted: 	" + itos(lossy_imports.size()));
+		report += "Lossy not converted: 	" + itos(lossy_imports.size()) + String("\n");
 	}
-	print_line("Rewrote metadata: " + itos(rewrote_metadata.size()));
-	print_line("Failed to rewrite metadata: " + itos(failed_rewrite_md.size()));
-	print_line("Not converted: " + itos(not_converted.size()));
-	print_line("Failed conversions: " + itos(failed.size()));
-	print_line("-------------\n");
+	report += "Rewrote metadata: " + itos(rewrote_metadata.size()) + String("\n");
+	report += "Failed to rewrite metadata: " + itos(failed_rewrite_md.size()) + String("\n");
+	report += "Not converted: " + itos(not_converted.size()) + String("\n");
+	report += "Failed conversions: " + itos(failed.size()) + String("\n");
+	report += "-------------\n" + String("\n");
 	if (lossy_imports.size() > 0) {
 		if (opt_lossy) {
-			print_line("\nThe following files were converted from an import that was stored lossy.");
-			print_line("You may lose fidelity when re-importing these files upon loading the project.");
+			report += "\nThe following files were converted from an import that was stored lossy." + String("\n");
+			report += "You may lose fidelity when re-importing these files upon loading the project." + String("\n");
 			for (int i = 0; i < lossy_imports.size(); i++) {
-				print_line(lossy_imports[i]->import_path + " to " + lossy_imports[i]->preferred_dest);
+				report += lossy_imports[i]->import_path + " to " + lossy_imports[i]->preferred_dest + String("\n");
 			}
 		} else {
-			print_line("\nThe following files were not converted from a lossy import.");
+			report += "\nThe following files were not converted from a lossy import." + String("\n");
 			for (int i = 0; i < lossy_imports.size(); i++) {
-				print_line(lossy_imports[i]->import_path);
+				report += lossy_imports[i]->import_path + String("\n");
 			}
 		}
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
 	if (rewrote_metadata.size() > 0 && get_ver_major() != 2) {
-		print_line("\nThe following files had their import data rewritten:");
+		report += "\nThe following files had their import data rewritten:" + String("\n");
 		for (int i = 0; i < rewrote_metadata.size(); i++) {
-			print_line(rewrote_metadata[i]->import_path + " to " + rewrote_metadata[i]->preferred_dest);
+			report += rewrote_metadata[i]->import_path + " to " + rewrote_metadata[i]->preferred_dest + String("\n");
 		}
 	}
 	if (failed_rewrite_md.size() > 0) {
-		print_line("\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten.");
-		print_line("These files will not be re-imported when loading the project.");
+		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
+		report += "These files will not be re-imported when loading the project." + String("\n");
 		for (int i = 0; i < failed_rewrite_md.size(); i++) {
-			print_line(failed_rewrite_md[i]->import_path + " to " + failed_rewrite_md[i]->preferred_dest);
+			report += failed_rewrite_md[i]->import_path + " to " + failed_rewrite_md[i]->preferred_dest + String("\n");
 		}
 	}
 	if (not_converted.size() > 0) {
-		print_line("\nThe following files were not converted because support has not been implemented yet:");
+		report += "\nThe following files were not converted because support has not been implemented yet:" + String("\n");
 		for (int i = 0; i < not_converted.size(); i++) {
-			print_line(not_converted[i]->import_path);
+			report += not_converted[i]->import_path + String("\n");
 		}
 	}
 	if (failed.size() > 0) {
-		print_line("\nFailed conversions:");
+		report += "\nFailed conversions:" + String("\n");
 		for (int i = 0; i < failed.size(); i++) {
-			print_line(failed[i]->import_path);
+			report += failed[i]->import_path + String("\n");
 		}
 	}
-	print_line("\n---------------------------------------------------------------------------------");
-	print_line("Use Godot editor version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + " to edit the project.");
-	print_line("Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet.");
-	print_line("If you find that you have many non-import errors upon opening the project ");
-	print_line("(i.e. scripts or shaders have many errors), use the original game's binary as the export template.");
-	print_line("*******************************************************************************\n\n");
+
+	return report;
+}
+
+void ImportExporter::print_report() {
+	print_line("\n\n********************************EXPORT REPORT********************************" + String("\n"));
+	print_line(get_report());
+	print_line("\n---------------------------------------------------------------------------------" + String("\n"));
+	print_line(get_editor_message());
+	print_line("*******************************************************************************\n\n" + String("\n"));
 }
 
 void ImportExporter::_bind_methods() {
@@ -780,6 +813,17 @@ void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("reset"), &ImportExporter::reset);
 }
 
+void ImportExporter::reset_log() {
+	lossy_imports.clear();
+	rewrote_metadata.clear();
+	failed_rewrite_md.clear();
+	failed.clear();
+	success.clear();
+	not_converted.clear();
+	decompiled_scripts.clear();
+	failed_scripts.clear();
+}
+
 void ImportExporter::reset() {
 	files.clear();
 	opt_bin2text = true;
@@ -789,8 +833,7 @@ void ImportExporter::reset() {
 	opt_export_mp3 = true;
 	opt_lossy = true;
 	opt_rewrite_imd_v2 = true;
-	files_lossy_exported.clear();
-	files_rewrote_metadata.clear();
+	reset_log();
 }
 
 ImportExporter::ImportExporter() {}

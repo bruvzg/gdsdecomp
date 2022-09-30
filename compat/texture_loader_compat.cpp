@@ -166,7 +166,8 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 		uint32_t v3_fmt = df & FORMAT_MASK_IMAGE_FORMAT;
 		format = ImageEnumCompat::convert_image_format_enum_v3_to_v4(V3Image::Format(v3_fmt));
 		if (format == Image::FORMAT_MAX) {
-			ERR_FAIL_COND_V_MSG(v3_fmt < V3Image::FORMAT_MAX, ERR_UNAVAILABLE,
+			// deprecated format
+			ERR_FAIL_COND_V_MSG(v3_fmt > 0 && v3_fmt < V3Image::FORMAT_MAX, ERR_UNAVAILABLE,
 					"Support for deprecated texture format " + ImageEnumCompat::get_v3_format_name(V3Image::Format(v3_fmt)) + " is unimplemented.");
 			ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Texture is in an invalid format");
 		}
@@ -244,6 +245,10 @@ Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_pa
 	}
 	if (r_err)
 		*r_err = err;
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		return texture;
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
 	texture.instantiate();
 	texture->set("w", lwc ? lwc : lw);
@@ -270,6 +275,11 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 	err = loader->open(f);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot open resource '" + p_path + "'.", loader);
 	err = loader->load();
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		memdelete(loader);
+		return ERR_UNAVAILABLE;
+	}
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot load resource '" + p_path + "'.", loader);
 	tw_custom = 0;
 	th_custom = 0;
@@ -714,6 +724,9 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 	if (r_err) {
 		*r_err = err;
 	}
+	if (err == ERR_UNAVAILABLE) {
+		return texture;
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
 	// put the texture into the rendering server
 	RID texture_rid = RS::get_singleton()->texture_2d_create(image);
@@ -813,7 +826,14 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 	image.instantiate();
 	bool size_override;
 
-	_load_texture2d(res_path, image, size_override, ver_major, r_err);
+	_load_texture2d(res_path, image, size_override, ver_major, &err);
+	if (r_err) {
+		*r_err = err;
+	}
+	// deprecated format
+	if (*r_err == ERR_UNAVAILABLE) {
+		return Ref<Image>();
+	}
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
 }

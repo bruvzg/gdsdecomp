@@ -1491,7 +1491,11 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 		// Old Godot 2.x Image variant, convert into an object
 		case VariantBin::VARIANT_IMAGE: {
 			//Have to decode the old Image variant here
-			if (ImageParserV2::decode_image_v2(f, r_v, convert_v2image_indexed) != OK) {
+			Error err = ImageParserV2::decode_image_v2(f, r_v, convert_v2image_indexed);
+			if (err != OK) {
+				if (err == ERR_UNAVAILABLE) {
+					return err;
+				}
 				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Couldn't load resource: embedded image");
 				//WARN_PRINT(String("Couldn't load resource: embedded image").utf8().get_data());
 			}
@@ -1601,9 +1605,15 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			for (uint32_t i = 0; i < len; i++) {
 				Variant key;
 				Error err = parse_variant(key);
+				if (err == ERR_UNAVAILABLE) {
+					return err;
+				}
 				ERR_FAIL_COND_V_MSG(err, ERR_FILE_CORRUPT, "Error when trying to parse Variant.");
 				Variant value;
 				err = parse_variant(value);
+				if (err == ERR_UNAVAILABLE) {
+					return err;
+				}
 				ERR_FAIL_COND_V_MSG(err, ERR_FILE_CORRUPT, "Error when trying to parse Variant.");
 				d[key] = value;
 			}
@@ -1760,7 +1770,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 #endif
 
 			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Vector2 size is NOT 8!");
+				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Vector2 size is NOT 8!");
 			}
 
 			r_v = array;
@@ -1785,7 +1795,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 #endif
 
 			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Vector3 size is NOT 12!");
+				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Vector3 size is NOT 12!");
 			}
 
 			r_v = array;
@@ -1810,7 +1820,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 #endif
 
 			} else {
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Color size is NOT 16!");
+				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Color size is NOT 16!");
 			}
 
 			r_v = array;
