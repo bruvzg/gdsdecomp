@@ -143,6 +143,7 @@ private:
 	String enc_key_str = "";
 	bool in_editor = false;
 	bool first_load = true;
+	bool error_encryption = false;
 	String project_path = "";
 	static GDRESettings *singleton;
 	static String exec_dir;
@@ -164,6 +165,7 @@ public:
 	String get_encryption_key_string();
 	bool is_pack_loaded() const;
 
+	void _set_error_encryption(bool is_encryption_error);
 	void set_encryption_key(Vector<uint8_t> key);
 	void set_encryption_key(const String &key);
 	void reset_encryption_key();

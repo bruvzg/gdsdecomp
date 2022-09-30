@@ -294,7 +294,9 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
 		print_line("decompiling " + f);
+		bool encrypted = false;
 		if (f.get_extension() == "gde") {
+			encrypted = true;
 			err = decomp->decompile_byte_code_encrypted(f, get_settings()->get_encryption_key(), get_ver_major() == 3);
 		} else {
 			err = decomp->decompile_byte_code(f);
@@ -302,14 +304,19 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		if (err) {
 			memdelete(decomp);
 			failed_scripts.push_back(f);
-			ERR_FAIL_V_MSG(err, "error decompiling " + f);
+			// TODO: make it not fail hard on the first script that fails to decompile
+			if (encrypted) {
+				had_encryption_error = true;
+				ERR_FAIL_V_MSG(err, "error decompiling encrypted script " + f);
+			} else {
+				ERR_FAIL_V_MSG(err, "error decompiling " + f);
+			}
 		} else {
 			String text = decomp->get_script_text();
 			String out_path = p_out_dir.path_join(dest_file.replace("res://", ""));
 			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
 				failed_scripts.push_back(f);
-
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
@@ -732,7 +739,10 @@ String ImportExporter::get_editor_message() {
 }
 String ImportExporter::get_report() {
 	String report;
-
+	if (had_encryption_error) {
+		report += "Failed to decompile encrypted scripts!\n";
+		report += "Set the correct key and try again!\n\n";
+	}
 	report += "Totals: " + String("\n");
 	report += "Decompiled scripts: " + itos(decompiled_scripts.size()) + String("\n");
 	report += "Failed scripts: " + itos(failed_scripts.size()) + String("\n");
@@ -815,6 +825,7 @@ void ImportExporter::_bind_methods() {
 }
 
 void ImportExporter::reset_log() {
+	had_encryption_error = false;
 	lossy_imports.clear();
 	rewrote_metadata.clear();
 	failed_rewrite_md.clear();

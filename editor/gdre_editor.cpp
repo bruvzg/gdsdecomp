@@ -233,6 +233,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILE);
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
+	pck_file_selection->add_filter("*.apk;Android application files");
 	pck_file_selection->connect("file_selected", callable_mp(this, &GodotREEditor::_pck_select_request));
 	pck_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_file_selection);
@@ -302,14 +303,14 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		about_label->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);
 		String about_text =
 				String("Godot RE Tools, ") + String(GDRE_VERSION) + String(" \n\n") +
-				RTR(String("Resources, binary code and source code might be protected by copyright and trademark\n") +
-						"laws. Before using this software make sure that decompilation is not prohibited by the\n" +
-						"applicable license agreement, permitted under applicable law or you obtained explicit\n" +
+				RTR(String("Resources, binary code and source code might be protected by copyright and trademark ") +
+						"laws. Before using this software make sure that decompilation is not prohibited by the " +
+						"applicable license agreement, permitted under applicable law or you obtained explicit " +
 						"permission from the copyright owner.\n\n" +
-						"The authors and copyright holders of this software do neither encourage nor condone\n" +
-						"the use of this software, and disclaim any liability for use of the software in violation of\n" +
+						"The authors and copyright holders of this software do neither encourage nor condone " +
+						"the use of this software, and disclaim any liability for use of the software in violation of " +
 						"applicable laws.\n\n" +
-						"This software in a pre-alpha stage and is not suitable for use in production.\n\n");
+						"This software in a pre-alpha stage and is not suitable for use in production.\n");
 		about_label->set_text(about_text);
 
 #ifdef TOOLS_ENABLED
@@ -325,6 +326,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	//Init menu
 	if (p_long_menu) {
+		p_menu->set_anchor(Side::SIDE_TOP, 0);
 		menu_button = memnew(MenuButton);
 		menu_button->set_text(RTR("RE Tools"));
 		menu_button->set_icon(icons["RELogo"]);
@@ -332,17 +334,18 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
 		menu_popup->add_icon_item(icons["RELogo"], RTR("Quit"), MENU_EXIT_RE);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
+		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		p_menu->add_child(menu_button);
 
 		menu_button = memnew(MenuButton);
-		menu_button->set_text(RTR("PCK"));
+		menu_button->set_text(RTR("File"));
 		menu_button->set_icon(icons["REPack"]);
 		menu_popup = menu_button->get_popup();
-		menu_popup->add_icon_item(icons["REPack"], RTR("Set encryption key..."), MENU_KEY);
-		menu_popup->add_separator();
+		menu_popup->add_icon_item(icons["REPack"], RTR("Recover project..."), MENU_EXT_PCK);
 		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
-		menu_popup->add_icon_item(icons["REPack"], RTR("Explore PCK archive..."), MENU_EXT_PCK);
-
+		menu_popup->add_separator();
+		menu_popup->add_icon_item(icons["REPack"], RTR("Set encryption key..."), MENU_KEY);
+		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -353,7 +356,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["REScript"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(icons["REScript"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
-
+		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
 
@@ -368,6 +371,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
 		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
+		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		p_menu->add_child(menu_button);
 	} else {
 		menu_button = memnew(MenuButton);
@@ -377,12 +381,12 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
 		menu_popup->add_separator();
 
+		menu_popup->add_icon_item(icons["REPack"], RTR("Explore PCK archive..."), MENU_EXT_PCK);
+		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
+		menu_popup->add_separator();
 		menu_popup->add_icon_item(icons["REPack"], RTR("Set encryption key..."), MENU_KEY);
 		menu_popup->add_separator();
 
-		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
-		menu_popup->add_icon_item(icons["REPack"], RTR("Explore PCK archive..."), MENU_EXT_PCK);
-		menu_popup->add_separator();
 		menu_popup->add_icon_item(icons["REScript"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(icons["REScript"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
 		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
@@ -394,8 +398,10 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert OGG Samples to OGG..."), MENU_OSTR_TO_OGG);
 		menu_popup->add_icon_item(icons["REResOther"], RTR("Convert WAV Samples to WAV..."), MENU_SMPL_TO_WAV);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
+		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		p_menu->add_child(menu_button);
 		if (p_menu->get_child_count() >= 2) {
+			menu_button->set_anchor(Side::SIDE_TOP, 0);
 			p_menu->move_child(menu_button, p_menu->get_child_count() - 2);
 		}
 	}
@@ -700,7 +706,11 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	Error err = GDRESettings::get_singleton()->load_pack(p_path);
 	if (err) {
-		show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
+		if (err == ERR_PRINTER_ON_FIRE) {
+			show_warning(RTR("Error opening encrypted PCK file: ") + p_path + "\nSet correct encryption key and try again.", RTR("Read PCK"));
+		} else {
+			show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
+		}
 		return;
 	}
 	pck_file_selection->set_visible(false);
@@ -718,6 +728,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 	memdelete(pr);
 	// cancelled
 	bool p_check_md5 = true;
+	pck_dialog->set_version(GDRESettings::get_singleton()->get_version_string());
 	pck_dialog->set_info(String("    ") + RTR("Total files: ") +
 			GDRESettings::get_singleton()->get_file_count() + "; " + RTR("Checked: ") +
 			itos(files_checked) + "; " + RTR("Broken: ") + itos(broken_files.size()));
@@ -736,7 +747,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		bool is_malformed = file->is_malformed();
 		if (md5_error || is_malformed) {
 			icon = icons["REFileBroken"];
-			if (!file->is_checksum_validated()) {
+			if (p_check_md5 && !file->is_checksum_validated()) {
 				error_string += "MD5 mismatch";
 			}
 			if (file->is_malformed()) {
@@ -803,7 +814,7 @@ void GodotREEditor::_pck_extract_files_process() {
 	pck_file = String();
 	String log_path = GDRESettings::get_singleton()->get_log_file_path();
 	String report = "Log file written to " + log_path;
-	report += "\nPlease include this file when reporting an issue!\n";
+	report += "\nPlease include this file when reporting an issue!\n\n";
 	if (is_full_recovery) {
 		report += ie->get_editor_message();
 		report += ie->get_report();

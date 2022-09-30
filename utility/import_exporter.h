@@ -30,6 +30,7 @@ class ImportExporter : public RefCounted {
 	bool opt_rewrite_imd_v3 = false;
 	bool opt_decompile = true;
 	bool opt_only_decompile = false;
+	bool had_encryption_error = false;
 	Vector<String> decompiled_scripts;
 	Vector<String> failed_scripts;
 

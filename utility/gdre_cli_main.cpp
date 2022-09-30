@@ -1,4 +1,5 @@
 #include "gdre_cli_main.h"
+#include "editor/gdre_version.gen.h"
 
 Error GDRECLIMain::open_log(const String &path) {
 	return GDRESettings::get_singleton()->open_log_file(path);
@@ -45,6 +46,8 @@ void GDRECLIMain::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_file_count"), &GDRECLIMain::get_file_count);
 	ClassDB::bind_method(D_METHOD("get_loaded_files"), &GDRECLIMain::get_loaded_files);
 	ClassDB::bind_method(D_METHOD("get_engine_version"), &GDRECLIMain::get_engine_version);
+	ClassDB::bind_method(D_METHOD("get_gdre_version"), &GDRECLIMain::get_gdre_version);
+
 	ClassDB::bind_method(D_METHOD("clear_data"), &GDRECLIMain::clear_data);
 	ClassDB::bind_method(D_METHOD("set_key"), &GDRECLIMain::set_key);
 
@@ -82,6 +85,9 @@ Vector<String> GDRECLIMain::get_loaded_files() {
 
 String GDRECLIMain::get_engine_version() {
 	return GDRESettings::get_singleton()->get_version_string();
+}
+String GDRECLIMain::get_gdre_version() {
+	return GDRE_VERSION;
 }
 GDRECLIMain::GDRECLIMain() {
 	//GDRESettings::get_singleton()->set_is_gui(false);

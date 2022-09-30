@@ -5,7 +5,7 @@ var ver_minor = 0
 var main : GDRECLIMain
 
 func _ready():
-	$menu_background/version_lbl.text = $re_editor_standalone.get_version()
+	$version_lbl.text = $re_editor_standalone.get_version()
 	# test_functions()
 	# get_tree().quit()
 
@@ -95,7 +95,6 @@ func export_imports(output_dir:String):
 	if err != OK:
 		print("Error: failed to load import files!")
 		return
-	importer.decompile_scripts(output_dir)
 	var arr = importer.get_import_files()
 	print("Number of import files: " + str(arr.size()))
 	importer.export_imports(output_dir)

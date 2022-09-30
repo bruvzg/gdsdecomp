@@ -27,6 +27,7 @@ public:
 	bool is_loaded();
 	String get_engine_version();
 	int get_file_count();
+	String get_gdre_version();
 	Vector<String> get_loaded_files();
 
 	GDRECLIMain();

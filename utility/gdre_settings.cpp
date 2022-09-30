@@ -192,6 +192,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 	int ver_major = gdreutil::get_ver_major_from_dir("res://");
 	ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
 	int ver_minor;
+	WARN_PRINT("Guessing minor version number, 2.0 scripts may be mangled...");
 	//for the sake of decompiling scripts
 	if (ver_major == 2) {
 		ver_minor = 1;
@@ -269,7 +270,13 @@ Error GDRESettings::load_pack(const String &p_path) {
 	// Project settings have already been loaded by this point and this won't affect them,
 	// so it's fine
 	err = new_singleton->add_pack(pack_path, true, 0);
-	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Failed to load project pack!");
+	if (err) {
+		if (error_encryption) {
+			error_encryption = false;
+			ERR_FAIL_V_MSG(ERR_PRINTER_ON_FIRE, "FATAL ERROR: Failed to decrypt encrypted pack!");
+		}
+		ERR_FAIL_V_MSG(err, "FATAL ERROR: Failed to load project pack!");
+	}
 
 	// If we're in a first load, the old PackedData singleton is still held by main.cpp
 	// If we delete it, we'll cause a double free when the program closes because main.cpp deletes it
@@ -281,6 +288,7 @@ Error GDRESettings::load_pack(const String &p_path) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 	if (get_version_string() == "unknown") {
 		// TODO: we have to get it from the binary files
+		// right now file_access_apk just sets it to 2.1.6 if it can't read it from the manifest
 	}
 	load_project_config();
 	return OK;
@@ -343,7 +351,11 @@ void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 	packs.push_back(packinfo);
 	current_pack = packinfo;
 }
-
+// PackedSource doesn't pass back useful error information when loading packs,
+// this is a hack so that we can tell if it was an encryption error.
+void GDRESettings::_set_error_encryption(bool is_encryption_error) {
+	error_encryption = is_encryption_error;
+}
 void GDRESettings::set_encryption_key(const String &key_str) {
 	String skey = key_str.replace_first("0x", "");
 	ERR_FAIL_COND_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, "not a valid key");
@@ -823,6 +835,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	if (enc_directory) {
 		Ref<FileAccessEncrypted> fae = memnew(FileAccessEncrypted);
 		if (fae.is_null()) {
+			GDRESettings::get_singleton()->_set_error_encryption(true);
 			ERR_FAIL_V_MSG(false, "Can't open encrypted pack directory.");
 		}
 
@@ -834,6 +847,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 		Error err = fae->open_and_parse(f, key, FileAccessEncrypted::MODE_READ, false);
 		if (err) {
+			GDRESettings::get_singleton()->_set_error_encryption(true);
 			ERR_FAIL_V_MSG(false, "Can't open encrypted pack directory.");
 		}
 		f = fae;
