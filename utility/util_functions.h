@@ -149,9 +149,9 @@ static Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 	_____tmp_file = FileAccess::open(p_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, vformat("Can't save JPEG at path: '%s'.", p_path));
 
-	int success = 0;
+	bool success = false;
 	{ // scope writer lifetime
-		bool success = TooJpeg::writeJpeg([](unsigned char oneByte) {
+		success = TooJpeg::writeJpeg([](unsigned char oneByte) {
 			_____tmp_file->store_8(oneByte);
 		},
 				image_data.ptr(), width, height, isRGB, 100, false);

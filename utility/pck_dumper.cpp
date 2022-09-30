@@ -61,7 +61,8 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 	return err;
 }
 Error PckDumper::pck_dump_to_dir(const String &dir, const Vector<String> &files_to_extract = Vector<String>()) {
-	return _pck_dump_to_dir(dir, files_to_extract, nullptr, String());
+	String t;
+	return _pck_dump_to_dir(dir, files_to_extract, nullptr, t);
 }
 
 Error PckDumper::_pck_dump_to_dir(

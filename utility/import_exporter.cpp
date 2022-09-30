@@ -95,7 +95,8 @@ Error ImportExporter::load_import_file(const String &p_path) {
 
 // export all the imported resources
 Error ImportExporter::export_imports(const String &p_out_dir) {
-	return _export_imports(p_out_dir, Vector<String>(), nullptr, String());
+	String t;
+	return _export_imports(p_out_dir, Vector<String>(), nullptr, t);
 }
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {

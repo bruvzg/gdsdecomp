@@ -128,7 +128,7 @@ public:
 
 private:
 	Vector<Ref<PackInfo>> packs;
-	Ref<PackInfo> current_pack = nullptr;
+	Ref<PackInfo> current_pack = Ref<PackInfo>();
 	PackedData *old_pack_data_singleton = nullptr;
 	PackedData *new_singleton = nullptr;
 	GDRELogger *logger;

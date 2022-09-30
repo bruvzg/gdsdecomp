@@ -141,7 +141,7 @@ bool GDRESettings::is_project_config_loaded() const {
 }
 
 void GDRESettings::remove_current_pack() {
-	current_pack = nullptr;
+	current_pack = Ref<PackInfo>();
 	packs.clear();
 	files.clear();
 	reset_encryption_key();
@@ -197,6 +197,8 @@ Error GDRESettings::load_dir(const String &p_path) {
 		ver_minor = 1;
 	} else if (ver_major == 3) {
 		ver_minor = 3;
+	} else {
+		ver_minor = 0;
 	}
 	int ver_rev = 0;
 	int version = 1;
