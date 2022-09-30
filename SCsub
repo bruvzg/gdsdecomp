@@ -2,6 +2,9 @@
 
 import gdre_icon_builder
 from platform_methods import run_in_subprocess
+import shutil
+from subprocess import Popen, PIPE
+
 Import("env")
 Import("env_modules")
 
@@ -22,7 +25,6 @@ env_gdsdecomp["BUILDERS"]["MakeGDREIconsBuilder"] = Builder(
     suffix=".h",
     src_suffix=".svg",
 )
-
 icon_sources = Glob("icons/*.svg")
 
 env_gdsdecomp.Alias(
@@ -30,6 +32,28 @@ env_gdsdecomp.Alias(
     [env_gdsdecomp.MakeGDREIconsBuilder(
         "editor/gdre_icons.gen.h", icon_sources)],
 )
+
+git = shutil.which("git")
+version_info = "unknown"
+if git == None:
+    print("GDRE WARNING: cannot find git on path, unknown version will be saved in gdre_version.gen.h")
+else:
+    # git describe --abbrev=6
+    process = Popen([git, "describe", "--tags",
+                    "--abbrev=6"], stdout=PIPE)
+    (output, err) = process.communicate()
+    if not err:
+        version_info = output.decode('utf-8').strip()
+    else:
+        print("GDRE WARNING: git failed to run, unknown version will be saved in gdre_version.gen.h")
+
+f = open("editor/gdre_version.gen.h", "w")
+# define GDRE_VERSION "dev-poc (for Godot 4.0)"
+f.write("#define GDRE_VERSION \"")
+f.write(version_info)
+f.write("\"\n")
+f.close()
+
 
 if env["builtin_libogg"]:
     env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])

@@ -198,7 +198,8 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 		return
 	export_imports(output_dir)
 
-
+func print_version():
+	print("Godot RE Tools " + main.get_gdre_version())
 
 func handle_cli():
 	var args = OS.get_cmdline_args()
@@ -208,16 +209,20 @@ func handle_cli():
 	var output_dir: String = ""
 	var enc_key: String = ""
 	var txt_to_bin: String = ""
-	if (args.size() == 0):
+	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
 		return
+	main = GDRECLIMain.new()
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
+			print_version()
 			print_usage()
+			get_tree().quit()
+		if arg.begins_with("--version"):
+			print_version()
 			get_tree().quit()
 		if arg.begins_with("--extract"):
 			input_extract_file = normalize_path(get_arg_value(arg))
-	
 		if arg.begins_with("--recover"):
 			input_file = normalize_path(get_arg_value(arg))
 		if arg.begins_with("--txt-to-bin"):
@@ -227,19 +232,16 @@ func handle_cli():
 		elif arg.begins_with("--key"):
 			enc_key = get_arg_value(arg)
 	if input_file != "":
-		main = GDRECLIMain.new()
 		recovery(input_file, output_dir, enc_key, false)
 		main.clear_data()
 		main.close_log()
 		get_tree().quit()
 	elif input_extract_file != "":
-		main = GDRECLIMain.new()
 		recovery(input_extract_file, output_dir, enc_key, true)
 		main.clear_data()
 		main.close_log()
 		get_tree().quit()
 	elif txt_to_bin != "":
-		main = GDRECLIMain.new()
 		txt_to_bin = main.get_cli_abs_path(txt_to_bin)
 		output_dir = main.get_cli_abs_path(output_dir)
 		test_text_to_bin(txt_to_bin, output_dir)

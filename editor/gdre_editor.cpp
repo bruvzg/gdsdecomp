@@ -2,7 +2,7 @@
 /*  gdre_editor.cpp                                                      */
 /*************************************************************************/
 
-#include "gdre_version.h"
+#include "gdre_version.gen.h"
 
 #include "gdre_editor.h"
 

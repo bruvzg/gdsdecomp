@@ -1,1 +1,0 @@
-#define GDRE_VERSION "dev-poc (for Godot 4.0)"
