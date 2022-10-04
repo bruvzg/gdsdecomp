@@ -33,7 +33,7 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 
 	if (ext != "pck" && ext != "exe") {
 		print_line("Not a pack file, skipping MD5 check...");
-		return OK;
+		return ERR_SKIP;
 	}
 	Error err = OK;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();

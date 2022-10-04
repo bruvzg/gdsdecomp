@@ -14,7 +14,7 @@ EncKeyDialog::EncKeyDialog() {
 	//Encryption key
 	script_key = memnew(LineEdit);
 	script_key->connect("text_changed", callable_mp(this, &EncKeyDialog::_script_encryption_key_changed));
-	script_vb->add_margin_child(RTR("Script encryption key (256-bits as hex):"), script_key);
+	script_vb->add_margin_child(RTR("Script encryption key (64 character hex string):"), script_key);
 
 	script_key_error = memnew(Label);
 	script_vb->add_child(script_key_error);
