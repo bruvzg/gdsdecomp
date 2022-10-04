@@ -198,7 +198,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	pkg.zfile = zfile;
 	packages.push_back(pkg);
 	int pkg_num = packages.size() - 1;
-	int asset_count = 0;
+	uint32_t asset_count = 0;
 	uint32_t version = 1;
 	uint32_t ver_major;
 	uint32_t ver_minor;
@@ -260,6 +260,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		pf.encrypted = false;
 		pf.pack = pack_path;
 		pf.src = this;
+
 		Ref<PackedFileInfo> pf_info;
 		pf_info.instantiate();
 		pf_info->init(fname, &pf);

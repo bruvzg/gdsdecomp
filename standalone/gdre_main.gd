@@ -106,7 +106,7 @@ func dump_files(output_dir:String) -> int:
 	var pckdump = PckDumper.new()
 	if err == OK:
 		err = pckdump.check_md5_all_files()
-		if err != OK:
+		if err != OK and err != ERR_SKIP:
 			print("Error md5")
 			return err
 		err = pckdump.pck_dump_to_dir(output_dir)

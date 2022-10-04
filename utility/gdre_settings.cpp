@@ -830,7 +830,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		f->get_32();
 	}
 
-	int file_count = f->get_32();
+	uint32_t file_count = f->get_32();
 
 	if (enc_directory) {
 		Ref<FileAccessEncrypted> fae = memnew(FileAccessEncrypted);
@@ -861,7 +861,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), GDRESettings::PackInfo::PCK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
-	for (int i = 0; i < file_count; i++) {
+	for (uint32_t i = 0; i < file_count; i++) {
 		uint32_t sl = f->get_32();
 		CharString cs;
 		cs.resize(sl + 1);
