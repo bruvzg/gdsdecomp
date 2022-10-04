@@ -25,9 +25,8 @@ jobs:
       matrix:
         include:
           - cache-name: api-sync-test
-            target: release_debug
+            target: template_debug
             platform: linuxbsd
-            tools: false
             tests: false
 
     steps:
