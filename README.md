@@ -31,10 +31,11 @@ Support has yet to be implemented for converting the following resources:
 - Translation files
 - Models (`obj`, `dae`, `fbx`, `glb`, etc.)
 
+In addition, it does not support decompiling any GDNative or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
+
 ## Usage
 
 ### GUI
-
 
 - To perform full project recovery from the GUI, select "Recover project..." from the "RE Tools" menu:
 ![Menu screenshot](images/recovery_gui.png)
@@ -45,6 +46,7 @@ Support has yet to be implemented for converting the following resources:
 ![Recovery dialog screenshot](images/recovery_dialog.png)
 - After it finishes, it will pop up a recovery box telling you the location of the log file, what editor version you should use when editing the recovered project, report any non-recovered assets:
 ![Recovery log](images/recovery_log.png)
+
 ### Command Line
 
 ```bash
@@ -57,7 +59,12 @@ gdre_tools --headless --recover=game.pck
 
 Use the same Godot tools version that the original game was compiled in to edit the project. In order to detect this, see [To detect Godot version](#to-detect-godot-version)
 
-## Requirements
+## Compiling from source
+
+Clone this repository into Godot's `modules` subfolder as `gdsdecomp`.
+Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/development/compiling/index.html.
+
+### Requirements
 
 Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/56563ef09e779b9f4b105fea0e5a1a8e59c7cfe8
 - Support for building on 3.x has been dropped and no new features are being pushed
