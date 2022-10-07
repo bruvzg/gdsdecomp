@@ -58,7 +58,7 @@ gdre_tools --headless --recover=game.pck
 - `--output-dir=<out_dir>` : Output directory, defaults to `<NAME>_extracted`, or the project directory if one is specified
 - `--key=<key>` : The Key to use if PAK/EXE/APK is encrypted (64 character hex string)
 
-Use the same Godot tools version that the original game was compiled in to edit the project. In order to detect this, see [To detect Godot version](#to-detect-godot-version)
+Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
 ## Compiling from source
 
