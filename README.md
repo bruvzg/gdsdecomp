@@ -42,10 +42,13 @@ In addition, it does not support decompiling any GDNative or GDMono scripts. For
 ![Menu screenshot](images/recovery_gui.png)
 - If the project is encrypted, select the "Set encryption key..." menu option first first and enter the key.
 - In the file dialog, select the apk, pck, or embedded exe you want to recover:
+
 ![File dialog](images/file_dialog.png)
 - In the PCK explorer dialog, select "Full Recovery" or "Extract Only", then select the directory you want to recover the project to, then click "Extract...":
+
 ![Recovery dialog screenshot](images/recovery_dialog.png)
 - After it finishes, it will pop up a recovery box telling you the location of the log file, what editor version you should use when editing the recovered project, report any non-recovered assets:
+
 ![Recovery log](images/recovery_log.png)
 
 ### Command Line
