@@ -369,7 +369,8 @@ Error GDScriptDecomp_5565f55::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "+ ";
 			} break;
 			case TK_OP_SUB: {
-				_ensure_space(line);
+				if (prev_token != TK_NEWLINE)
+					_ensure_space(line);
 				line += "- ";
 				//TODO: do not add space after unary "-"
 			} break;
