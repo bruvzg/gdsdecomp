@@ -232,7 +232,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 	}
 
-	get_settings()->save_project_config(output_dir);
+	if (get_settings()->save_project_config(output_dir) != OK) {
+		print_line("ERROR: Failed to save project config!");
+	} else {
+		print_line("Saved " + String(get_ver_major() > 2 ? "project.godot" : "engine.cfg") + " to " + output_dir);
+	}
 	print_report();
 	return OK;
 }

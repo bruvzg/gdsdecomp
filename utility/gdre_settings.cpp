@@ -304,12 +304,14 @@ Error GDRESettings::load_project_config() {
 				"Cannot find project config in pack/project folder!");
 		err = current_pack->pcfg->load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
-	}
-	if (get_ver_minor() == 3 || get_ver_minor() == 4) {
+	} else if (get_ver_major() == 3 || get_ver_major() == 4) {
 		ERR_FAIL_COND_V_MSG(!has_res_path("res://project.binary"), ERR_FILE_NOT_FOUND,
 				"Cannot find project config in pack/project folder!");
 		err = current_pack->pcfg->load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
+	} else {
+		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED,
+				"Godot version not set or project uses unsupported Godot version");
 	}
 	return OK;
 }

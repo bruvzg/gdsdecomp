@@ -23,9 +23,7 @@ Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major,
 }
 
 Error ProjectConfigLoader::save_cfb(const String dir, const uint32_t ver_major, const uint32_t ver_minor) {
-	if (cfb_path.is_empty()) {
-		return ERR_UNAVAILABLE;
-	}
+	ERR_FAIL_COND_V_MSG(!loaded, ERR_INVALID_DATA, "Attempted to save project config when not loaded!");
 	String file;
 	if (ver_major > 2) {
 		file = "project.godot";
@@ -210,7 +208,7 @@ Error ProjectConfigLoader::_save_settings_text(const String &p_file, const RBMap
 			file->store_string(F->get().property_name_encode() + "=" + vstr + "\n");
 		}
 	}
-
+	print_line("Saved project config to " + p_file);
 	return OK;
 }
 
