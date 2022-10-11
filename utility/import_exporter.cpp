@@ -192,6 +192,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else if (opt_export_mp3 && importer == "mp3") {
 			iinfo->preferred_dest = iinfo->source_file;
 			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->source_file);
+		} else if (importer == "bitmap") {
+			iinfo->preferred_dest = iinfo->source_file;
+			err = export_texture(output_dir, iinfo);
+
 		} else if ((opt_bin2text && iinfo->import_path.get_extension() == "res") ||
 				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
 			iinfo->preferred_dest = iinfo->source_file;
@@ -453,11 +457,18 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	iinfo->preferred_dest = dest;
 	String r_name;
 	Error err;
-	err = _convert_tex(output_dir, path, dest, &r_name, lossy);
+	if (iinfo->importer == "bitmap") {
+		err = _convert_bitmap(output_dir, path, dest, &r_name, lossy);
+	} else {
+		err = _convert_tex(output_dir, path, dest, &r_name, lossy);
+	}
 	if (err == ERR_UNAVAILABLE) {
 		return ERR_UNAVAILABLE;
 	}
 	ERR_FAIL_COND_V(err, err);
+	if (r_name.is_empty()) {
+		r_name = dest.get_file();
+	}
 	// If lossy, also convert it as a png
 	if (lossy) {
 		dest = source.get_basename() + ".png";
@@ -613,6 +624,34 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
 	print_line("Converted " + p_path + " to " + p_dst);
 	return err;
+}
+Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {
+	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
+	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
+	Error err;
+	TextureLoaderCompat tl;
+	Ref<Image> img = tl.load_image_from_bitmap(p_path, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
+	if (r_name) {
+		*r_name = String(img->get_name());
+	}
+	err = ensure_dir(dst_dir);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
+	String dest_ext = dest_path.get_extension().to_lower();
+	if (dest_ext == "jpg" || dest_ext == "jpeg") {
+		err = gdreutil::save_image_as_jpeg(dest_path, img);
+	} else if (dest_ext == "webp") {
+		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
+	} else if (dest_ext == "png") {
+		err = img->save_png(dest_path);
+	} else {
+		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
+	}
+
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
+
+	print_line("Converted " + p_path + " to " + p_dst);
+	return OK;
 }
 
 Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {

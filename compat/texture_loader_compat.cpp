@@ -837,3 +837,72 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
 }
+bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
+	int ofs = width * p_y + p_x;
+	int bbyte = ofs / 8;
+	int bbit = ofs % 8;
+
+	return (bitmask[bbyte] & (1 << bbit)) != 0;
+}
+
+// Format is the same on V2 - V4
+Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Error *r_err) {
+	Error err;
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	Ref<FileAccess> f = FileAccess::open(res_path, FileAccess::READ, &err);
+
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
+	Ref<Image> image;
+	image.instantiate();
+	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
+	loader->fake_load = true;
+	loader->local_path = p_path;
+	loader->res_path = p_path;
+	loader->convert_v2image_indexed = true;
+	loader->hacks_for_deprecated_v2img_formats = false;
+	err = loader->open(f);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot open resource '" + p_path + "'.", loader);
+	err = loader->load();
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		memdelete(loader);
+		return ERR_UNAVAILABLE;
+	}
+	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot load resource '" + p_path + "'.", loader);
+	String name;
+	Vector2 size;
+	Dictionary data;
+	PackedByteArray bitmask;
+	int width;
+	int height;
+
+	// Load the main resource, which should be the ImageTexture
+	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
+	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
+		ResourceProperty pe = PE->get();
+		if (pe.name == "resource/name") {
+			name = pe.value;
+		} else if (pe.name == "data") {
+			data = pe.value;
+		}
+	}
+	ERR_RFLBC_COND_V_MSG_CLEANUP(!data.has("data") || !data.has("size"), ERR_FILE_CORRUPT, "Cannot load bitmap '" + p_path + "'.", loader);
+	memdelete(loader);
+
+	bitmask = data.get("data", PackedByteArray());
+	size = data.get("size", Vector2());
+	width = size.width;
+	height = size.height;
+	image->create(width, height, false, Image::FORMAT_L8);
+
+	if (!name.is_empty()) {
+		image->set_name(name);
+	}
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
+			image->set_pixel(i, j, get_bit(bitmask, width, i, j) ? Color(1, 1, 1) : Color(0, 0, 0));
+		}
+	}
+	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
+	return image;
+}

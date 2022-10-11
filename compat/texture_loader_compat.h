@@ -54,6 +54,7 @@ public:
 
 	Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error *r_err);
 	Ref<Image> load_image_from_tex(const String p_path, Error *r_err);
+	Ref<Image> load_image_from_bitmap(const String p_path, Error *r_err);
 };
 
 #endif // TEXTURE_LOADER_COMPAT_H

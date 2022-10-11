@@ -47,6 +47,8 @@ class ImportExporter : public RefCounted {
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 
+	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
+
 	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
 	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst, String *r_name);
 	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
