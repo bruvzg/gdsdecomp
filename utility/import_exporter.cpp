@@ -108,11 +108,12 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
-	recreate_plugin_configs(output_dir);
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 
 	if (opt_decompile) {
 		decompile_scripts(output_dir);
+		// This only works if we decompile the scripts first
+		recreate_plugin_configs(output_dir);
 	}
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
