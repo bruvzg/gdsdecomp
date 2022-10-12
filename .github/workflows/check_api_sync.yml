@@ -31,14 +31,14 @@ jobs:
 
     steps:
       - name: checkout-godot
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: godotengine/godot
           # check out latest from master branch
           ref: ${{env.GODOT_BASE_BRANCH}}
 
       - name: checkout-gdsdecomp
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: modules/gdsdecomp
           ref: ${{env.GDSDECOMP_BASE_BRANCH}}
