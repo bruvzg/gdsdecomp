@@ -837,6 +837,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
 }
+
 bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
 	int ofs = width * p_y + p_x;
 	int bbyte = ofs / 8;
@@ -850,8 +851,8 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	Error err;
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
 	Ref<FileAccess> f = FileAccess::open(res_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Image>(), "Cannot open file '" + p_path + "'.");
 
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
 	Ref<Image> image;
 	image.instantiate();
 	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
@@ -861,14 +862,11 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	loader->convert_v2image_indexed = true;
 	loader->hacks_for_deprecated_v2img_formats = false;
 	err = loader->open(f);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot open resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<Image>(), "Cannot open resource '" + p_path + "'.", loader);
+
 	err = loader->load();
-	// deprecated format
-	if (err == ERR_UNAVAILABLE) {
-		memdelete(loader);
-		return ERR_UNAVAILABLE;
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot load resource '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<Image>(), "Cannot load resource '" + p_path + "'.", loader);
+
 	String name;
 	Vector2 size;
 	Dictionary data;
@@ -886,7 +884,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 			data = pe.value;
 		}
 	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(!data.has("data") || !data.has("size"), ERR_FILE_CORRUPT, "Cannot load bitmap '" + p_path + "'.", loader);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(!data.has("data") || !data.has("size"), Ref<Image>(), "Cannot load bitmap '" + p_path + "'.", loader);
 	memdelete(loader);
 
 	bitmask = data.get("data", PackedByteArray());
