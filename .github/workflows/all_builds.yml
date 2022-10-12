@@ -69,13 +69,13 @@ jobs:
 
     steps:
       - name: checkout-godot
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: godotengine/godot
           ref: ${{env.GODOT_MAIN_SYNC_REF}}
 
       - name: checkout-gdsdecomp
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: modules/gdsdecomp
           fetch-depth: 0
@@ -124,7 +124,7 @@ jobs:
       - name: Prepare artifact
         uses: ./.github/actions/godot-prepare-artifact
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         continue-on-error: true
         with:
           name: GDRE_tools-editor-${{ matrix.platform }}
@@ -170,7 +170,7 @@ jobs:
 
 
       - name: Download rcedit.exe
-        uses: robinraju/release-downloader@v1
+        uses: robinraju/release-downloader@v1.5
         if: matrix.platform == 'windows'
         with:
           repository: electron/rcedit
@@ -194,7 +194,7 @@ jobs:
           $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
           Wait-Process -Id $proc.id -Timeout 300
     
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         continue-on-error: true
         with:
           name: GDRE_tools-standalone-${{ matrix.platform }}
