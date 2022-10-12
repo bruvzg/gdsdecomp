@@ -4,8 +4,64 @@ var ver_major = 0
 var ver_minor = 0
 var main : GDRECLIMain
 
+func load_system_font(font_name : String, bold : bool, italic: bool) -> int:
+	var path : String = OS.get_system_font_path(font_name);
+	var the = theme
+	if (path.is_empty()):
+		return ERR_FILE_CANT_OPEN
+	# We use the default font, we wont check for its existence
+	var font : Font = theme.get_font("","")
+	var fallbacks : Array[Font] = font.get_fallbacks()
+	var sysfont : SystemFont = SystemFont.new()
+	sysfont.set_font_names([font_name])
+	fallbacks.append(sysfont)
+	font.set_fallbacks(fallbacks)
+	return OK
+
+func load_system_fonts(fonts : PackedStringArray):
+	for font in fonts:
+		if load_system_font(font, false, false) == OK:
+			#load_system_font(font, true, false)
+			pass
+		else:
+			print("ERROR: Cannot open fallback font " + font);
+	pass
+
+func set_system_fonts():
+	OS.get_system_fonts()
+	# godot has a japanese font, need chinese and korean
+	var WindowsFallbackFonts = [ 
+		"Microsoft JhengHei", # traditional
+		"Microsoft YaHei", # simplified
+		"Malgun Gothic" # korean
+	]
+	var MacOSFallbackFonts = [ 
+		"Apple LiGothic Medium", # traditional
+		"STSong", # simplified
+		"Apple Gothic", # korean
+	]
+	# a number of fallback fonts here, we can't be sure what distro we're using
+	var LinuxFallbackFonts = [ 
+		"UMingTW",  # traditional
+		"UMingHK",  # traditional
+		"Source Han Sans TW",  # traditional
+		"WenQuanYiMicroHei", # simplified
+		"WenQuanYiZenHei", # simplified
+		"DroidSans Fallback", # traditional and simplified
+		"Nanum Gothic", # korean
+		"Nanum Barun Gothic" # korean
+	]
+	var platform = OS.get_name().to_lower()
+	if platform == "windows":
+		load_system_fonts(WindowsFallbackFonts)
+	elif platform == "linux":
+		load_system_fonts(LinuxFallbackFonts)
+	elif platform == "macos":
+		load_system_fonts(MacOSFallbackFonts)
+
 func _ready():
 	$version_lbl.text = $re_editor_standalone.get_version()
+	set_system_fonts()
 	# test_functions()
 	# get_tree().quit()
 
@@ -203,7 +259,6 @@ func print_version():
 
 func handle_cli():
 	var args = OS.get_cmdline_args()
-
 	var input_extract_file:String = ""
 	var input_file:String = ""
 	var output_dir: String = ""
