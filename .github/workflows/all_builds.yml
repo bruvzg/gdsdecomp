@@ -18,6 +18,8 @@ on:
       - "!.github/**"
       - ".github/actions/**"
       - ".github/workflows/all_builds.yml"
+  release:
+    types: ["created"]
 
 # Global Settings
 # SCONS_CACHE for windows must be set in the build environment
@@ -137,7 +139,7 @@ jobs:
         with:
           sconsflags: arch=x86_64 ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
           platform: ${{ matrix.platform }}
-          target: template_debug
+          target: template_release
           tests: false
           scons-cache-limit: 4096
         continue-on-error: true
@@ -199,3 +201,20 @@ jobs:
           name: GDRE_tools-standalone-${{ matrix.platform }}
           path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
           retention-days: 90
+
+      - name: Zip Release
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          cd ${{github.workspace}}/modules/gdsdecomp/standalone/.export
+          7z a "GDRE_tools-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip" *
+        if: github.event_name == 'release'
+
+      - name: Upload to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/GDRE_tools-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+        if: github.event_name == 'release'
