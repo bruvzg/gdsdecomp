@@ -336,6 +336,8 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["RELogo"], RTR("Set encryption key..."), MENU_KEY);
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_icon_item(icons["RELogo"], RTR("Report a bug..."), MENU_REPORT_ISSUE);
+
 		menu_popup->add_icon_item(icons["RELogo"], RTR("Quit"), MENU_EXIT_RE);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		menu_button->set_anchor(Side::SIDE_TOP, 0);
@@ -385,6 +387,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup->add_icon_item(icons["RELogo"], RTR("Set encryption key..."), MENU_KEY);
 		menu_popup->add_separator();
 		menu_popup->add_icon_item(icons["RELogo"], RTR("About Godot RE Tools"), MENU_ABOUT_RE);
+		menu_popup->add_icon_item(icons["RELogo"], RTR("Report a bug..."), MENU_REPORT_ISSUE);
 		menu_popup->add_separator();
 
 		menu_popup->add_icon_item(icons["REPack"], RTR("Create PCK archive from folder..."), MENU_CREATE_PCK);
@@ -473,9 +476,11 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 		case MENU_SMPL_TO_WAV: {
 			smpl_file_selection->popup_centered(Size2(600, 400));
 		} break;
-
 		case MENU_ABOUT_RE: {
 			show_about_dialog();
+		} break;
+		case MENU_REPORT_ISSUE: {
+			OS::get_singleton()->shell_open("https://github.com/bruvzg/gdsdecomp/issues/new");
 		} break;
 		case MENU_EXIT_RE: {
 			get_tree()->quit();
