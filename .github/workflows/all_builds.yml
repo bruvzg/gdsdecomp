@@ -2,22 +2,22 @@ name: Build Editor and Standalone
 on:
   push:
     paths:
-      - '**'
-      - '!**.md'
-      - '!LICENSE'
-      - '!.scripts/clang_format.sh'
-      - '!.github/**'
-      - '.github/actions/**'
-      - '.github/workflows/all_builds.yml'
+      - "**"
+      - "!**.md"
+      - "!LICENSE"
+      - "!.scripts/clang_format.sh"
+      - "!.github/**"
+      - ".github/actions/**"
+      - ".github/workflows/all_builds.yml"
   pull_request:
     paths:
-      - '**'
-      - '!**.md'
-      - '!LICENSE'
-      - '!.scripts/clang_format.sh'
-      - '!.github/**'
-      - '.github/actions/**'
-      - '.github/workflows/all_builds.yml'
+      - "**"
+      - "!**.md"
+      - "!LICENSE"
+      - "!.scripts/clang_format.sh"
+      - "!.github/**"
+      - ".github/actions/**"
+      - ".github/workflows/all_builds.yml"
 
 # Global Settings
 # SCONS_CACHE for windows must be set in the build environment
@@ -104,7 +104,7 @@ jobs:
 
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
-        
+
       - name: Install Vulkan SDK
         uses: ./.github/actions/install-swiftshader
         if: matrix.platform == 'macos'
@@ -148,7 +148,7 @@ jobs:
         with:
           sconsflags: arch=arm64 ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
           platform: ${{ matrix.platform }}
-          target: template_debug
+          target: template_release
           tests: false
           scons-cache-limit: 4096
         continue-on-error: true
@@ -160,14 +160,13 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           mkdir -p "bin/macos_template.app/Contents/MacOS"
-          lipo -create bin/godot.macos.template_debug.x86_64 bin/godot.macos.template_debug.arm64 -output bin/godot.macos.template_debug.universal
-          cp "bin/godot.macos.template_debug.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.universal"
-          cp "bin/godot.macos.template_debug.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_release.universal"
+          lipo -create bin/godot.macos.template_release.x86_64 bin/godot.macos.template_release.arm64 -output bin/godot.macos.template_release.universal
+          cp "bin/godot.macos.template_release.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.universal"
+          cp "bin/godot.macos.template_release.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_release.universal"
           cd bin/
           zip -r9 "macos.zip" "macos_template.app/"
           cd ..
         continue-on-error: true
-
 
       - name: Download rcedit.exe
         uses: robinraju/release-downloader@v1.5
@@ -193,7 +192,7 @@ jobs:
           Wait-Process -Id $proc.id -Timeout 300
           $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
           Wait-Process -Id $proc.id -Timeout 300
-    
+
       - uses: actions/upload-artifact@v3
         continue-on-error: true
         with:
