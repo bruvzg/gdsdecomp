@@ -54,9 +54,7 @@ Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata
 			r_imgdata.append_array(palette[p_imgdata[i]]);
 		}
 	}
-	Ref<Image> img;
-	img.instantiate();
-	img->create(p_width, p_height, p_mipmaps > 0, r_format, r_imgdata);
+	Ref<Image> img = Image::create_from_data(p_width, p_height, p_mipmaps > 0, r_format, r_imgdata);
 	if (img.is_null() && r_error) {
 		*r_error = ERR_PARSE_ERROR;
 	}
@@ -187,8 +185,7 @@ Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool conve
 					ERR_FILE_CORRUPT,
 					"Invalid format");
 
-			img.instantiate();
-			img->create(width, height, mipmaps > 0, fmt, imgdata);
+			img = Image::create_from_data(width, height, mipmaps > 0, fmt, imgdata);
 		}
 	} else {
 		// compressed
@@ -292,8 +289,7 @@ Error ImageParserV2::parse_image_construct_v2(VariantParser::Stream *p_stream, V
 			r_err_str = "Converting deprecated image format " + ImageEnumCompat::get_v2_format_name((V2Image::Format)old_format) + " not implemented.";
 			return ERR_PARSE_ERROR;
 		}
-		img.instantiate();
-		img->create(width, height, mipmaps > 0, fmt, data);
+		img = Image::create_from_data(width, height, mipmaps > 0, fmt, data);
 	}
 	if (img->is_empty()) {
 		r_err_str = "Failed to create image";

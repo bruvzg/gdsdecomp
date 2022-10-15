@@ -159,7 +159,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 					ofs += len;
 				}
 			}
-			image->create(tw, th, true, format, img_data);
+			image->initialize_data(tw, th, true, format, img_data);
 		}
 	} else {
 		//look for regular format
@@ -185,7 +185,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 				f->get_buffer(wr, size);
 			}
 
-			image->create(tw, th, false, format, img_data);
+			image->initialize_data(tw, th, false, format, img_data);
 		} else {
 			int sw = tw;
 			int sh = th;
@@ -223,7 +223,7 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 				}
 				ERR_FAIL_COND_V(bytes != expected, ERR_FILE_CORRUPT);
 			}
-			image->create(sw, sh, true, format, img_data);
+			image->initialize_data(sw, sh, true, format, img_data);
 		}
 	}
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), ERR_FILE_CORRUPT, "Failed to create image of format " + Image::get_format_name(format) + "from texture");
@@ -439,7 +439,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 					}
 				}
 
-				image->create(tw, th, true, format, img_data);
+				image->initialize_data(tw, th, true, format, img_data);
 				if (image->is_empty()) {
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
 				}
@@ -459,7 +459,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 					ERR_FAIL_V(ERR_FILE_CORRUPT);
 				}
 			}
-			image->create(tw, th, mipmaps, format, img_data);
+			image->initialize_data(tw, th, mipmaps, format, img_data);
 		}
 		r_data.push_back(image);
 	}
@@ -891,7 +891,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	size = data.get("size", Vector2());
 	width = size.width;
 	height = size.height;
-	image->create(width, height, false, Image::FORMAT_L8);
+	image->initialize_data(width, height, false, Image::FORMAT_L8);
 
 	if (!name.is_empty()) {
 		image->set_name(name);
