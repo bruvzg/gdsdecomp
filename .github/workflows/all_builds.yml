@@ -206,7 +206,6 @@ jobs:
     permissions:
       contents: write
     needs: build
-    runs-on: ubuntu-20.04
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v3
