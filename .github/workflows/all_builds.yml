@@ -211,23 +211,23 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: GDRE_tools-standalone-linux
-          path: artifacts
+          path: artifacts/linux
       - name: Download MacOS artifact
         uses: actions/download-artifact@v3
         with:
           name: GDRE_tools-standalone-macos
-          path: artifacts
+          path: artifacts/macos
       - name: Download Windows artifact
         uses: actions/download-artifact@v3
         with:
           name: GDRE_tools-standalone-windows
-          path: artifacts
-      - name: Rename artifacts
+          path: artifacts/windows
+      - name: Zip artifacts
         run: |
           ls -la artifacts/*
-          mv "artifacts/GDRE_tools-standalone-windows.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip"
-          mv "artifacts/GDRE_tools-standalone-macos.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip"
-          mv "artifacts/GDRE_tools-standalone-linux.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip"
+          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip" artifacts/windows/*
+          mv "artifacts/macos/gdre_tools.universal.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip"
+          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip" artifacts/linux/*
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
