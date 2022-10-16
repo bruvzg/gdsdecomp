@@ -211,7 +211,7 @@ jobs:
         if: github.event_name == 'release'
 
       - name: Upload to Release
-        uses: svenstaro/upload-release-action@v2
+        uses: nikitalita/upload-release-action@v2.4.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/GDRE_tools-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip
