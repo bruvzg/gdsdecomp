@@ -635,6 +635,11 @@ Error GDRESettings::remove_remap(const String &src, const String &dst) {
 	ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
 }
 
+String GDRESettings::get_project_config_path() {
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), String(), "project config not loaded!");
+	return current_pack->pcfg->get_cfg_path();
+}
+
 void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
