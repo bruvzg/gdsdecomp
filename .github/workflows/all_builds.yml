@@ -18,8 +18,6 @@ on:
       - "!.github/**"
       - ".github/actions/**"
       - ".github/workflows/all_builds.yml"
-  release:
-    types: ["created"]
 
 # Global Settings
 # SCONS_CACHE for windows must be set in the build environment
@@ -201,19 +199,38 @@ jobs:
           path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
           retention-days: 90
 
-      - name: Zip Release
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          cd ${{github.workspace}}/modules/gdsdecomp/standalone/.export
-          7z a "GDRE_tools-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip" *
-        if: github.event_name == 'release'
-
-      - name: Upload to Release
-        uses: svenstaro/upload-release-action@v2
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: "ubuntu-20.04"
+    permissions:
+      contents: write
+    needs: build
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v3
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/GDRE_tools-${{ github.event.release.tag_name }}-${{ matrix.platform }}.zip
-          tag: ${{ github.ref }}
-          overwrite: true
-        if: github.event_name == 'release'
+          name: GDRE_tools-standalone-linux
+          path: artifacts/linux
+      - name: Download MacOS artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: GDRE_tools-standalone-macos
+          path: artifacts/macos
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: GDRE_tools-standalone-windows
+          path: artifacts/windows
+      - name: Zip artifacts
+        run: |
+          ls -la artifacts/*
+          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip" artifacts/windows/*
+          mv "artifacts/macos/gdre_tools.universal.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip"
+          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip" artifacts/linux/*
+      - name: Release
+        uses: nikitalita/action-gh-release@v1.0
+        with:
+          files: |
+            artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip
+            artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip
+            artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip
