@@ -55,6 +55,7 @@ public:
 	Variant get_setting(String p_var, Variant default_value) const;
 	Error remove_setting(String p_var);
 	Error set_setting(String p_var, Variant value);
+	String get_cfg_path() { return cfb_path; }
 	int get_major_version() { return (int)get_setting("config_version", 0); }
 	Variant g_set(const String &p_var, const Variant &p_default, bool p_restart_if_changed = false);
 	ProjectConfigLoader();

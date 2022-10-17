@@ -133,7 +133,6 @@ jobs:
           path: ${{github.workspace}}/bin/*
           retention-days: 90
 
-      # target template_release makes CLI flags not work; use template_debug instead and then just strip it
       - name: Compile godot export template (x86_64)
         uses: ./.github/actions/godot-build
         with:

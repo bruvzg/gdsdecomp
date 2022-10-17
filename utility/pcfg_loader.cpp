@@ -103,7 +103,7 @@ Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String
 		ERR_CONTINUE_MSG(err != OK, "Error decoding property: " + key + ".");
 		props[key] = VariantContainer(value, last_builtin_order++, true);
 	}
-
+	cfb_path = p_path;
 	return OK;
 }
 

@@ -241,6 +241,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		print_line("ERROR: Failed to save project config!");
 	} else {
 		print_line("Saved " + String(get_ver_major() > 2 ? "project.godot" : "engine.cfg") + " to " + output_dir);
+		dir->remove(get_settings()->get_project_config_path().replace("res://", ""));
 	}
 	print_report();
 	return OK;
