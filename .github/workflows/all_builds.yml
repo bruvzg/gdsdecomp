@@ -229,7 +229,7 @@ jobs:
           mv "artifacts/macos/gdre_tools.universal.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip"
           zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip" artifacts/linux/*
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: nikitalita/action-gh-release@v1.0
         with:
           files: |
             artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip
