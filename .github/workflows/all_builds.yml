@@ -224,9 +224,12 @@ jobs:
       - name: Zip artifacts
         run: |
           ls -la artifacts/*
-          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-windows.zip" artifacts/windows/*
+          cd artifacts/windows
+          zip -r9  "../GDRE_tools-${{ github.ref_name }}-windows.zip" *
+          cd ../..
           mv "artifacts/macos/gdre_tools.universal.zip" "artifacts/GDRE_tools-${{ github.ref_name }}-macos.zip"
-          zip -r9  "artifacts/GDRE_tools-${{ github.ref_name }}-linux.zip" artifacts/linux/*
+          cd artifacts/linux
+          zip -r9  "../GDRE_tools-${{ github.ref_name }}-linux.zip" *
       - name: Release
         uses: nikitalita/action-gh-release@v1.0
         with:
