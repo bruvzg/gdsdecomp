@@ -9,10 +9,253 @@ static String rtosfix(double p_value) {
 		return rtoss(p_value);
 }
 
-// Don't think this is necessary at the moment? The only objects that get stored inline in text resources are Position3D objects and those are unchanged from Godot 2.x
-Error VariantParserCompat::fake_parse_object(VariantParser::Token &token, Variant &r_value, VariantParser::Stream *p_stream, int &line, String &r_err_str, VariantParser::ResourceParser *p_res_parser) {
-	return parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
+Error VariantParserCompat::_parse_array(Array &array, Stream *p_stream, int &line, String &r_err_str, ResourceParser *p_res_parser) {
+	Token token;
+	bool need_comma = false;
+
+	while (true) {
+		if (p_stream->is_eof()) {
+			r_err_str = "Unexpected End of File while parsing array";
+			return ERR_FILE_CORRUPT;
+		}
+
+		Error err = get_token(p_stream, token, line, r_err_str);
+		if (err != OK) {
+			return err;
+		}
+
+		if (token.type == TK_BRACKET_CLOSE) {
+			return OK;
+		}
+
+		if (need_comma) {
+			if (token.type != TK_COMMA) {
+				r_err_str = "Expected ','";
+				return ERR_PARSE_ERROR;
+			} else {
+				need_comma = false;
+				continue;
+			}
+		}
+
+		Variant v;
+		err = parse_value(token, v, p_stream, line, r_err_str, p_res_parser);
+		if (err) {
+			return err;
+		}
+
+		array.push_back(v);
+		need_comma = true;
+	}
 }
+
+Error VariantParserCompat::_parse_dictionary(Dictionary &object, Stream *p_stream, int &line, String &r_err_str, ResourceParser *p_res_parser) {
+	bool at_key = true;
+	Variant key;
+	Token token;
+	bool need_comma = false;
+
+	while (true) {
+		if (p_stream->is_eof()) {
+			r_err_str = "Unexpected End of File while parsing dictionary";
+			return ERR_FILE_CORRUPT;
+		}
+
+		if (at_key) {
+			Error err = get_token(p_stream, token, line, r_err_str);
+			if (err != OK) {
+				return err;
+			}
+
+			if (token.type == TK_CURLY_BRACKET_CLOSE) {
+				return OK;
+			}
+
+			if (need_comma) {
+				if (token.type != TK_COMMA) {
+					r_err_str = "Expected '}' or ','";
+					return ERR_PARSE_ERROR;
+				} else {
+					need_comma = false;
+					continue;
+				}
+			}
+
+			err = parse_value(token, key, p_stream, line, r_err_str, p_res_parser);
+
+			if (err) {
+				return err;
+			}
+
+			err = get_token(p_stream, token, line, r_err_str);
+
+			if (err != OK) {
+				return err;
+			}
+			if (token.type != TK_COLON) {
+				r_err_str = "Expected ':'";
+				return ERR_PARSE_ERROR;
+			}
+			at_key = false;
+		} else {
+			Error err = get_token(p_stream, token, line, r_err_str);
+			if (err != OK) {
+				return err;
+			}
+
+			Variant v;
+			err = parse_value(token, v, p_stream, line, r_err_str, p_res_parser);
+			if (err) {
+				return err;
+			}
+			object[key] = v;
+			need_comma = true;
+			at_key = true;
+		}
+	}
+}
+
+// Primarily for parsing V3 input event objects stored in project.godot
+// The only other Objects that get stored inline in text resources that we know of are Position3D objects,
+// and those are unchanged from Godot 2.x
+Error VariantParserCompat::parse_value(VariantParser::Token &token, Variant &r_value, VariantParser::Stream *p_stream, int &line, String &r_err_str, VariantParser::ResourceParser *p_res_parser) {
+	// Since Arrays and Dictionaries can have Objects inside of them...
+	if (token.type == TK_CURLY_BRACKET_OPEN) {
+		Dictionary d;
+		Error err = _parse_dictionary(d, p_stream, line, r_err_str, p_res_parser);
+		if (err) {
+			return err;
+		}
+		r_value = d;
+		return OK;
+	} else if (token.type == TK_BRACKET_OPEN) {
+		Array a;
+		Error err = _parse_array(a, p_stream, line, r_err_str, p_res_parser);
+		if (err) {
+			return err;
+		}
+		r_value = a;
+		return OK;
+	} else if (token.type == TK_IDENTIFIER) {
+		String id = token.value;
+		if (id == "Object") {
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_OPEN) {
+				r_err_str = "Expected '('";
+				return ERR_PARSE_ERROR;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+
+			if (token.type != TK_IDENTIFIER) {
+				r_err_str = "Expected identifier with type of object";
+				return ERR_PARSE_ERROR;
+			}
+
+			String type = token.value;
+			// hacks for v3 input_event
+			bool v3_input_key_hacks = type == "InputEventKey";
+			Object *obj = ClassDB::instantiate(type);
+
+			if (!obj) {
+				r_err_str = "Can't instantiate Object() of type: " + type;
+				return ERR_PARSE_ERROR;
+			}
+
+			Ref<RefCounted> ref = Ref<RefCounted>(Object::cast_to<RefCounted>(obj));
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_COMMA) {
+				r_err_str = "Expected ',' after object type";
+				return ERR_PARSE_ERROR;
+			}
+
+			bool at_key = true;
+			String key;
+			Token token2;
+			bool need_comma = false;
+
+			while (true) {
+				if (p_stream->is_eof()) {
+					r_err_str = "Unexpected End of File while parsing Object()";
+					return ERR_FILE_CORRUPT;
+				}
+
+				if (at_key) {
+					Error err = get_token(p_stream, token2, line, r_err_str);
+					if (err != OK) {
+						return err;
+					}
+
+					if (token2.type == TK_PARENTHESIS_CLOSE) {
+						r_value = ref.is_valid() ? Variant(ref) : Variant(obj);
+						return OK;
+					}
+
+					if (need_comma) {
+						if (token2.type != TK_COMMA) {
+							r_err_str = "Expected '}' or ','";
+							return ERR_PARSE_ERROR;
+						} else {
+							need_comma = false;
+							continue;
+						}
+					}
+
+					if (token2.type != TK_STRING) {
+						r_err_str = "Expected property name as string";
+						return ERR_PARSE_ERROR;
+					}
+
+					key = token2.value;
+
+					err = get_token(p_stream, token2, line, r_err_str);
+
+					if (err != OK) {
+						return err;
+					}
+					if (token2.type != TK_COLON) {
+						r_err_str = "Expected ':'";
+						return ERR_PARSE_ERROR;
+					}
+					at_key = false;
+				} else {
+					Error err = get_token(p_stream, token2, line, r_err_str);
+					if (err != OK) {
+						return err;
+					}
+
+					Variant v;
+					err = parse_value(token2, v, p_stream, line, r_err_str, p_res_parser);
+
+					if (err) {
+						return err;
+					}
+
+					// Hacks for v3 input events
+					// "scancode" was renamed to "keycode"
+					// We don't check for engine version
+					// If this is a v4 input_event, it won't have these
+					// v2 input_events were variants and are handled below
+					if (v3_input_key_hacks) {
+						if (key == "scancode") {
+							key = "keycode";
+						} else if (key == "physical_scancode") {
+							key = "physical_keycode";
+						}
+					}
+					obj->set(key, v);
+					need_comma = true;
+					at_key = true;
+				}
+			}
+		}
+		// If it's an Object, the above will eventually call return
+	}
+	// If this wasn't an Object or a Variant that can have objects stored inside them...
+	return VariantParser::parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
+}
+
 Error VariantParserCompat::parse_tag(VariantParser::Stream *p_stream, int &line, String &r_err_str, Tag &r_tag, VariantParser::ResourceParser *p_res_parser, bool p_simple_tag) {
 	return VariantParser::parse_tag(p_stream, line, r_err_str, r_tag, p_res_parser, p_simple_tag);
 }
@@ -87,9 +330,8 @@ Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream,
 						err = InputEventParserV2::parse_input_event_construct_v2(p_stream, r_value, line, r_err_str);
 					} else if (id == "mbutton" || id == "key" || id == "jbutton" || id == "jaxis") { // Old V2 InputEvent in project.cfg
 						err = InputEventParserV2::parse_input_event_construct_v2(p_stream, r_value, line, r_err_str, id);
-					} else if (id == "Object") {
-						err = fake_parse_object(token, r_value, p_stream, line, r_err_str, p_res_parser);
 					} else {
+						// Our own compat parse_value
 						err = parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
 					}
 					return err;
@@ -232,7 +474,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				p_store_string_func(p_store_string_ud, "null");
 				break; // don't save it
 			}
-
+			bool v3_input_key_hacks = false;
 			Ref<Resource> res = p_variant;
 			if (res.is_valid()) {
 				// is resource
@@ -246,15 +488,19 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 					// try external function
 					res_text = p_encode_res_func(p_encode_res_ud, res);
 				}
-				// try path because it's a file
-				if (res_text == String() && res->get_path().is_resource_file()) {
-					// external resource
-					String path = res->get_path();
-					res_text = "Resource( \"" + path + "\")";
+				if (res_text.is_empty()) {
+					if (ver_major == 3 && res->is_class("InputEventKey") && is_pcfg) {
+						// Hacks for v3 InputEventKeys stored inline in project.godot
+						v3_input_key_hacks = true;
+					} else if (res->get_path().is_resource_file()) {
+						// external resource
+						String path = res->get_path();
+						res_text = "Resource( \"" + path + "\")";
+					}
 				}
 
 				// could come up with some sort of text
-				if (res_text != String()) {
+				if (!res_text.is_empty()) {
 					p_store_string_func(p_store_string_ud, res_text);
 					break;
 				}
@@ -276,8 +522,16 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 					} else {
 						p_store_string_func(p_store_string_ud, ",");
 					}
-
-					p_store_string_func(p_store_string_ud, "\"" + E->get().name + "\":");
+					// v3 InputEventKey hacks
+					String compat_name = E->get().name;
+					if (v3_input_key_hacks) {
+						if (compat_name == "keycode") {
+							compat_name = "scancode";
+						} else if (compat_name == "physical_keycode") {
+							compat_name = "physical_scancode";
+						}
+					}
+					p_store_string_func(p_store_string_ud, "\"" + compat_name + "\":");
 					write_compat(obj->get(E->get().name), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
 				}
 			}

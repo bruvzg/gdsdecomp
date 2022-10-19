@@ -570,7 +570,7 @@ Error VariantDecoderCompat::decode_variant_3(Variant &r_variant, const uint8_t *
 					r_variant = (Object *)nullptr;
 				} else {
 					Object *obj = ClassDB::instantiate(str);
-
+					bool is_input_event_key = str == "InputEventKey";
 					ERR_FAIL_COND_V(!obj, ERR_UNAVAILABLE);
 					ERR_FAIL_COND_V(len < 4, ERR_INVALID_DATA);
 
@@ -600,7 +600,15 @@ Error VariantDecoderCompat::decode_variant_3(Variant &r_variant, const uint8_t *
 						if (r_len) {
 							(*r_len) += used;
 						}
-
+						// Hack for v3 Input Events, which will be the only Objects we encounter encoded into the project.binary
+						// scancode was renamed to keycode in v4
+						if (is_input_event_key) {
+							if (str == "scancode") {
+								str = "keycode";
+							} else if (str == "physical_scancode") {
+								str = "physical_keycode";
+							}
+						}
 						obj->set(str, value);
 					}
 

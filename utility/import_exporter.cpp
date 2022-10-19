@@ -341,6 +341,8 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		default:
 			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
+	// TODO: REMOVE THIS HACK!!!!!
+	decomp->engine_ver_major = get_ver_major();
 	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + ".x detected");
 	Error err;
 
