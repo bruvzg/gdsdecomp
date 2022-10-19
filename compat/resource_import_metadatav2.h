@@ -29,6 +29,7 @@ public:
 	void set_editor(const String &p_editor);
 	String get_editor() const;
 	void add_source(const String &p_path, const String &p_md5 = "");
+	void add_source_at(const String &p_path, const String &p_md5, int p_idx);
 	String get_source_path(int p_idx) const;
 	String get_source_md5(int p_idx) const;
 	void set_source_md5(int p_idx, const String &p_md5);

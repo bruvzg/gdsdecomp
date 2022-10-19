@@ -9,12 +9,19 @@ void ResourceImportMetadatav2::set_editor(const String &p_editor) {
 String ResourceImportMetadatav2::get_editor() const {
 	return editor;
 }
-
 void ResourceImportMetadatav2::add_source(const String &p_path, const String &p_md5) {
+	add_source_at(p_path, p_md5, sources.size());
+}
+void ResourceImportMetadatav2::add_source_at(const String &p_path, const String &p_md5, int p_idx) {
 	Source s;
 	s.md5 = p_md5;
 	s.path = p_path;
-	sources.push_back(s);
+	ERR_FAIL_COND(p_idx < 0 || p_idx > sources.size());
+	if (p_idx == sources.size()) {
+		sources.push_back(s);
+	} else {
+		sources.insert(p_idx, s);
+	}
 }
 
 String ResourceImportMetadatav2::get_source_path(int p_idx) const {
@@ -82,6 +89,7 @@ void ResourceImportMetadatav2::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_editor", "name"), &ResourceImportMetadatav2::set_editor);
 	ClassDB::bind_method(D_METHOD("get_editor"), &ResourceImportMetadatav2::get_editor);
 	ClassDB::bind_method(D_METHOD("add_source", "path", "md5"), &ResourceImportMetadatav2::add_source, "");
+	ClassDB::bind_method(D_METHOD("add_source_at", "path", "md5", "p_idx"), &ResourceImportMetadatav2::add_source_at);
 	ClassDB::bind_method(D_METHOD("get_source_path", "idx"), &ResourceImportMetadatav2::get_source_path);
 	ClassDB::bind_method(D_METHOD("get_source_md5", "idx"), &ResourceImportMetadatav2::get_source_md5);
 	ClassDB::bind_method(D_METHOD("set_source_md5", "idx", "md5"), &ResourceImportMetadatav2::set_source_md5);

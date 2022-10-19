@@ -68,7 +68,9 @@ private:
 	String source_file; // file to import
 	Vector<String> additional_sources; // For v2 Atlas and large textures
 	Vector<String> dest_files;
-	String preferred_dest;
+	String export_dest;
+	String export_lossless_copy;
+	String resource_name;
 	Dictionary params; // import options (like compression mode, lossy quality, etc.)
 	Ref<ConfigFile> cf; // raw v3-v4 import data
 	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
@@ -104,7 +106,6 @@ public:
 	Error reload();
 	virtual String to_string() override;
 	int get_import_loss_type() const;
-	Error rename_source(const String &p_new_source);
 	bool is_auto_converted() const { return auto_converted_export; }
 	bool is_import() const { return !not_an_import; }
 

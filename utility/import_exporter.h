@@ -27,7 +27,7 @@ class ImportExporter : public RefCounted {
 	bool opt_export_jpg = true;
 	bool opt_export_webp = true;
 	bool opt_rewrite_imd_v2 = true;
-	bool opt_rewrite_imd_v3 = false;
+	bool opt_rewrite_imd_v3 = true;
 	bool opt_decompile = true;
 	bool opt_only_decompile = false;
 	bool had_encryption_error = false;
@@ -46,7 +46,7 @@ class ImportExporter : public RefCounted {
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir);
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
-
+	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
 
 	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
