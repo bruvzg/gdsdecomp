@@ -20,9 +20,9 @@ protected:
 
 	String script_text;
 	String error_message;
+	int engine_ver_major;
 
 public:
-	int engine_ver_major = 4;
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) = 0;
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key, bool is_version_3 = false);
 	Error decompile_byte_code(const String &p_path);
