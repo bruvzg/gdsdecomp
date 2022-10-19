@@ -86,7 +86,7 @@ void ImportInfo::_init() {
 	ver_major = 0;
 	ver_minor = 0;
 	dest_files = Vector<String>();
-	preferred_dest = "";
+	export_dest = "";
 	params = Dictionary();
 	v3metadata_prop = Dictionary();
 }
