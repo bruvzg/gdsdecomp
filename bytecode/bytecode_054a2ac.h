@@ -26,7 +26,7 @@ protected:
 
 public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
-	GDScriptDecomp_054a2ac(){ engine_ver_major = 3; }
+	GDScriptDecomp_054a2ac() { engine_ver_major = 3; }
 };
 
 #endif
