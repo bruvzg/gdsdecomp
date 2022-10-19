@@ -151,6 +151,26 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				continue;
 			}
 		}
+		// ***** Set export destination *****
+		iinfo->export_dest = iinfo->source_file;
+		bool should_rewrite_metadata = false;
+		// This is a Godot asset that was imported outside of project directory
+		if (!iinfo->source_file.begins_with("res://")) {
+			if (get_ver_major() <= 2) {
+				// import_md_path is the resource path in v2
+				iinfo->export_dest = String("res://.assets").path_join(iinfo->import_md_path.get_base_dir().path_join(iinfo->source_file.get_file()).replace("res://", ""));
+			} else {
+				// import_md_path is the .import path in v3-v4
+				iinfo->export_dest = iinfo->import_md_path.get_basename();
+				// If the source_file path was not actually in the project structure, save it elsewhere
+				if (iinfo->source_file.find(iinfo->export_dest.replace("res://", "")) == -1) {
+					iinfo->export_dest = iinfo->export_dest.replace("res://", "res://.assets");
+				}
+			}
+			should_rewrite_metadata = true;
+		}
+
+		// ***** Export resource *****
 		if (opt_export_textures && importer == "texture") {
 			// Right now we only convert 2d image textures
 			auto tex_type = TextureLoaderCompat::recognize(path, &err);
@@ -187,19 +207,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				continue;
 			}
 		} else if (opt_export_ogg && importer == "ogg_vorbis") {
-			iinfo->export_dest = iinfo->source_file;
-			err = convert_oggstr_to_ogg(output_dir, iinfo->import_path, iinfo->source_file);
+			err = convert_oggstr_to_ogg(output_dir, iinfo->import_path, iinfo->export_dest);
 		} else if (opt_export_mp3 && importer == "mp3") {
-			iinfo->export_dest = iinfo->source_file;
-			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->source_file);
+			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->export_dest);
 		} else if (importer == "bitmap") {
-			iinfo->export_dest = iinfo->source_file;
 			err = export_texture(output_dir, iinfo);
-
 		} else if ((opt_bin2text && iinfo->import_path.get_extension() == "res") ||
 				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
-			iinfo->export_dest = iinfo->source_file;
-			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->source_file);
+			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->export_dest);
 			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
 				dir->remove(iinfo->import_path.replace("res://", ""));
 			}
@@ -211,12 +226,12 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 
 		// ****REWRITE METADATA****
-		if (err == ERR_PRINTER_ON_FIRE) {
-			if (iinfo->ver_major == 2 && iinfo->is_import()) {
+		if ((err == ERR_PRINTER_ON_FIRE || (err == OK && should_rewrite_metadata)) && iinfo->is_import()) {
+			if (iinfo->ver_major == 2 && opt_rewrite_imd_v2) {
 				// TODO: currently the resource_name is only set in the various exporters, but we should be setting it when we load the import data.
 				err = rewrite_v2_import_metadata(path, iinfo->export_dest, iinfo->resource_name, output_dir);
-			} else if (iinfo->ver_major >= 3 && iinfo->is_import()) {
-				// Currently, we only write the import data if the source file was somehow recorded as an absolute file path,
+			} else if (iinfo->ver_major >= 3 && opt_rewrite_imd_v3) {
+				// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
 				// But is still in the project structure
 				if (iinfo->source_file.find(iinfo->export_dest.replace("res://", "")) != -1) {
 					err = rewrite_import_data(iinfo->export_dest, output_dir, iinfo);
@@ -225,12 +240,18 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
 			// if we failed, it won't be OK
 			if (err != OK) {
+				if (err == ERR_PRINTER_ON_FIRE) {
+					print_line("Did not rewrite import metadata for " + iinfo->source_file);
+				} else {
+					print_line("Failed to rewrite import metadata for " + iinfo->source_file);
+				}
 				err = ERR_DATABASE_CANT_WRITE;
-				print_line("Failed to rewrite import metadata for " + iinfo->source_file);
 			} else {
 				err = ERR_PRINTER_ON_FIRE;
 			}
 		}
+
+		// ***** Record export result *****
 
 		// we had to rewrite the import metadata
 		if (err == ERR_PRINTER_ON_FIRE) {
@@ -434,16 +455,8 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	String path = iinfo->get_path();
 	String source = iinfo->get_source_file();
-	String dest = source;
-	bool rewrite_metadata = false;
+	bool should_rewrite_metadata = false;
 	bool lossy = false;
-
-	// Rewrite the metadata for v2
-	// This is essentially mandatory for v2 resources because they can be imported outside the
-	// project directory tree and the import metadata often points to locations that don't exist.
-	if (iinfo->ver_major == 2 && opt_rewrite_imd_v2 && iinfo->is_import()) {
-		rewrite_metadata = true;
-	}
 
 	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
 	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
@@ -458,41 +471,35 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 					lossy = true;
 				}
 			} else {
-				dest = source.get_basename() + ".png";
+				iinfo->export_dest = iinfo->export_dest.get_basename() + ".png";
 				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
 				if (opt_rewrite_imd_v3 && iinfo->is_import()) {
-					rewrite_metadata = true;
+					should_rewrite_metadata = true;
 				} else {
 					// save it under .assets, which won't be picked up for import by the godot editor
-					if (!dest.replace("res://", "").begins_with(".assets")) {
+					if (!iinfo->export_dest.replace("res://", "").begins_with(".assets")) {
 						String prefix = ".assets";
-						if (dest.begins_with("res://")) {
+						if (iinfo->export_dest.begins_with("res://")) {
 							prefix = "res://.assets";
 						}
-						dest = prefix.path_join(dest.replace("res://", ""));
+						iinfo->export_dest = prefix.path_join(iinfo->export_dest.replace("res://", ""));
 					}
 				}
 			}
 		} else { //version 2
-			dest = source.get_basename() + ".png";
+			iinfo->export_dest = iinfo->export_dest.get_basename() + ".png";
+			if (opt_rewrite_imd_v2 && iinfo->is_import()) {
+				should_rewrite_metadata = true;
+			}
 		}
 	}
-	// This is a Godot 3.x asset that somehow was imported outside of project directory
-	if (iinfo->ver_major >= 3 && !iinfo->source_file.begins_with("res://") && !iinfo->source_file.begins_with("user://")) {
-		dest = iinfo->import_md_path.get_basename();
-		if (iinfo->source_file.find(dest.replace("res://", "")) == -1) {
-			dest = dest.replace("res://", "res://.assets");
-		}
-		rewrite_metadata = true;
-	}
-	iinfo->export_dest = dest;
 
 	String r_name;
 	Error err;
 	if (iinfo->importer == "bitmap") {
-		err = _convert_bitmap(output_dir, path, dest, &r_name, lossy);
+		err = _convert_bitmap(output_dir, path, iinfo->export_dest, &r_name, lossy);
 	} else {
-		err = _convert_tex(output_dir, path, dest, &r_name, lossy);
+		err = _convert_tex(output_dir, path, iinfo->export_dest, &r_name, lossy);
 	}
 	if (err == ERR_UNAVAILABLE) {
 		return ERR_UNAVAILABLE;
@@ -501,7 +508,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	iinfo->resource_name = r_name;
 	// If lossy, also convert it as a png
 	if (lossy) {
-		dest = source.get_basename() + ".png";
+		String dest = iinfo->export_dest.get_basename() + ".png";
 		if (!dest.replace("res://", "").begins_with(".assets")) {
 			String prefix = ".assets";
 			if (dest.begins_with("res://")) {
@@ -516,7 +523,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 		}
 		ERR_FAIL_COND_V(err != OK, err);
 	}
-	if (rewrite_metadata) {
+	if (should_rewrite_metadata) {
 		return ERR_PRINTER_ON_FIRE;
 	}
 
@@ -524,17 +531,12 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 }
 
 Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	String path = iinfo->get_path();
-	String source = iinfo->get_source_file();
-	String dest = source;
-
-	iinfo->export_dest = dest;
 	if (iinfo->ver_major == 2) {
 		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
-		print_line("Not converting sample " + path);
+		print_line("Not converting sample " + iinfo->get_path());
 		return ERR_UNAVAILABLE;
 	}
-	convert_sample_to_wav(output_dir, path, dest);
+	convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->export_dest);
 	return OK;
 }
 

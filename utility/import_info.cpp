@@ -191,12 +191,6 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 	if (err == OK) {
 		// If this is a "converted" file, then it won't have import metadata...
 		if (has_import_data()) {
-			// If this is a path outside of the project directory, we change it to the ".assets" directory in the project dir
-			if (get_source_file().begins_with("../") ||
-					(get_source_file().is_absolute_path() && GDRESettings::get_singleton()->is_fs_path(get_source_file()))) {
-				dest = String(".assets").path_join(p_path.replace("res://", "").get_base_dir().path_join(get_source_file().get_file()));
-				source_file = dest;
-			}
 			return OK;
 		} else {
 			not_an_import = true;
@@ -257,26 +251,6 @@ Error ImportInfo::load_from_file_v2(const String &p_path) {
 		}
 	}
 
-	return OK;
-}
-
-Error ImportInfo::rename_source(const String &p_new_source) {
-	ERR_FAIL_COND_V_MSG(ver_major <= 2, ERR_BUG, "Don't use this for version <= 2 ");
-	String old_import_path = import_md_path;
-	String new_import_path = import_md_path.get_base_dir().path_join(p_new_source.get_file() + ".import");
-
-	Ref<ConfigFile> import_file;
-	import_file.instantiate();
-	Error err = import_file->load(import_md_path);
-	ERR_FAIL_COND_V_MSG(err, ERR_BUG, "Failed to load import file " + import_md_path);
-
-	import_file->set_value("deps", "source_file", p_new_source);
-
-	ERR_FAIL_COND_V_MSG(import_file->save(new_import_path) != OK, ERR_BUG, "Failed to save changed import data");
-	cf->set_value("deps", "source_file", p_new_source);
-	source_file = p_new_source;
-	//ERR_FAIL_COND_V_MSG(load_from_file(new_import_path, ver_major, ver_minor) != OK, ERR_BUG, "Failed to reload changed import file");
-	DirAccess::remove_file_or_error(old_import_path);
 	return OK;
 }
 

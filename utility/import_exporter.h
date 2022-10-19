@@ -27,7 +27,7 @@ class ImportExporter : public RefCounted {
 	bool opt_export_jpg = true;
 	bool opt_export_webp = true;
 	bool opt_rewrite_imd_v2 = true;
-	bool opt_rewrite_imd_v3 = false;
+	bool opt_rewrite_imd_v3 = true;
 	bool opt_decompile = true;
 	bool opt_only_decompile = false;
 	bool had_encryption_error = false;

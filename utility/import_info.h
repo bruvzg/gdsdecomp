@@ -106,7 +106,6 @@ public:
 	Error reload();
 	virtual String to_string() override;
 	int get_import_loss_type() const;
-	Error rename_source(const String &p_new_source);
 	bool is_auto_converted() const { return auto_converted_export; }
 	bool is_import() const { return !not_an_import; }
 
