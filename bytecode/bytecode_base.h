@@ -20,6 +20,7 @@ protected:
 
 	String script_text;
 	String error_message;
+	int engine_ver_major;
 
 public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) = 0;

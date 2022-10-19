@@ -4,6 +4,7 @@
 
 #include "bytecode_base.h"
 #include "compat/file_access_encrypted_v3.h"
+#include "compat/variant_writer_compat.h"
 
 #include "core/config/engine.h"
 #include "core/io/file_access.h"
@@ -86,7 +87,8 @@ String GDScriptDecomp::get_error_message() {
 }
 
 String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
-	String constString = constants[constId].get_construct_string();
+	String constString;
+	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, engine_ver_major);
 	if (constants[constId].get_type() == Variant::Type::STRING) {
 		constString = constString.replace("\n", "\\n");
 	}
