@@ -219,7 +219,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				dir->remove(iinfo->import_path.replace("res://", ""));
 			}
 		} else {
-			WARN_PRINT_ONCE("Conversion for Resource of type " + type + "and format " + iinfo->source_file.get_extension() + " not implemented");
+			WARN_PRINT_ONCE("Conversion for Resource of type " + type + " and format " + iinfo->source_file.get_extension() + " not implemented");
 			print_line("Did not convert " + type + " resource " + path);
 			not_converted.push_back(iinfo);
 			continue;
@@ -284,8 +284,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	if (get_settings()->save_project_config(output_dir) != OK) {
 		print_line("ERROR: Failed to save project config!");
 	} else {
-		print_line("Saved " + String(get_ver_major() > 2 ? "project.godot" : "engine.cfg") + " to " + output_dir);
-		dir->remove(get_settings()->get_project_config_path().replace("res://", ""));
+		// Remove binary project config, as editors will load from it instead of the text one
+		dir->remove(get_settings()->get_project_config_path().get_file());
 	}
 	print_report();
 	return OK;
