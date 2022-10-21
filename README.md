@@ -74,6 +74,14 @@ Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/d
 - Support for building on 3.x has been dropped and no new features are being pushed
 	- Godot RE Tools still retains the ability to decompile 3.x and 2.x projects, however.
 
+### Standalone
+
+Assuming you compiled with `scons platform=linuxbsd target=template_debug`,
+
+```bash
+$ bin/godot.linuxbsd.template_debug.x86_64.llvm --headless --path=modules/gdsdecomp/standalone --recover=<pck/apk/exe>
+```
+
 ## License
 
 The source code of the module is licensed under MIT license.
