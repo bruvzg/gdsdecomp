@@ -196,6 +196,8 @@ public:
 	bool has_remap(const String &src, const String &dst) const;
 	Error add_remap(const String &src, const String &dst);
 	Error remove_remap(const String &src, const String &dst);
+	Variant get_project_setting(const String &p_setting);
+	bool has_project_setting(const String &p_setting);
 	String get_project_config_path();
 	String get_cwd();
 

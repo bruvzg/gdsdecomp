@@ -2,6 +2,7 @@
 #include "import_exporter.h"
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
+#include "compat/optimized_translation_extractor.h"
 #include "compat/resource_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "gdre_settings.h"
@@ -13,6 +14,7 @@
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/os/os.h"
+#include "core/string/optimized_translation.h"
 #include "core/variant/variant_parser.h"
 #include "core/version_generated.gen.h"
 #include "modules/minimp3/audio_stream_mp3.h"
@@ -218,6 +220,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
 				dir->remove(iinfo->import_path.replace("res://", ""));
 			}
+		} else if (importer == "csv_translation") {
+			err = export_translation(output_dir, iinfo);
 		} else {
 			WARN_PRINT_ONCE("Conversion for Resource of type " + type + " and format " + iinfo->source_file.get_extension() + " not implemented");
 			print_line("Did not convert " + type + " resource " + path);
@@ -450,6 +454,128 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 		}
 	}
 	return OK;
+}
+
+Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInfo> &iinfo) {
+	Error err;
+	ResourceFormatLoaderCompat rlc;
+	// translation files are usually imported from one CSV and converted to multiple "<LOCALE>.translation" files
+	String default_locale = get_settings()->has_project_setting("locale/fallback")
+			? get_settings()->get_project_setting("locale/fallback")
+			: "en";
+	Vector<Ref<Translation>> translations;
+	Vector<Vector<StringName>> translation_messages;
+	Ref<Translation> default_translation;
+	Vector<StringName> default_messages;
+	String header = "key";
+	Vector<StringName> keys;
+
+	for (String path : iinfo->dest_files) {
+		Ref<Translation> tr = rlc.load(path, "", &err);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load translation file " + iinfo->get_path());
+		ERR_FAIL_COND_V_MSG(!tr.is_valid(), err, "Translation file " + iinfo->get_path() + " was not valid");
+		String locale = tr->get_locale();
+		header += "," + locale;
+		List<StringName> message_list;
+		Vector<StringName> messages;
+		if (tr->get_class_name() == "OptimizedTranslation") {
+			Ref<OptimizedTranslation> otr = tr;
+			Ref<OptimizedTranslationExtractor> ote;
+			ote.instantiate();
+			ote->set("locale", locale);
+			ote->set("hash_table", otr->get("hash_table"));
+			ote->set("bucket_table", otr->get("bucket_table"));
+			ote->set("strings", otr->get("strings"));
+			ote->get_message_value_list(&message_list);
+			for (auto message : message_list) {
+				messages.push_back(message);
+			}
+		} else {
+			// We have a real translation class, get the keys
+			if (locale == default_locale) {
+				List<StringName> key_list;
+				tr->get_message_list(&key_list);
+				for (auto key : key_list) {
+					keys.push_back(key);
+				}
+			}
+			Dictionary msgdict = tr->get("messages");
+			Array values = msgdict.values();
+			for (int i = 0; i < values.size(); i++) {
+				messages.push_back(values[i]);
+			}
+		}
+		if (locale == default_locale) {
+			default_messages = messages;
+			default_translation = tr;
+		}
+		translation_messages.push_back(messages);
+		translations.push_back(tr);
+	}
+	// We can't recover the keys from Optimized translations, we have to guess
+	Vector<String> prefixes = { "$$", "##", "TR_" };
+	int missing_keys = 0;
+	if (keys.size() == 0) {
+		for (const StringName &s : default_messages) {
+			String key = s;
+			String test = default_translation->get_message(key);
+			if (test == s) {
+				keys.push_back(key);
+				continue;
+			}
+			// Try adding "$$", "##", or "TR_"
+			for (String prefix : prefixes) {
+				key = prefix + s;
+				test = default_translation->get_message(key);
+				if (test == s) {
+					break;
+				}
+			}
+			if (test == s) {
+				keys.push_back(key);
+				continue;
+			}
+			// this is another common format for popular translation exporters
+			String str = s;
+			//remove punctuation
+			str = str.replace("\n", "").replace(".", "").replace("…", "").replace("!", "").replace("?", "").replace("-", "");
+			str = str.strip_escapes().strip_edges().replace(" ", "_");
+			key = "KEY_TEXT_" + str.to_upper();
+			test = default_translation->get_message(key);
+			if (test == s) {
+				keys.push_back(key);
+				continue;
+			}
+			// if we've hit here, we didn't find the key
+			missing_keys++;
+			keys.push_back("<MISSING KEY " + s + ">");
+		}
+	}
+	header += "\n";
+	if (missing_keys) {
+		iinfo->export_dest = "res://.assets/" + iinfo->source_file.replace("res://", "");
+		print_line("WARNING!!! Could not recover " + itos(missing_keys) + " keys for translation.csv");
+		print_line("Saving " + iinfo->source_file.get_file() + " to " + iinfo->export_dest);
+		print_line("If you wish to modify the translation.csv, you will have to manually find the missing keys, replace them in the csv, and then copy it back to " + iinfo->source_file);
+	}
+	String output_path = output_dir.simplify_path().path_join(iinfo->export_dest.replace("res://", ""));
+	err = ensure_dir(output_path.get_base_dir());
+	ERR_FAIL_COND_V(err, err);
+	Ref<FileAccess> f = FileAccess::open(output_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V(err, err);
+	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
+	f->store_string(header);
+	for (int i = 0; i < keys.size(); i++) {
+		Vector<String> line_values;
+		line_values.push_back(keys[i]);
+		for (auto messages : translation_messages) {
+			line_values.push_back(messages[i]);
+		}
+		f->store_csv_line(line_values, ",");
+	}
+	f->flush();
+	f = Ref<FileAccess>();
+	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
 
 Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &iinfo) {
