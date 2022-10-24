@@ -259,6 +259,15 @@ String VariantDecoderCompat::get_variant_type_name_v3(int p_type) {
 	return "";
 }
 
+String VariantDecoderCompat::get_variant_type_name(int p_type, int ver_major) {
+	if (ver_major <= 2) {
+		return get_variant_type_name_v2(p_type);
+	} else if (ver_major == 3) {
+		return get_variant_type_name_v3(p_type);
+	}
+	return Variant::get_type_name((Variant::Type)p_type);
+}
+
 Error VariantDecoderCompat::decode_variant_3(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len, bool p_allow_objects) {
 	const uint8_t *buf = p_buffer;
 	int len = p_len;
@@ -1579,4 +1588,13 @@ Error VariantDecoderCompat::decode_variant_2(Variant &r_variant, const uint8_t *
 	}
 
 	return OK;
+}
+
+Error VariantDecoderCompat::decode_variant_compat(int ver_major, Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len, bool p_allow_objects) {
+	if (ver_major <= 2) {
+		return decode_variant_2(r_variant, p_buffer, p_len, r_len, p_allow_objects);
+	} else if (ver_major == 3) {
+		return decode_variant_3(r_variant, p_buffer, p_len, r_len, p_allow_objects);
+	}
+	return decode_variant(r_variant, p_buffer, p_len, r_len, p_allow_objects);
 }

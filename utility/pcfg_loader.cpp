@@ -91,15 +91,7 @@ Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String
 		d.resize(vlen);
 		f->get_buffer(d.ptrw(), vlen);
 		Variant value;
-		if (ver_major == 4) {
-			err = decode_variant(value, d.ptr(), d.size(), NULL, true);
-		} else if (ver_major == 3) {
-			err = VariantDecoderCompat::decode_variant_3(value, d.ptr(), d.size(), NULL, true);
-		} else if (ver_major == 2) {
-			err = VariantDecoderCompat::decode_variant_2(value, d.ptr(), d.size(), NULL, true);
-		} else {
-			err = ERR_INVALID_PARAMETER; //or some other error code
-		}
+		err = VariantDecoderCompat::decode_variant_compat(ver_major, value, d.ptr(), d.size(), NULL, true);
 		ERR_CONTINUE_MSG(err != OK, "Error decoding property: " + key + ".");
 		props[key] = VariantContainer(value, last_builtin_order++, true);
 	}

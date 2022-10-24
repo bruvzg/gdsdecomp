@@ -28,7 +28,7 @@ void GDScriptDecomp::_ensure_space(String &p_code) {
 	}
 }
 
-Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key, bool is_version_3) {
+Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
 	Vector<uint8_t> bytecode;
 
 	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
@@ -36,7 +36,7 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 
 	// Godot v3 only encrypted the scripts and used a different format with different header fields,
 	// So we need to use an older version of FAE to access them
-	if (is_version_3) {
+	if (engine_ver_major == 3) {
 		Ref<FileAccessEncryptedv3> fae;
 		fae.instantiate();
 		ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
@@ -88,7 +88,7 @@ String GDScriptDecomp::get_error_message() {
 
 String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
 	String constString;
-	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, engine_ver_major);
+	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, variant_ver_major);
 	if (constants[constId].get_type() == Variant::Type::STRING) {
 		constString = constString.replace("\n", "\\n");
 	}

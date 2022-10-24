@@ -94,10 +94,12 @@ class VariantDecoderCompat {
 public:
 	static String get_variant_type_name_v3(int p_type);
 	static String get_variant_type_name_v2(int p_type);
+	static String get_variant_type_name(int p_type, int ver_major);
 
 	static Variant::Type variant_type_enum_v3_to_v4(const uint32_t type);
 
 	static Error decode_variant_3(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len = nullptr, bool p_allow_objects = false);
 	static Error decode_variant_2(Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len = nullptr, bool p_allow_objects = false);
+	static Error decode_variant_compat(int ver_major, Variant &r_variant, const uint8_t *p_buffer, int p_len, int *r_len = nullptr, bool p_allow_objects = false);
 };
 #endif // VARIANT_DECODER_COMPAT_H
