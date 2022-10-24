@@ -50,6 +50,49 @@ String GDRESettings::_get_cwd() {
 }
 
 GDRESettings *GDRESettings::singleton = nullptr;
+String get_java_path() {
+	if (!OS::get_singleton()->has_environment("JAVA_HOME")) {
+		return "";
+	}
+	String exe_ext = "";
+	if (OS::get_singleton()->get_name() == "Windows") {
+		exe_ext = ".exe";
+	}
+	return OS::get_singleton()->get_environment("JAVA_HOME").simplify_path().path_join("bin").path_join("java") + exe_ext;
+}
+
+int get_java_version() {
+	List<String> args;
+	// when using "-version", java will ALWAYS output on stderr in the format:
+	// <java/openjdk/etc> version "x.x.x" <optional_builddate>
+	args.push_back("-version");
+	String output;
+	int retval = 0;
+	String java_path = get_java_path();
+	if (java_path.is_empty()) {
+		return -1;
+	}
+	Error err = OS::get_singleton()->execute(java_path, args, &output, &retval, true);
+	if (err || retval) {
+		return -1;
+	}
+	Vector<String> components = output.split("\n")[0].split(" ");
+	if (components.size() < 3) {
+		return 0;
+	}
+	String version_string = components[2].replace("\"", "");
+	components = version_string.split(".", false);
+	if (components.size() < 3) {
+		return 0;
+	}
+	int version_major = components[0].to_int();
+	int version_minor = components[1].to_int();
+	// "1.8", and the like
+	if (version_major == 1) {
+		return version_minor;
+	}
+	return version_major;
+}
 
 // We have to set this in the singleton here, since after Godot is done initializing,
 // it will change the CWD to the executable dir
@@ -61,9 +104,13 @@ GDRESettings *GDRESettings::get_singleton() {
 	// }
 	return singleton;
 }
-
+// This adds compatibility classes for old objects that we know can be loaded on v4 just by changing the name
+void addCompatibilityClasses() {
+	ClassDB::add_compatibility_class("PHashTranslation", "OptimizedTranslation");
+}
 GDRESettings::GDRESettings() {
 	singleton = this;
+	addCompatibilityClasses();
 	gdre_resource_path = ProjectSettings::get_singleton()->get_resource_path();
 	logger = memnew(GDRELogger);
 	add_logger();
@@ -633,6 +680,18 @@ Error GDRESettings::remove_remap(const String &src, const String &dst) {
 		return err;
 	}
 	ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
+}
+
+bool GDRESettings::has_project_setting(const String &p_setting) {
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), Variant(), "Pack not loaded!");
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), Variant(), "project config not loaded!");
+	return current_pack->pcfg->has_setting(p_setting);
+}
+
+Variant GDRESettings::get_project_setting(const String &p_setting) {
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), Variant(), "Pack not loaded!");
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), Variant(), "project config not loaded!");
+	return current_pack->pcfg->get_setting(p_setting, Variant());
 }
 
 String GDRESettings::get_project_config_path() {
