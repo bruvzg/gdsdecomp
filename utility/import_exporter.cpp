@@ -351,7 +351,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		bool encrypted = false;
 		if (f.get_extension() == "gde") {
 			encrypted = true;
-			err = decomp->decompile_byte_code_encrypted(f, get_settings()->get_encryption_key(), get_ver_major() == 3);
+			err = decomp->decompile_byte_code_encrypted(f, get_settings()->get_encryption_key());
 		} else {
 			err = decomp->decompile_byte_code(f);
 		}

@@ -21,10 +21,11 @@ protected:
 	String script_text;
 	String error_message;
 	int engine_ver_major;
+	int variant_ver_major; // Some early dev versions of 3.0 used v2 variants, and early dev versions of 4.0 used v3 variants
 
 public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) = 0;
-	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key, bool is_version_3 = false);
+	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);
 
 	String get_script_text();
