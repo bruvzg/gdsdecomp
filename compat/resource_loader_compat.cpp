@@ -80,7 +80,7 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
 	if (loader->engine_ver_major != VERSION_MAJOR) {
-		WARN_PRINT(p_path + ": Doing real load on incompatible version " + itos(loader->engine_ver_major));
+		WARN_PRINT_ONCE(p_path + ": Doing real load on incompatible version " + itos(loader->engine_ver_major));
 	}
 
 	*r_error = loader->load();

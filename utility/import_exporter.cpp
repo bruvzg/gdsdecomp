@@ -554,9 +554,6 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	header += "\n";
 	if (missing_keys) {
 		iinfo->export_dest = "res://.assets/" + iinfo->source_file.replace("res://", "");
-		print_line("WARNING!!! Could not recover " + itos(missing_keys) + " keys for translation.csv");
-		print_line("Saving " + iinfo->source_file.get_file() + " to " + iinfo->export_dest);
-		print_line("If you wish to modify the translation.csv, you will have to manually find the missing keys, replace them in the csv, and then copy it back to " + iinfo->source_file);
 	}
 	String output_path = output_dir.simplify_path().path_join(iinfo->export_dest.replace("res://", ""));
 	err = ensure_dir(output_path.get_base_dir());
@@ -575,6 +572,10 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	}
 	f->flush();
 	f = Ref<FileAccess>();
+	if (missing_keys) {
+		translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
+		translation_export_message += "Saved " + iinfo->source_file.get_file() + " to " + iinfo->export_dest + "\n";
+	}
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
 
@@ -981,6 +982,11 @@ String ImportExporter::get_editor_message() {
 	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
 	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
 	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");
+	report += translation_export_message;
+	if (!translation_export_message.is_empty()) {
+		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
+		report += "Note: consider just asking the creator if you wish to add a translation\n";
+	}
 	return report;
 }
 String ImportExporter::get_report() {
@@ -1080,6 +1086,7 @@ void ImportExporter::reset_log() {
 	not_converted.clear();
 	decompiled_scripts.clear();
 	failed_scripts.clear();
+	translation_export_message.clear();
 }
 
 void ImportExporter::reset() {
