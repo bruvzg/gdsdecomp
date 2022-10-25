@@ -33,7 +33,7 @@ class ImportExporter : public RefCounted {
 	bool had_encryption_error = false;
 	Vector<String> decompiled_scripts;
 	Vector<String> failed_scripts;
-
+	String translation_export_message;
 	Vector<Ref<ImportInfo>> lossy_imports;
 	Vector<Ref<ImportInfo>> rewrote_metadata;
 	Vector<Ref<ImportInfo>> failed_rewrite_md;
