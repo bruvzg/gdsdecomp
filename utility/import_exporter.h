@@ -43,16 +43,14 @@ class ImportExporter : public RefCounted {
 
 	Error load_import_file(const String &p_path);
 	Error load_import_file_v2(const String &p_path);
-	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir);
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
-	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
+	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
 	Error export_translation(const String &output_dir, Ref<ImportInfo> &iinfo);
 
-	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy);
-	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst, String *r_name);
-	Ref<ResourceImportMetadatav2> change_v2import_data(const String &p_path, const String &rel_dest_path, const String &p_res_name, const String &output_dir, const bool change_extension);
+	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
+	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst);
 
 	static Error ensure_dir(const String &dst_dir);
 	static Vector<String> get_v2_wildcards();
