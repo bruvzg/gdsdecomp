@@ -52,32 +52,29 @@ enum SceneFlags {
 };
 } // namespace V2ImportEnums
 
+struct _ResourceInfo {
+	int ver_major = 0; //2, 3, 4
+	int ver_minor = 0;
+	String type;
+	Ref<ResourceImportMetadatav2> v2metadata = nullptr;
+	bool auto_converted_export = false;
+};
+
 class ImportInfo : public RefCounted {
 	GDCLASS(ImportInfo, RefCounted)
-private:
-	friend class ImportExporter;
-	friend class ResourceFormatLoaderCompat;
-	String import_path; // path to the imported file
+protected:
 	String import_md_path; // path to the ".import" file
-	int ver_major; //2, 3, 4
+	int ver_major = 0; //2, 3, 4
 	int ver_minor = 0;
+	int format_ver = 0;
 	bool not_an_import = false;
-	String type;
-	String uid;
-	String importer;
-	String source_file; // file to import
-	Vector<String> additional_sources; // For v2 Atlas and large textures
-	Vector<String> dest_files;
+	bool auto_converted_export = false;
+	String preferred_import_path;
 	String export_dest;
 	String export_lossless_copy;
-	String resource_name;
-	Dictionary params; // import options (like compression mode, lossy quality, etc.)
-	Ref<ConfigFile> cf; // raw v3-v4 import data
-	Ref<ResourceImportMetadatav2> v2metadata; // Raw v2 import metadata
-	Dictionary v3metadata_prop; // 'metadata' property of "remap" tag in an import file
-	bool auto_converted_export;
+
 	void _init();
-	Error load_from_file_v2(const String &p_path);
+	virtual Error _load(const String &p_path) = 0;
 
 public:
 	enum LossType {
@@ -89,38 +86,187 @@ public:
 	};
 	int get_ver_major() const { return ver_major; }
 	int get_ver_minor() const { return ver_minor; }
-	String get_path() const { return import_path; }
-	String get_import_md_path() const { return import_md_path; }
-	String get_type() const { return type; }
-	String get_source_file() const { return source_file; }
-	Vector<String> get_dest_files() const { return dest_files; }
-	bool has_import_data() const {
-		if (ver_major == 2) {
-			return v2metadata.is_valid();
-		} else {
-			return cf.is_valid();
-		}
-	}
-	Dictionary get_params() const { return params; }
-	Error load_from_file(const String &p_path, int ver_major, int ver_minor);
-	Error reload();
-	virtual String to_string() override;
-	int get_import_loss_type() const;
 	bool is_auto_converted() const { return auto_converted_export; }
 	bool is_import() const { return !not_an_import; }
 
+	String get_import_md_path() const { return import_md_path; }
+	void set_import_md_path(const String &p_path) { import_md_path = p_path; }
+
+	String get_export_dest() const { return export_dest; }
+	void set_export_dest(const String &p_path) { export_dest = p_path; };
+
+	String get_export_lossless_copy() const { return export_lossless_copy; }
+	void set_export_lossless_copy(const String &p_path) { export_lossless_copy = p_path; };
+
+	// Gets the path of the preferred resource that we want to export from
+	String get_path() const { return preferred_import_path; };
+	// Sets the path of the preferred resource that we want to export from
+	void set_preferred_resource_path(const String &p_path) { preferred_import_path = p_path; };
+	// Gets the Godot resource type (e.g. "StreamTexture")
+	virtual String get_type() const = 0;
+	virtual void set_type(const String &p_type) = 0;
+
+	virtual String get_importer() const = 0;
+
+	virtual String get_compat_type() const = 0;
+	// Gets the original file that the godot resource was imported from (e.g. res://icon.png)
+	virtual String get_source_file() const = 0;
+	virtual void set_source_file(const String &path) = 0;
+
+	virtual String get_source_md5() const = 0;
+	virtual void set_source_md5(const String &md5) = 0;
+
+	virtual void set_source_and_md5(const String &path, const String &md5 = "") = 0;
+
+	virtual String get_uid() const { return String(); }
+	// v2 only, Atlas Textures had more than one source
+	virtual Vector<String> get_additional_sources() const { return Vector<String>(); };
+	virtual void set_additional_sources(const Vector<String> &p_add_sources) { return; };
+
+	// Gets the godot resources that were created from from this import (e.g. res://icon.<md5>.stex)
+	virtual Vector<String> get_dest_files() const = 0;
+	virtual void set_dest_files(const Vector<String> p_dest_files) = 0;
+
+	// v3-v4 only. Gets the metadata prop in the "remap" section of import file
+	virtual Dictionary get_metadata_prop() const { return Dictionary(); };
+	virtual void set_metadata_prop(Dictionary r_dict) { return; };
+
+	virtual Variant get_param(const String &p_key) const = 0;
+	virtual void set_param(const String &p_key, const Variant &p_val) = 0;
+	virtual bool has_param(const String &p_key) const = 0;
+
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const = 0;
+	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) = 0;
+
+	virtual bool has_import_data() const = 0;
+	// gets the parameters used to import the resource.
+	virtual Dictionary get_params() const = 0;
+	virtual void set_params(Dictionary params) = 0;
+
+	virtual Error reload() = 0;
+	virtual String to_string() override;
+
+	String as_text(bool full = true);
+
+	virtual int get_import_loss_type() const;
+
+	virtual Error save_to(const String &output_dir) = 0;
+
+	static Ref<ImportInfo> copy(const Ref<ImportInfo> &p_iinfo);
+	static Ref<ImportInfo> load_from_file(const String &p_path, int ver_major = 0, int ver_minor = 0);
+
 protected:
-	static void _bind_methods() {
-		ClassDB::bind_method(D_METHOD("load_from_file"), &ImportInfo::load_from_file);
-		ClassDB::bind_method(D_METHOD("get_ver_major"), &ImportInfo::get_ver_major);
-		ClassDB::bind_method(D_METHOD("get_path"), &ImportInfo::get_path);
-		ClassDB::bind_method(D_METHOD("get_import_md_path"), &ImportInfo::get_import_md_path);
-		ClassDB::bind_method(D_METHOD("get_type"), &ImportInfo::get_type);
-		ClassDB::bind_method(D_METHOD("get_source_file"), &ImportInfo::get_source_file);
-		ClassDB::bind_method(D_METHOD("get_dest_files"), &ImportInfo::get_dest_files);
-		ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
-		ClassDB::bind_method(D_METHOD("get_import_loss_type"), &ImportInfo::get_import_loss_type);
-	}
+	static void _bind_methods();
+};
+class ImportInfoModern : public ImportInfo {
+	GDCLASS(ImportInfoModern, ImportInfo)
+private:
+	friend class ImportInfo;
+
+	String src_md5;
+	Ref<ConfigFile> cf; // raw v3-v4 import data
+
+	virtual Error _load(const String &p_path) override;
+
+protected:
+	static void _bind_methods();
+
+public:
+	// Gets the Godot resource type (e.g. "StreamTexture")
+	virtual String get_type() const override;
+	virtual void set_type(const String &p_type) override;
+	virtual String get_compat_type() const override;
+
+	virtual String get_importer() const override;
+
+	// Gets the original file that the godot resource was imported from (e.g. res://icon.png)
+	virtual String get_source_file() const override;
+	virtual void set_source_file(const String &path) override;
+
+	virtual String get_source_md5() const override;
+	virtual void set_source_md5(const String &md5) override;
+
+	virtual void set_source_and_md5(const String &path, const String &md5 = "") override;
+
+	virtual String get_uid() const override;
+
+	// Gets the godot resources that were created from from this import (e.g. res://icon.<md5>.stex)
+	virtual Vector<String> get_dest_files() const override;
+	virtual void set_dest_files(const Vector<String> p_dest_files) override;
+
+	// v3-v4 only. Gets the metadata prop in the "remap" section of import file
+	virtual Dictionary get_metadata_prop() const override;
+	virtual void set_metadata_prop(Dictionary r_dict) override;
+
+	virtual Variant get_param(const String &p_key) const override;
+	virtual void set_param(const String &p_key, const Variant &p_val) override;
+	virtual bool has_param(const String &p_key) const override;
+
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
+	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
+
+	virtual bool has_import_data() const override;
+	// gets the parameters used to import the resource.
+	virtual Dictionary get_params() const override;
+	virtual void set_params(Dictionary params) override;
+
+	virtual Error save_to(const String &output_dir) override;
+
+	virtual Error reload() override { return _load(import_md_path); };
+};
+
+class ImportInfov2 : public ImportInfo {
+	GDCLASS(ImportInfov2, ImportInfo)
+private:
+	friend class ImportInfo;
+
+	String type;
+	Vector<String> dest_files;
+	Ref<ResourceImportMetadatav2> v2metadata;
+	virtual Error _load(const String &p_path) override;
+
+protected:
+	static void _bind_methods();
+
+public:
+	// Gets the Godot resource type (e.g. "StreamTexture")
+	virtual String get_type() const override;
+	virtual void set_type(const String &p_type) override;
+	virtual String get_compat_type() const override;
+
+	virtual String get_importer() const override;
+
+	// Gets the original file that the godot resource was imported from (e.g. res://icon.png)
+	virtual String get_source_file() const override;
+	virtual void set_source_file(const String &path) override;
+
+	virtual String get_source_md5() const override;
+	virtual void set_source_md5(const String &md5) override;
+
+	virtual void set_source_and_md5(const String &path, const String &md5 = "") override;
+	// v2 only, Atlas Textures had more than one source
+	virtual Vector<String> get_additional_sources() const override;
+	virtual void set_additional_sources(const Vector<String> &p_add_sources) override;
+
+	// Gets the godot resources that were created from from this import (e.g. res://icon.<md5>.stex)
+	virtual Vector<String> get_dest_files() const override;
+	virtual void set_dest_files(const Vector<String> p_dest_files) override;
+
+	virtual Variant get_param(const String &p_key) const override;
+	virtual void set_param(const String &p_key, const Variant &p_val) override;
+	virtual bool has_param(const String &p_key) const override;
+
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
+	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
+
+	virtual bool has_import_data() const override;
+	// gets the parameters used to import the resource.
+	virtual Dictionary get_params() const override;
+	virtual void set_params(Dictionary params) override;
+
+	virtual Error save_to(const String &output_dir) override;
+
+	virtual Error reload() override { return _load(import_md_path); };
 };
 
 #endif

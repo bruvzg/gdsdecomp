@@ -110,25 +110,19 @@ Error ResourceFormatLoaderCompat::rewrite_v2_import_metadata(const String &p_pat
 	return error;
 }
 
-Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, Ref<ImportInfo> &i_info) {
+Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, _ResourceInfo &i_info) {
 	Error error = OK;
 
 	ResourceLoaderCompat *loader = _open(p_path, base_dir, true, &error, nullptr);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
 
-	if (i_info == nullptr) {
-		i_info.instantiate();
-	}
-
-	i_info->import_path = loader->local_path;
-	i_info->type = loader->res_type;
-	i_info->ver_major = loader->engine_ver_major;
-	i_info->ver_minor = loader->engine_ver_minor;
+	i_info.type = loader->res_type;
+	i_info.ver_major = loader->engine_ver_major;
+	i_info.ver_minor = loader->engine_ver_minor;
 	if (loader->engine_ver_major == 2) {
-		i_info->dest_files.push_back(loader->local_path);
-		i_info->import_md_path = loader->res_path;
 		// these do not have any metadata info in them
-		if (i_info->import_path.find(".converted.") != -1) {
+		if (loader->local_path.find(".converted.") != -1) {
+			i_info.auto_converted_export = true;
 			memdelete(loader);
 			return OK;
 		}
@@ -148,16 +142,8 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 			memdelete(loader);
 			return OK;
 		}
-
+		i_info.v2metadata = loader->imd;
 		ERR_RFLBC_COND_V_MSG_CLEANUP(loader->imd->get_source_count() == 0, ERR_FILE_CORRUPT, "metadata corrupt for '" + loader->res_path + "'", loader);
-		i_info->v2metadata = loader->imd;
-		i_info->source_file = loader->imd->get_source_path(0);
-		for (int i = 1; i < loader->imd->get_source_count(); i++) {
-			i_info->additional_sources.push_back(loader->imd->get_source_path(i));
-		}
-
-		i_info->importer = loader->imd->get_editor();
-		i_info->params = loader->imd->get_options_as_dictionary();
 	}
 	memdelete(loader);
 	return OK;

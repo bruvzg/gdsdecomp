@@ -88,9 +88,8 @@ Error ImportExporter::load_import_files() {
 }
 
 Error ImportExporter::load_import_file(const String &p_path) {
-	Ref<ImportInfo> i_info;
-	i_info.instantiate();
-	i_info->load_from_file(p_path, get_ver_major(), get_ver_minor());
+	Ref<ImportInfo> i_info = ImportInfo::load_from_file(p_path, get_ver_major(), get_ver_minor());
+	ERR_FAIL_COND_V_MSG(i_info.is_null(), ERR_FILE_CANT_OPEN, "Failed to load import file " + p_path);
 	files.push_back(i_info);
 	return OK;
 }
@@ -122,7 +121,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		String path = iinfo->get_path();
 		String source = iinfo->get_source_file();
 		String type = iinfo->get_type();
-		String importer = iinfo->importer;
+		String importer = iinfo->get_importer();
 		auto loss_type = iinfo->get_import_loss_type();
 		if (files_to_export.size()) {
 			auto dest_files = iinfo->get_dest_files();
@@ -154,19 +153,19 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 		}
 		// ***** Set export destination *****
-		iinfo->export_dest = iinfo->source_file;
+		iinfo->set_export_dest(iinfo->get_source_file());
 		bool should_rewrite_metadata = false;
 		// This is a Godot asset that was imported outside of project directory
-		if (!iinfo->source_file.begins_with("res://")) {
+		if (!iinfo->get_source_file().begins_with("res://")) {
 			if (get_ver_major() <= 2) {
 				// import_md_path is the resource path in v2
-				iinfo->export_dest = String("res://.assets").path_join(iinfo->import_md_path.get_base_dir().path_join(iinfo->source_file.get_file()).replace("res://", ""));
+				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
 			} else {
 				// import_md_path is the .import path in v3-v4
-				iinfo->export_dest = iinfo->import_md_path.get_basename();
+				iinfo->set_export_dest(iinfo->get_import_md_path());
 				// If the source_file path was not actually in the project structure, save it elsewhere
-				if (iinfo->source_file.find(iinfo->export_dest.replace("res://", "")) == -1) {
-					iinfo->export_dest = iinfo->export_dest.replace("res://", "res://.assets");
+				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
+					iinfo->set_export_dest(iinfo->get_export_dest().replace("res://", "res://.assets"));
 				}
 			}
 			should_rewrite_metadata = true;
@@ -209,21 +208,21 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				continue;
 			}
 		} else if (opt_export_ogg && importer == "ogg_vorbis") {
-			err = convert_oggstr_to_ogg(output_dir, iinfo->import_path, iinfo->export_dest);
+			err = convert_oggstr_to_ogg(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (opt_export_mp3 && importer == "mp3") {
-			err = convert_mp3str_to_mp3(output_dir, iinfo->import_path, iinfo->export_dest);
+			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (importer == "bitmap") {
 			err = export_texture(output_dir, iinfo);
-		} else if ((opt_bin2text && iinfo->import_path.get_extension() == "res") ||
-				(importer == "scene" && (iinfo->source_file.get_extension() == "tscn" || iinfo->source_file.get_extension() == "escn"))) {
-			err = convert_res_bin_2_txt(output_dir, iinfo->import_path, iinfo->export_dest);
+		} else if ((opt_bin2text && iinfo->get_path().get_extension() == "res") ||
+				(importer == "scene" && (iinfo->get_source_file().get_extension() == "tscn" || iinfo->get_source_file().get_extension() == "escn"))) {
+			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
-				dir->remove(iinfo->import_path.replace("res://", ""));
+				dir->remove(iinfo->get_path().replace("res://", ""));
 			}
 		} else if (importer == "csv_translation") {
 			err = export_translation(output_dir, iinfo);
 		} else {
-			WARN_PRINT_ONCE("Conversion for Resource of type " + type + " and format " + iinfo->source_file.get_extension() + " not implemented");
+			WARN_PRINT_ONCE("Conversion for Resource of type " + type + " and format " + iinfo->get_source_file().get_extension() + " not implemented");
 			print_line("Did not convert " + type + " resource " + path);
 			not_converted.push_back(iinfo);
 			continue;
@@ -231,23 +230,23 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 
 		// ****REWRITE METADATA****
 		if ((err == ERR_PRINTER_ON_FIRE || (err == OK && should_rewrite_metadata)) && iinfo->is_import()) {
-			if (iinfo->ver_major == 2 && opt_rewrite_imd_v2) {
-				// TODO: currently the resource_name is only set in the various exporters, but we should be setting it when we load the import data.
-				err = rewrite_v2_import_metadata(path, iinfo->export_dest, iinfo->resource_name, output_dir);
-			} else if (iinfo->ver_major >= 3 && opt_rewrite_imd_v3) {
+			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
+				// TODO: handle v2 imports with more than one source, like atlas textures
+				err = rewrite_import_data(iinfo->get_export_dest(), output_dir, iinfo);
+			} else if (iinfo->get_ver_major() >= 3 && opt_rewrite_imd_v3) {
 				// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
 				// But is still in the project structure
-				if (iinfo->source_file.find(iinfo->export_dest.replace("res://", "")) != -1) {
-					err = rewrite_import_data(iinfo->export_dest, output_dir, iinfo);
+				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) != -1) {
+					err = rewrite_import_data(iinfo->get_export_dest(), output_dir, iinfo);
 				}
 			}
 			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
 			// if we failed, it won't be OK
 			if (err != OK) {
 				if (err == ERR_PRINTER_ON_FIRE) {
-					print_line("Did not rewrite import metadata for " + iinfo->source_file);
+					print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
 				} else {
-					print_line("Failed to rewrite import metadata for " + iinfo->source_file);
+					print_line("Failed to rewrite import metadata for " + iinfo->get_source_file());
 				}
 				err = ERR_DATABASE_CANT_WRITE;
 			} else {
@@ -279,8 +278,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 		// remove v2 remaps
 		if (get_ver_major() == 2 && get_settings()->has_any_remaps()) {
-			if (get_settings()->has_remap(iinfo->source_file, iinfo->import_path)) {
-				get_settings()->remove_remap(iinfo->source_file, iinfo->import_path);
+			if (get_settings()->has_remap(iinfo->get_source_file(), iinfo->get_path())) {
+				get_settings()->remove_remap(iinfo->get_source_file(), iinfo->get_path());
 			}
 		}
 	}
@@ -470,7 +469,7 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	String header = "key";
 	Vector<StringName> keys;
 
-	for (String path : iinfo->dest_files) {
+	for (String path : iinfo->get_dest_files()) {
 		Ref<Translation> tr = rlc.load(path, "", &err);
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load translation file " + iinfo->get_path());
 		ERR_FAIL_COND_V_MSG(!tr.is_valid(), err, "Translation file " + iinfo->get_path() + " was not valid");
@@ -553,9 +552,9 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	}
 	header += "\n";
 	if (missing_keys) {
-		iinfo->export_dest = "res://.assets/" + iinfo->source_file.replace("res://", "");
+		iinfo->set_export_dest("res://.assets/" + iinfo->get_source_file().replace("res://", ""));
 	}
-	String output_path = output_dir.simplify_path().path_join(iinfo->export_dest.replace("res://", ""));
+	String output_path = output_dir.simplify_path().path_join(iinfo->get_export_dest().replace("res://", ""));
 	err = ensure_dir(output_path.get_base_dir());
 	ERR_FAIL_COND_V(err, err);
 	Ref<FileAccess> f = FileAccess::open(output_path, FileAccess::WRITE, &err);
@@ -574,7 +573,7 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	f = Ref<FileAccess>();
 	if (missing_keys) {
 		translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
-		translation_export_message += "Saved " + iinfo->source_file.get_file() + " to " + iinfo->export_dest + "\n";
+		translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
 	}
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
@@ -589,7 +588,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
 	String source_ext = source.get_extension().to_lower();
 	if (source_ext != "png") {
-		if (iinfo->ver_major > 2) {
+		if (iinfo->get_ver_major() > 2) {
 			if ((source_ext == "jpg" || source_ext == "jpeg") && opt_export_jpg) {
 				lossy = true;
 			} else if (source_ext == "webp" && opt_export_webp) {
@@ -598,44 +597,43 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 					lossy = true;
 				}
 			} else {
-				iinfo->export_dest = iinfo->export_dest.get_basename() + ".png";
+				iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
 				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
-				if (opt_rewrite_imd_v3 && iinfo->is_import()) {
+				// disable this for now
+				if (false && opt_rewrite_imd_v3 && iinfo->is_import()) {
 					should_rewrite_metadata = true;
 				} else {
 					// save it under .assets, which won't be picked up for import by the godot editor
-					if (!iinfo->export_dest.replace("res://", "").begins_with(".assets")) {
+					if (!iinfo->get_export_dest().replace("res://", "").begins_with(".assets")) {
 						String prefix = ".assets";
-						if (iinfo->export_dest.begins_with("res://")) {
+						if (iinfo->get_export_dest().begins_with("res://")) {
 							prefix = "res://.assets";
 						}
-						iinfo->export_dest = prefix.path_join(iinfo->export_dest.replace("res://", ""));
+						iinfo->set_export_dest(prefix.path_join(iinfo->get_export_dest().replace("res://", "")));
 					}
 				}
 			}
 		} else { //version 2
-			iinfo->export_dest = iinfo->export_dest.get_basename() + ".png";
+			iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
 			if (opt_rewrite_imd_v2 && iinfo->is_import()) {
 				should_rewrite_metadata = true;
 			}
 		}
 	}
 
-	String r_name;
 	Error err;
-	if (iinfo->importer == "bitmap") {
-		err = _convert_bitmap(output_dir, path, iinfo->export_dest, &r_name, lossy);
+	if (iinfo->get_importer() == "bitmap") {
+		err = _convert_bitmap(output_dir, path, iinfo->get_export_dest(), lossy);
 	} else {
-		err = _convert_tex(output_dir, path, iinfo->export_dest, &r_name, lossy);
+		err = _convert_tex(output_dir, path, iinfo->get_export_dest(), lossy);
 	}
 	if (err == ERR_UNAVAILABLE) {
 		return ERR_UNAVAILABLE;
 	}
 	ERR_FAIL_COND_V(err, err);
-	iinfo->resource_name = r_name;
 	// If lossy, also convert it as a png
 	if (lossy) {
-		String dest = iinfo->export_dest.get_basename() + ".png";
+		String dest = iinfo->get_export_dest().get_basename() + ".png";
 		if (!dest.replace("res://", "").begins_with(".assets")) {
 			String prefix = ".assets";
 			if (dest.begins_with("res://")) {
@@ -643,8 +641,8 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 			}
 			dest = prefix.path_join(dest.replace("res://", ""));
 		}
-		iinfo->export_lossless_copy = dest;
-		err = _convert_tex(output_dir, path, dest, &r_name, false);
+		iinfo->set_export_lossless_copy(dest);
+		err = _convert_tex(output_dir, path, dest, false);
 		if (err == ERR_UNAVAILABLE) {
 			return ERR_UNAVAILABLE;
 		}
@@ -658,12 +656,12 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 }
 
 Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	if (iinfo->ver_major == 2) {
+	if (iinfo->get_ver_major() == 2) {
 		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
 		print_line("Not converting sample " + iinfo->get_path());
 		return ERR_UNAVAILABLE;
 	}
-	convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->export_dest);
+	convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 	return OK;
 }
 
@@ -679,122 +677,18 @@ Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
 	return Ref<ImportInfo>();
 }
 
-// Makes a copy of the import metadata and changes the source to the new path
-Ref<ResourceImportMetadatav2> ImportExporter::change_v2import_data(const String &p_path,
-		const String &rel_dest_path,
-		const String &p_res_name,
-		const String &output_dir,
-		const bool change_extension) {
-	Ref<ResourceImportMetadatav2> imd;
-	auto iinfo = get_import_info(p_path);
-	if (iinfo.is_null()) {
-		return imd;
-	}
-	// copy
-	imd = Ref<ResourceImportMetadatav2>(iinfo->v2metadata);
-	if (imd->get_source_count() > 1) {
-		WARN_PRINT("multiple import sources detected!?");
-	}
-	int i;
-	for (i = 0; i < imd->get_source_count(); i++) {
-		// case insensitive windows paths...
-		String src_file_name = imd->get_source_path(i).get_file().to_lower();
-		String res_name = p_res_name.to_lower();
-		if (change_extension) {
-			src_file_name = src_file_name.get_basename();
-			res_name = res_name.get_basename();
-		}
-		if (src_file_name == res_name) {
-			String md5 = imd->get_source_md5(i);
-			String dst_path = rel_dest_path;
-			if (output_dir != "") {
-				dst_path = output_dir.path_join(rel_dest_path.replace("res://", ""));
-			}
-			String new_hash = FileAccess::get_md5(dst_path);
-			if (new_hash == "") {
-				WARN_PRINT("Can't open exported file to calculate hash");
-			} else {
-				md5 = new_hash;
-			}
-			imd->remove_source(i);
-			imd->add_source_at(rel_dest_path, md5, i);
-			break;
-		}
-	}
-	if (i == imd->get_source_count()) {
-		WARN_PRINT("Can't find resource name!");
-	}
-	return imd;
-}
-
-Error ImportExporter::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, const String &p_res_name, const String &output_dir) {
-	Error err;
-	String orig_file = output_dir.path_join(p_path.replace("res://", ""));
-	auto imd = change_v2import_data(p_path, p_dst, p_res_name, output_dir, false);
-	ERR_FAIL_COND_V_MSG(imd.is_null(), ERR_FILE_NOT_FOUND, "Failed to get metadata for " + p_path);
-
-	ResourceFormatLoaderCompat rlc;
-	err = rlc.rewrite_v2_import_metadata(p_path, orig_file + ".tmp", imd);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to rewrite metadata for " + orig_file);
-
-	Ref<DirAccess> dr = DirAccess::open(orig_file.get_base_dir(), &err);
-	ERR_FAIL_COND_V_MSG(dr.is_null(), err, "Failed to rename file " + orig_file + ".tmp");
-
-	// this may fail, we don't care
-	dr->remove(orig_file);
-	err = dr->rename(orig_file + ".tmp", orig_file);
-	ERR_FAIL_COND_V_MSG(dr.is_null(), err, "Failed to rename file " + orig_file + ".tmp");
-
-	print_line("Rewrote import metadata for " + p_path);
-	return OK;
-}
 // Godot v3-v4 import data rewriting
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
 // but is still in the project directory structure, which means no resource rewriting is necessary
 Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo) {
 	String new_source = rel_dest_path;
-	String new_import_file = output_dir.path_join(iinfo->import_md_path.replace("res://", ""));
+	String new_import_file = output_dir.path_join(iinfo->get_import_md_path().replace("res://", ""));
+	String abs_file_path = GDRESettings::get_singleton()->globalize_path(new_source, output_dir);
 	Array new_dest_files;
-	Ref<ConfigFile> import_file = iinfo->cf;
-	import_file->set_value("deps", "source_file", new_source);
-
-	// We don't currently need to do this
-	// ERR_FAIL_COND_V_MSG(iinfo->dest_files.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	// for (int i = 0; i < iinfo->dest_files.size(); i++) {
-	// 	String old_dest = iinfo->dest_files[i];
-	// 	String new_dest = old_dest.replace(iinfo->source_file.get_file(), new_source.get_file());
-	// 	ERR_FAIL_COND_V_MSG(old_dest == new_dest, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	// 	new_dest_files.append(new_dest);
-	// }
-	// import_file->set_value("deps", "dest_files", new_dest_files);
-	// if (new_dest_files.size() > 1) {
-	// 	List<String> remap_keys;
-	// 	import_file->get_section_keys("remap", &remap_keys);
-	// 	ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	// 	// we likely have multiple paths
-	// 	if (iinfo->v3metadata_prop.has("imported_formats")) {
-	// 		Vector<String> fmts = iinfo->v3metadata_prop["imported_formats"];
-	// 		for (int i = 0; i < fmts.size(); i++) {
-	// 			auto E = remap_keys.find("path." + fmts[i]);
-	// 			if (E) {
-	// 				String path_prop = E->get();
-	// 				String old_path = import_file->get_value("remap", path_prop, String());
-	// 				String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
-	// 				ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	// 				import_file->set_value("remap", path_prop, new_path);
-	// 			} else {
-	// 				ERR_FAIL_V_MSG(ERR_BUG, "Expected to see path for import format" + fmts[i]);
-	// 			}
-	// 		}
-	// 	}
-	// } else {
-	// 	String old_path = iinfo->import_path;
-	// 	String new_path = old_path.replace(iinfo->source_file.get_file(), new_source.get_file());
-	// 	ERR_FAIL_COND_V_MSG(old_path == new_path, ERR_BUG, "Failed to change import data for " + rel_dest_path);
-	// 	import_file->set_value("remap", "path", new_path);
-	// }
-	return import_file->save(new_import_file);
+	Ref<ImportInfo> new_import = Ref<ImportInfo>(iinfo);
+	new_import->set_source_and_md5(new_source, FileAccess::get_md5(abs_file_path));
+	return new_import->save_to(new_import_file);
 }
 
 Error ImportExporter::ensure_dir(const String &dst_dir) {
@@ -820,20 +714,13 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 	print_line("Converted " + p_path + " to " + p_dst);
 	return err;
 }
-Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {
+Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
 	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
 	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 	TextureLoaderCompat tl;
 	Ref<Image> img = tl.load_image_from_bitmap(p_path, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
-	if (r_name) {
-		if (!img->get_name().is_empty()) {
-			*r_name = String(img->get_name());
-		} else {
-			*r_name = p_dst.get_file();
-		}
-	}
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	String dest_ext = dest_path.get_extension().to_lower();
@@ -853,7 +740,7 @@ Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_
 	return OK;
 }
 
-Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, String *r_name, bool lossy = true) {
+Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
 	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
 	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
@@ -865,13 +752,6 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 		return ERR_UNAVAILABLE;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
-	if (r_name) {
-		if (!img->get_name().is_empty()) {
-			*r_name = String(img->get_name());
-		} else {
-			*r_name = p_dst.get_file();
-		}
-	}
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	if (img->is_compressed()) {
@@ -898,7 +778,7 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 }
 
 Error ImportExporter::convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
-	return _convert_tex(output_dir, p_path, p_dst, nullptr);
+	return _convert_tex(output_dir, p_path, p_dst);
 }
 
 String ImportExporter::_get_path(const String &output_dir, const String &p_path) {
@@ -1015,12 +895,12 @@ String ImportExporter::get_report() {
 			report += "\nThe following files were converted from an import that was stored lossy." + String("\n");
 			report += "You may lose fidelity when re-importing these files upon loading the project." + String("\n");
 			for (int i = 0; i < lossy_imports.size(); i++) {
-				report += lossy_imports[i]->import_path + " to " + lossy_imports[i]->export_dest + String("\n");
+				report += lossy_imports[i]->get_path() + " to " + lossy_imports[i]->get_export_dest() + String("\n");
 			}
 		} else {
 			report += "\nThe following files were not converted from a lossy import." + String("\n");
 			for (int i = 0; i < lossy_imports.size(); i++) {
-				report += lossy_imports[i]->import_path + String("\n");
+				report += lossy_imports[i]->get_path() + String("\n");
 			}
 		}
 	}
@@ -1028,26 +908,26 @@ String ImportExporter::get_report() {
 	if (rewrote_metadata.size() > 0 && get_ver_major() != 2) {
 		report += "\nThe following files had their import data rewritten:" + String("\n");
 		for (int i = 0; i < rewrote_metadata.size(); i++) {
-			report += rewrote_metadata[i]->import_path + " to " + rewrote_metadata[i]->export_dest + String("\n");
+			report += rewrote_metadata[i]->get_path() + " to " + rewrote_metadata[i]->get_export_dest() + String("\n");
 		}
 	}
 	if (failed_rewrite_md.size() > 0) {
 		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
 		report += "These files will not be re-imported when loading the project." + String("\n");
 		for (int i = 0; i < failed_rewrite_md.size(); i++) {
-			report += failed_rewrite_md[i]->import_path + " to " + failed_rewrite_md[i]->export_dest + String("\n");
+			report += failed_rewrite_md[i]->get_path() + " to " + failed_rewrite_md[i]->get_export_dest() + String("\n");
 		}
 	}
 	if (not_converted.size() > 0) {
 		report += "\nThe following files were not converted because support has not been implemented yet:" + String("\n");
 		for (int i = 0; i < not_converted.size(); i++) {
-			report += not_converted[i]->import_path + String("\n");
+			report += not_converted[i]->get_path() + String("\n");
 		}
 	}
 	if (failed.size() > 0) {
 		report += "\nFailed conversions:" + String("\n");
 		for (int i = 0; i < failed.size(); i++) {
-			report += failed[i]->import_path + String("\n");
+			report += failed[i]->get_path() + String("\n");
 		}
 	}
 

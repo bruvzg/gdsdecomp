@@ -54,8 +54,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		// check if this is a V2 texture
 		ResourceFormatLoaderCompat rlc;
-		Ref<ImportInfo> i_info;
-		*r_err = rlc.get_import_info(res_path, "", i_info);
+		Ref<ImportInfo> i_info = ImportInfo::load_from_file(res_path);
 
 		if (*r_err == ERR_PRINTER_ON_FIRE) {
 			// no import metadata
