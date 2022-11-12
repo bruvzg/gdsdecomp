@@ -522,7 +522,7 @@ Error GDScriptDecomp_3ea6d9f::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "const ";
 			} break;
 			case TK_PR_VAR: {
-				if (line != String())
+				if (line != String() && prev_token != TK_PR_ONREADY)
 					line += " ";
 				line += "var ";
 			} break;
