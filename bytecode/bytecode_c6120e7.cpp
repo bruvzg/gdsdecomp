@@ -427,7 +427,7 @@ Error GDScriptDecomp_c6120e7::decompile_buffer(Vector<uint8_t> p_buffer) {
 			} break;
 			case TK_OP_BIT_INVERT: {
 				_ensure_space(line);
-				line += "! ";
+				line += "~ ";
 			} break;
 			//case TK_OP_PLUS_PLUS: {
 			//	line += "++";
