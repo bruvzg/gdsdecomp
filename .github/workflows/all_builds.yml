@@ -89,7 +89,6 @@ jobs:
         uses: ./.github/actions/godot-cache
         with:
           cache-name: ${{ matrix.platform }}-editor-and-standalone
-        continue-on-error: true
 
       # Azure repositories are not reliable, we need to prevent azure giving us packages.
       - name: Install Linux deps
@@ -125,7 +124,6 @@ jobs:
         uses: ./.github/actions/godot-prepare-artifact
 
       - uses: actions/upload-artifact@v3
-        continue-on-error: true
         with:
           name: GDRE_tools-editor-${{ matrix.platform }}
           path: ${{github.workspace}}/bin/*
@@ -139,7 +137,6 @@ jobs:
           target: template_release
           tests: false
           scons-cache-limit: 4096
-        continue-on-error: true
 
       - name: Compile godot export template for macos arm64
         uses: ./.github/actions/godot-build
@@ -150,7 +147,6 @@ jobs:
           target: template_release
           tests: false
           scons-cache-limit: 4096
-        continue-on-error: true
 
       - name: Prepare template artifact
         uses: ./.github/actions/godot-prepare-artifact
@@ -165,7 +161,6 @@ jobs:
           cd bin/
           zip -r9 "macos.zip" "macos_template.app/"
           cd ..
-        continue-on-error: true
 
       - name: Download rcedit.exe
         uses: robinraju/release-downloader@v1.5
@@ -182,18 +177,16 @@ jobs:
           echo "${{ runner.tool_cache }}\rcedit" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Export standalone GDRE Tools
-        continue-on-error: true
         shell: pwsh
         run: |
           cd ${{github.workspace}}/modules/gdsdecomp/standalone
           mkdir .export
           $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless -e --quit'
           Wait-Process -Id $proc.id -Timeout 300
-          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
+          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export-release "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
           Wait-Process -Id $proc.id -Timeout 300
 
       - uses: actions/upload-artifact@v3
-        continue-on-error: true
         with:
           name: GDRE_tools-standalone-${{ matrix.platform }}
           path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
