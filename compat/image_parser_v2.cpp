@@ -91,7 +91,7 @@ String ImageParserV2::image_v2_to_string(const Variant &r_v, bool is_pcfg) {
 	return imgstr;
 }
 
-Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, const PropertyHint p_hint) {
+Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, bool compress_lossless) {
 	Ref<Image> val = r_v;
 	if (val.is_null() || val->is_empty()) {
 		f->store_32(V2Image::IMAGE_ENCODING_EMPTY);
@@ -103,13 +103,13 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 
 	if (val->get_format() <= Image::FORMAT_RGB565) {
 		// can only compress uncompressed stuff
-		if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS && Image::png_packer) {
+		if (compress_lossless && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
 		// We do not want to resave the image as lossy because of:
 		// 1) We lose fidelity from the original asset if we do
 		// 2) V4 encoding is incompatible with V2 and V3
-		else if (p_hint == PROPERTY_HINT_IMAGE_COMPRESS_LOSSY && Image::png_packer) {
+		else if (compress_lossless && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
 	}

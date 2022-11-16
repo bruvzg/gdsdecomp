@@ -2046,7 +2046,7 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			if (ver_format_bin == 1 && res->is_class("Image")) {
 				fa->store_32(VariantBin::VARIANT_IMAGE);
 				// storing lossless compressed by default
-				ImageParserV2::write_image_v2_to_bin(fa, p_property, PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS);
+				ImageParserV2::write_image_v2_to_bin(fa, p_property, true);
 			} else {
 				fa->store_32(VariantBin::VARIANT_OBJECT);
 				if (res.is_null()) {
