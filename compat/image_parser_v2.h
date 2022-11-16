@@ -15,7 +15,7 @@ public:
 	static Error parse_image_construct_v2(VariantParser::Stream *f, Variant &r_v, bool convert_indexed, int &line, String &p_err_str);
 
 	static Error decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool convert_indexed = false);
-	static Error write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, const PropertyHint p_hint);
+	static Error write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v, bool compress_lossless = true);
 };
 
 #endif // IMAGE_PARSER_V2_H
