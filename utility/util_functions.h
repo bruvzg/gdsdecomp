@@ -43,51 +43,6 @@ static Vector<String> get_recursive_dir_list(const String dir, const Vector<Stri
 	return ret;
 }
 
-static bool check_if_dir_is_v4(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 4
-	wildcards.push_back("*.ctex");
-	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-static bool check_if_dir_is_v3(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 3
-	wildcards.push_back("*.stex");
-	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-static bool check_if_dir_is_v2(const String &dir) {
-	Vector<String> wildcards;
-	// these are files that will only show up in version 2
-	wildcards.push_back("*.converted.*");
-	wildcards.push_back("*.tex");
-	wildcards.push_back("*.smp");
-	if (get_recursive_dir_list(dir, wildcards).size() > 0) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-static int get_ver_major_from_dir(const String &dir) {
-	if (check_if_dir_is_v4(dir))
-		return 4;
-	if (check_if_dir_is_v3(dir))
-		return 3;
-	if (check_if_dir_is_v2(dir))
-		return 2;
-	return 0;
-}
-
 static Ref<FileAccess> _____tmp_file;
 
 static Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy = false) {

@@ -27,81 +27,22 @@ GDRESettings *get_settings() {
 	return GDRESettings::get_singleton();
 }
 
-Array ImportExporter::get_import_files() {
-	return files;
-}
-Vector<String> ImportExporter::get_v2_wildcards() {
-	Vector<String> wildcards;
-	// We look for file names with ".converted." in the name
-	// Like "filename.tscn.converted.scn"
-	// These are resources converted to binary format upon project export by the editor
-	wildcards.push_back("*.converted.*");
-	// The rest of these are imported resources
-	wildcards.push_back("*.tex");
-	wildcards.push_back("*.fnt");
-	wildcards.push_back("*.msh");
-	wildcards.push_back("*.scn");
-	wildcards.push_back("*.res");
-	wildcards.push_back("*.smp");
-	wildcards.push_back("*.xl");
-	wildcards.push_back("*.cbm");
-	wildcards.push_back("*.pbm");
-	wildcards.push_back("*.gdc");
-
-	return wildcards;
-}
-
 int get_ver_major() {
 	return get_settings()->get_ver_major();
 }
 int get_ver_minor() {
 	return get_settings()->get_ver_minor();
 }
-Error ImportExporter::load_import_files() {
-	Vector<String> file_names;
-	reset();
-	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
-
-	String bin_proj_file;
-	bool ver_major_not_input = false;
-
-	if (get_ver_major() <= 2) {
-		if (get_settings()->is_pack_loaded()) {
-			file_names = get_settings()->get_file_list(get_v2_wildcards());
-		}
-	} else {
-		Vector<String> wildcards;
-		wildcards.push_back("*.import");
-		wildcards.push_back("*.gdc");
-		wildcards.push_back("*.gde");
-		file_names = get_settings()->get_file_list(wildcards);
-	}
-
-	for (int i = 0; i < file_names.size(); i++) {
-		if (file_names[i].get_extension() == "gdc" || file_names[i].get_extension() == "gde") {
-			code_files.push_back(file_names[i]);
-		} else if (load_import_file(file_names[i]) != OK) {
-			WARN_PRINT("Can't load import file: " + file_names[i]);
-		}
-	}
-	return OK;
-}
-
-Error ImportExporter::load_import_file(const String &p_path) {
-	Ref<ImportInfo> i_info = ImportInfo::load_from_file(p_path, get_ver_major(), get_ver_minor());
-	ERR_FAIL_COND_V_MSG(i_info.is_null(), ERR_FILE_CANT_OPEN, "Failed to load import file " + p_path);
-	files.push_back(i_info);
-	return OK;
-}
 
 // export all the imported resources
-Error ImportExporter::export_imports(const String &p_out_dir) {
+Error ImportExporter::export_imports(const String &p_out_dir, const Vector<String> &files_to_export) {
 	String t;
-	return _export_imports(p_out_dir, Vector<String>(), nullptr, t);
+	return _export_imports(p_out_dir, files_to_export, nullptr, t);
 }
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
+
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 	String output_dir = !p_out_dir.is_empty() ? p_out_dir : get_settings()->get_project_path();
@@ -109,8 +50,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	if (opt_lossy) {
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
+	// TODO: make this use "copy"
+	Array files = get_settings()->get_import_files();
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
-
+	bool partial_export = files_to_export.size() > 0;
+	session_files_total = partial_export ? files_to_export.size() : files.size();
 	if (opt_decompile) {
 		decompile_scripts(output_dir);
 		// This only works if we decompile the scripts first
@@ -123,7 +67,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		String type = iinfo->get_type();
 		String importer = iinfo->get_importer();
 		auto loss_type = iinfo->get_import_loss_type();
-		if (files_to_export.size()) {
+		// If files_to_export is empty, then we export everything
+		if (partial_export) {
 			auto dest_files = iinfo->get_dest_files();
 			bool has_path = false;
 			for (auto dest : dest_files) {
@@ -162,7 +107,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
 			} else {
 				// import_md_path is the .import path in v3-v4
-				iinfo->set_export_dest(iinfo->get_import_md_path());
+				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
 				// If the source_file path was not actually in the project structure, save it elsewhere
 				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
 					iinfo->set_export_dest(iinfo->get_export_dest().replace("res://", "res://.assets"));
@@ -213,8 +158,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (importer == "bitmap") {
 			err = export_texture(output_dir, iinfo);
-		} else if ((opt_bin2text && iinfo->get_path().get_extension() == "res") ||
-				(importer == "scene" && (iinfo->get_source_file().get_extension() == "tscn" || iinfo->get_source_file().get_extension() == "escn"))) {
+		} else if ((opt_bin2text && iinfo->is_auto_converted()) ||
+				(opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
+				(opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn") ||
+				(iinfo->get_source_file().get_extension() == "escn")) { // escn files are scenes exported from a blender plugin in a godot compatible format
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
 				dir->remove(iinfo->get_path().replace("res://", ""));
@@ -250,21 +197,36 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				}
 				err = ERR_DATABASE_CANT_WRITE;
 			} else {
+				// we successfully rewrote the printer data
 				err = ERR_PRINTER_ON_FIRE;
 			}
 		}
-
+		// write md5 files
+		if (opt_write_md5_files && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
+			err = ((Ref<ImportInfoModern>)iinfo)->save_md5_file(output_dir);
+			if (err && err != ERR_PRINTER_ON_FIRE) {
+				err = ERR_LINK_FAILED;
+			} else {
+				err = OK;
+			}
+		}
 		// ***** Record export result *****
 
+		// the following are successful exports, but we failed to rewrite metadata or write md5 files
 		// we had to rewrite the import metadata
 		if (err == ERR_PRINTER_ON_FIRE) {
 			rewrote_metadata.push_back(iinfo);
-			success.push_back(iinfo);
+			err = OK;
 			// necessary to rewrite import metadata but failed
 		} else if (err == ERR_DATABASE_CANT_WRITE) {
-			success.push_back(iinfo);
 			failed_rewrite_md.push_back(iinfo);
-		} else if (err == ERR_UNAVAILABLE) {
+			err = OK;
+		} else if (err == ERR_LINK_FAILED) {
+			failed_rewrite_md5.push_back(iinfo);
+			err = OK;
+		}
+
+		if (err == ERR_UNAVAILABLE) {
 			not_converted.push_back(iinfo);
 			print_line("Did not convert " + type + " resource " + path);
 		} else if (err != OK) {
@@ -277,9 +239,9 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			success.push_back(iinfo);
 		}
 		// remove v2 remaps
-		if (get_ver_major() == 2 && get_settings()->has_any_remaps()) {
-			if (get_settings()->has_remap(iinfo->get_source_file(), iinfo->get_path())) {
-				get_settings()->remove_remap(iinfo->get_source_file(), iinfo->get_path());
+		if (!err && get_ver_major() == 2 && get_settings()->has_any_remaps()) {
+			if (get_settings()->has_remap(iinfo->get_export_dest(), iinfo->get_path())) {
+				get_settings()->remove_remap(iinfo->get_export_dest(), iinfo->get_path());
 			}
 		}
 	}
@@ -346,7 +308,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	}
 	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + ".x detected");
 	Error err;
-
+	Vector<String> code_files = get_settings()->get_code_files();
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
@@ -665,18 +627,6 @@ Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &i
 	return OK;
 }
 
-Ref<ImportInfo> ImportExporter::get_import_info(const String &p_path) {
-	Ref<ImportInfo> iinfo;
-	for (int i = 0; i < files.size(); i++) {
-		iinfo = files[i];
-		if (iinfo->get_path() == p_path) {
-			return iinfo;
-		}
-	}
-	// not found
-	return Ref<ImportInfo>();
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
@@ -878,7 +828,7 @@ String ImportExporter::get_report() {
 	report += "Totals: " + String("\n");
 	report += "Decompiled scripts: " + itos(decompiled_scripts.size()) + String("\n");
 	report += "Failed scripts: " + itos(failed_scripts.size()) + String("\n");
-	report += "Imported resources for export session: 	" + itos(files.size()) + String("\n");
+	report += "Imported resources for export session: 	" + itos(session_files_total) + String("\n");
 	report += "Successfully converted: 		" + itos(success.size()) + String("\n");
 	if (opt_lossy) {
 		report += "Lossy: 		" + itos(lossy_imports.size()) + String("\n");
@@ -944,9 +894,7 @@ void ImportExporter::print_report() {
 
 void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("decompile_scripts"), &ImportExporter::decompile_scripts);
-	ClassDB::bind_method(D_METHOD("load_import_files"), &ImportExporter::load_import_files);
-	ClassDB::bind_method(D_METHOD("get_import_files"), &ImportExporter::get_import_files);
-	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports);
+	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports, DEFVAL(""), DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("convert_res_txt_2_bin"), &ImportExporter::convert_res_txt_2_bin);
 	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
 	ClassDB::bind_method(D_METHOD("convert_tex_to_png"), &ImportExporter::convert_tex_to_png);
@@ -967,17 +915,22 @@ void ImportExporter::reset_log() {
 	decompiled_scripts.clear();
 	failed_scripts.clear();
 	translation_export_message.clear();
+	session_files_total = 0;
 }
 
 void ImportExporter::reset() {
-	files.clear();
 	opt_bin2text = true;
 	opt_export_textures = true;
 	opt_export_samples = true;
 	opt_export_ogg = true;
 	opt_export_mp3 = true;
 	opt_lossy = true;
+	opt_export_jpg = true;
+	opt_export_webp = true;
 	opt_rewrite_imd_v2 = true;
+	opt_rewrite_imd_v3 = true;
+	opt_decompile = true;
+	opt_only_decompile = false;
 	reset_log();
 }
 

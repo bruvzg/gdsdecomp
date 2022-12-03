@@ -16,8 +16,7 @@
 
 class ImportExporter : public RefCounted {
 	GDCLASS(ImportExporter, RefCounted)
-	Array files;
-	Vector<String> code_files;
+	int session_files_total = 0;
 	bool opt_bin2text = true;
 	bool opt_export_textures = true;
 	bool opt_export_samples = true;
@@ -30,6 +29,8 @@ class ImportExporter : public RefCounted {
 	bool opt_rewrite_imd_v3 = true;
 	bool opt_decompile = true;
 	bool opt_only_decompile = false;
+	bool opt_write_md5_files = true;
+
 	bool had_encryption_error = false;
 	Vector<String> decompiled_scripts;
 	Vector<String> failed_scripts;
@@ -37,12 +38,12 @@ class ImportExporter : public RefCounted {
 	Vector<Ref<ImportInfo>> lossy_imports;
 	Vector<Ref<ImportInfo>> rewrote_metadata;
 	Vector<Ref<ImportInfo>> failed_rewrite_md;
+	Vector<Ref<ImportInfo>> failed_rewrite_md5;
+
 	Vector<Ref<ImportInfo>> failed;
 	Vector<Ref<ImportInfo>> success;
 	Vector<Ref<ImportInfo>> not_converted;
 
-	Error load_import_file(const String &p_path);
-	Error load_import_file_v2(const String &p_path);
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
@@ -70,12 +71,10 @@ public:
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
 	Error decompile_scripts(const String &output_dir);
-	Error load_import_files();
 
-	Array get_import_files();
-	Ref<ImportInfo> get_import_info(const String &p_path);
 	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
-	Error export_imports(const String &output_dir = "");
+	Error export_imports(const String &output_dir = "", const Vector<String> &files_to_export = {});
+
 	void print_report();
 	String get_editor_message();
 	String get_report();
