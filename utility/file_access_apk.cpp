@@ -168,11 +168,12 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	// load with offset feature only supported for PCK files
 	ERR_FAIL_COND_V_MSG(p_offset != 0, false, "Invalid PCK data. Note that loading files with a non-zero offset isn't supported with ZIP archives.");
 	String pack_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
-
-	if (pack_path.get_extension().nocasecmp_to("apk") != 0) {
+	String ext = pack_path.get_extension().to_lower();
+	// This handles zip files, too
+	if (ext != "apk" && ext != "zip") {
 		return false;
 	}
-
+	bool is_apk = ext == "apk";
 	zlib_filefunc_def io;
 	memset(&io, 0, sizeof(io));
 
@@ -200,10 +201,10 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	int pkg_num = packages.size() - 1;
 	uint32_t asset_count = 0;
 	uint32_t version = 1;
-	uint32_t ver_major;
-	uint32_t ver_minor;
-	uint32_t ver_rev;
-	String ver_string;
+	uint32_t ver_major = 0;
+	uint32_t ver_minor = 0;
+	uint32_t ver_rev = 0;
+	String ver_string = "unknown";
 	bool need_version_from_bin_resource = false;
 	for (uint64_t i = 0; i < gi.number_entry; i++) {
 		char filename_inzip[256];
@@ -216,40 +217,44 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		f.package = pkg_num;
 		int pos = unzGetFilePos(zfile, &f.file_pos);
 		String original_fname = String::utf8(filename_inzip);
-		if (original_fname == "AndroidManifest.xml") {
-			files[original_fname] = f;
-			get_version_string_from_manifest(ver_string);
-			if (ver_string == "unknown") {
-				// Godot 2.x did not set a version string in the manifest, and there's no other easy way to get it
-				// TODO: we need to get it from one of the binary resources
-				// for now, set it to 2.1.6
-				ver_string = "2.1.6";
-				need_version_from_bin_resource = true;
-				WARN_PRINT("Could not retrieve version string from AndroidManifest.xml; if this is a Godot 2.0.x project, the scripts may be mangled!");
-			}
-			PackedStringArray sa = ver_string.split(".");
-			if (sa.size() < 3) {
-				WARN_PRINT("Version number in manifest is mangled");
-			}
-			ver_major = sa.size() >= 1 ? sa[0].to_int() : 0;
-			ver_minor = sa.size() >= 2 ? sa[1].to_int() : 0;
-			ver_rev = sa.size() >= 3 ? sa[2].to_int() : 0;
+		String fname;
+		if (is_apk) {
+			if (original_fname == "AndroidManifest.xml") {
+				files[original_fname] = f;
+				get_version_string_from_manifest(ver_string);
+				if (ver_string == "unknown") {
+					// Godot 2.x did not set a version string in the manifest, and there's no other easy way to get it
+					// get it from the bin resources
+					WARN_PRINT("Could not retrieve version string from AndroidManifest.xml");
+				}
+				PackedStringArray sa = ver_string.split(".", false);
+				if (sa.size() < 3 && ver_string != "unknown") {
+					WARN_PRINT("Version number in manifest is mangled");
+				}
+				ver_major = sa.size() >= 1 ? sa[0].to_int() : 0;
+				ver_minor = sa.size() >= 2 ? sa[1].to_int() : 0;
+				ver_rev = sa.size() >= 3 ? sa[2].to_int() : 0;
 
-			// reset the position
-			unzGoToFilePos(zfile, &f.file_pos);
-			if ((i + 1) < gi.number_entry) {
-				unzGoToNextFile(zfile);
+				// reset the position
+				unzGoToFilePos(zfile, &f.file_pos);
+				if ((i + 1) < gi.number_entry) {
+					unzGoToNextFile(zfile);
+				}
+				continue;
+			} else if (!original_fname.begins_with("assets/")) {
+				files[original_fname] = f;
+				if ((i + 1) < gi.number_entry) {
+					unzGoToNextFile(zfile);
+				}
+				continue;
+			} else {
+				fname = original_fname.replace_first("assets/", "res://");
 			}
-			continue;
-		} else if (!original_fname.begins_with("assets/")) {
-			files[original_fname] = f;
-			if ((i + 1) < gi.number_entry) {
-				unzGoToNextFile(zfile);
-			}
-			continue;
+		} else {
+			fname = original_fname;
 		}
+
 		asset_count++;
-		String fname = original_fname.replace_first("assets/", "res://");
 		files[fname] = f;
 
 		uint8_t md5[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -273,7 +278,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	}
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
-	pckinfo->init(pack_path, ver_major, ver_minor, ver_rev, version, 0, 0, asset_count, ver_string, GDRESettings::PackInfo::APK);
+	pckinfo->init(pack_path, ver_major, ver_minor, ver_rev, version, 0, 0, asset_count, ver_string, is_apk ? GDRESettings::PackInfo::APK : GDRESettings::PackInfo::ZIP);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	return true;
