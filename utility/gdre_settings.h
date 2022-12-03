@@ -1,5 +1,6 @@
 #ifndef GDRE_SETTINGS_H
 #define GDRE_SETTINGS_H
+#include "import_info.h"
 #include "packed_file_info.h"
 #include "pcfg_loader.h"
 
@@ -128,11 +129,13 @@ public:
 
 private:
 	Vector<Ref<PackInfo>> packs;
+	HashMap<String, Ref<PackedFileInfo>> file_map;
 	Ref<PackInfo> current_pack = Ref<PackInfo>();
 	PackedData *old_pack_data_singleton = nullptr;
 	PackedData *new_singleton = nullptr;
 	GDRELogger *logger;
-
+	Array import_files;
+	Vector<String> code_files;
 	String gdre_resource_path = "";
 
 	String current_project_path = "";
@@ -153,6 +156,12 @@ private:
 	void add_logger();
 
 	static String _get_cwd();
+	Error get_version_from_bin_resources();
+	bool check_if_dir_is_v4();
+	bool check_if_dir_is_v3();
+	bool check_if_dir_is_v2();
+	int get_ver_major_from_dir();
+	Error _load_import_file(const String &p_path, bool should_load_md5);
 
 public:
 	Error load_dir(const String &p_path);
@@ -200,9 +209,14 @@ public:
 	bool has_project_setting(const String &p_setting);
 	String get_project_config_path();
 	String get_cwd();
-
+	Array get_import_files(bool copy = false);
+	bool has_file(const String &p_path);
+	Error load_import_files();
+	Error load_import_file(const String &p_path);
+	Ref<ImportInfo> get_import_info(const String &p_path);
+	Vector<String> get_code_files();
 	String get_exec_dir();
-
+	bool are_imports_loaded() const;
 	bool is_project_config_loaded() const;
 
 	Error load_project_config();

@@ -150,7 +150,7 @@ public:
 
 	virtual int get_import_loss_type() const;
 
-	virtual Error save_to(const String &output_dir) = 0;
+	virtual Error save_to(const String &p_path) = 0;
 
 	static Ref<ImportInfo> copy(const Ref<ImportInfo> &p_iinfo);
 	static Ref<ImportInfo> load_from_file(const String &p_path, int ver_major = 0, int ver_minor = 0);
@@ -210,7 +210,8 @@ public:
 	virtual Dictionary get_params() const override;
 	virtual void set_params(Dictionary params) override;
 
-	virtual Error save_to(const String &output_dir) override;
+	virtual Error save_to(const String &p_path) override;
+	Error save_md5_file(const String &output_dir);
 
 	virtual Error reload() override { return _load(import_md_path); };
 };
@@ -264,7 +265,7 @@ public:
 	virtual Dictionary get_params() const override;
 	virtual void set_params(Dictionary params) override;
 
-	virtual Error save_to(const String &output_dir) override;
+	virtual Error save_to(const String &p_path) override;
 
 	virtual Error reload() override { return _load(import_md_path); };
 };

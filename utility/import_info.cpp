@@ -324,6 +324,9 @@ Error ImportInfoModern::_load(const String &p_path) {
 	cf.instantiate();
 	String path = GDRESettings::get_singleton()->get_res_path(p_path);
 	Error err = cf->load(path);
+	if (err) {
+		cf = Ref<ConfigFile>();
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
 	import_md_path = path;
 	preferred_import_path = cf->get_value("remap", "path", "");
@@ -358,7 +361,7 @@ Error ImportInfoModern::_load(const String &p_path) {
 			}
 		}
 		//otherwise, check destination files
-		if (preferred_import_path == "" && preferred_import_path.size() != 0) {
+		if (preferred_import_path.is_empty()) {
 			preferred_import_path = get_dest_files()[0];
 		}
 		// special case for textures: if we have multiple formats, and it's a lossy import,
@@ -400,6 +403,8 @@ Error ImportInfov2::_load(const String &p_path) {
 	type = res_info.type;
 	import_md_path = p_path;
 	dest_files.push_back(p_path);
+	ver_major = res_info.ver_major;
+	ver_minor = res_info.ver_minor;
 	if (res_info.v2metadata.is_valid()) {
 		v2metadata = res_info.v2metadata;
 		return OK;
@@ -409,7 +414,7 @@ Error ImportInfov2::_load(const String &p_path) {
 	// If this is a "converted" file, then it won't have import metadata, and we expect that
 	if (!res_info.auto_converted_export) {
 		// The file loaded, but there was no metadata and it was not a ".converted." file
-		WARN_PRINT("Could not load metadata from " + p_path);
+		//WARN_PRINT("Could not load metadata from " + p_path);
 		String new_ext;
 		if (p_path.get_extension() == "tex") {
 			new_ext = "png";
@@ -563,6 +568,7 @@ void ImportInfov2::set_params(Dictionary params) {
 		v2metadata->set_option(E->get(), params[E->get()]);
 	}
 }
+
 Error ImportInfoModern::save_to(const String &new_import_file) {
 	return cf->save(new_import_file);
 }
@@ -573,6 +579,39 @@ Error ImportInfov2::save_to(const String &new_import_file) {
 	err = rlc.rewrite_v2_import_metadata(import_md_path, new_import_file, v2metadata);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
 	return err;
+}
+
+Error ImportInfoModern::save_md5_file(const String &output_dir) {
+	String md5_file_path;
+	Vector<String> dest_files = get_dest_files();
+	// Only imports under these paths have .md5 files
+	if (!dest_files[0].begins_with("res://.godot") && !dest_files[0].begins_with("res://.import")) {
+		return ERR_PRINTER_ON_FIRE;
+	}
+	Vector<String> spl = dest_files[0].split("-");
+	ERR_FAIL_COND_V_MSG(spl.size() < 2, ERR_FILE_BAD_PATH, "Weird import path!");
+	md5_file_path = output_dir.path_join(spl[0].replace_first("res://", "") + "-" + spl[1].get_basename() + ".md5");
+	// check if each exists
+	for (int i = 0; i < dest_files.size(); i++) {
+		if (!FileAccess::exists(dest_files[i])) {
+			// TODO: should we warn/fail here?
+			dest_files.remove_at(i);
+		}
+	}
+	// dest_md5 is the md5 of all the destination files together
+	String dst_md5 = FileAccess::get_multiple_md5(dest_files);
+	ERR_FAIL_COND_V_MSG(dst_md5.is_empty(), ERR_FILE_BAD_PATH, "Can't open import resources to check md5!");
+
+	if (src_md5.is_empty()) {
+		String src_path = export_dest.is_empty() ? get_source_file() : export_dest;
+		src_md5 = FileAccess::get_md5(output_dir.path_join(src_path.replace_first("res://", "")));
+		ERR_FAIL_COND_V_MSG(src_md5.is_empty(), ERR_FILE_BAD_PATH, "Can't open exported resource to check md5!");
+	}
+	Ref<FileAccess> md5_file = FileAccess::open(md5_file_path, FileAccess::WRITE);
+	ERR_FAIL_COND_V_MSG(md5_file.is_null(), ERR_FILE_CANT_OPEN, "Can't open exported resource to check md5!");
+	md5_file->store_string("source_md5=\"" + src_md5 + "\"\ndest_md5=\"" + dst_md5 + "\"\n\n");
+	md5_file->flush();
+	return OK;
 }
 
 void ImportInfo::_bind_methods() {

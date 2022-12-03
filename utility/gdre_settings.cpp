@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+#include "file_access_apk.h"
 #include "util_functions.h"
 
 #include "core/config/engine.h"
@@ -7,7 +8,6 @@
 #include "core/io/file_access_zip.h"
 #include "core/object/script_language.h"
 #include "core/version.h"
-#include "file_access_apk.h"
 #include "modules/regex/regex.h"
 
 #if defined(WINDOWS_ENABLED)
@@ -93,6 +93,45 @@ int get_java_version() {
 	}
 	return version_major;
 }
+bool GDRESettings::check_if_dir_is_v4() {
+	// these are files that will only show up in version 4
+	static const Vector<String> wildcards = { "*.ctex" };
+	if (get_file_list(wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool GDRESettings::check_if_dir_is_v3() {
+	// these are files that will only show up in version 3
+	static const Vector<String> wildcards = { "*.stex" };
+	if (get_file_list(wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool GDRESettings::check_if_dir_is_v2() {
+	// these are files that will only show up in version 2
+	static const Vector<String> wildcards = { "*.converted.*", "*.tex", "*.smp" };
+	if (get_file_list(wildcards).size() > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+int GDRESettings::get_ver_major_from_dir() {
+	if (check_if_dir_is_v2())
+		return 2;
+	if (check_if_dir_is_v3())
+		return 3;
+	if (check_if_dir_is_v4())
+		return 4;
+	return 0;
+}
 
 // We have to set this in the singleton here, since after Godot is done initializing,
 // it will change the CWD to the executable dir
@@ -129,7 +168,11 @@ String GDRESettings::get_cwd() {
 };
 String GDRESettings::get_exec_dir() {
 	return GDRESettings::exec_dir;
-};
+}
+
+bool GDRESettings::are_imports_loaded() const {
+	return import_files.size() > 0;
+}
 
 String GDRESettings::get_gdre_resource_path() const {
 	return gdre_resource_path;
@@ -146,7 +189,7 @@ bool GDRESettings::is_pack_loaded() const {
 }
 
 void GDRESettings::add_pack_file(const Ref<PackedFileInfo> &f_info) {
-	files.push_back(f_info);
+	file_map.insert(f_info->path, f_info);
 }
 
 GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() {
@@ -190,7 +233,9 @@ bool GDRESettings::is_project_config_loaded() const {
 void GDRESettings::remove_current_pack() {
 	current_pack = Ref<PackInfo>();
 	packs.clear();
-	files.clear();
+	file_map.clear();
+	import_files.clear();
+	code_files.clear();
 	reset_encryption_key();
 }
 
@@ -220,8 +265,8 @@ Error GDRESettings::load_dir(const String &p_path) {
 		return ERR_ALREADY_IN_USE;
 	}
 	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
-	ERR_FAIL_COND_V_MSG(da.is_null(), ERR_FILE_CANT_OPEN, "Can't find folder!");
-	ERR_FAIL_COND_V_MSG(!da->dir_exists(p_path), ERR_FILE_CANT_OPEN, "Can't find folder!");
+	ERR_FAIL_COND_V_MSG(da.is_null(), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
+	ERR_FAIL_COND_V_MSG(!da->dir_exists(p_path), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
 
 	// This is a hack to get the resource path set to the project folder
 	ProjectSettings *settings_singleton = ProjectSettings::get_singleton();
@@ -234,32 +279,28 @@ Error GDRESettings::load_dir(const String &p_path) {
 	for (auto s : pa) {
 		print_line(s);
 	}
-	// TODO: Need to get minor version number from binary resource for 2.x,
-	// there were breaking changes between 2.0 and 2.1
-	int ver_major = gdreutil::get_ver_major_from_dir("res://");
-	ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
-	int ver_minor;
-	WARN_PRINT("Guessing minor version number, 2.0 scripts may be mangled...");
-	//for the sake of decompiling scripts
-	if (ver_major == 2) {
-		ver_minor = 1;
-	} else if (ver_major == 3) {
-		ver_minor = 3;
-	} else {
-		ver_minor = 0;
-	}
-	int ver_rev = 0;
-	int version = 1;
 
 	Ref<PackInfo> pckinfo;
 	pckinfo.instantiate();
 	pckinfo->init(
-			p_path, ver_major, ver_minor, ver_rev, version, 0, 0, pa.size(),
-			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), PackInfo::DIR);
+			p_path, 0, 0, 0, 1, 0, 0, pa.size(),
+			"unknown", PackInfo::DIR);
+	// Need to get version number from binary resources
+
 	add_pack_info(pckinfo);
-	load_project_config();
+	Error err = load_import_files();
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Could not load imported binary files!");
+	err = get_version_from_bin_resources();
+	// this is a catastrophic failure, unload the pack
+	if (err) {
+		unload_pack();
+		ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project directory!");
+	}
+	err = load_project_config();
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project config!");
 	return OK;
 }
+
 Error GDRESettings::unload_dir() {
 	remove_current_pack();
 	ProjectSettings *settings_singleton = ProjectSettings::get_singleton();
@@ -333,11 +374,54 @@ Error GDRESettings::load_pack(const String &p_path) {
 		first_load = false;
 	}
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
+	err = load_import_files();
+	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 	if (get_version_string() == "unknown") {
-		// TODO: we have to get it from the binary files
-		// right now file_access_apk just sets it to 2.1.6 if it can't read it from the manifest
+		err = get_version_from_bin_resources();
+		// this is a catastrophic failure, unload the pack
+		if (err) {
+			unload_pack();
+			ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project pack!");
+		}
 	}
-	load_project_config();
+	err = load_project_config();
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project config!");
+	return OK;
+}
+
+Error GDRESettings::get_version_from_bin_resources() {
+	int consistent_versions = 0;
+	int inconsistent_versions = 0;
+	int ver_major = 0;
+	int ver_minor = 0;
+
+	int i;
+	for (i = 0; i < import_files.size(); i++) {
+		Ref<ImportInfo> iinfo = import_files[i];
+		int _res_ver_major = iinfo->get_ver_major();
+		int _res_ver_minor = iinfo->get_ver_minor();
+		if (consistent_versions == 0) {
+			ver_major = _res_ver_major;
+			ver_minor = _res_ver_minor;
+		}
+		if (ver_major == _res_ver_major && _res_ver_minor == ver_minor) {
+			consistent_versions++;
+		} else {
+			inconsistent_versions++;
+		}
+	}
+	if (inconsistent_versions > 0) {
+		WARN_PRINT(itos(inconsistent_versions) + " binary resources had inconsistent versions!");
+	}
+	// we somehow didn't get a version major??
+	if (ver_major == 0) {
+		WARN_PRINT("Couldn't determine ver major from binary resources?!");
+		ver_major = get_ver_major_from_dir();
+		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
+	}
+	current_pack->ver_major = ver_major;
+	current_pack->ver_minor = ver_minor;
+	current_pack->version_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(0);
 	return OK;
 }
 
@@ -459,14 +543,16 @@ Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 }
 
 Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String> &filters) {
-	if (filters.size() == 0) {
-		return files;
-	}
 	Vector<Ref<PackedFileInfo>> ret;
-	for (int i = 0; i < files.size(); i++) {
+	bool no_filters = !filters.size();
+	for (auto E : file_map) {
+		if (no_filters) {
+			ret.push_back(E.value);
+			continue;
+		}
 		for (int j = 0; j < filters.size(); j++) {
-			if (files.get(i)->get_path().get_file().match(filters[j])) {
-				ret.push_back(files.get(i));
+			if (E.key.get_file().match(filters[j])) {
+				ret.push_back(E.value);
 				break;
 			}
 		}
@@ -832,6 +918,134 @@ void GDRESettings::add_logger() {
 	else {
 		WARN_PRINT("No logger being set, there will be no logs!");
 	}
+}
+
+Array GDRESettings::get_import_files(bool copy) {
+	if (!copy) {
+		return import_files;
+	}
+	Array ifiles;
+	for (int i = 0; i < import_files.size(); i++) {
+		ifiles.push_back(ImportInfo::copy(import_files[i]));
+	}
+	return ifiles;
+}
+
+Error GDRESettings::load_import_files() {
+	Vector<String> file_names;
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
+	static const Vector<String> v2wildcards = {
+		"*.converted.*",
+		"*.tex",
+		"*.fnt",
+		"*.msh",
+		"*.scn",
+		"*.res",
+		"*.smp",
+		"*.xl",
+		"*.cbm",
+		"*.pbm",
+		"*.gdc"
+	};
+	static const Vector<String> v3wildcards = {
+		"*.import",
+		"*.gdc",
+		"*.gde",
+	};
+	int _ver_major = get_ver_major();
+	// version isn't set, we have to guess from contents of dir.
+	// While the load_import_file() below will still have 0.0 set as the version,
+	// load_from_file() will automatically load the binary resources to determine the version.
+	if (_ver_major == 0) {
+		_ver_major = get_ver_major_from_dir();
+	}
+	if (_ver_major == 2) {
+		file_names = get_file_list(v2wildcards);
+	} else if (_ver_major == 3 || _ver_major == 4) {
+		file_names = get_file_list(v3wildcards);
+	} else {
+		ERR_FAIL_V_MSG(ERR_BUG, "Can't determine major version!");
+	}
+	bool should_load_md5 = _ver_major > 2 && get_file_info_list({ "*.md5" }).size() > 0;
+	for (int i = 0; i < file_names.size(); i++) {
+		if (file_names[i].get_extension() == "gdc" || file_names[i].get_extension() == "gde") {
+			code_files.push_back(file_names[i]);
+		} else {
+			Error err = _load_import_file(file_names[i], should_load_md5);
+			if (err && err != ERR_PRINTER_ON_FIRE) {
+				WARN_PRINT("Can't load import file: " + file_names[i]);
+			}
+		}
+	}
+	return OK;
+}
+
+Error GDRESettings::_load_import_file(const String &p_path, bool should_load_md5) {
+	Ref<ImportInfo> i_info = ImportInfo::load_from_file(p_path, get_ver_major(), get_ver_minor());
+	ERR_FAIL_COND_V_MSG(i_info.is_null(), ERR_FILE_CANT_OPEN, "Failed to load import file " + p_path);
+
+	import_files.push_back(i_info);
+	// get source md5 from md5 file
+	if (should_load_md5) {
+		String src = i_info->get_dest_files()[0];
+		// only files under the ".import" or ".godot" paths will have md5 files
+		if (src.begins_with("res://.godot") || src.begins_with("res://.import")) {
+			// sound.wav-<pathmd5>.smp -> sound.wav-<pathmd5>.md5
+			String md5 = src.get_basename() + ".md5";
+			while (true) {
+				if (file_map.has(md5)) {
+					break;
+				}
+
+				// image.png-<pathmd5>.s3tc.stex -> image.png-<pathmd5>.md5
+				if (md5 != md5.get_basename()) {
+					md5 = md5.get_basename();
+					continue;
+				}
+				// we didn't find it
+				md5 = "";
+				break;
+			}
+			if (!md5.is_empty()) {
+				Ref<FileAccess> file = FileAccess::open(md5, FileAccess::READ);
+				ERR_FAIL_COND_V_MSG(file.is_null(), ERR_PRINTER_ON_FIRE, "Failed to load md5 file associated with import");
+				String text = file->get_line();
+				while (!text.begins_with("source") && !file->eof_reached()) {
+					text = file->get_line();
+				}
+				if (!text.begins_with("source") || text.split("=").size() < 2) {
+					WARN_PRINT("md5 file does not have source md5 info!");
+					return ERR_PRINTER_ON_FIRE;
+				}
+				text = text.split("=")[1].strip_edges().replace("\"", "");
+				if (!text.is_valid_hex_number(false)) {
+					WARN_PRINT("source md5 hash is not valid!");
+					return ERR_PRINTER_ON_FIRE;
+				}
+				i_info->set_source_md5(text);
+			}
+		}
+	}
+	return OK;
+}
+Error GDRESettings::load_import_file(const String &p_path) {
+	return _load_import_file(p_path, false);
+}
+
+Ref<ImportInfo> GDRESettings::get_import_info(const String &p_path) {
+	Ref<ImportInfo> iinfo;
+	for (int i = 0; i < import_files.size(); i++) {
+		iinfo = import_files[i];
+		if (iinfo->get_path() == p_path) {
+			return iinfo;
+		}
+	}
+	// not found
+	return Ref<ImportInfo>();
+}
+
+Vector<String> GDRESettings::get_code_files() {
+	return code_files;
 }
 
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {

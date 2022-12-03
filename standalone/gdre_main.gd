@@ -61,11 +61,12 @@ func set_system_fonts():
 
 func _ready():
 	$version_lbl.text = $re_editor_standalone.get_version()
-	set_system_fonts()
 	# test_functions()
 	# get_tree().quit()
+	if !handle_cli():
+		# We're in GUI mode, set the system fonts
+		set_system_fonts()
 
-	handle_cli()
 
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -147,12 +148,6 @@ func test_decomp(fname):
 
 func export_imports(output_dir:String):
 	var importer:ImportExporter = ImportExporter.new()
-	var err = importer.load_import_files()
-	if err != OK:
-		print("Error: failed to load import files!")
-		return
-	var arr = importer.get_import_files()
-	print("Number of import files: " + str(arr.size()))
 	importer.export_imports(output_dir)
 	importer.reset()
 				
@@ -189,7 +184,7 @@ func print_usage():
 	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
 
-func recovery(input_file:String, output_dir:String, enc_key:String, extract_only:bool):
+func recovery(input_file:String, output_dir:String, enc_key:String, extract_only: bool):
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
@@ -257,7 +252,7 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 func print_version():
 	print("Godot RE Tools " + main.get_gdre_version())
 
-func handle_cli():
+func handle_cli() -> bool:
 	var args = OS.get_cmdline_args()
 	var input_extract_file:String = ""
 	var input_file:String = ""
@@ -265,7 +260,7 @@ func handle_cli():
 	var enc_key: String = ""
 	var txt_to_bin: String = ""
 	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
-		return
+		return false
 	main = GDRECLIMain.new()
 	for i in range(args.size()):
 		var arg:String = args[i]
@@ -306,3 +301,4 @@ func handle_cli():
 
 		print_usage()
 		get_tree().quit()
+	return true
