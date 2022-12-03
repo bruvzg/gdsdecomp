@@ -234,6 +234,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->add_filter("*.apk;Android application files");
+	pck_file_selection->add_filter("*.zip;Zipped Godot project files");
 	pck_file_selection->connect("file_selected", callable_mp(this, &GodotREEditor::_pck_select_request));
 	pck_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_file_selection);
@@ -813,8 +814,7 @@ void GodotREEditor::_pck_extract_files_process() {
 	if (is_full_recovery && !err) {
 		memdelete(pr);
 		ie.instantiate();
-		ie->load_import_files();
-		pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck_res", RTR("Exporting resources..."), ie->get_import_files().size(), true));
+		pr = memnew(EditorProgressGDDC(ne_parent, "re_ext_pck_res", RTR("Exporting resources..."), GDRESettings::get_singleton()->get_import_files().size(), true));
 		String error_string;
 		err = ie->_export_imports(dir, files, pr, error_string);
 	}
