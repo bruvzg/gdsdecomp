@@ -151,38 +151,47 @@ void ImportInfo::_init() {
 	export_dest = "";
 }
 
+Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_info) {
+	ResourceFormatLoaderCompat rlc;
+	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->has_res_path(p_path), ERR_FILE_NOT_FOUND, "Could not load " + p_path);
+	Error err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource info from " + p_path);
+}
+
 Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, int ver_minor) {
 	Ref<ImportInfo> iinfo;
 	Error err = OK;
-
+	_ResourceInfo res_info;
 	if (p_path.get_extension() == "import") {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfoModern));
 		err = iinfo->_load(p_path);
-		ERR_FAIL_COND_V_MSG(err != OK, Ref<ImportInfo>(), "Could not load " + p_path);
 		if (ver_major == 0) {
-			ResourceFormatLoaderCompat rlc;
-			_ResourceInfo res_info;
-			String res_path = iinfo->get_path();
-			if (!GDRESettings::get_singleton()->has_res_path(res_path)) {
+			err = get_resource_info(iinfo->get_path(), res_info);
+			if (err) {
 				WARN_PRINT("ImportInfo: Version major not specified and could not load binary resource file!");
+				err = OK;
 			} else {
-				err = rlc.get_import_info(res_path, GDRESettings::get_singleton()->get_project_path(), res_info);
-				ERR_FAIL_COND_V_MSG(err != OK, iinfo, "Version major not specified and could not load " + res_path);
 				iinfo->ver_major = res_info.ver_major;
 				iinfo->ver_minor = res_info.ver_minor;
 				if (res_info.type != iinfo->get_type()) {
 					WARN_PRINT(p_path + ": binary resource type " + res_info.type + " does not equal import type " + iinfo->get_type() + "???");
+				}
+				if (res_info.is_text) {
+					WARN_PRINT_ONCE("ImportInfo: Attempted to load a text resource file, cannot determine minor version!");
 				}
 			}
 		} else {
 			iinfo->ver_major = ver_major;
 			iinfo->ver_minor = ver_minor;
 		}
+	} else if (ver_major >= 3) {
+		iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
+		err = iinfo->_load(p_path);
 	} else {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfov2));
 		err = iinfo->_load(p_path);
-		ERR_FAIL_COND_V_MSG(err != OK, Ref<ImportInfo>(), "Could not load " + p_path);
 	}
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<ImportInfo>(), "Could not load " + p_path);
 	return iinfo;
 }
 
@@ -390,6 +399,21 @@ Error ImportInfoModern::_load(const String &p_path) {
 	return OK;
 }
 
+Error ImportInfoDummy::_load(const String &p_path) {
+	_ResourceInfo res_info;
+	Error err = get_resource_info(p_path, res_info);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource " + p_path);
+	preferred_import_path = p_path;
+	source_file = "";
+	not_an_import = false;
+	ver_major = res_info.ver_major;
+	ver_minor = res_info.ver_minor;
+	type = res_info.type;
+	dest_files = Vector<String>({ p_path });
+	import_md_path = "";
+	return OK;
+}
+
 Error ImportInfov2::_load(const String &p_path) {
 	Error err;
 	ResourceFormatLoaderCompat rlc;
@@ -594,8 +618,8 @@ Error ImportInfoModern::save_md5_file(const String &output_dir) {
 	// check if each exists
 	for (int i = 0; i < dest_files.size(); i++) {
 		if (!FileAccess::exists(dest_files[i])) {
-			// TODO: should we warn/fail here?
-			dest_files.remove_at(i);
+			WARN_PRINT("Cannot find " + dest_files[i] + ", cannot compute dest_md5.");
+			return ERR_PRINTER_ON_FIRE;
 		}
 	}
 	// dest_md5 is the md5 of all the destination files together

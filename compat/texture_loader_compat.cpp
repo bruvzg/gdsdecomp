@@ -271,7 +271,7 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 	loader->res_path = p_path;
 	loader->convert_v2image_indexed = true;
 	loader->hacks_for_deprecated_v2img_formats = false;
-	err = loader->open(f);
+	err = loader->open_bin(f);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot open resource '" + p_path + "'.", loader);
 	err = loader->load();
 	// deprecated format
@@ -860,7 +860,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	loader->res_path = p_path;
 	loader->convert_v2image_indexed = true;
 	loader->hacks_for_deprecated_v2img_formats = false;
-	err = loader->open(f);
+	err = loader->open_bin(f);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<Image>(), "Cannot open resource '" + p_path + "'.", loader);
 
 	err = loader->load();
