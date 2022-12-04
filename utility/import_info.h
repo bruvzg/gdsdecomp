@@ -58,6 +58,7 @@ struct _ResourceInfo {
 	String type;
 	Ref<ResourceImportMetadatav2> v2metadata = nullptr;
 	bool auto_converted_export = false;
+	bool is_text = false;
 };
 
 class ImportInfo : public RefCounted {
@@ -151,7 +152,7 @@ public:
 	virtual int get_import_loss_type() const;
 
 	virtual Error save_to(const String &p_path) = 0;
-
+	static Error get_resource_info(const String &p_path, _ResourceInfo &i_info);
 	static Ref<ImportInfo> copy(const Ref<ImportInfo> &p_iinfo);
 	static Ref<ImportInfo> load_from_file(const String &p_path, int ver_major = 0, int ver_minor = 0);
 
@@ -270,4 +271,57 @@ public:
 	virtual Error reload() override { return _load(import_md_path); };
 };
 
+class ImportInfoDummy : public ImportInfo {
+	GDCLASS(ImportInfoDummy, ImportInfo)
+private:
+	friend class ImportInfo;
+
+	String type;
+	String source_file;
+	String src_md5;
+	Vector<String> dest_files;
+	Ref<ResourceImportMetadatav2> v2metadata;
+	virtual Error _load(const String &p_path) override;
+
+protected:
+	static void _bind_methods(){};
+
+public:
+	virtual String get_type() const override { return type; };
+	virtual void set_type(const String &p_type) override { type = p_type; };
+	virtual String get_compat_type() const override { return ClassDB::get_compatibility_remapped_class(get_type()); };
+
+	virtual String get_importer() const override { return "<NONE>"; };
+
+	virtual String get_source_file() const override { return source_file; };
+	virtual void set_source_file(const String &path) override { source_file = path; };
+
+	virtual String get_source_md5() const override { return src_md5; };
+	virtual void set_source_md5(const String &md5) override { src_md5 = md5; };
+
+	virtual void set_source_and_md5(const String &path, const String &md5 = "") override {
+		source_file = path;
+		src_md5 = md5;
+	};
+	virtual Vector<String> get_additional_sources() const override { return Vector<String>(); };
+	virtual void set_additional_sources(const Vector<String> &p_add_sources) override { return; };
+
+	virtual Vector<String> get_dest_files() const override { return dest_files; };
+	virtual void set_dest_files(const Vector<String> p_dest_files) override { dest_files = p_dest_files; };
+
+	virtual Variant get_param(const String &p_key) const override { return Variant(); };
+	virtual void set_param(const String &p_key, const Variant &p_val) override { return; };
+	virtual bool has_param(const String &p_key) const override { return false; };
+
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override { return Variant(); };
+	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override { return; };
+
+	virtual bool has_import_data() const override { return false; };
+	virtual Dictionary get_params() const override { return Dictionary(); };
+	virtual void set_params(Dictionary params) override { return; };
+
+	virtual Error save_to(const String &p_path) override { return ERR_UNAVAILABLE; }
+
+	virtual Error reload() override { return _load(import_md_path); };
+};
 #endif

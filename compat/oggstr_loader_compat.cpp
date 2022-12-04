@@ -28,7 +28,7 @@ Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path,
 	loader->fake_load = true;
 	loader->local_path = p_path;
 	loader->res_path = p_path;
-	err = loader->open(f);
+	err = loader->open_bin(f);
 	if (r_err) {
 		r_err = &err;
 	}

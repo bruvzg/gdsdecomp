@@ -307,7 +307,7 @@ public:
 	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_res_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
 	Error save_to_bin(const String &p_path, uint32_t p_flags = 0);
 	static RBMap<String, String> get_version_and_type(const String &p_path, Error *r_error);
-	Error open(Ref<FileAccess> p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
+	Error open_bin(Ref<FileAccess> p_f, bool p_no_resources = false, bool p_keep_uuid_paths = false);
 	Error load();
 	static String get_ustring(Ref<FileAccess> f);
 	Error save_as_text_unloaded(const String &p_path, uint32_t p_flags = 0);
@@ -354,10 +354,18 @@ public:
 
 class ResourceFormatLoaderCompat : public ResourceFormatLoader {
 private:
-	ResourceLoaderCompat *_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+	ResourceLoaderCompat *_open_bin(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
 	ResourceLoaderCompat *_open_text(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
+	ResourceLoaderCompat *_open_after_recognizing(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress);
 
 public:
+	enum FormatType {
+		BINARY,
+		TEXT,
+		UNKNOWN,
+		FILE_ERROR
+	};
+	FormatType recognize(const String &p_path, const String &base_dir = "");
 	Error get_import_info(const String &p_path, const String &base_dir, _ResourceInfo &i_info);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 	Error convert_txt_to_bin(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);

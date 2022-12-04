@@ -46,7 +46,7 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 		dst_path = output_dir.path_join(dst.replace_first("res://", ""));
 	}
 
-	ResourceLoaderCompat *loader = _open(p_path, output_dir, true, &error, r_progress);
+	ResourceLoaderCompat *loader = _open_bin(p_path, output_dir, true, &error, r_progress);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 
 	error = loader->load();
@@ -75,7 +75,7 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 		return rflct.load_texture2d(p_path, r_error);
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
-	ResourceLoaderCompat *loader = _open(p_path, project_dir, false, r_error, r_progress);
+	ResourceLoaderCompat *loader = _open_bin(p_path, project_dir, false, r_error, r_progress);
 	ERR_FAIL_COND_V_MSG(*r_error != OK, Ref<Resource>(), "Cannot open file '" + p_path + "'.");
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
@@ -94,7 +94,7 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 Error ResourceFormatLoaderCompat::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd) {
 	Error error = OK;
 	float prog;
-	auto loader = _open(p_path, "", true, &error, &prog);
+	auto loader = _open_bin(p_path, "", true, &error, &prog);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(loader->engine_ver_major != 2, ERR_INVALID_DATA, "Not a V2 Resource: '" + p_path + "'.", loader);
 	// In case this is a imageTexture resource, we have to set this
@@ -112,14 +112,19 @@ Error ResourceFormatLoaderCompat::rewrite_v2_import_metadata(const String &p_pat
 
 Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, _ResourceInfo &i_info) {
 	Error error = OK;
-
-	ResourceLoaderCompat *loader = _open(p_path, base_dir, true, &error, nullptr);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "failed to open resource '" + p_path + "'.", loader);
-
+	ResourceLoaderCompat *loader;
+	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, base_dir);
+	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
+		loader = _open_bin(p_path, base_dir, true, &error, nullptr);
+	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
+		loader = _open_text(p_path, base_dir, true, &error, nullptr);
+		i_info.is_text = true;
+	}
+	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 	i_info.type = loader->res_type;
 	i_info.ver_major = loader->engine_ver_major;
 	i_info.ver_minor = loader->engine_ver_minor;
-	if (loader->engine_ver_major == 2) {
+	if (loader->engine_ver_major == 2 && !i_info.is_text) {
 		// these do not have any metadata info in them
 		if (loader->local_path.find(".converted.") != -1) {
 			i_info.auto_converted_export = true;
@@ -149,7 +154,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	return OK;
 }
 
-ResourceLoaderCompat *ResourceFormatLoaderCompat::_open(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress) {
+ResourceLoaderCompat *ResourceFormatLoaderCompat::_open_bin(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress) {
 	Error error = OK;
 	if (!r_error) {
 		r_error = &error;
@@ -172,7 +177,7 @@ ResourceLoaderCompat *ResourceFormatLoaderCompat::_open(const String &p_path, co
 	loader->local_path = GDRESettings::get_singleton()->localize_path(p_path, base_dir);
 	loader->res_path = res_path;
 
-	*r_error = loader->open(f);
+	*r_error = loader->open_bin(f);
 
 	ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot open resource '" + p_path + "'.");
 
@@ -207,6 +212,46 @@ ResourceLoaderCompat *ResourceFormatLoaderCompat::_open_text(const String &p_pat
 	ERR_FAIL_COND_V_MSG(error != OK, loader, "Cannot open resource '" + p_path + "'.");
 
 	return loader;
+}
+
+ResourceLoaderCompat *ResourceFormatLoaderCompat::_open_after_recognizing(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress) {
+	Error error = OK;
+	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, base_dir);
+	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
+		return _open_bin(p_path, base_dir, true, &error, nullptr);
+	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
+		return _open_text(p_path, base_dir, true, &error, nullptr);
+	}
+	ERR_FAIL_V_MSG(nullptr, "failed to open resource '" + p_path + "'.");
+}
+
+ResourceFormatLoaderCompat::FormatType ResourceFormatLoaderCompat::recognize(const String &p_path, const String &base_dir) {
+	Error error = OK;
+	String res_path = GDRESettings::get_singleton()->get_res_path(p_path, base_dir);
+	Ref<FileAccess> f = nullptr;
+	ERR_FAIL_COND_V_MSG(res_path.is_empty(), ResourceFormatLoaderCompat::FormatType::FILE_ERROR, "Cannot open file '" + res_path + "'.");
+	f = FileAccess::open(res_path, FileAccess::READ, &error);
+	// TODO: remove this extra check
+	ERR_FAIL_COND_V_MSG(f.is_null(), ResourceFormatLoaderCompat::FormatType::FILE_ERROR, "Cannot open file '" + res_path + "' (Even after get_res_path() returned a path?).");
+
+	uint8_t header[4];
+	f->get_buffer(header, 4);
+	if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
+			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
+		return ResourceFormatLoaderCompat::FormatType::BINARY;
+	}
+	f->seek(0);
+	VariantParser::StreamFile stream;
+	stream.f = f;
+	VariantParser::Tag tag;
+	int lines = 1;
+	String error_test;
+	Error err = VariantParserCompat::parse_tag(&stream, lines, error_test, tag);
+	if (tag.name == "gd_scene" || tag.name == "gd_resource") {
+		return ResourceFormatLoaderCompat::FormatType::TEXT;
+	} else {
+		return ResourceFormatLoaderCompat::FormatType::UNKNOWN;
+	}
 }
 
 Error ResourceLoaderCompat::load_import_metadata() {
@@ -257,7 +302,7 @@ StringName ResourceLoaderCompat::_get_string() {
 	return string_map[id];
 }
 
-Error ResourceLoaderCompat::open(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
+Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
 	error = OK;
 
 	f = p_f;
@@ -2424,7 +2469,7 @@ ResourceLoaderCompat::ResourceLoaderCompat() {}
 ResourceLoaderCompat::~ResourceLoaderCompat() {}
 
 void ResourceLoaderCompat::get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths) {
-	open(p_f);
+	open_bin(p_f);
 	if (error) {
 		return;
 	}
