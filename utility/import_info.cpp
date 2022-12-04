@@ -711,66 +711,6 @@ void ImportInfo::_bind_methods() {
 }
 
 void ImportInfoModern::_bind_methods() {
-	// ClassDB::bind_method(D_METHOD("get_type"), &ImportInfoModern::get_type);
-	// ClassDB::bind_method(D_METHOD("set_type"), &ImportInfoModern::set_type);
-	// ClassDB::bind_method(D_METHOD("get_compat_type"), &ImportInfoModern::get_compat_type);
-
-	// ClassDB::bind_method(D_METHOD("get_importer"), &ImportInfoModern::get_importer);
-
-	// ClassDB::bind_method(D_METHOD("get_source_file"), &ImportInfoModern::get_source_file);
-	// ClassDB::bind_method(D_METHOD("set_source_file"), &ImportInfoModern::set_source_file);
-
-	// ClassDB::bind_method(D_METHOD("get_source_md5"), &ImportInfoModern::get_source_md5);
-
-	// ClassDB::bind_method(D_METHOD("get_uid"), &ImportInfoModern::get_uid);
-
-	// ClassDB::bind_method(D_METHOD("get_dest_files"), &ImportInfoModern::get_dest_files);
-	// ClassDB::bind_method(D_METHOD("set_dest_files"), &ImportInfoModern::set_dest_files);
-
-	// ClassDB::bind_method(D_METHOD("get_metadata_prop"), &ImportInfoModern::get_metadata_prop);
-	// ClassDB::bind_method(D_METHOD("set_metadata_prop"), &ImportInfoModern::set_metadata_prop);
-
-	// ClassDB::bind_method(D_METHOD("get_param"), &ImportInfoModern::get_param);
-	// ClassDB::bind_method(D_METHOD("set_param"), &ImportInfoModern::set_param);
-
-	// ClassDB::bind_method(D_METHOD("get"), &ImportInfoModern::get);
-	// ClassDB::bind_method(D_METHOD("set"), &ImportInfoModern::set);
-
-	// ClassDB::bind_method(D_METHOD("has_import_data"), &ImportInfoModern::has_import_data);
-	// ClassDB::bind_method(D_METHOD("get_params"), &ImportInfoModern::get_params);
-	// ClassDB::bind_method(D_METHOD("set_params"), &ImportInfoModern::set_params);
-
-	// ClassDB::bind_method(D_METHOD("save_to"), &ImportInfoModern::save_to);
 }
 void ImportInfov2::_bind_methods() {
-	// ClassDB::bind_method(D_METHOD("get_type"), &ImportInfov2::get_type);
-	// ClassDB::bind_method(D_METHOD("set_type"), &ImportInfov2::set_type);
-	// ClassDB::bind_method(D_METHOD("get_compat_type"), &ImportInfov2::get_compat_type);
-
-	// ClassDB::bind_method(D_METHOD("get_importer"), &ImportInfov2::get_importer);
-
-	// ClassDB::bind_method(D_METHOD("get_source_file"), &ImportInfov2::get_source_file);
-	// ClassDB::bind_method(D_METHOD("set_source_file"), &ImportInfov2::set_source_file);
-
-	// ClassDB::bind_method(D_METHOD("get_source_md5"), &ImportInfov2::get_source_md5);
-
-	// ClassDB::bind_method(D_METHOD("get_uid"), &ImportInfov2::get_uid);
-
-	// ClassDB::bind_method(D_METHOD("get_dest_files"), &ImportInfov2::get_dest_files);
-	// ClassDB::bind_method(D_METHOD("set_dest_files"), &ImportInfov2::set_dest_files);
-
-	// ClassDB::bind_method(D_METHOD("get_metadata_prop"), &ImportInfov2::get_metadata_prop);
-	// ClassDB::bind_method(D_METHOD("set_metadata_prop"), &ImportInfov2::set_metadata_prop);
-
-	// ClassDB::bind_method(D_METHOD("get_param"), &ImportInfov2::get_param);
-	// ClassDB::bind_method(D_METHOD("set_param"), &ImportInfov2::set_param);
-
-	// ClassDB::bind_method(D_METHOD("get"), &ImportInfov2::get);
-	// ClassDB::bind_method(D_METHOD("set"), &ImportInfov2::set);
-
-	// ClassDB::bind_method(D_METHOD("has_import_data"), &ImportInfov2::has_import_data);
-	// ClassDB::bind_method(D_METHOD("get_params"), &ImportInfov2::get_params);
-	// ClassDB::bind_method(D_METHOD("set_params"), &ImportInfov2::set_params);
-
-	// ClassDB::bind_method(D_METHOD("save_to"), &ImportInfov2::save_to);
 }
