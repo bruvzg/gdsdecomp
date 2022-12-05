@@ -48,7 +48,7 @@ int ImportInfo::get_import_loss_type() const {
 		//These are always imported as either native files or losslessly
 		return LOSSLESS;
 	}
-	if (!has_import_data() || !is_import()) {
+	if (!is_import()) {
 		return UNKNOWN;
 	}
 
@@ -121,16 +121,27 @@ Ref<ResourceImportMetadatav2> copy_imd_v2(Ref<ResourceImportMetadatav2> p_cf) {
 
 Ref<ImportInfo> ImportInfo::copy(const Ref<ImportInfo> &p_iinfo) {
 	Ref<ImportInfo> r_iinfo;
-	// int ver_major = 0; //2, 3, 4
-	if (p_iinfo->ver_major > 2) {
-		r_iinfo = Ref<ImportInfo>(memnew(ImportInfoModern));
-		((Ref<ImportInfoModern>)r_iinfo)->src_md5 = ((Ref<ImportInfoModern>)p_iinfo)->src_md5;
-		((Ref<ImportInfoModern>)r_iinfo)->cf = copy_config_file(((Ref<ImportInfoModern>)p_iinfo)->cf);
-	} else {
-		r_iinfo = Ref<ImportInfo>(memnew(ImportInfov2));
-		((Ref<ImportInfov2>)r_iinfo)->type = ((Ref<ImportInfov2>)p_iinfo)->type;
-		((Ref<ImportInfov2>)r_iinfo)->dest_files = ((Ref<ImportInfov2>)p_iinfo)->dest_files;
-		((Ref<ImportInfov2>)r_iinfo)->v2metadata = copy_imd_v2(((Ref<ImportInfov2>)p_iinfo)->v2metadata);
+	switch (p_iinfo->iitype) {
+		case IInfoType::MODERN:
+			r_iinfo = Ref<ImportInfo>(memnew(ImportInfoModern));
+			((Ref<ImportInfoModern>)r_iinfo)->src_md5 = ((Ref<ImportInfoModern>)p_iinfo)->src_md5;
+			((Ref<ImportInfoModern>)r_iinfo)->cf = copy_config_file(((Ref<ImportInfoModern>)p_iinfo)->cf);
+			break;
+		case IInfoType::V2:
+			r_iinfo = Ref<ImportInfo>(memnew(ImportInfov2));
+			((Ref<ImportInfov2>)r_iinfo)->type = ((Ref<ImportInfov2>)p_iinfo)->type;
+			((Ref<ImportInfov2>)r_iinfo)->dest_files = ((Ref<ImportInfov2>)p_iinfo)->dest_files;
+			((Ref<ImportInfov2>)r_iinfo)->v2metadata = copy_imd_v2(((Ref<ImportInfov2>)p_iinfo)->v2metadata);
+			break;
+		case IInfoType::DUMMY:
+			r_iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
+			((Ref<ImportInfoDummy>)r_iinfo)->type = ((Ref<ImportInfoDummy>)p_iinfo)->type;
+			((Ref<ImportInfoDummy>)r_iinfo)->source_file = ((Ref<ImportInfoDummy>)p_iinfo)->source_file;
+			((Ref<ImportInfoDummy>)r_iinfo)->src_md5 = ((Ref<ImportInfoDummy>)p_iinfo)->src_md5;
+			((Ref<ImportInfoDummy>)r_iinfo)->dest_files = ((Ref<ImportInfoDummy>)p_iinfo)->dest_files;
+			break;
+		default:
+			break;
 	}
 	r_iinfo->import_md_path = p_iinfo->import_md_path;
 	r_iinfo->ver_major = p_iinfo->ver_major;
@@ -144,11 +155,30 @@ Ref<ImportInfo> ImportInfo::copy(const Ref<ImportInfo> &p_iinfo) {
 	return r_iinfo;
 }
 
-void ImportInfo::_init() {
+ImportInfo::ImportInfo() :
+		RefCounted() {
 	import_md_path = "";
 	ver_major = 0;
 	ver_minor = 0;
 	export_dest = "";
+	iitype = IInfoType::BASE;
+}
+
+ImportInfoModern::ImportInfoModern() :
+		ImportInfo() {
+	cf.instantiate();
+	iitype = IInfoType::MODERN;
+}
+
+ImportInfov2::ImportInfov2() :
+		ImportInfo() {
+	v2metadata.instantiate();
+	iitype = IInfoType::V2;
+}
+
+ImportInfoDummy::ImportInfoDummy() :
+		ImportInfo() {
+	iitype = IInfoType::DUMMY;
 }
 
 Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_info) {
@@ -156,6 +186,7 @@ Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_inf
 	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->has_res_path(p_path), ERR_FILE_NOT_FOUND, "Could not load " + p_path);
 	Error err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource info from " + p_path);
+	return OK;
 }
 
 Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, int ver_minor) {
@@ -304,10 +335,6 @@ void ImportInfoModern::set_iinfo_val(const String &p_section, const String &p_pr
 	cf->set_value(p_section, p_prop, p_val);
 }
 
-bool ImportInfoModern::has_import_data() const {
-	return cf.is_valid();
-}
-
 Dictionary ImportInfoModern::get_params() const {
 	Dictionary params;
 	if (cf->has_section("params")) {
@@ -405,7 +432,7 @@ Error ImportInfoDummy::_load(const String &p_path) {
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource " + p_path);
 	preferred_import_path = p_path;
 	source_file = "";
-	not_an_import = false;
+	not_an_import = true;
 	ver_major = res_info.ver_major;
 	ver_minor = res_info.ver_minor;
 	type = res_info.type;
@@ -506,7 +533,10 @@ String ImportInfov2::get_importer() const {
 }
 
 String ImportInfov2::get_source_file() const {
-	return v2metadata->get_source_path(0);
+	if (v2metadata->get_source_count() > 0) {
+		return v2metadata->get_source_path(0);
+	}
+	return "";
 }
 
 void ImportInfov2::set_source_file(const String &p_path) {
@@ -514,12 +544,17 @@ void ImportInfov2::set_source_file(const String &p_path) {
 }
 
 void ImportInfov2::set_source_and_md5(const String &path, const String &md5) {
-	v2metadata->remove_source(0);
+	if (v2metadata->get_source_count() > 0) {
+		v2metadata->remove_source(0);
+	}
 	v2metadata->add_source_at(path, md5, 0);
 }
 
 String ImportInfov2::get_source_md5() const {
-	return v2metadata->get_source_md5(0);
+	if (v2metadata->get_source_count() > 0) {
+		return v2metadata->get_source_md5(0);
+	}
+	return "";
 }
 
 void ImportInfov2::set_source_md5(const String &md5) {
@@ -527,7 +562,7 @@ void ImportInfov2::set_source_md5(const String &md5) {
 }
 
 Vector<String> ImportInfov2::get_dest_files() const {
-	return Vector<String>({ dest_files[0] });
+	return dest_files;
 }
 
 void ImportInfov2::set_dest_files(const Vector<String> p_dest_files) {
@@ -545,7 +580,9 @@ Vector<String> ImportInfov2::get_additional_sources() const {
 void ImportInfov2::set_additional_sources(const Vector<String> &p_add_sources) {
 	// TODO: md5s
 	for (int i = 1; i < p_add_sources.size(); i++) {
-		v2metadata->remove_source(i);
+		if (v2metadata->get_source_count() >= i) {
+			v2metadata->remove_source(i);
+		}
 		v2metadata->add_source_at(p_add_sources[i], "", i);
 	}
 }
@@ -575,10 +612,6 @@ void ImportInfov2::set_iinfo_val(const String &p_section, const String &p_prop, 
 		return v2metadata->set_option(p_prop, p_val);
 	}
 	//TODO: others?
-}
-
-bool ImportInfov2::has_import_data() const {
-	return v2metadata.is_valid();
 }
 
 Dictionary ImportInfov2::get_params() const {
@@ -701,7 +734,6 @@ void ImportInfo::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_iinfo_val"), &ImportInfo::get_iinfo_val);
 	ClassDB::bind_method(D_METHOD("set_iinfo_val"), &ImportInfo::set_iinfo_val);
 
-	ClassDB::bind_method(D_METHOD("has_import_data"), &ImportInfo::has_import_data);
 	ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
 	ClassDB::bind_method(D_METHOD("set_params", "params"), &ImportInfo::set_params);
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "params"), "set_params", "get_params");

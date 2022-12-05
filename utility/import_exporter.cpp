@@ -202,7 +202,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 		}
 		// write md5 files
-		if (opt_write_md5_files && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
+		if (opt_write_md5_files && iinfo->is_import() && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
 			err = ((Ref<ImportInfoModern>)iinfo)->save_md5_file(output_dir);
 			if (err && err != ERR_PRINTER_ON_FIRE) {
 				err = ERR_LINK_FAILED;
