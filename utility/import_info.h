@@ -52,6 +52,21 @@ enum SceneFlags {
 };
 } // namespace V2ImportEnums
 
+namespace V3LTexCompressMode {
+enum CompressMode {
+	COMPRESS_LOSSLESS,
+	COMPRESS_VIDEO_RAM,
+	COMPRESS_UNCOMPRESSED
+};
+}
+namespace V3TexCompressMode {
+enum CompressMode {
+	COMPRESS_LOSSLESS,
+	COMPRESS_LOSSY,
+	COMPRESS_VIDEO_RAM,
+	COMPRESS_UNCOMPRESSED
+};
+} //namespace V3TexCompressMode
 struct _ResourceInfo {
 	int ver_major = 0; //2, 3, 4
 	int ver_minor = 0;

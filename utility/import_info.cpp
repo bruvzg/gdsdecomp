@@ -51,21 +51,34 @@ int ImportInfo::get_import_loss_type() const {
 	if (!is_import()) {
 		return UNKNOWN;
 	}
+	String ext = source_file.get_extension();
 
-	if (importer == "texture") {
+	// textures and layered textures
+	if (importer.begins_with("texture")) {
 		int stat = 0;
-		String ext = source_file.get_extension();
 		// These are always imported in such a way that it is impossible to recover the original file
 		// SVG in particular is converted to raster from vector
 		// However, you can convert these and rewrite the imports such that they will be imported losslessly next time
 		if (ext == "svg" || ext == "jpg") {
 			stat |= IMPORTED_LOSSY;
 		}
-		// Not possible to recover asset used to import losslessly
-		if (params.has("compress/mode") && params["compress/mode"].is_num()) {
-			stat |= (int)params["compress/mode"] <= 1 ? LOSSLESS : STORED_LOSSY;
-		} else if (params.has("storage") && params["storage"].is_num()) {
-			stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
+		bool has_compress_param = params.has("compress/mode") && params["compress/mode"].is_num();
+		if (ver_major == 2) { //v2 all textures
+			if (params.has("storage") && params["storage"].is_num()) { //v2
+				stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
+			}
+		} else if (importer == "texture" && has_compress_param) { // non-layered textures
+			if (ver_major == 4 || ver_major == 3) {
+				// COMPRESSED_LOSSLESS or COMPRESS_VRAM_UNCOMPRESSED, same in v3 and v4
+				stat |= ((int)params["compress/mode"] == 0 || (int)params["compress/mode"] == 3) ? LOSSLESS : STORED_LOSSY;
+			}
+		} else if (has_compress_param) { // layered textures
+			if (ver_major == 4) {
+				// COMPRESSED_LOSSLESS or COMPRESS_VRAM_UNCOMPRESSED
+				stat |= ((int)params["compress/mode"] == 0 || (int)params["compress/mode"] == 3) ? LOSSLESS : STORED_LOSSY;
+			} else if (ver_major == 3) {
+				stat |= ((int)params["compress/mode"] != V3LTexCompressMode::COMPRESS_VIDEO_RAM) ? LOSSLESS : STORED_LOSSY;
+			}
 		}
 		return LossType(stat);
 	} else if (importer == "wav" || (ver_major == 2 && importer == "sample")) {
