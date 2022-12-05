@@ -659,7 +659,7 @@ void GodotREEditor::_compile_process() {
 			break;
 		}
 
-		Vector<uint8_t> file = FileAccess::get_file_as_array(files[i]);
+		Vector<uint8_t> file = FileAccess::get_file_as_bytes(files[i]);
 		if (file.size() > 0) {
 			String txt;
 			txt.parse_utf8((const char *)file.ptr(), file.size());

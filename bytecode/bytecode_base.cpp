@@ -71,7 +71,7 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
 	Vector<uint8_t> bytecode;
 
-	bytecode = FileAccess::get_file_as_array(p_path);
+	bytecode = FileAccess::get_file_as_bytes(p_path);
 
 	error_message = RTR("No error");
 
@@ -89,6 +89,7 @@ String GDScriptDecomp::get_error_message() {
 String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
 	String constString;
 	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, variant_ver_major);
+	ERR_FAIL_COND_V(err, "");
 	if (constants[constId].get_type() == Variant::Type::STRING) {
 		constString = constString.replace("\n", "\\n");
 	}
