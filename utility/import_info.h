@@ -64,6 +64,12 @@ struct _ResourceInfo {
 class ImportInfo : public RefCounted {
 	GDCLASS(ImportInfo, RefCounted)
 protected:
+	enum IInfoType {
+		BASE,
+		V2,
+		MODERN,
+		DUMMY
+	};
 	String import_md_path; // path to the ".import" file
 	int ver_major = 0; //2, 3, 4
 	int ver_minor = 0;
@@ -73,7 +79,7 @@ protected:
 	String preferred_import_path;
 	String export_dest;
 	String export_lossless_copy;
-
+	IInfoType iitype;
 	void _init();
 	virtual Error _load(const String &p_path) = 0;
 
@@ -139,7 +145,6 @@ public:
 	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const = 0;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) = 0;
 
-	virtual bool has_import_data() const = 0;
 	// gets the parameters used to import the resource.
 	virtual Dictionary get_params() const = 0;
 	virtual void set_params(Dictionary params) = 0;
@@ -155,6 +160,7 @@ public:
 	static Error get_resource_info(const String &p_path, _ResourceInfo &i_info);
 	static Ref<ImportInfo> copy(const Ref<ImportInfo> &p_iinfo);
 	static Ref<ImportInfo> load_from_file(const String &p_path, int ver_major = 0, int ver_minor = 0);
+	ImportInfo();
 
 protected:
 	static void _bind_methods();
@@ -206,7 +212,6 @@ public:
 	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
-	virtual bool has_import_data() const override;
 	// gets the parameters used to import the resource.
 	virtual Dictionary get_params() const override;
 	virtual void set_params(Dictionary params) override;
@@ -215,6 +220,7 @@ public:
 	Error save_md5_file(const String &output_dir);
 
 	virtual Error reload() override { return _load(import_md_path); };
+	ImportInfoModern();
 };
 
 class ImportInfov2 : public ImportInfo {
@@ -261,7 +267,6 @@ public:
 	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
-	virtual bool has_import_data() const override;
 	// gets the parameters used to import the resource.
 	virtual Dictionary get_params() const override;
 	virtual void set_params(Dictionary params) override;
@@ -269,6 +274,7 @@ public:
 	virtual Error save_to(const String &p_path) override;
 
 	virtual Error reload() override { return _load(import_md_path); };
+	ImportInfov2();
 };
 
 class ImportInfoDummy : public ImportInfo {
@@ -280,7 +286,6 @@ private:
 	String source_file;
 	String src_md5;
 	Vector<String> dest_files;
-	Ref<ResourceImportMetadatav2> v2metadata;
 	virtual Error _load(const String &p_path) override;
 
 protected:
@@ -316,12 +321,12 @@ public:
 	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override { return Variant(); };
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override { return; };
 
-	virtual bool has_import_data() const override { return false; };
 	virtual Dictionary get_params() const override { return Dictionary(); };
 	virtual void set_params(Dictionary params) override { return; };
 
 	virtual Error save_to(const String &p_path) override { return ERR_UNAVAILABLE; }
 
 	virtual Error reload() override { return _load(import_md_path); };
+	ImportInfoDummy();
 };
 #endif
