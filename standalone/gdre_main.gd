@@ -4,70 +4,6 @@ var ver_major = 0
 var ver_minor = 0
 var main : GDRECLIMain
 
-func load_system_font(font_name : String, bold : bool, italic: bool) -> int:
-	var path : String = OS.get_system_font_path(font_name);
-	var the = theme
-	if (path.is_empty()):
-		return ERR_FILE_CANT_OPEN
-	# We use the default font, we wont check for its existence
-	var font : Font = theme.get_font("","")
-	var fallbacks : Array[Font] = font.get_fallbacks()
-	var sysfont : SystemFont = SystemFont.new()
-	sysfont.set_font_names([font_name])
-	fallbacks.append(sysfont)
-	font.set_fallbacks(fallbacks)
-	return OK
-
-func load_system_fonts(fonts : PackedStringArray):
-	for font in fonts:
-		if load_system_font(font, false, false) == OK:
-			#load_system_font(font, true, false)
-			pass
-		else:
-			print("ERROR: Cannot open fallback font " + font);
-	pass
-
-func set_system_fonts():
-	OS.get_system_fonts()
-	# godot has a japanese font, need chinese and korean
-	var WindowsFallbackFonts = [ 
-		"Microsoft JhengHei", # traditional
-		"Microsoft YaHei", # simplified
-		"Malgun Gothic" # korean
-	]
-	var MacOSFallbackFonts = [ 
-		"Apple LiGothic Medium", # traditional
-		"STSong", # simplified
-		"Apple Gothic", # korean
-	]
-	# a number of fallback fonts here, we can't be sure what distro we're using
-	var LinuxFallbackFonts = [ 
-		"UMingTW",  # traditional
-		"UMingHK",  # traditional
-		"Source Han Sans TW",  # traditional
-		"WenQuanYiMicroHei", # simplified
-		"WenQuanYiZenHei", # simplified
-		"DroidSans Fallback", # traditional and simplified
-		"Nanum Gothic", # korean
-		"Nanum Barun Gothic" # korean
-	]
-	var platform = OS.get_name().to_lower()
-	if platform == "windows":
-		load_system_fonts(WindowsFallbackFonts)
-	elif platform == "linux":
-		load_system_fonts(LinuxFallbackFonts)
-	elif platform == "macos":
-		load_system_fonts(MacOSFallbackFonts)
-
-func _ready():
-	$version_lbl.text = $re_editor_standalone.get_version()
-	# test_functions()
-	# get_tree().quit()
-	if !handle_cli():
-		# We're in GUI mode, set the system fonts
-		set_system_fonts()
-
-
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
 	var dst_file = txt_to_bin.get_file().replace(".tscn", ".scn").replace(".tres", ".res")
@@ -81,6 +17,12 @@ func _on_re_editor_standalone_write_log_message(message):
 func _on_version_lbl_pressed():
 	OS.shell_open("https://github.com/bruvzg/gdsdecomp")
 
+func _ready():
+	$version_lbl.text = $re_editor_standalone.get_version()
+	# If CLI arguments were passed in, just quit
+	if handle_cli():
+		get_tree().quit()
+	
 func get_arg_value(arg):
 	var split_args = arg.split("=")
 	if split_args.size() < 2:
