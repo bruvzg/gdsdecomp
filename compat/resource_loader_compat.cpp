@@ -75,8 +75,8 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 		return rflct.load_texture2d(p_path, r_error);
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
-	ResourceLoaderCompat *loader = _open_bin(p_path, project_dir, false, r_error, r_progress);
-	ERR_FAIL_COND_V_MSG(*r_error != OK, Ref<Resource>(), "Cannot open file '" + p_path + "'.");
+	ResourceLoaderCompat *loader = _open_after_recognizing(p_path, project_dir, false, r_error, r_progress);
+	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, Ref<Resource>(), "Cannot open file '" + p_path + "'.", loader);
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
 	if (loader->engine_ver_major != VERSION_MAJOR) {
@@ -215,12 +215,11 @@ ResourceLoaderCompat *ResourceFormatLoaderCompat::_open_text(const String &p_pat
 }
 
 ResourceLoaderCompat *ResourceFormatLoaderCompat::_open_after_recognizing(const String &p_path, const String &base_dir, bool fake_load, Error *r_error, float *r_progress) {
-	Error error = OK;
 	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, base_dir);
 	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
-		return _open_bin(p_path, base_dir, true, &error, nullptr);
+		return _open_bin(p_path, base_dir, fake_load, r_error, r_progress);
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
-		return _open_text(p_path, base_dir, true, &error, nullptr);
+		return _open_text(p_path, base_dir, fake_load, r_error, r_progress);
 	}
 	ERR_FAIL_V_MSG(nullptr, "failed to open resource '" + p_path + "'.");
 }
