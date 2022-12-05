@@ -75,15 +75,30 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 		return rflct.load_texture2d(p_path, r_error);
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
-	ResourceLoaderCompat *loader = _open_after_recognizing(p_path, project_dir, false, r_error, r_progress);
+	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, project_dir);
+	ResourceLoaderCompat *loader;
+	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
+		loader = _open_bin(p_path, project_dir, false, r_error, r_progress);
+	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
+		loader = _open_text(p_path, project_dir, false, r_error, r_progress);
+	} else {
+		ERR_FAIL_V_MSG(Ref<Resource>(), "failed to open resource '" + p_path + "'.");
+	}
+
 	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, Ref<Resource>(), "Cannot open file '" + p_path + "'.", loader);
 	loader->cache_mode = p_cache_mode;
 	loader->use_sub_threads = p_use_sub_threads;
 	if (loader->engine_ver_major != VERSION_MAJOR) {
 		WARN_PRINT_ONCE(p_path + ": Doing real load on incompatible version " + itos(loader->engine_ver_major));
 	}
+	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
+		*r_error = loader->load();
+	} else {
+		// Real text loading not implemented yet
+		ERR_RFLBC_COND_V_MSG_CLEANUP(true, Ref<Resource>(), "Real loads on text resources not implemented yet: '" + p_path + "'.", loader);
+		// *r_error = loader->fake_load_text();
+	}
 
-	*r_error = loader->load();
 	ERR_RFLBC_COND_V_MSG_CLEANUP(*r_error != OK, Ref<Resource>(), "failed to load resource '" + p_path + "'.", loader);
 
 	Ref<Resource> ret = loader->resource;
