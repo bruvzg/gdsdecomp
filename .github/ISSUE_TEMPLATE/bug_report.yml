@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a bug in GDRE Tools (if this is related to conversion of certain resource types not being supported, please use the Feature Request template)
+labels: bug
+body:
+
+- type: markdown
+  attributes:
+    value: |
+      - Write a descriptive issue title above.
+      - Verify that you are using the [latest release.](https://github.com/bruvzg/gdsdecomp/releases/latest).
+      - Search [open](https://github.com/bruvzg/gdsdecomp/issues) and [closed](https://github.com/bruvzg/gdsdecomp/issues?q=is%3Aissue+is%3Aclosed) issues to ensure it has not already been reported.
+
+- type: input
+  attributes:
+    label: System information
+    description: |
+      Specify the OS version, and when relevant hardware information.
+      For graphics-related issues, specify the GPU model.
+    placeholder: Windows 10, Intel HD Graphics 620
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Issue description
+    description: |
+      Describe your issue briefly. What doesn't work, and how do you expect it to work instead?
+      You can include images or videos with drag and drop, and format code blocks or logs with <code>```</code> tags.
+      You can also paste screenshots directly.
+      On Linux and Windows, you can take a screenshot of the current window by pressing Ctrl+Alt+PrintScreen
+      On macOS, this is cmd+shift+option+4.
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    description: |
+      You don't have to go into detail here if this is trivially reproducable, but if it's something more complicated, please describe the steps to reproduce below.
+      If you include a minimal reproduction project below, you can detail how to use it here.
+  validations:
+    required: false
+
+- type: textarea
+  attributes:
+    label: Recovery log
+    description: |
+      **REQUIRED IF APPLICABLE.** If not, write "N/A".
+      In the directory where you recovered the project, there will be a file labelled "gdre_export.log".
+      Drag and drop the file to upload it. **Do not select another field until the log is done uploading.**
+  validations:
+    required: true
+    
+- type: textarea
+  attributes:
+    label: Minimal reproduction project
+    description: |
+      If the issue is not trivially reproducable, it is recommended that you provide a link to the game that you encountered this issue with here.
+      If for whatever reason you would prefer to not post it publicly, you may send it to us privately; in this case, post an alternate means of contacting yourself here (e.g. Discord tag).
+      You can also attempt to recreate the issue by creating a minimal reproduction project in the Godot editor and then exporting it. If that reproduces the issue, attach the zipped export here. **Do not select another field until the project is done uploading.**
+  validations:
+    required: false
