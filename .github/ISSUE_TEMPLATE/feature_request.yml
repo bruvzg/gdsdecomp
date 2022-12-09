@@ -1,0 +1,35 @@
+name: Feature implementation proposal
+description: Propose a possible solution to solve a GDRE Tools limitation
+labels: enhancement
+body:
+- type: markdown
+  attributes:
+    value: |
+      - Write a descriptive title above.
+      - Verify that you are using the [latest release.](https://github.com/bruvzg/gdsdecomp/releases/latest).
+      - Search [open](https://github.com/bruvzg/gdsdecomp/issues) and [closed](https://github.com/bruvzg/gdsdecomp/issues?q=is%3Aissue+is%3Aclosed) issues to ensure it has not already been reported.
+
+- type: input
+  attributes:
+    label: Resource Type
+    description: |
+      If this is a request to add conversion for a resource type, describe it here.
+      **PLEASE NOTE**: We are concentrating on only providing support for resources in the base Godot installation. We will likely not add support for custom resource types that are provided by custom modules. An exception may be made if they are very popular. If you think your custom resource qualifies, make your case in the description field below this one, making sure to link to the custom module that provides it.
+      *In either case, Pull Requests that add conversion for custom resources are always welcome.*
+    placeholder: Example - ADPCM Samples, Atlas Textures, etc.
+  validations:
+    required: false
+
+- type: textarea
+  attributes:
+    label: Describe the problem or limitation you are having
+    placeholder: Example - "GUI has issues with..."
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Describe the feature / enhancement and how it helps to overcome the problem or limitation
+    placeholder: Example - "Add an option to only rewrite metadata on textures."
+  validations:
+    required: true
