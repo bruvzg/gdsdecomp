@@ -160,7 +160,7 @@ private:
 
 	void print_warning(const String &p_text, const String &p_title, const String &p_sub_text = "");
 	void show_warning(const String &p_text, const String &p_title = "Warning!", const String &p_sub_text = "");
-
+	void show_report(const String &p_text, const String &p_title = "Report:", const String &p_sub_text = "");
 	static GodotREEditor *singleton;
 
 protected:
@@ -191,7 +191,7 @@ public:
 
 	void show_about_dialog();
 	void menu_option_pressed(int p_id);
-
+	void print_log(const String &p_text);
 	GodotREEditor(Control *p_control, HBoxContainer *p_menu);
 #ifdef TOOLS_ENABLED
 	GodotREEditor(EditorNode *p_editor);
