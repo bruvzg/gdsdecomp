@@ -1,8 +1,10 @@
-#ifndef __GDRE_PROGRESS_H__
-#define __GDRE_PROGRESS_H__
+#ifndef GDRE_PROGRESS_H
+#define GDRE_PROGRESS_H
 #include "core/string/ustring.h"
 #ifdef TOOLS_ENABLED
-#include "editor/editor_node.h"
+struct EditorProgress;
+class ProgressDialog;
+class Node;
 #endif
 #ifndef TOOLS_ENABLED
 #include "scene/gui/box_container.h"
@@ -42,8 +44,6 @@ public:
 
 	ProgressDialog();
 };
-#else
-#include "editor/progress_dialog.h"
 #endif
 
 struct EditorProgressGDDC {
@@ -57,4 +57,4 @@ struct EditorProgressGDDC {
 	~EditorProgressGDDC();
 };
 
-#endif // __GDRE_PROGRESS_H__
+#endif // GDRE_PROGRESS_H

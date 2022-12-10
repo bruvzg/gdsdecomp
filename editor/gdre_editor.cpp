@@ -3,7 +3,12 @@
 /*************************************************************************/
 
 #include "gdre_version.gen.h"
-
+/*************************************************************************/
+#ifdef TOOLS_ENABLED
+#include "editor/editor_node.h"
+#include "editor/editor_settings.h"
+#endif
+/*************************************************************************/
 #include "gdre_editor.h"
 
 #include "bytecode/bytecode_versions.h"
@@ -35,12 +40,6 @@
 #endif
 
 #include "core/crypto/crypto_core.h"
-
-/*************************************************************************/
-#ifdef TOOLS_ENABLED
-#include "editor/editor_settings.h"
-#endif
-/*************************************************************************/
 
 #ifndef TOOLS_ENABLED
 #include "core/object/message_queue.h"
@@ -170,6 +169,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 
 GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
 	//editor = NULL;
+	singleton = this;
 	ne_parent = p_control;
 
 	init_gui(p_control, p_menu, true);
@@ -497,12 +497,10 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 // TODO: More robust logging
 void GodotREEditor::print_log(const String &p_text) {
 	Vector<String> lines = p_text.split("\n");
-	if (lines.size() > 1) {
-		for (int i = 0; i < lines.size(); i++) {
+	for (int i = 0; i < lines.size(); i++) {
+		if (!lines[i].is_empty()) {
 			emit_signal("write_log_message", lines[i] + "\n");
 		}
-	} else {
-		emit_signal("write_log_message", p_text + "\n");
 	}
 }
 

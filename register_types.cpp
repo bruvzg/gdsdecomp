@@ -4,6 +4,9 @@
 
 #include "register_types.h"
 #include "core/object/class_db.h"
+#ifdef TOOLS_ENABLED
+#include "editor/editor_node.h"
+#endif
 
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"

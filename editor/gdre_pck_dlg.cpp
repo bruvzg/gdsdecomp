@@ -1,6 +1,10 @@
 /*************************************************************************/
 /*  gdre_pck_dlg.cpp                                                     */
 /*************************************************************************/
+#ifdef TOOLS_ENABLED
+#include "editor/editor_node.h"
+#include "editor/editor_settings.h"
+#endif
 
 #include "gdre_pck_dlg.h"
 

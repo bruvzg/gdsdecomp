@@ -4,6 +4,7 @@
 
 #ifndef GODOT_RE_EDITOR_H
 #define GODOT_RE_EDITOR_H
+#include "utility/packed_file_info.h"
 
 #include "core/io/resource.h"
 #include "core/templates/rb_map.h"
@@ -16,31 +17,24 @@
 #include "scene/gui/file_dialog.h"
 #include "scene/gui/item_list.h"
 #include "scene/gui/label.h"
-#include "scene/gui/line_edit.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/popup.h"
 #include "scene/gui/progress_bar.h"
-#include "scene/gui/spin_box.h"
 #include "scene/gui/text_edit.h"
 #include "scene/gui/texture_rect.h"
 
 #ifdef TOOLS_ENABLED
-#include "editor/editor_node.h"
+class EditorNode;
 #include "editor/editor_scale.h"
-#include "editor/export/editor_export.h"
 #else
 #define EDSCALE 1.0
 #endif
-
 #include "gdre_cmp_dlg.h"
 #include "gdre_dec_dlg.h"
 #include "gdre_enc_key.h"
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
 #include "gdre_progress.h"
-
-#include "utility/gdre_settings.h"
-#include "utility/packed_file_info.h"
 class ResultDialog : public AcceptDialog {
 	GDCLASS(ResultDialog, AcceptDialog)
 
