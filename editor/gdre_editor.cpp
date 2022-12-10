@@ -494,6 +494,17 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 #if defined(MINGW_ENABLED) || defined(_MSC_VER)
 #define sprintf sprintf_s
 #endif
+// TODO: More robust logging
+void GodotREEditor::print_log(const String &p_text) {
+	Vector<String> lines = p_text.split("\n");
+	if (lines.size() > 1) {
+		for (int i = 0; i < lines.size(); i++) {
+			emit_signal("write_log_message", lines[i] + "\n");
+		}
+	} else {
+		emit_signal("write_log_message", p_text + "\n");
+	}
+}
 
 void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
 	char timestamp[21];
@@ -529,6 +540,15 @@ void GodotREEditor::show_warning(const String &p_text, const String &p_title, co
 	rdl->popup_centered();
 }
 
+void GodotREEditor::show_report(const String &p_text, const String &p_title, const String &p_sub_text) {
+	rdl->set_title(p_title);
+	rdl->set_message(p_text, p_sub_text);
+	Size2i size = rdl->get_parent_rect().get_size();
+	size.height -= (size.height / 3);
+	size.width -= (size.width / 2);
+	rdl->set_wrap_controls(true);
+	rdl->popup_centered(size);
+}
 /*************************************************************************/
 /* Decompile                                                             */
 /*************************************************************************/
@@ -825,6 +845,13 @@ void GodotREEditor::_pck_extract_files_process() {
 	report += "\nPlease include this file when reporting an issue!\n\n";
 	if (is_full_recovery) {
 		report += ie->get_editor_message();
+		String notes = ie->get_session_notes();
+		if (!notes.is_empty()) {
+			report += "\n------------IMPORTANT NOTES-----------\n";
+			report += notes;
+		}
+		report += "\n************EXPORT REPORT************\n";
+
 		report += ie->get_report();
 	}
 
@@ -834,9 +861,9 @@ void GodotREEditor::_pck_extract_files_process() {
 	if (failed_files.length() > 0) {
 		show_warning(report + failed_files, RTR("Read PCK"), RTR("At least one error was detected!") + (is_full_recovery ? "\nSkipping full recovery!" : ""));
 	} else if (is_full_recovery && !err) {
-		show_warning(report, RTR("Read PCK"), RTR("Recovery report"));
+		show_report(report, RTR("Recovery report"), RTR("Recovery report"));
 	} else if (!is_full_recovery && !err) {
-		show_warning(RTR("No errors detected.") + String("\n") + report, RTR("Read PCK"), RTR("The operation completed successfully!"));
+		show_report(RTR("No errors detected.") + String("\n") + report, RTR("Extract report"), RTR("Extract report"));
 	} else if (err) {
 		show_warning("Resource export failed." + String("\n") + report, RTR("Read PCK"), RTR("At least one error was detected!") + (is_full_recovery ? "\nSkipping full recovery!" : ""));
 	}
