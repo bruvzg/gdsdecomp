@@ -24,6 +24,7 @@ grow_vertical = 2
 focus_mode = 2
 theme_override_colors/default_color = Color(0.470588, 0.45098, 0.45098, 1)
 theme_override_constants/line_separation = 5
+scroll_following = true
 selection_enabled = true
 
 [node name="menu_background" type="Panel" parent="."]
@@ -39,21 +40,21 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = -32.0
+offset_bottom = -616.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="version_lbl" type="Button" parent="."]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.878
-anchor_top = 0.5
+anchor_left = 1.0
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = 100.544
-offset_top = -341.0
-offset_bottom = -310.0
+offset_left = -40.0
+offset_top = -30.768
+offset_bottom = 0.232
 grow_horizontal = 0
-grow_vertical = 2
+grow_vertical = 0
+mouse_filter = 1
 text = "$$$"
 flat = true
 

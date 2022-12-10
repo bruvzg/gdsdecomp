@@ -1,9 +1,15 @@
 /*************************************************************************/
 /*  gdre_dec_dlg.cpp                                                     */
 /*************************************************************************/
+/*************************************************************************/
+#ifdef TOOLS_ENABLED
+#include "editor/editor_node.h"
+#include "editor/editor_settings.h"
+#endif
+/*************************************************************************/
 
-#include "gdre_dec_dlg.h"
 #include "bytecode/bytecode_versions.h"
+#include "gdre_dec_dlg.h"
 
 ScriptDecompDialog::ScriptDecompDialog() {
 	set_title(RTR("Decompile GDScript"));

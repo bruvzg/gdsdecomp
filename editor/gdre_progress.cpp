@@ -3,6 +3,7 @@
 #include "core/string/ustring.h"
 #ifdef TOOLS_ENABLED
 #include "editor/editor_node.h"
+#include "editor/progress_dialog.h"
 #endif
 #ifndef TOOLS_ENABLED
 #include "core/object/message_queue.h"

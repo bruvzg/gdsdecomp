@@ -17,7 +17,6 @@
 #include "scene/gui/text_edit.h"
 
 #ifdef TOOLS_ENABLED
-#include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #else
 #define EDSCALE 1.0
