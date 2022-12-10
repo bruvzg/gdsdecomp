@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+#include "editor/gdre_version.gen.h"
 #include "file_access_apk.h"
 #include "util_functions.h"
 
@@ -9,6 +10,7 @@
 #include "core/object/script_language.h"
 #include "core/version.h"
 #include "modules/regex/regex.h"
+#include "servers/rendering_server.h"
 
 #if defined(WINDOWS_ENABLED)
 #include <windows.h>
@@ -264,6 +266,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
+	print_line("Opening file: " + p_path);
 	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(da.is_null(), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
 	ERR_FAIL_COND_V_MSG(!da->dir_exists(p_path), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
@@ -277,7 +280,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 	project_path = p_path;
 	PackedStringArray pa = da->get_files_at("res://");
 	for (auto s : pa) {
-		print_line(s);
+		print_verbose(s);
 	}
 
 	Ref<PackInfo> pckinfo;
@@ -326,6 +329,7 @@ Error GDRESettings::load_pack(const String &p_path) {
 	if (da->dir_exists(p_path)) {
 		return load_dir(p_path);
 	}
+	print_line("Opening file: " + p_path);
 	// So that we don't use PackedSourcePCK when we load this
 	String pack_path = p_path + "_GDRE_a_really_dumb_hack";
 
@@ -808,10 +812,10 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 			Memory::free_static(buf);
 		}
 
-		if (p_err || _flush_stdout_on_print) {
-			// Don't always flush when printing stdout to avoid performance
-			// issues when `print()` is spammed in release builds.
-			file->flush();
+			if (p_err || _flush_stdout_on_print) {
+				// Don't always flush when printing stdout to avoid performance
+				// issues when `print()` is spammed in release builds.
+				file->flush();
 		}
 	}
 }
@@ -823,9 +827,29 @@ String GDRESettings::get_log_file_path() {
 	return logger->get_path();
 }
 
+bool GDRESettings::is_headless() const {
+	return RenderingServer::get_singleton()->get_video_adapter_name().is_empty();
+}
+
+String GDRESettings::get_sys_info_string() const {
+	String OS_Name = OS::get_singleton()->get_distribution_name();
+	String OS_Version = OS::get_singleton()->get_version();
+	String adapter_name = RenderingServer::get_singleton()->get_video_adapter_name();
+	String render_driver = OS::get_singleton()->get_current_rendering_driver_name();
+	if (adapter_name.is_empty()) {
+		adapter_name = "headless";
+	} else {
+		adapter_name += ", " + render_driver;
+	}
+
+	return OS_Name + " " + OS_Version + ", " + adapter_name;
+}
+
 Error GDRESettings::open_log_file(const String &output_dir) {
 	String logfile = output_dir.path_join("gdre_export.log");
 	Error err = logger->open_file(logfile);
+	print_line("GDRE Tools " + String(GDRE_VERSION));
+	print_line(get_sys_info_string());
 	ERR_FAIL_COND_V_MSG(err == ERR_ALREADY_IN_USE, err, "Already logging to another file");
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open log file " + logfile);
 	return OK;
