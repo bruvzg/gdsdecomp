@@ -39,6 +39,7 @@ class ImportExporter : public RefCounted {
 	Vector<Ref<ImportInfo>> rewrote_metadata;
 	Vector<Ref<ImportInfo>> failed_rewrite_md;
 	Vector<Ref<ImportInfo>> failed_rewrite_md5;
+	Vector<String> unsupported_types;
 
 	Vector<Ref<ImportInfo>> failed;
 	Vector<Ref<ImportInfo>> success;
@@ -56,11 +57,14 @@ class ImportExporter : public RefCounted {
 	static Error ensure_dir(const String &dst_dir);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
+	void report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn = false, bool suppress_print = false);
 
 protected:
 	static void _bind_methods();
 
 public:
+	String get_session_notes();
+	String get_detected_unsupported_resource_string();
 	Error recreate_plugin_config(const String &output_dir, const String &plugin_dir);
 	Error recreate_plugin_configs(const String &output_dir);
 	Error remap_resource(const String &output_dir, Ref<ImportInfo> &iinfo);
@@ -74,7 +78,7 @@ public:
 
 	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
 	Error export_imports(const String &output_dir = "", const Vector<String> &files_to_export = {});
-
+	String get_totals();
 	void print_report();
 	String get_editor_message();
 	String get_report();

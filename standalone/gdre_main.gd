@@ -131,7 +131,6 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 	var is_dir:bool = false
 	var err: int = OK
 	input_file = main.get_cli_abs_path(input_file)
-	print(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
 		if output_dir.get_extension():

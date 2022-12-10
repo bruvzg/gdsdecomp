@@ -115,7 +115,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 			should_rewrite_metadata = true;
 		}
-
+		String src_ext = iinfo->get_source_file().get_extension();
 		// ***** Export resource *****
 		if (opt_export_textures && importer == "texture") {
 			// Right now we only convert 2d image textures
@@ -133,12 +133,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 					} else {
 						WARN_PRINT("Failed to load texture " + type + " " + path);
 					}
-					print_line("Did not convert " + type + " resource " + path);
 					not_converted.push_back(iinfo);
 					break;
 				default:
-					WARN_PRINT_ONCE("Conversion for " + type + " not yet implemented");
-					print_line("Did not convert " + type + " resource " + path);
+					report_unsupported_resource(type, src_ext, path);
 					not_converted.push_back(iinfo);
 					continue;
 			}
@@ -148,7 +146,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			} else {
 				// Godot doesn't support saving ADPCM samples as waves, nor converting them to PCM16
 				WARN_PRINT_ONCE("Conversion for samples stored in IMA ADPCM format not yet implemented");
-				print_line("Did not convert Sample " + path);
+				report_unsupported_resource("ADPCM Sample", src_ext, path, true, false);
 				not_converted.push_back(iinfo);
 				continue;
 			}
@@ -158,19 +156,34 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (importer == "bitmap") {
 			err = export_texture(output_dir, iinfo);
-		} else if ((opt_bin2text && iinfo->is_auto_converted()) ||
-				(opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
-				(opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn") ||
-				(iinfo->get_source_file().get_extension() == "escn")) { // escn files are scenes exported from a blender plugin in a godot compatible format
+		} else if ((opt_bin2text && iinfo->is_auto_converted())
+				//|| (opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
+				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
+		) {
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
 				dir->remove(iinfo->get_path().replace("res://", ""));
 			}
+		} else if (importer == "scene" && !iinfo->is_auto_converted()) {
+			// escn files are scenes exported from a blender plugin in a godot compatible format
+			// These are the only ones we support at the moment
+			if (src_ext == "escn") {
+				err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
+			} else {
+				WARN_PRINT_ONCE("Export of models/imported scenes currently unimplemented");
+				report_unsupported_resource(type, src_ext, path);
+				not_converted.push_back(iinfo);
+				continue;
+			}
 		} else if (importer == "csv_translation") {
 			err = export_translation(output_dir, iinfo);
+		} else if (importer == "wavefront_obj") {
+			WARN_PRINT_ONCE("Export of obj meshes currently unimplemented");
+			report_unsupported_resource(type, src_ext, path);
+			not_converted.push_back(iinfo);
+			continue;
 		} else {
-			WARN_PRINT_ONCE("Conversion for Resource of type " + type + " and format " + iinfo->get_source_file().get_extension() + " not implemented");
-			print_line("Did not convert " + type + " resource " + path);
+			report_unsupported_resource(type, src_ext, path);
 			not_converted.push_back(iinfo);
 			continue;
 		}
@@ -200,6 +213,9 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				// we successfully rewrote the printer data
 				err = ERR_PRINTER_ON_FIRE;
 			}
+			// saved to non-original path, but we exporter knows we can't rewrite the metadata
+		} else if (err == ERR_DATABASE_CANT_WRITE) {
+			print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
 		}
 		// write md5 files
 		if (opt_write_md5_files && iinfo->is_import() && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
@@ -227,8 +243,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 
 		if (err == ERR_UNAVAILABLE) {
+			// already reported in exporters below
 			not_converted.push_back(iinfo);
-			print_line("Did not convert " + type + " resource " + path);
 		} else if (err != OK) {
 			failed.push_back(iinfo);
 			print_line("Failed to convert " + type + " resource " + path);
@@ -312,7 +328,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
-		print_line("decompiling " + f);
+		print_verbose("decompiling " + f);
 		bool encrypted = false;
 		if (f.get_extension() == "gde") {
 			encrypted = true;
@@ -348,7 +364,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			if (da->file_exists(f.replace(".gdc", ".gd.remap").replace("res://", ""))) {
 				da->remove(f.replace(".gdc", ".gd.remap").replace("res://", ""));
 			}
-			print_line("successfully decompiled " + f);
+			print_verbose("successfully decompiled " + f);
 			decompiled_scripts.push_back(f);
 		}
 	}
@@ -536,7 +552,9 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	if (missing_keys) {
 		translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
 		translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
+		WARN_PRINT("Could not guess all keys in translation.csv");
 	}
+	print_line("Recreated translation.csv");
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
 
@@ -590,6 +608,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 		err = _convert_tex(output_dir, path, iinfo->get_export_dest(), lossy);
 	}
 	if (err == ERR_UNAVAILABLE) {
+		// Already reported in export functions above
 		return ERR_UNAVAILABLE;
 	}
 	ERR_FAIL_COND_V(err, err);
@@ -612,6 +631,8 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	}
 	if (should_rewrite_metadata) {
 		return ERR_PRINTER_ON_FIRE;
+	} else if (iinfo->get_source_file() != iinfo->get_export_dest()) {
+		return ERR_DATABASE_CANT_WRITE;
 	}
 
 	return err;
@@ -620,7 +641,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	if (iinfo->get_ver_major() == 2) {
 		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
-		print_line("Not converting sample " + iinfo->get_path());
+		report_unsupported_resource("Sample", "v2", iinfo->get_path());
 		return ERR_UNAVAILABLE;
 	}
 	convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->get_export_dest());
@@ -653,7 +674,7 @@ Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const Stri
 	ResourceFormatLoaderCompat rlc;
 	Error err = rlc.convert_txt_to_bin(p_path, p_dst, output_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	print_line("Converted " + p_path + " to " + p_dst);
+	print_verbose("Converted " + p_path + " to " + p_dst);
 	return err;
 }
 
@@ -661,7 +682,7 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 	ResourceFormatLoaderCompat rlc;
 	Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	print_line("Converted " + p_path + " to " + p_dst);
+	print_verbose("Converted " + p_path + " to " + p_dst);
 	return err;
 }
 Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
@@ -670,6 +691,13 @@ Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_
 	Error err;
 	TextureLoaderCompat tl;
 	Ref<Image> img = tl.load_image_from_bitmap(p_path, &err);
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		// TODO: Not reporting here because we can't get the deprecated format type yet,
+		// implement functionality to pass it back
+		print_line("Did not convert deprecated Bitmap resource " + p_path);
+		return err;
+	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
@@ -681,12 +709,12 @@ Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
 	} else {
-		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
+		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
 	}
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
 
-	print_line("Converted " + p_path + " to " + p_dst);
+	print_verbose("Converted " + p_path + " to " + p_dst);
 	return OK;
 }
 
@@ -699,7 +727,10 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	Ref<Image> img = tl.load_image_from_tex(p_path, &err);
 	// deprecated format
 	if (err == ERR_UNAVAILABLE) {
-		return ERR_UNAVAILABLE;
+		// TODO: Not reporting here because we can't get the deprecated format type yet,
+		// implement functionality to pass it back
+		print_line("Did not convert deprecated Texture resource " + p_path);
+		return err;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
 	err = ensure_dir(dst_dir);
@@ -707,7 +738,11 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	if (img->is_compressed()) {
 		err = img->decompress();
 		String fmt_name = Image::get_format_name(img->get_format());
-		ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, err, "Decompression not implemented yet for texture format " + fmt_name);
+		if (err == ERR_UNAVAILABLE) {
+			WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
+			report_unsupported_resource("Texture", fmt_name, p_path);
+			return err;
+		}
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
 	}
 	String dest_ext = dest_path.get_extension().to_lower();
@@ -718,12 +753,12 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
 	} else {
-		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Invalid file name: " + dest_path);
+		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
 	}
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
 
-	print_line("Converted " + p_path + " to " + p_dst);
+	print_verbose("Converted " + p_path + " to " + p_dst);
 	return OK;
 }
 
@@ -748,6 +783,16 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 	}
 }
 
+void ImportExporter::report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn, bool suppress_print) {
+	String type_format_str = type + "%" + format_name;
+	if (unsupported_types.find(type_format_str) == -1) {
+		WARN_PRINT("Conversion for Resource of type " + type + " and format " + format_name + " not implemented");
+		unsupported_types.push_back(type_format_str);
+	}
+	if (!suppress_print)
+		print_line("Did not convert " + type + " resource " + import_path);
+}
+
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
@@ -762,7 +807,7 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 	err = sample->save_to_wav(dst_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);
 
-	print_line("Converted " + src_path + " to " + dst_path);
+	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
 }
 
@@ -782,7 +827,7 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 
 	f->store_buffer(data.ptr(), data.size());
 
-	print_line("Converted " + src_path + " to " + dst_path);
+	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
 }
 
@@ -803,8 +848,36 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	PackedByteArray data = sample->get_data();
 	f->store_buffer(data.ptr(), data.size());
 
-	print_line("Converted " + src_path + " to " + dst_path);
+	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
+}
+
+String ImportExporter::get_detected_unsupported_resource_string() {
+	String str = "";
+	for (auto type : unsupported_types) {
+		Vector<String> spl = type.split("%");
+		str += vformat("Type: %-20s", spl[0]) + "\tFormat: " + spl[1] + "\n";
+	}
+	return str;
+}
+String ImportExporter::get_session_notes() {
+	String report = "";
+	String unsup = get_detected_unsupported_resource_string();
+	if (!unsup.is_empty()) {
+		report += "The following resource types were detected in the project that conversion is not implemented for yet:\n";
+		report += unsup;
+		report += "See Export Report to see which resources were not exported\n";
+	}
+
+	if (!translation_export_message.is_empty()) {
+		if (!unsup.is_empty()) {
+			report += "-------\n";
+		}
+		report += translation_export_message;
+		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
+		report += "Note: consider just asking the creator if you wish to add a translation\n";
+	}
+	return report;
 }
 String ImportExporter::get_editor_message() {
 	String report = "";
@@ -812,33 +885,36 @@ String ImportExporter::get_editor_message() {
 	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
 	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
 	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");
-	report += translation_export_message;
-	if (!translation_export_message.is_empty()) {
-		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
-		report += "Note: consider just asking the creator if you wish to add a translation\n";
-	}
+
 	return report;
 }
+
+String ImportExporter::get_totals() {
+	String report = "";
+	report += vformat("%-40s", "Totals: ") + String("\n");
+	report += vformat("%-40s", "Decompiled scripts: ") + itos(decompiled_scripts.size()) + String("\n");
+	report += vformat("%-40s", "Failed scripts: ") + itos(failed_scripts.size()) + String("\n");
+	report += vformat("%-40s", "Imported resources for export session: ") + itos(session_files_total) + String("\n");
+	report += vformat("%-40s", "Successfully converted: ") + itos(success.size()) + String("\n");
+	if (opt_lossy) {
+		report += vformat("%-40s", "Lossy: ") + itos(lossy_imports.size()) + String("\n");
+	} else {
+		report += vformat("%-40s", "Lossy not converted: ") + itos(lossy_imports.size()) + String("\n");
+	}
+	report += vformat("%-40s", "Rewrote metadata: ") + itos(rewrote_metadata.size()) + String("\n");
+	report += vformat("%-40s", "Non-importable conversions: ") + itos(failed_rewrite_md.size()) + String("\n");
+	report += vformat("%-40s", "Not converted: ") + itos(not_converted.size()) + String("\n");
+	report += vformat("%-40s", "Failed conversions: ") + itos(failed.size()) + String("\n");
+	return report;
+}
+
 String ImportExporter::get_report() {
 	String report;
 	if (had_encryption_error) {
 		report += "Failed to decompile encrypted scripts!\n";
 		report += "Set the correct key and try again!\n\n";
 	}
-	report += "Totals: " + String("\n");
-	report += "Decompiled scripts: " + itos(decompiled_scripts.size()) + String("\n");
-	report += "Failed scripts: " + itos(failed_scripts.size()) + String("\n");
-	report += "Imported resources for export session: 	" + itos(session_files_total) + String("\n");
-	report += "Successfully converted: 		" + itos(success.size()) + String("\n");
-	if (opt_lossy) {
-		report += "Lossy: 		" + itos(lossy_imports.size()) + String("\n");
-	} else {
-		report += "Lossy not converted: 	" + itos(lossy_imports.size()) + String("\n");
-	}
-	report += "Rewrote metadata: " + itos(rewrote_metadata.size()) + String("\n");
-	report += "Failed to rewrite metadata: " + itos(failed_rewrite_md.size()) + String("\n");
-	report += "Not converted: " + itos(not_converted.size()) + String("\n");
-	report += "Failed conversions: " + itos(failed.size()) + String("\n");
+	report += get_totals();
 	report += "-------------\n" + String("\n");
 	if (lossy_imports.size() > 0) {
 		if (opt_lossy) {
@@ -856,12 +932,14 @@ String ImportExporter::get_report() {
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
 	if (rewrote_metadata.size() > 0 && get_ver_major() != 2) {
+		report += "------\n";
 		report += "\nThe following files had their import data rewritten:" + String("\n");
 		for (int i = 0; i < rewrote_metadata.size(); i++) {
 			report += rewrote_metadata[i]->get_path() + " to " + rewrote_metadata[i]->get_export_dest() + String("\n");
 		}
 	}
 	if (failed_rewrite_md.size() > 0) {
+		report += "------\n";
 		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
 		report += "These files will not be re-imported when loading the project." + String("\n");
 		for (int i = 0; i < failed_rewrite_md.size(); i++) {
@@ -869,12 +947,14 @@ String ImportExporter::get_report() {
 		}
 	}
 	if (not_converted.size() > 0) {
+		report += "------\n";
 		report += "\nThe following files were not converted because support has not been implemented yet:" + String("\n");
 		for (int i = 0; i < not_converted.size(); i++) {
 			report += not_converted[i]->get_path() + String("\n");
 		}
 	}
 	if (failed.size() > 0) {
+		report += "------\n";
 		report += "\nFailed conversions:" + String("\n");
 		for (int i = 0; i < failed.size(); i++) {
 			report += failed[i]->get_path() + String("\n");
@@ -887,9 +967,14 @@ String ImportExporter::get_report() {
 void ImportExporter::print_report() {
 	print_line("\n\n********************************EXPORT REPORT********************************" + String("\n"));
 	print_line(get_report());
-	print_line("\n---------------------------------------------------------------------------------" + String("\n"));
+	String notes = get_session_notes();
+	if (!notes.is_empty()) {
+		print_line("\n\n---------------------------------IMPORTANT NOTES----------------------------------" + String("\n"));
+		print_line(notes);
+	}
+	print_line("\n------------------------------------------------------------------------------------" + String("\n"));
 	print_line(get_editor_message());
-	print_line("*******************************************************************************\n\n" + String("\n"));
+	print_line("*******************************************************************************\n");
 }
 
 void ImportExporter::_bind_methods() {

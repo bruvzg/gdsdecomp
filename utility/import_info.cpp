@@ -658,13 +658,17 @@ Error ImportInfoModern::save_md5_file(const String &output_dir) {
 	if (!dest_files[0].begins_with("res://.godot") && !dest_files[0].begins_with("res://.import")) {
 		return ERR_PRINTER_ON_FIRE;
 	}
+	String actual_source = get_source_file();
+	if (export_dest != actual_source) {
+		return ERR_PRINTER_ON_FIRE;
+	}
 	Vector<String> spl = dest_files[0].split("-");
 	ERR_FAIL_COND_V_MSG(spl.size() < 2, ERR_FILE_BAD_PATH, "Weird import path!");
 	md5_file_path = output_dir.path_join(spl[0].replace_first("res://", "") + "-" + spl[1].get_basename() + ".md5");
 	// check if each exists
 	for (int i = 0; i < dest_files.size(); i++) {
 		if (!FileAccess::exists(dest_files[i])) {
-			WARN_PRINT("Cannot find " + dest_files[i] + ", cannot compute dest_md5.");
+			//WARN_PRINT("Cannot find " + dest_files[i] + ", cannot compute dest_md5.");
 			return ERR_PRINTER_ON_FIRE;
 		}
 	}

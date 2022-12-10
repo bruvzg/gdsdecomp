@@ -23,7 +23,7 @@ bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
 
 Error PckDumper::check_md5_all_files() {
 	Vector<String> f;
-	int ch;
+	int ch = 0;
 	return _check_md5_all_files(f, ch, nullptr);
 }
 
@@ -32,7 +32,7 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 
 	if (ext != "pck" && ext != "exe") {
-		print_line("Not a pack file, skipping MD5 check...");
+		print_verbose("Not a pack file, skipping MD5 check...");
 		return ERR_SKIP;
 	}
 	Error err = OK;
@@ -50,13 +50,20 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 		}
 		files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
 		if (files[i]->md5_passed) {
-			print_line("Verified " + files[i]->path);
+			print_verbose("Verified " + files[i]->path);
 		} else {
 			print_error("Checksum failed for " + files[i]->path);
 			broken_files.push_back(files[i]->path);
 			err = ERR_BUG;
 		}
 		checked_files++;
+	}
+	if (err) {
+		print_error("At least one error was detected while verifying files in pack!\n");
+		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
+	} else {
+		print_line("Verified " + itos(checked_files) + " files, no errors detected!");
+		//show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
 	}
 	return err;
 }
@@ -80,6 +87,7 @@ Error PckDumper::_pck_dump_to_dir(
 	if (da.is_null()) {
 		return ERR_FILE_CANT_WRITE;
 	}
+	int files_extracted = 0;
 	Error err;
 	for (int i = 0; i < files.size(); i++) {
 		if (files_to_extract.size() && !files_to_extract.has(files.get(i)->get_path())) {
@@ -115,14 +123,15 @@ Error PckDumper::_pck_dump_to_dir(
 			rq_size -= 16384;
 		}
 		fa->flush();
-		print_line("Extracted " + target_name);
+		files_extracted++;
+		print_verbose("Extracted " + target_name);
 	}
 
 	if (error_string.length() > 0) {
 		print_error("At least one error was detected while extracting pack!\n" + error_string);
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else {
-		print_line("No errors detected!");
+		print_line("Extracted " + itos(files_extracted) + " files, no errors detected!");
 		//show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
 	}
 	return OK;

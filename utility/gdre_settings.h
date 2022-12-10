@@ -218,7 +218,8 @@ public:
 	String get_exec_dir();
 	bool are_imports_loaded() const;
 	bool is_project_config_loaded() const;
-
+	bool is_headless() const;
+	String get_sys_info_string() const;
 	Error load_project_config();
 	Error save_project_config(const String &p_out_dir);
 
