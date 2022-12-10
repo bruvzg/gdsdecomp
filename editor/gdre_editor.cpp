@@ -162,6 +162,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	singleton = this;
 	editor = p_editor;
 	ne_parent = editor->get_gui_base();
+	gdres_singleton = memnew(GDRESettings);
 
 	init_gui(editor->get_gui_base(), editor->get_menu_hb(), false);
 }
@@ -171,6 +172,7 @@ GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
 	//editor = NULL;
 	singleton = this;
 	ne_parent = p_control;
+	gdres_singleton = memnew(GDRESettings);
 
 	init_gui(p_control, p_menu, true);
 }
@@ -416,6 +418,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 GodotREEditor::~GodotREEditor() {
 	singleton = NULL;
+	memdelete(gdres_singleton);
 }
 
 void GodotREEditor::show_about_dialog() {
@@ -1785,10 +1788,8 @@ GodotREEditorStandalone::GodotREEditorStandalone() {
 		editor_ctx = GodotREEditor::get_singleton();
 		editor_ctx->connect("write_log_message", callable_mp(this, &GodotREEditorStandalone::_write_log_message));
 	}
-	gdres_singleton = memnew(GDRESettings);
 }
 
 GodotREEditorStandalone::~GodotREEditorStandalone() {
 	editor_ctx = NULL;
-	memdelete(gdres_singleton);
 }

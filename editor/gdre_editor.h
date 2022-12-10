@@ -35,6 +35,8 @@ class EditorNode;
 #include "gdre_npck_dlg.h"
 #include "gdre_pck_dlg.h"
 #include "gdre_progress.h"
+
+class GDRESettings;
 class ResultDialog : public AcceptDialog {
 	GDCLASS(ResultDialog, AcceptDialog)
 
@@ -78,6 +80,8 @@ private:
 #else
 	Node *editor;
 #endif
+	GDRESettings *gdres_singleton;
+
 	Control *ne_parent;
 	Dictionary icons;
 
@@ -200,7 +204,6 @@ class GodotREEditorStandalone : public Control {
 
 	GodotREEditor *editor_ctx;
 	HBoxContainer *menu_hb;
-	GDRESettings *gdres_singleton;
 
 protected:
 	void _notification(int p_notification);
