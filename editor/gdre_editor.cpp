@@ -481,7 +481,7 @@ void GodotREEditor::menu_option_pressed(int p_id) {
 			show_about_dialog();
 		} break;
 		case MENU_REPORT_ISSUE: {
-			OS::get_singleton()->shell_open("https://github.com/bruvzg/gdsdecomp/issues/new");
+			OS::get_singleton()->shell_open("https://github.com/bruvzg/gdsdecomp/issues/new?assignees=&labels=bug&template=bug_report.yml&sys_info=" + GDRESettings::get_singleton()->get_sys_info_string());
 		} break;
 		case MENU_EXIT_RE: {
 			get_tree()->quit();
