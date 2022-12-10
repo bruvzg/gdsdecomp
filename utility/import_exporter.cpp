@@ -866,7 +866,8 @@ String ImportExporter::get_session_notes() {
 	if (!unsup.is_empty()) {
 		report += "The following resource types were detected in the project that conversion is not implemented for yet:\n";
 		report += unsup;
-		report += "See Export Report to see which resources were not exported\n";
+		report += "See Export Report to see which resources were not exported.\n";
+		report += "You will still be able to edit the project in the editor regardless.\n";
 	}
 
 	if (!translation_export_message.is_empty()) {
