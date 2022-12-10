@@ -70,7 +70,7 @@ Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/deve
 
 ### Requirements
 
-Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/8912f3e4a7c012443e941f4c6f2342c9913fa330
+Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/ae86d907e75c3de9b039e7cc77e521bc9739e6dc
 - Support for building on 3.x has been dropped and no new features are being pushed
 	- Godot RE Tools still retains the ability to decompile 3.x and 2.x projects, however.
 
