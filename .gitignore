@@ -131,6 +131,8 @@ TestResult.xml
 *.pidb
 *.svclog
 *.scc
+# compile profiler output
+*.obj.profile
 
 # Chutzpah Test files
 _Chutzpah*
