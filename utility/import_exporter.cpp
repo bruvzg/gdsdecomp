@@ -433,6 +433,42 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 	return OK;
 }
 
+#define TEST_TR_KEY(key)                          \
+	test = default_translation->get_message(key); \
+	if (test == s) {                              \
+		return key;                               \
+	}                                             \
+	key = key.to_upper();                         \
+	test = default_translation->get_message(key); \
+	if (test == s) {                              \
+		return key;                               \
+	}                                             \
+	key = key.to_lower();                         \
+	test = default_translation->get_message(key); \
+	if (test == s) {                              \
+		return key;                               \
+	}
+
+String guess_key_from_tr(String s, Ref<Translation> default_translation) {
+	static const Vector<String> prefixes = { "$$", "##", "TR_", "KEY_TEXT_" };
+	String key = s;
+	String test;
+	TEST_TR_KEY(key);
+	String str = s;
+	//remove punctuation
+	str = str.replace("\n", "").replace(".", "").replace("…", "").replace("!", "").replace("?", "");
+	str = str.strip_escapes().strip_edges().replace(" ", "_");
+	key = str;
+	TEST_TR_KEY(key);
+	// Try adding prefixes
+	for (String prefix : prefixes) {
+		key = prefix + str;
+		TEST_TR_KEY(key);
+	}
+	// failed
+	return "";
+}
+
 Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	Error err;
 	ResourceFormatLoaderCompat rlc;
@@ -490,42 +526,16 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 		translations.push_back(tr);
 	}
 	// We can't recover the keys from Optimized translations, we have to guess
-	Vector<String> prefixes = { "$$", "##", "TR_" };
 	int missing_keys = 0;
 	if (keys.size() == 0) {
 		for (const StringName &s : default_messages) {
-			String key = s;
-			String test = default_translation->get_message(key);
-			if (test == s) {
+			String key = guess_key_from_tr(s, default_translation);
+			if (key.is_empty()) {
+				missing_keys++;
+				keys.push_back("<MISSING KEY " + s + ">");
+			} else {
 				keys.push_back(key);
-				continue;
 			}
-			// Try adding "$$", "##", or "TR_"
-			for (String prefix : prefixes) {
-				key = prefix + s;
-				test = default_translation->get_message(key);
-				if (test == s) {
-					break;
-				}
-			}
-			if (test == s) {
-				keys.push_back(key);
-				continue;
-			}
-			// this is another common format for popular translation exporters
-			String str = s;
-			//remove punctuation
-			str = str.replace("\n", "").replace(".", "").replace("…", "").replace("!", "").replace("?", "").replace("-", "");
-			str = str.strip_escapes().strip_edges().replace(" ", "_");
-			key = "KEY_TEXT_" + str.to_upper();
-			test = default_translation->get_message(key);
-			if (test == s) {
-				keys.push_back(key);
-				continue;
-			}
-			// if we've hit here, we didn't find the key
-			missing_keys++;
-			keys.push_back("<MISSING KEY " + s + ">");
 		}
 	}
 	header += "\n";
