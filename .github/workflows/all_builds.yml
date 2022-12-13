@@ -7,6 +7,7 @@ on:
       - "!LICENSE"
       - "!.scripts/clang_format.sh"
       - "!.github/**"
+      - "!.vscode/**"
       - ".github/actions/**"
       - ".github/workflows/all_builds.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "!LICENSE"
       - "!.scripts/clang_format.sh"
       - "!.github/**"
+      - "!.vscode/**"
       - ".github/actions/**"
       - ".github/workflows/all_builds.yml"
 
