@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/modules/gdsdecomp/**",
+                // set an includes to your platform directory (windows, linuxbsd, etc.)
+                "${workspaceFolder}/platform/windows",
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "WINDOWS_ENABLED", // Set the platform enabled for your platform
+                "MINIZIP_ENABLED",
+                "TOOLS_ENABLED",
+                "MODULE_REGEX_ENABLED",
+                "NO_EDITOR_SPLASH",
+                "GLES3_ENABLED"
+            ],
+            "windowsSdkVersion": "10.0.19041.0",
+            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.33.31629/bin/Hostx64/x64/cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
+            // It is recommended you don't enable compile_commands.json, as it seems to screw up the includes for gdsdecomp
+            //"compileCommands": "compile_commands.json"
+        }
+    ],
+    "version": 4
+}

@@ -68,6 +68,8 @@ Use the same Godot tools version that the original game was compiled in to edit 
 Clone this repository into Godot's `modules` subfolder as `gdsdecomp`.
 Rebuild Godot engine as described in https://docs.godotengine.org/en/latest/development/compiling/index.html.
 
+For ease of bootstrapping development, we have included launch, build, and settings templates for vscode in the .vscode directory. Once you have read the instructions for compiling Godot above and set up your build environment: put these in the .vscode folder in the Godot directory (not gdsdecomp), remove the ".template" from each, and launch vscode from the Godot directory.
+
 ### Requirements
 
 Godot 4.0 (master branch) @ commit https://github.com/godotengine/godot/commit/ae86d907e75c3de9b039e7cc77e521bc9739e6dc
