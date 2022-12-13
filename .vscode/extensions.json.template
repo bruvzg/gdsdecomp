@@ -1,0 +1,7 @@
+{
+  // Recommended extensions for developing gdsdecomp
+  "recommendations": [
+    "ms-python.black-formatter",
+    "ms-vscode.cpptools"
+  ]
+}
