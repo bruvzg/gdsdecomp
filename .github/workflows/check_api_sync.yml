@@ -43,16 +43,10 @@ jobs:
           path: modules/gdsdecomp
           ref: ${{env.GDSDECOMP_BASE_BRANCH}}
 
-      # Azure repositories are not reliable, we need to prevent azure giving us packages.
-      - name: Make apt sources.list use the default Ubuntu repositories
-        run: |
-          sudo rm -f /etc/apt/sources.list.d/*
-          sudo cp -f misc/ci/sources.list /etc/apt/sources.list
-          sudo apt-get update
-
       # Install all packages (except scons)
       - name: Configure dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
             libudev-dev libxi-dev libxrandr-dev yasm clang-format-8

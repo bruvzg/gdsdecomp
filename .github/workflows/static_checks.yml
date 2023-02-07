@@ -27,8 +27,6 @@ jobs:
         echo $(git branch --all)
     - name: Install Linux deps
       run: |
-        sudo rm -f /etc/apt/sources.list.d/*
-        sudo cp -f misc/ci/sources.list /etc/apt/sources.list
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
         sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
         sudo apt-get update
