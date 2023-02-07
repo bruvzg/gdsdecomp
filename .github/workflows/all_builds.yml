@@ -26,7 +26,7 @@ on:
 env:
   GODOT_BASE_BRANCH: master
   # Change the README too
-  GODOT_MAIN_SYNC_REF: 13f0158e49676fc5ec8694a40261685596faa3d1
+  GODOT_MAIN_SYNC_REF: cd0f1e9b102fe899d37921c1155df08966549363
   SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes debug_symbols=no
   SCONSFLAGS_TEMPLATE: no_editor_splash=yes module_bmp_enabled=no module_camera_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_noise_enabled=no module_websocket_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libogg=yes module_csg_enabled=yes module_gridmap_enabled=yes disable_3d=no
   SCONS_CACHE_MSVC_CONFIG: true
@@ -96,8 +96,6 @@ jobs:
       - name: Install Linux deps
         if: matrix.platform == 'linux'
         run: |
-          sudo rm -f /etc/apt/sources.list.d/*
-          sudo cp -f misc/ci/sources.list /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
