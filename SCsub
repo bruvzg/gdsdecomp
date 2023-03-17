@@ -29,8 +29,7 @@ icon_sources = Glob("icons/*.svg")
 
 env_gdsdecomp.Alias(
     "gdre_icons",
-    [env_gdsdecomp.MakeGDREIconsBuilder(
-        "editor/gdre_icons.gen.h", icon_sources)],
+    [env_gdsdecomp.MakeGDREIconsBuilder("editor/gdre_icons.gen.h", icon_sources)],
 )
 
 git = shutil.which("git")
@@ -39,24 +38,25 @@ if git == None:
     print("GDRE WARNING: cannot find git on path, unknown version will be saved in gdre_version.gen.h")
 else:
     # git describe --abbrev=6
-    process = Popen([git, "describe", "--tags",
-                    "--abbrev=6"], stdout=PIPE)
+    process = Popen([git, "describe", "--tags", "--abbrev=6"], stdout=PIPE)
     (output, err) = process.communicate()
     if not err:
-        version_info = output.decode('utf-8').strip()
+        version_info = output.decode("utf-8").strip()
     else:
         print("GDRE WARNING: git failed to run, unknown version will be saved in gdre_version.gen.h")
 
 f = open("editor/gdre_version.gen.h", "w")
 # define GDRE_VERSION "dev-poc (for Godot 4.0)"
-f.write("#define GDRE_VERSION \"")
+f.write('#define GDRE_VERSION "')
 f.write(version_info)
-f.write("\"\n")
+f.write('"\n')
 f.close()
 
 
 if env["builtin_libogg"]:
     env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])
+if env["builtin_libvorbis"]:
+    env_gdsdecomp.Prepend(CPPPATH=["#thirdparty/libvorbis"])
 
 # Treat minimp3 headers as system headers to avoid raising warnings. Not supported on MSVC.
 if not env.msvc:
@@ -65,8 +65,7 @@ else:
     env_gdsdecomp.Prepend(CPPPATH=[mmp3thirdparty_dir])
 
 if env["builtin_libwebp"]:
-    env_gdsdecomp.Prepend(
-        CPPPATH=[webpthirdparty_dir, webpthirdparty_dir + "src/"])
+    env_gdsdecomp.Prepend(CPPPATH=[webpthirdparty_dir, webpthirdparty_dir + "src/"])
 
 
 env_gdsdecomp.add_source_files(env.modules_sources, "*.cpp")

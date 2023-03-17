@@ -413,6 +413,9 @@ void FileAccessAPK::store_8(uint8_t p_dest) {
 bool FileAccessAPK::file_exists(const String &p_name) {
 	return false;
 }
+void FileAccessAPK::close() {
+	_close();
+}
 FileAccessAPK::FileAccessAPK(const String &p_path) {
 	open_internal(p_path, FileAccess::READ);
 }
