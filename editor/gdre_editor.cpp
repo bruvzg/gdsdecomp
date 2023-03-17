@@ -209,7 +209,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	pck_dialog = memnew(PackDialog);
 	pck_dialog->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files));
-	pck_dialog->connect("cancelled", callable_mp(this, &GodotREEditor::_pck_unload));
+	pck_dialog->connect("canceled", callable_mp(this, &GodotREEditor::_pck_unload));
 	p_control->add_child(pck_dialog);
 
 	pck_source_folder = memnew(FileDialog);
@@ -756,7 +756,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 
 	err = pckdump->_check_md5_all_files(broken_files, files_checked, pr);
 	memdelete(pr);
-	// cancelled
+	// canceled
 	bool p_check_md5 = true;
 	pck_dialog->set_version(GDRESettings::get_singleton()->get_version_string());
 	pck_dialog->set_info(String("    ") + RTR("Total files: ") +
@@ -812,7 +812,7 @@ void GodotREEditor::_pck_extract_files() {
 	} else {
 		ovd->set_message(overwrite_list);
 		ovd->connect("confirmed", callable_mp(this, &GodotREEditor::_pck_extract_files_process).bind(), CONNECT_ONE_SHOT);
-		ovd->connect("cancelled", callable_mp(this, &GodotREEditor::_pck_unload).bind(), CONNECT_ONE_SHOT);
+		ovd->connect("canceled", callable_mp(this, &GodotREEditor::_pck_unload).bind(), CONNECT_ONE_SHOT);
 
 		ovd->popup_centered();
 	}
