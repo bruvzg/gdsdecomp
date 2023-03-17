@@ -348,18 +348,21 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	uint8_t header[4];
+	// already checked header
 	f->get_buffer(header, 4);
-	// already checked
 
+	uint32_t version = f->get_32();
+
+	if (version > CompressedTexture2D::FORMAT_VERSION) {
+		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Compressed texture file is too new.");
+	}
 	tw_custom = f->get_32();
 	th_custom = f->get_32();
+	uint32_t df = f->get_32(); //data format
 
-	uint32_t df;
-
-	df = f->get_32();
-	// mipmap_limit, this doesn't get used?
-	f->get_32();
-	// reserved
+	//skip reserved
+	int mipmap_limit = int(f->get_32());
+	//reserved
 	f->get_32();
 	f->get_32();
 	f->get_32();
@@ -371,6 +374,12 @@ Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, i
 
 	if (image.is_null() || image->is_empty()) {
 		return ERR_CANT_OPEN;
+	}
+	if (!tw_custom) {
+		tw = image->get_width();
+	}
+	if (!th_custom) {
+		th = image->get_height();
 	}
 	return OK;
 }
