@@ -790,11 +790,19 @@ String GDRESettings::get_project_config_path() {
 	return current_pack->pcfg->get_cfg_path();
 }
 
+bool inGuiMode() {
+	//check if we are in GUI mode
+	if (GodotREEditor::get_singleton() && GDRESettings::get_singleton() && !GDRESettings::get_singleton()->is_headless()) {
+		return true;
+	}
+	return false;
+}
+
 void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 	if (!should_log(p_err)) {
 		return;
 	}
-	if (file.is_valid() || !GDRESettings::get_singleton()->is_headless()) {
+	if (file.is_valid() || inGuiMode()) {
 		const int static_buf_size = 512;
 		char static_buf[static_buf_size];
 		char *buf = static_buf;
@@ -807,7 +815,7 @@ void GDRELogger::logv(const char *p_format, va_list p_list, bool p_err) {
 		}
 		va_end(list_copy);
 
-		if (!GDRESettings::get_singleton()->is_headless()) {
+		if (inGuiMode()) {
 			GodotREEditor::get_singleton()->call_deferred(SNAME("emit_signal"), "write_log_message", String(buf));
 		}
 		if (file.is_valid()) {
