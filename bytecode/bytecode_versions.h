@@ -68,7 +68,8 @@ struct GDScriptDecompVersion {
 static GDScriptDecompVersion decomp_versions[] = {
 
 	{ 0xfffffff, "--- Please select bytecode version ---" },
-	{ 0xfffffff, "     4.0 dev (5d6e853 / 2020-07-24 / Bytecode version: xx) - GDScript 2.0 (compiled mode is not implemented yet)" },
+	{ 0xfffffff, "4.0 release  (92bee43 / 2023-02-28 / Bytecode version: xx) - GDScript 2.0 (compiled mode not implemented yet)" },
+	//	{ 0xfffffff, "     4.0 dev (5d6e853 / 2020-07-24 / Bytecode version: xx) - GDScript 2.0 (compiled mode is not implemented yet)" },
 	//	{ 0x33b5c57, "     4.0 dev (33b5c57 / 2020-02-25 / Bytecode version: 13) - added 64-bit arrays to Variant" },
 	//	{ 0x6da0eef, "     4.0 dev (6da0eef / 2020-02-23 / Bytecode version: 13) - added Vector2i, Rect2i and Vector3i to Variant" },
 	//  { 0x3c00596, "     4.0 dev (3c00596 / 2020-02-21 / Bytecode version: 13) - added StringName to Variant" },
