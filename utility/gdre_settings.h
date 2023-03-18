@@ -15,17 +15,17 @@
 #ifdef WINDOWS_ENABLED
 #include "platform/windows/os_windows.h"
 #endif
-#ifdef X11_ENABLED
+#ifdef LINUXBSD_ENABLED
 #include "platform/linuxbsd/os_linuxbsd.h"
 #endif
-#ifdef OSX_ENABLED
-#include "platform/osx/os_osx.h"
+#ifdef MACOS_ENABLED
+#include "platform/macos/os_macos.h"
 #endif
 #ifdef UWP_ENABLED
 #include "platform/uwp/os_uwp.h"
 #endif
-#ifdef JAVASCRIPT_ENABLED
-#include "platform/javascript/os_javascript.h"
+#ifdef WEB_ENABLED
+#include "platform/web/os_web.h"
 #endif
 #if defined(__ANDROID__)
 #include "platform/android/os_android.h"

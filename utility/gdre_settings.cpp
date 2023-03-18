@@ -915,13 +915,13 @@ void GDRESettings::add_logger() {
 		_gdre_os->_add_logger(logger);
 #endif
 	}
-#ifdef X11_ENABLED
+#ifdef LINUXBSD_ENABLED
 	else if (os_name == "Linux" || os_name.find("BSD") == -1) {
 		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
 #endif
-#ifdef OSX_ENABLED
+#ifdef MACOS_ENABLED
 	else if (os_name == "macOS") {
 		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
@@ -933,14 +933,13 @@ void GDRESettings::add_logger() {
 		_gdre_os->_add_logger(logger);
 	}
 #endif
-// the rest of these are probably unnecessary
-#ifdef JAVASCRIPT_ENABLED
-	else if (os_name == "Javascript") {
-		GDREOS<OS_JavaScript> *_gdre_os = static_cast<GDREOS<OS_JavaScript> *>(os_singleton);
+#ifdef WEB_ENABLED
+	else if (os_name == "Web") {
+		GDREOS<OS_Web> *_gdre_os = static_cast<GDREOS<OS_Web> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
 #endif
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) // the rest of these are probably unnecessary
 	else if (os_name == "Android") {
 		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android> *>(os_singleton);
 		_gdre_os->_add_logger(logger);

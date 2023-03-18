@@ -107,7 +107,7 @@ public:
 
 	virtual bool file_exists(const String &p_name) override; ///< return true if a file exists
 
-	virtual void close();
+	virtual void close() override;
 
 	virtual uint64_t _get_modified_time(const String &p_file) override { return 0; } // todo
 	virtual uint32_t _get_unix_permissions(const String &p_file) override { return 0; }
