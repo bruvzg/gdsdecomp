@@ -91,7 +91,7 @@ public:
 	virtual uint32_t _get_unix_permissions(const String &p_file);
 	virtual Error _set_unix_permissions(const String &p_file, uint32_t p_permissions);
 
-	virtual void close();
+	virtual void close() override;
 
 	FileAccessEncryptedv3() {}
 	~FileAccessEncryptedv3();
