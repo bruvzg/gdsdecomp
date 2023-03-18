@@ -1219,7 +1219,7 @@ void GDRESettings::add_logger() {
 #endif
 #ifdef MACOS_ENABLED
 	else if (os_name == "macOS") {
-		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX> *>(os_singleton);
+		GDREOS<OS_MacOS> *_gdre_os = static_cast<GDREOS<OS_MacOS> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
 #endif
