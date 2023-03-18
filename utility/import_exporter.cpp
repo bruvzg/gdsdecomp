@@ -309,15 +309,24 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				case 2:
 					decomp = memnew(GDScriptDecomp_5565f55);
 					break;
-				case 3:
-				case 4:
-				case 5:
+				default: // We do not anticipate further GSScript changes in 3.x because GDScript 2.0 in 4.x can't be backported
 					decomp = memnew(GDScriptDecomp_5565f55);
 					break;
 			}
 			break;
 		case 4:
-			decomp = memnew(GDScriptDecomp_5565f55);
+			switch (get_ver_minor()) {
+					// Compiled mode was removed in 4.0; if this is part of a 4.0 project, might be in one of the pre GDScript 2.0 4.0-dev bytecodes
+				case 0:
+					decomp = memnew(GDScriptDecomp_5565f55);
+					break;
+				case 1: // might be added back in 4.1; if so, this will need to be updated
+					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.1 GDScript not yet implemented, failed to decompile");
+					break;
+				default:
+					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
+					break;
+			}
 			break;
 		default:
 			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
