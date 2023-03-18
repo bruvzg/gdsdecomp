@@ -27,4 +27,5 @@ export/convert_text_resources_to_binary=false
 
 [rendering]
 
+renderer/rendering_method="gl_compatibility"
 environment/default_clear_color=Color(0.0784314, 0.0901961, 0.121569, 1)
