@@ -12,36 +12,6 @@
 #include "core/os/thread_safe.h"
 #include "core/templates/rb_set.h"
 
-#ifdef WINDOWS_ENABLED
-#include "platform/windows/os_windows.h"
-#endif
-#ifdef LINUXBSD_ENABLED
-#include "platform/linuxbsd/os_linuxbsd.h"
-#endif
-#ifdef MACOS_ENABLED
-#include "platform/macos/os_macos.h"
-#endif
-#ifdef UWP_ENABLED
-#include "platform/uwp/os_uwp.h"
-#endif
-#ifdef WEB_ENABLED
-#include "platform/web/os_web.h"
-#endif
-#if defined(__ANDROID__)
-#include "platform/android/os_android.h"
-#endif
-#ifdef IPHONE_ENABLED
-#include "platform/iphone/os_iphone.h"
-#endif
-// A hack to add another logger to the OS singleton
-template <class T>
-class GDREOS : public T {
-	static_assert(std::is_base_of<OS, T>::value, "T must derive from OS");
-
-public:
-	void _add_logger(Logger *p_logger) { T::add_logger(p_logger); }
-};
-
 class GDREPackSettings : public ProjectSettings {
 	GDCLASS(GDREPackSettings, ProjectSettings);
 	// So this can't be instantiated, only derived from current project settings

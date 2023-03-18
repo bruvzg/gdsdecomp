@@ -901,61 +901,6 @@ GDRELogger::~GDRELogger() {
 	close_file();
 }
 
-// This adds another logger to the global composite logger so that we can write
-// export logs to project directories.
-// main.cpp is apparently the only class that can add these, but "add_logger" is
-// only protected, so we can cast the singleton to a child class pointer and then call it.
-void GDRESettings::add_logger() {
-	OS *os_singleton = OS::get_singleton();
-	String os_name = os_singleton->get_name();
-
-	if (os_name == "Windows") {
-#ifdef WINDOWS_ENABLED
-		GDREOS<OS_Windows> *_gdre_os = static_cast<GDREOS<OS_Windows> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-#endif
-	}
-#ifdef LINUXBSD_ENABLED
-	else if (os_name == "Linux" || os_name.find("BSD") == -1) {
-		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-#ifdef MACOS_ENABLED
-	else if (os_name == "macOS") {
-		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-#ifdef UWP_ENABLED
-	else if (os_name == "UWP") {
-		GDREOS<OS_UWP> *_gdre_os = static_cast<GDREOS<OS_UWP> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-#ifdef WEB_ENABLED
-	else if (os_name == "Web") {
-		GDREOS<OS_Web> *_gdre_os = static_cast<GDREOS<OS_Web> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-#if defined(__ANDROID__) // the rest of these are probably unnecessary
-	else if (os_name == "Android") {
-		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-#ifdef IPHONE_ENABLED
-	else if (os_name == "iOS") {
-		GDREOS<OSIPhone> *_gdre_os = static_cast<GDREOS<OSIPhone> *>(os_singleton);
-		_gdre_os->_add_logger(logger);
-	}
-#endif
-	else {
-		WARN_PRINT("No logger being set, there will be no logs!");
-	}
-}
-
 Array GDRESettings::get_import_files(bool copy) {
 	if (!copy) {
 		return import_files;
@@ -1218,4 +1163,91 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 }
 Ref<FileAccess> GDREPackedSource::get_file(const String &p_path, PackedData::PackedFile *p_file) {
 	return memnew(FileAccessPack(p_path, *p_file));
+}
+
+// This is at the bottom to account for the platform header files pulling in their respective OS headers and creating all sorts of issues
+
+#ifdef WINDOWS_ENABLED
+#include "platform/windows/os_windows.h"
+#endif
+#ifdef LINUXBSD_ENABLED
+#include "platform/linuxbsd/os_linuxbsd.h"
+#endif
+#ifdef MACOS_ENABLED
+#include "platform/macos/os_macos.h"
+#endif
+#ifdef UWP_ENABLED
+#include "platform/uwp/os_uwp.h"
+#endif
+#ifdef WEB_ENABLED
+#include "platform/web/os_web.h"
+#endif
+#if defined(__ANDROID__)
+#include "platform/android/os_android.h"
+#endif
+#ifdef IPHONE_ENABLED
+#include "platform/iphone/os_iphone.h"
+#endif
+// A hack to add another logger to the OS singleton
+template <class T>
+class GDREOS : public T {
+	static_assert(std::is_base_of<OS, T>::value, "T must derive from OS");
+
+public:
+	void _add_logger(Logger *p_logger) { T::add_logger(p_logger); }
+};
+
+// This adds another logger to the global composite logger so that we can write
+// export logs to project directories.
+// main.cpp is apparently the only class that can add these, but "add_logger" is
+// only protected, so we can cast the singleton to a child class pointer and then call it.
+void GDRESettings::add_logger() {
+	OS *os_singleton = OS::get_singleton();
+	String os_name = os_singleton->get_name();
+
+	if (os_name == "Windows") {
+#ifdef WINDOWS_ENABLED
+		GDREOS<OS_Windows> *_gdre_os = static_cast<GDREOS<OS_Windows> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+#endif
+	}
+#ifdef LINUXBSD_ENABLED
+	else if (os_name == "Linux" || os_name.find("BSD") == -1) {
+		GDREOS<OS_LinuxBSD> *_gdre_os = static_cast<GDREOS<OS_LinuxBSD> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+#ifdef MACOS_ENABLED
+	else if (os_name == "macOS") {
+		GDREOS<OS_OSX> *_gdre_os = static_cast<GDREOS<OS_OSX> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+#ifdef UWP_ENABLED
+	else if (os_name == "UWP") {
+		GDREOS<OS_UWP> *_gdre_os = static_cast<GDREOS<OS_UWP> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+#ifdef WEB_ENABLED
+	else if (os_name == "Web") {
+		GDREOS<OS_Web> *_gdre_os = static_cast<GDREOS<OS_Web> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+#if defined(__ANDROID__) // the rest of these are probably unnecessary
+	else if (os_name == "Android") {
+		GDREOS<OS_Android> *_gdre_os = static_cast<GDREOS<OS_Android> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+#ifdef IPHONE_ENABLED
+	else if (os_name == "iOS") {
+		GDREOS<OSIPhone> *_gdre_os = static_cast<GDREOS<OSIPhone> *>(os_singleton);
+		_gdre_os->_add_logger(logger);
+	}
+#endif
+	else {
+		WARN_PRINT("No logger being set, there will be no logs!");
+	}
 }
