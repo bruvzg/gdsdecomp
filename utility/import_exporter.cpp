@@ -276,6 +276,10 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	GDScriptDecomp *decomp;
 	// we have to remove remaps if they exist
 	bool has_remaps = get_settings()->has_any_remaps();
+	Vector<String> code_files = get_settings()->get_code_files();
+	if (code_files.is_empty()) {
+		return OK;
+	}
 	// TODO: instead of doing this, run the detect bytecode script
 	switch (get_ver_major()) {
 		case 1:
@@ -333,7 +337,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	}
 	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + ".x detected");
 	Error err;
-	Vector<String> code_files = get_settings()->get_code_files();
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
