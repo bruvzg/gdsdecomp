@@ -48,6 +48,9 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 
 	ResourceLoaderCompat *loader = _open_bin(p_path, output_dir, true, &error, r_progress);
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot open resource '" + p_path + "'.", loader);
+	// TODO: We need to rewrite ResourceLoaderCompat to allow the use of Double RealT dynamically
+	// Right now, just fail
+	ERR_RFLBC_COND_V_MSG_CLEANUP(loader->using_real_t_double, ERR_UNAVAILABLE, "Double RealT is not supported in ResourceFormatLoaderCompat.", loader);
 
 	error = loader->load();
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
@@ -79,6 +82,12 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 	ResourceLoaderCompat *loader;
 	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
 		loader = _open_bin(p_path, project_dir, false, r_error, r_progress);
+		// TODO: We need to rewrite ResourceLoaderCompat to allow the use of Double RealT dynamically
+		// Right now, just fail
+		if (loader->using_real_t_double) {
+			*r_error = ERR_UNAVAILABLE;
+			ERR_FAIL_V_MSG(Ref<Resource>(), "Double RealT is not supported in ResourceFormatLoaderCompat.");
+		}
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
 		loader = _open_text(p_path, project_dir, false, r_error, r_progress);
 	} else {
@@ -381,6 +390,15 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 		// skip over res_uid field
 		f->get_64();
 		res_uid = ResourceUID::INVALID_ID;
+	}
+	if (flags & ResourceFormatSaverBinaryInstance::FORMAT_FLAG_REAL_T_IS_DOUBLE) {
+		using_real_t_double = true;
+		f->real_is_double = true;
+	}
+
+	if (flags & ResourceFormatSaverBinaryInstance::FORMAT_FLAG_HAS_SCRIPT_CLASS) {
+		using_script_class = true;
+		script_class = get_unicode_string();
 	}
 
 	for (int i = 0; i < ResourceFormatSaverBinaryInstance::RESERVED_FIELDS; i++) {
@@ -1132,6 +1150,9 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		String title = is_scene ? "[gd_scene " : "[gd_resource ";
 		if (!is_scene) {
 			title += "type=\"" + main_type + "\" ";
+			if (!script_class.is_empty()) {
+				title += "script_class=\"" + script_class + "\" ";
+			}
 		}
 		int load_steps = internal_resources.size() + external_resources.size();
 
@@ -2297,6 +2318,9 @@ void ResourceLoaderCompat::_populate_string_map(const Variant &p_variant, bool p
 Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) {
 	Error err;
 	Ref<FileAccess> fw;
+	// We don't support writing this yet
+	ERR_FAIL_COND_V_MSG(using_real_t_double, ERR_UNAVAILABLE, "Saving double precision resources is not supported yet.");
+
 	if (p_flags & ResourceSaver::FLAG_COMPRESS) {
 		Ref<FileAccessCompressed> fac;
 		fac.instantiate();
@@ -2369,6 +2393,15 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 	} else {
 		fw->store_32(flags);
 		fw->store_64(0);
+	}
+
+	if (using_real_t_double) {
+		flags |= ResourceFormatSaverBinaryInstance::FORMAT_FLAG_REAL_T_IS_DOUBLE;
+	}
+
+	if (using_script_class && !script_class.is_empty()) {
+		flags |= ResourceFormatSaverBinaryInstance::FORMAT_FLAG_HAS_SCRIPT_CLASS;
+		save_ustring(fw, script_class);
 	}
 
 	for (int i = 0; i < ResourceFormatSaverBinaryInstance::RESERVED_FIELDS; i++) {
@@ -2535,8 +2568,9 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 		} else if (ver_format_text == 3) {
 			using_named_scene_ids = true;
 			using_uids = true;
+			using_script_class = true;
 			engine_ver_major = engine_ver_major == 0 ? 4 : engine_ver_major;
-			ver_format_bin = 4;
+			ver_format_bin = 5;
 		} else if (ver_format_text == 2) {
 			engine_ver_major = engine_ver_major == 0 ? 3 : engine_ver_major;
 			ver_format_bin = 3;
@@ -2557,6 +2591,10 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 			_printerr();
 			error = ERR_PARSE_ERROR;
 			return error;
+		}
+
+		if (tag.fields.has("script_class")) {
+			script_class = tag.fields["script_class"];
 		}
 
 		res_type = tag.fields["type"];

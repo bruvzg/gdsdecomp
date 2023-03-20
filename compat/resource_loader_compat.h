@@ -98,7 +98,8 @@ enum Type {
 	// Version 2: added 64 bits support for float and int.
 	// Version 3: changed nodepath encoding.
 	// Version 4: new string ID for ext/subresources, breaks forward compat.
-	FORMAT_VERSION = 4,
+	// Version 5: Ability to store script class in the header, breaks backwards compatibility
+	FORMAT_VERSION = 5,
 	FORMAT_VERSION_CAN_RENAME_DEPS = 1,
 	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 };
@@ -189,6 +190,7 @@ protected:
 	String res_type;
 	String project_dir;
 	String error_text;
+	String script_class;
 	Ref<Resource> resource;
 	Ref<ResourceImportMetadatav2> imd;
 	uint32_t ver_format_bin = 0;
@@ -206,6 +208,8 @@ protected:
 	// Godot 4.x flags
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
+	bool using_script_class = false;
+	bool using_real_t_double = false;
 
 	// text
 	int lines;
