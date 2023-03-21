@@ -1473,6 +1473,22 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			v.z = f->get_32();
 			r_v = v;
 		} break;
+		case VariantBin::VARIANT_VECTOR4: {
+			Vector4 v;
+			v.x = f->get_real();
+			v.y = f->get_real();
+			v.z = f->get_real();
+			v.w = f->get_real();
+			r_v = v;
+		} break;
+		case VariantBin::VARIANT_VECTOR4I: {
+			Vector4i v;
+			v.x = f->get_32();
+			v.y = f->get_32();
+			v.z = f->get_32();
+			v.w = f->get_32();
+			r_v = v;
+		} break;
 		case VariantBin::VARIANT_PLANE: {
 			Plane v;
 			v.normal.x = f->get_real();
@@ -1488,7 +1504,6 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			v.z = f->get_real();
 			v.w = f->get_real();
 			r_v = v;
-
 		} break;
 		case VariantBin::VARIANT_AABB: {
 			AABB v;
@@ -1540,6 +1555,26 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			v.origin.x = f->get_real();
 			v.origin.y = f->get_real();
 			v.origin.z = f->get_real();
+			r_v = v;
+		} break;
+		case VariantBin::VARIANT_PROJECTION: {
+			Projection v;
+			v.columns[0].x = f->get_real();
+			v.columns[0].y = f->get_real();
+			v.columns[0].z = f->get_real();
+			v.columns[0].w = f->get_real();
+			v.columns[1].x = f->get_real();
+			v.columns[1].y = f->get_real();
+			v.columns[1].z = f->get_real();
+			v.columns[1].w = f->get_real();
+			v.columns[2].x = f->get_real();
+			v.columns[2].y = f->get_real();
+			v.columns[2].z = f->get_real();
+			v.columns[2].w = f->get_real();
+			v.columns[3].x = f->get_real();
+			v.columns[3].y = f->get_real();
+			v.columns[3].z = f->get_real();
+			v.columns[3].w = f->get_real();
 			r_v = v;
 		} break;
 		case VariantBin::VARIANT_COLOR: {
@@ -1734,7 +1769,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::VARIANT_INT64_ARRAY: {
+		case VariantBin::VARIANT_PACKED_INT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<int64_t> array;
@@ -1781,7 +1816,7 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
-		case VariantBin::VARIANT_FLOAT64_ARRAY: {
+		case VariantBin::VARIANT_PACKED_FLOAT64_ARRAY: {
 			uint32_t len = f->get_32();
 
 			Vector<double> array;
@@ -1937,7 +1972,7 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 				fa->store_32(VariantBin::VARIANT_INT64);
 				fa->store_64(val);
 			} else {
-			fa->store_32(VariantBin::VARIANT_INT);
+				fa->store_32(VariantBin::VARIANT_INT);
 				fa->store_32(int32_t(p_property));
 			}
 		} break;
@@ -1965,6 +2000,12 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			fa->store_real(val.y);
 
 		} break;
+		case Variant::VECTOR2I: {
+			fa->store_32(VariantBin::VARIANT_VECTOR2I);
+			Vector2i val = p_property;
+			fa->store_32(val.x);
+			fa->store_32(val.y);
+		} break;
 		case Variant::RECT2: {
 			fa->store_32(VariantBin::VARIANT_RECT2);
 			Rect2 val = p_property;
@@ -1974,6 +2015,15 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			fa->store_real(val.size.y);
 
 		} break;
+		case Variant::RECT2I: {
+			fa->store_32(VariantBin::VARIANT_RECT2I);
+			Rect2i val = p_property;
+			fa->store_32(val.position.x);
+			fa->store_32(val.position.y);
+			fa->store_32(val.size.x);
+			fa->store_32(val.size.y);
+
+		} break;
 		case Variant::VECTOR3: {
 			fa->store_32(VariantBin::VARIANT_VECTOR3);
 			Vector3 val = p_property;
@@ -1981,6 +2031,31 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			fa->store_real(val.y);
 			fa->store_real(val.z);
 
+		} break;
+		case Variant::VECTOR3I: {
+			fa->store_32(VariantBin::VARIANT_VECTOR3I);
+			Vector3i val = p_property;
+			fa->store_32(val.x);
+			fa->store_32(val.y);
+			fa->store_32(val.z);
+
+		} break;
+		case Variant::VECTOR4: {
+			fa->store_32(VariantBin::VARIANT_VECTOR4);
+			Vector4 val = p_property;
+			fa->store_real(val.x);
+			fa->store_real(val.y);
+			fa->store_real(val.z);
+			fa->store_real(val.w);
+
+		} break;
+		case Variant::VECTOR4I: {
+			fa->store_32(VariantBin::VARIANT_VECTOR4I);
+			Vector4i val = p_property;
+			fa->store_32(val.x);
+			fa->store_32(val.y);
+			fa->store_32(val.z);
+			fa->store_32(val.w);
 		} break;
 		case Variant::PLANE: {
 			fa->store_32(VariantBin::VARIANT_PLANE);
@@ -2052,6 +2127,26 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			fa->store_real(val.origin.y);
 			fa->store_real(val.origin.z);
 
+		} break;
+		case Variant::PROJECTION: {
+			fa->store_32(VariantBin::VARIANT_PROJECTION);
+			Projection val = p_property;
+			fa->store_real(val.columns[0].x);
+			fa->store_real(val.columns[0].y);
+			fa->store_real(val.columns[0].z);
+			fa->store_real(val.columns[0].w);
+			fa->store_real(val.columns[1].x);
+			fa->store_real(val.columns[1].y);
+			fa->store_real(val.columns[1].z);
+			fa->store_real(val.columns[1].w);
+			fa->store_real(val.columns[2].x);
+			fa->store_real(val.columns[2].y);
+			fa->store_real(val.columns[2].z);
+			fa->store_real(val.columns[2].w);
+			fa->store_real(val.columns[3].x);
+			fa->store_real(val.columns[3].y);
+			fa->store_real(val.columns[3].z);
+			fa->store_real(val.columns[3].w);
 		} break;
 		case Variant::COLOR: {
 			fa->store_32(VariantBin::VARIANT_COLOR);
@@ -2190,6 +2285,17 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 				fa->store_32(arr.ptr()[i]);
 
 		} break;
+		case Variant::PACKED_INT64_ARRAY: {
+			fa->store_32(VariantBin::VARIANT_PACKED_INT64_ARRAY);
+			Vector<int64_t> arr = p_property;
+			int len = arr.size();
+			fa->store_32(len);
+			const int64_t *r = arr.ptr();
+			for (int i = 0; i < len; i++) {
+				fa->store_64(r[i]);
+			}
+
+		} break;
 		case Variant::PACKED_FLOAT32_ARRAY: {
 			fa->store_32(VariantBin::VARIANT_REAL_ARRAY);
 			Vector<real_t> arr = p_property;
@@ -2199,6 +2305,16 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 				fa->store_real(arr.ptr()[i]);
 			}
 
+		} break;
+		case Variant::PACKED_FLOAT64_ARRAY: {
+			fa->store_32(VariantBin::VARIANT_PACKED_FLOAT64_ARRAY);
+			Vector<double> arr = p_property;
+			int len = arr.size();
+			fa->store_32(len);
+			const double *r = arr.ptr();
+			for (int i = 0; i < len; i++) {
+				fa->store_double(r[i]);
+			}
 		} break;
 		case Variant::PACKED_STRING_ARRAY: {
 			fa->store_32(VariantBin::VARIANT_STRING_ARRAY);
