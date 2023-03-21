@@ -106,7 +106,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				// import_md_path is the resource path in v2
 				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
 			} else {
-				// import_md_path is the .import path in v3-v4
+				// import_md_path is the .import/.remap path in v3-v4
 				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
 				// If the source_file path was not actually in the project structure, save it elsewhere
 				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
@@ -161,7 +161,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
 		) {
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-			if (get_ver_major() == 2 && !err && iinfo->is_auto_converted()) {
+			// for v2 projects, remove the autoconverted file in the project path
+			if (get_ver_major() == 2 && !err) {
 				dir->remove(iinfo->get_path().replace("res://", ""));
 			}
 		} else if (importer == "scene" && !iinfo->is_auto_converted()) {
@@ -254,10 +255,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 			success.push_back(iinfo);
 		}
-		// remove v2 remaps
-		if (!err && get_ver_major() == 2 && get_settings()->has_any_remaps()) {
+		// remove remaps
+		if (!err && get_settings()->has_any_remaps()) {
 			if (get_settings()->has_remap(iinfo->get_export_dest(), iinfo->get_path())) {
-				get_settings()->remove_remap(iinfo->get_export_dest(), iinfo->get_path());
+				get_settings()->remove_remap(iinfo->get_export_dest(), iinfo->get_path(), output_dir);
 			}
 		}
 	}

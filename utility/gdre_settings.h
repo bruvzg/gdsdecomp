@@ -106,6 +106,7 @@ private:
 	GDRELogger *logger;
 	Array import_files;
 	Vector<String> code_files;
+	HashMap<String, Ref<ImportInfoRemap>> remap_iinfo;
 	String gdre_resource_path = "";
 
 	String current_project_path = "";
@@ -174,7 +175,7 @@ public:
 	bool has_any_remaps() const;
 	bool has_remap(const String &src, const String &dst) const;
 	Error add_remap(const String &src, const String &dst);
-	Error remove_remap(const String &src, const String &dst);
+	Error remove_remap(const String &src, const String &dst, const String &output_dir = "");
 	Variant get_project_setting(const String &p_setting);
 	bool has_project_setting(const String &p_setting);
 	String get_project_config_path();
