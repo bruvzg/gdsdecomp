@@ -44,7 +44,7 @@ int ImportInfo::get_import_loss_type() const {
 	String importer = get_importer();
 	String source_file = get_source_file();
 	Dictionary params = get_params();
-	if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj") {
+	if (importer == "scene" || importer == "ogg_vorbis" || importer == "mp3" || importer == "wavefront_obj" || auto_converted_export) {
 		//These are always imported as either native files or losslessly
 		return LOSSLESS;
 	}
@@ -101,6 +101,7 @@ int ImportInfo::get_import_loss_type() const {
 
 Ref<ConfigFile> copy_config_file(Ref<ConfigFile> p_cf) {
 	Ref<ConfigFile> r_cf;
+	r_cf.instantiate();
 	List<String> *sections = memnew(List<String>);
 	//	String sections_string;
 	p_cf->get_sections(sections);
@@ -147,6 +148,7 @@ Ref<ImportInfo> ImportInfo::copy(const Ref<ImportInfo> &p_iinfo) {
 			((Ref<ImportInfov2>)r_iinfo)->v2metadata = copy_imd_v2(((Ref<ImportInfov2>)p_iinfo)->v2metadata);
 			break;
 		case IInfoType::DUMMY:
+		case IInfoType::REMAP:
 			r_iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
 			((Ref<ImportInfoDummy>)r_iinfo)->type = ((Ref<ImportInfoDummy>)p_iinfo)->type;
 			((Ref<ImportInfoDummy>)r_iinfo)->source_file = ((Ref<ImportInfoDummy>)p_iinfo)->source_file;
@@ -194,6 +196,11 @@ ImportInfoDummy::ImportInfoDummy() :
 	iitype = IInfoType::DUMMY;
 }
 
+ImportInfoRemap::ImportInfoRemap() :
+		ImportInfoDummy() {
+	iitype = IInfoType::REMAP;
+}
+
 Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_info) {
 	ResourceFormatLoaderCompat rlc;
 	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->has_res_path(p_path), ERR_FILE_NOT_FOUND, "Could not load " + p_path);
@@ -228,6 +235,11 @@ Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, 
 			iinfo->ver_major = ver_major;
 			iinfo->ver_minor = ver_minor;
 		}
+
+	} else if (p_path.get_extension() == "remap") {
+		// .remap file for an autoconverted export
+		iinfo = Ref<ImportInfoRemap>(memnew(ImportInfoRemap));
+		err = iinfo->_load(p_path);
 	} else if (ver_major >= 3) {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
 		err = iinfo->_load(p_path);
@@ -451,6 +463,38 @@ Error ImportInfoDummy::_load(const String &p_path) {
 	type = res_info.type;
 	dest_files = Vector<String>({ p_path });
 	import_md_path = "";
+	return OK;
+}
+
+Error ImportInfoRemap::_load(const String &p_path) {
+	Ref<ConfigFile> cf;
+	cf.instantiate();
+	source_file = p_path.get_basename(); // res://scene.tscn.remap -> res://scene.tscn
+	String path = GDRESettings::get_singleton()->get_res_path(p_path);
+	Error err = cf->load(path);
+	if (err) {
+		cf = Ref<ConfigFile>();
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
+	List<String> remap_keys;
+	cf->get_section_keys("remap", &remap_keys);
+	if (remap_keys.size() == 0) {
+		ERR_FAIL_V_MSG(ERR_BUG, "Failed to load import data from " + path);
+	}
+	preferred_import_path = cf->get_value("remap", "path", "");
+	_ResourceInfo res_info;
+	err = get_resource_info(preferred_import_path, res_info);
+	if (err) {
+		cf = Ref<ConfigFile>();
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + preferred_import_path);
+	type = res_info.type;
+	ver_major = res_info.ver_major;
+	ver_minor = res_info.ver_minor;
+	dest_files = Vector<String>({ preferred_import_path });
+	not_an_import = true;
+	import_md_path = p_path;
+	auto_converted_export = true;
 	return OK;
 }
 

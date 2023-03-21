@@ -239,6 +239,7 @@ void GDRESettings::remove_current_pack() {
 	file_map.clear();
 	import_files.clear();
 	code_files.clear();
+	remap_iinfo.clear();
 	reset_encryption_key();
 }
 
@@ -723,8 +724,15 @@ String GDRESettings::get_res_path(const String &p_path, const String &resource_d
 }
 bool GDRESettings::has_any_remaps() const {
 	if (is_pack_loaded()) {
-		if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
-			return true;
+		// version 3-4
+		if (current_pack->ver_major >= 3) {
+			if (remap_iinfo.size() > 0) {
+				return true;
+			}
+		} else { // version 1-2
+			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -733,10 +741,21 @@ bool GDRESettings::has_any_remaps() const {
 //only works on 2.x right now
 bool GDRESettings::has_remap(const String &src, const String &dst) const {
 	if (is_pack_loaded()) {
-		if (is_project_config_loaded() && current_pack->pcfg->has_setting("remap/all")) {
-			PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
-			if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
-				return true;
+		if (current_pack->ver_major >= 3) {
+			String remap_file = localize_path(src) + ".remap";
+			if (remap_iinfo.has(remap_file)) {
+				if (dst.is_empty()) {
+					return true;
+				}
+				String dest_file = remap_iinfo[remap_file]->get_path();
+				return dest_file == localize_path(dst);
+			}
+		} else {
+			if (is_project_config_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+				PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+				if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
+					return true;
+				}
 			}
 		}
 	}
@@ -746,20 +765,39 @@ bool GDRESettings::has_remap(const String &src, const String &dst) const {
 //only works on 2.x right now
 Error GDRESettings::add_remap(const String &src, const String &dst) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
-	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
-	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
-	v2remaps.push_back(localize_path(src));
-	v2remaps.push_back(localize_path(dst));
-	current_pack->pcfg->set_setting("remap/all", v2remaps);
+	if (current_pack->ver_major >= 3) {
+		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Adding Remaps is not supported in 3.x-4.x packs yet!");
+	} else {
+		ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
+		PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+		v2remaps.push_back(localize_path(src));
+		v2remaps.push_back(localize_path(dst));
+		current_pack->pcfg->set_setting("remap/all", v2remaps);
+	}
 	return OK;
 }
 
-//only works on 2.x right now
-Error GDRESettings::remove_remap(const String &src, const String &dst) {
+Error GDRESettings::remove_remap(const String &src, const String &dst, const String &output_dir) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
 	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
 	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
 	Error err;
+	if (current_pack->ver_major >= 3) {
+		ERR_FAIL_COND_V_MSG(output_dir.is_empty(), ERR_INVALID_PARAMETER, "Output directory must be specified for 3.x-4.x packs!");
+		String remap_file = localize_path(src) + ".remap";
+		if (remap_iinfo.has(remap_file)) {
+			Ref<DirAccess> da = DirAccess::open(output_dir, &err);
+			ERR_FAIL_COND_V_MSG(err, err, "Can't open directory " + output_dir);
+			if (!dst.is_empty()) {
+				String dest_file = remap_iinfo[remap_file]->get_path();
+				if (dest_file != localize_path(dst)) {
+					ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
+				}
+			}
+			return da->remove(remap_file.replace("res://", ""));
+		}
+		ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap for " + src + " does not exist!");
+	}
 	if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
 		v2remaps.erase(localize_path(src));
 		v2remaps.erase(localize_path(dst));
@@ -932,6 +970,7 @@ Error GDRESettings::load_import_files() {
 		"*.import",
 		"*.gdc",
 		"*.gde",
+		"*.remap"
 	};
 	int _ver_major = get_ver_major();
 	// version isn't set, we have to guess from contents of dir.
@@ -949,8 +988,22 @@ Error GDRESettings::load_import_files() {
 	}
 	bool should_load_md5 = _ver_major > 2 && get_file_info_list({ "*.md5" }).size() > 0;
 	for (int i = 0; i < file_names.size(); i++) {
-		if (file_names[i].get_extension() == "gdc" || file_names[i].get_extension() == "gde") {
+		String ext = file_names[i].get_extension();
+		if (ext == "gdc" || ext == "gde") {
 			code_files.push_back(file_names[i]);
+		} else if (ext == "remap") {
+			String ext2 = file_names[i].get_file().get_basename().get_extension();
+			// ignore, we will be handling these when decompiling
+			if (ext2 == "gdc" || ext2 == "gde") {
+				continue;
+			}
+			Error err = _load_import_file(file_names[i], should_load_md5);
+			if (err && err != ERR_PRINTER_ON_FIRE) {
+				WARN_PRINT("Can't load import file: " + file_names[i]);
+				continue;
+			}
+			Ref<ImportInfoRemap> r_info = (Ref<ImportInfoRemap>)import_files.back();
+			remap_iinfo.insert(file_names[i], r_info);
 		} else {
 			Error err = _load_import_file(file_names[i], should_load_md5);
 			if (err && err != ERR_PRINTER_ON_FIRE) {

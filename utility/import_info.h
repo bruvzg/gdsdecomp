@@ -83,7 +83,8 @@ protected:
 		BASE,
 		V2,
 		MODERN,
-		DUMMY
+		DUMMY,
+		REMAP
 	};
 	String import_md_path; // path to the ".import" file
 	int ver_major = 0; //2, 3, 4
@@ -106,6 +107,7 @@ public:
 		IMPORTED_LOSSY = 2,
 		STORED_AND_IMPORTED_LOSSY = 3,
 	};
+	IInfoType get_iitype() const { return iitype; }
 	int get_ver_major() const { return ver_major; }
 	int get_ver_minor() const { return ver_minor; }
 	bool is_auto_converted() const { return auto_converted_export; }
@@ -297,13 +299,13 @@ class ImportInfoDummy : public ImportInfo {
 private:
 	friend class ImportInfo;
 
+	virtual Error _load(const String &p_path) override;
+
+protected:
 	String type;
 	String source_file;
 	String src_md5;
 	Vector<String> dest_files;
-	virtual Error _load(const String &p_path) override;
-
-protected:
 	static void _bind_methods(){};
 
 public:
@@ -343,5 +345,16 @@ public:
 
 	virtual Error reload() override { return _load(import_md_path); };
 	ImportInfoDummy();
+};
+
+class ImportInfoRemap : public ImportInfoDummy {
+	GDCLASS(ImportInfoRemap, ImportInfoDummy)
+private:
+	friend class ImportInfo;
+
+	virtual Error _load(const String &p_path) override;
+
+public:
+	ImportInfoRemap();
 };
 #endif
