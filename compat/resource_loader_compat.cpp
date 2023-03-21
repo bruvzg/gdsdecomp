@@ -1932,15 +1932,25 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 			fa->store_32(val);
 		} break;
 		case Variant::INT: {
+			int64_t val = p_property;
+			if (val > 0x7FFFFFFF || val < -(int64_t)0x80000000) {
+				fa->store_32(VariantBin::VARIANT_INT64);
+				fa->store_64(val);
+			} else {
 			fa->store_32(VariantBin::VARIANT_INT);
-			int val = p_property;
-			fa->store_32(val);
+				fa->store_32(int32_t(p_property));
+			}
 		} break;
 		case Variant::FLOAT: {
-			fa->store_32(VariantBin::VARIANT_REAL);
-			real_t val = p_property;
-			fa->store_real(val);
-
+			double d = p_property;
+			float fl = d;
+			if (double(fl) != d) {
+				fa->store_32(VariantBin::VARIANT_DOUBLE);
+				fa->store_double(d);
+			} else {
+				fa->store_32(VariantBin::VARIANT_FLOAT);
+				fa->store_real(fl);
+			}
 		} break;
 		case Variant::STRING: {
 			fa->store_32(VariantBin::VARIANT_STRING);
