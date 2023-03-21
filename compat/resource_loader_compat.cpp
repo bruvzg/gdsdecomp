@@ -1345,7 +1345,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 
 			for (int j = 0; j < state->get_node_property_count(i); j++) {
 				String vars;
-				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, 2, _write_rlc_resources, this);
+				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, engine_ver_major, _write_rlc_resources, this);
 
 				wf->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
 			}
