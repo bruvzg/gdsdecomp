@@ -1139,7 +1139,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 	// Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
 	// Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
 	ver_format_text = 1;
-	if (engine_ver_major == 3) {
+	if (engine_ver_major == 3 || dest_path.ends_with(".escn")) { // escn is always format version 2
 		ver_format_text = 2;
 	} else if (engine_ver_major == 4) {
 		ver_format_text = 3;
