@@ -590,7 +590,7 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
 	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
 	String source_ext = source.get_extension().to_lower();
-	if (source_ext != "png") {
+	if (source_ext != "png" || iinfo->get_ver_major() == 2) {
 		if (iinfo->get_ver_major() > 2) {
 			if ((source_ext == "jpg" || source_ext == "jpeg") && opt_export_jpg) {
 				lossy = true;
