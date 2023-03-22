@@ -794,6 +794,7 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 					ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
 				}
 			}
+			remap_iinfo.erase(remap_file);
 			return da->remove(remap_file.replace("res://", ""));
 		}
 		ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap for " + src + " does not exist!");
