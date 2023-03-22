@@ -994,7 +994,7 @@ Error GDRESettings::load_import_files() {
 		} else if (ext == "remap") {
 			String ext2 = file_names[i].get_file().get_basename().get_extension();
 			// ignore, we will be handling these when decompiling
-			if (ext2 == "gdc" || ext2 == "gde") {
+			if (ext2 == "gd") {
 				continue;
 			}
 			Error err = _load_import_file(file_names[i], should_load_md5);
