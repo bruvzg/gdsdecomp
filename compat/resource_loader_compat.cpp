@@ -143,6 +143,8 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
 		loader = _open_text(p_path, base_dir, true, &error, nullptr);
 		i_info.is_text = true;
+	} else {
+		ERR_FAIL_V_MSG(ERR_FILE_CANT_OPEN, "Could not recognize resource '" + p_path + "'.");
 	}
 	ERR_RFLBC_COND_V_MSG_CLEANUP(error != OK, error, "Cannot load resource '" + p_path + "'.", loader);
 	i_info.type = loader->res_type;
