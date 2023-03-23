@@ -27,26 +27,8 @@ public:
 		resource_path = p_path;
 	}
 };
-class GDRELogger : public Logger {
-	Ref<FileAccess> file;
-	String base_path;
 
-public:
-	String get_path() { return base_path; };
-	GDRELogger();
-	Error open_file(const String &p_base_path);
-	void close_file();
-	virtual void logv(const char *p_format, va_list p_list, bool p_err) _PRINTF_FORMAT_ATTRIBUTE_2_0;
-
-	virtual ~GDRELogger();
-};
-
-class GDREPackedSource : public PackSource {
-public:
-	virtual bool try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset);
-	virtual Ref<FileAccess> get_file(const String &p_path, PackedData::PackedFile *p_file);
-};
-
+class GDRELogger;
 class GDRESettings : public Object {
 	GDCLASS(GDRESettings, Object);
 	_THREAD_SAFE_CLASS_
