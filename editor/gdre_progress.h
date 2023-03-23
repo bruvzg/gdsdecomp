@@ -19,6 +19,7 @@ class ProgressDialog : public Popup {
 		ProgressBar *progress;
 		Label *state;
 	};
+	bool canceled;
 	HBoxContainer *cancel_hb;
 	Button *cancel;
 
