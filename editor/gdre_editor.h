@@ -26,6 +26,7 @@
 #ifdef TOOLS_ENABLED
 class EditorNode;
 #include "editor/editor_scale.h"
+#include "editor/progress_dialog.h"
 #else
 #define EDSCALE 1.0
 #endif
@@ -81,6 +82,7 @@ private:
 	Node *editor;
 #endif
 	GDRESettings *gdres_singleton;
+	ProgressDialog *pdialog_singleton;
 
 	Control *ne_parent;
 	Dictionary icons;

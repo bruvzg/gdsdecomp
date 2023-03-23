@@ -8,15 +8,24 @@
 #ifndef TOOLS_ENABLED
 #include "core/object/message_queue.h"
 #include "core/os/os.h"
+#include "editor/gdre_editor.h"
 #include "main/main.h"
 #include "scene/gui/label.h"
 #include "scene/resources/style_box.h"
 
 #define EDSCALE 1.0
 
-ProgressDialog *ProgressDialog::singleton = NULL;
+ProgressDialog *ProgressDialog::singleton = nullptr;
 
 void ProgressDialog::_notification(int p_what) {
+	if (p_what == NOTIFICATION_VISIBILITY_CHANGED) {
+		if (!is_visible()) {
+			Node *p = get_parent();
+			if (p) {
+				p->remove_child(this);
+			}
+		}
+	}
 }
 
 void ProgressDialog::_popup() {
@@ -30,7 +39,17 @@ void ProgressDialog::_popup() {
 	main->set_offset(SIDE_TOP, style->get_margin(SIDE_TOP));
 	main->set_offset(SIDE_BOTTOM, -style->get_margin(SIDE_BOTTOM));
 
-	popup_centered(ms);
+	auto *ed = GodotREEditor::get_singleton();
+	if (ed && !is_inside_tree()) {
+		Window *w = ed->get_window();
+		while (w && w->get_exclusive_child()) {
+			w = w->get_exclusive_child();
+		}
+		if (w && w != this) {
+			w->add_child(this);
+			popup_centered(ms);
+		}
+	}
 }
 
 void ProgressDialog::add_task(const String &p_task, const String &p_label, int p_steps, bool p_can_cancel) {
@@ -39,7 +58,7 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 		return;
 	}
 
-	ERR_FAIL_COND(tasks.has(p_task));
+	ERR_FAIL_COND_MSG(tasks.has(p_task), "Task '" + p_task + "' already exists.");
 	ProgressDialog::Task t;
 	t.vb = memnew(VBoxContainer);
 	VBoxContainer *vb2 = memnew(VBoxContainer);
@@ -60,7 +79,7 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 		cancel_hb->hide();
 	}
 	cancel_hb->move_to_front();
-	cancelled = false;
+	canceled = false;
 	_popup();
 	if (p_can_cancel) {
 		cancel->grab_focus();
@@ -68,27 +87,30 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 }
 
 bool ProgressDialog::task_step(const String &p_task, const String &p_state, int p_step, bool p_force_redraw) {
-	ERR_FAIL_COND_V(!tasks.has(p_task), cancelled);
+	ERR_FAIL_COND_V(!tasks.has(p_task), canceled);
 
 	if (!p_force_redraw) {
 		uint64_t tus = OS::get_singleton()->get_ticks_usec();
-		if (tus - last_progress_tick < 200000) //200ms
-			return cancelled;
+		if (tus - last_progress_tick < 200000) { //200ms
+			return canceled;
+		}
 	}
 
 	Task &t = tasks[p_task];
-	if (p_step < 0)
+	if (p_step < 0) {
 		t.progress->set_value(t.progress->get_value() + 1);
-	else
+	} else {
 		t.progress->set_value(p_step);
+	}
 
 	t.state->set_text(p_state);
 	last_progress_tick = OS::get_singleton()->get_ticks_usec();
-	if (cancel_hb->is_visible()) {
-		DisplayServer::get_singleton()->process_events();
-	}
+	DisplayServer::get_singleton()->process_events();
+
+#ifndef ANDROID_ENABLED
 	Main::iteration(); // this will not work on a lot of platforms, so it's only meant for the editor
-	return cancelled;
+#endif
+	return canceled;
 }
 
 void ProgressDialog::end_task(const String &p_task) {
@@ -98,18 +120,18 @@ void ProgressDialog::end_task(const String &p_task) {
 	memdelete(t.vb);
 	tasks.erase(p_task);
 
-	if (tasks.is_empty())
+	if (tasks.is_empty()) {
 		hide();
-	else
+	} else {
 		_popup();
+	}
 }
 
 void ProgressDialog::_cancel_pressed() {
-	cancelled = true;
+	canceled = true;
 }
 
 void ProgressDialog::_bind_methods() {
-	ClassDB::bind_method("_cancel_pressed", &ProgressDialog::_cancel_pressed);
 }
 
 ProgressDialog::ProgressDialog() {
@@ -117,6 +139,7 @@ ProgressDialog::ProgressDialog() {
 	add_child(main);
 	main->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	set_exclusive(true);
+	set_flag(Window::FLAG_POPUP, false);
 	last_progress_tick = 0;
 	singleton = this;
 	cancel_hb = memnew(HBoxContainer);
@@ -135,15 +158,11 @@ ProgressDialog::ProgressDialog() {
 bool EditorProgressGDDC::step(const String &p_state, int p_step, bool p_force_refresh) {
 #ifdef TOOLS_ENABLED
 	if (EditorNode::get_singleton() && ep != nullptr) {
-		if (progress_dialog) {
-			progress_dialog->set_visible(true);
-		}
 		return ep->step(p_state, p_step, p_force_refresh);
 		//return EditorNode::progress_task_step(task, p_state, p_step, p_force_refresh);
 	}
 #endif
 	if (progress_dialog) {
-		progress_dialog->set_visible(true);
 		return progress_dialog->task_step(task, p_state, p_step, p_force_refresh);
 	}
 	return false;
@@ -157,7 +176,7 @@ EditorProgressGDDC::EditorProgressGDDC(Node *p_parent, const String &p_task, con
 		//EditorNode::progress_add_task(p_task, p_label, p_amount, p_can_cancel);
 		progress_dialog = progress_dialog->get_singleton();
 		if (progress_dialog) {
-			progress_dialog->set_visible(true);
+			progress_dialog->popup_centered();
 		}
 
 		task = p_task;
@@ -165,16 +184,13 @@ EditorProgressGDDC::EditorProgressGDDC(Node *p_parent, const String &p_task, con
 	}
 	ep = nullptr;
 #endif
-	if (!ProgressDialog::get_singleton()) {
-		progress_dialog = memnew(ProgressDialog);
-		if (p_parent)
-			p_parent->add_child(progress_dialog);
-	} else {
-		progress_dialog = ProgressDialog::get_singleton();
-	}
+	progress_dialog = ProgressDialog::get_singleton();
 	if (progress_dialog) {
+		if (!progress_dialog->is_inside_tree() && p_parent) {
+			p_parent->add_child(progress_dialog);
+		}
 		progress_dialog->add_task(p_task, p_label, p_amount, p_can_cancel);
-		progress_dialog->set_visible(true);
+		progress_dialog->popup_centered();
 	}
 	task = p_task;
 }
@@ -186,6 +202,7 @@ EditorProgressGDDC::~EditorProgressGDDC() {
 		return;
 	}
 #endif
+	// if no EditorNode...
 	if (progress_dialog) {
 		progress_dialog->end_task(task);
 	}

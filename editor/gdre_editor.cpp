@@ -169,10 +169,11 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 #endif
 
 GodotREEditor::GodotREEditor(Control *p_control, HBoxContainer *p_menu) {
-	//editor = NULL;
 	singleton = this;
 	ne_parent = p_control;
 	gdres_singleton = memnew(GDRESettings);
+	pdialog_singleton = memnew(ProgressDialog);
+	p_control->add_child(pdialog_singleton);
 
 	init_gui(p_control, p_menu, true);
 }
@@ -419,6 +420,13 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 GodotREEditor::~GodotREEditor() {
 	singleton = NULL;
 	memdelete(gdres_singleton);
+	if (pdialog_singleton) {
+		auto parent = pdialog_singleton->get_parent();
+		if (parent) {
+			parent->remove_child(pdialog_singleton);
+		}
+		memdelete(pdialog_singleton);
+	}
 }
 
 void GodotREEditor::show_about_dialog() {
