@@ -561,6 +561,10 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	Ref<FileAccess> f = FileAccess::open(output_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V(err, err);
 	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
+	// Set UTF-8 BOM (required for opening with Excel in UTF-8 format, works with all Godot versions)
+	f->store_8(0xef);
+	f->store_8(0xbb);
+	f->store_8(0xbf);
 	f->store_string(header);
 	for (int i = 0; i < keys.size(); i++) {
 		Vector<String> line_values;
