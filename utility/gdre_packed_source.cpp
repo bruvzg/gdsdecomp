@@ -14,6 +14,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 	f->seek(p_offset);
 
+	bool is_exe = false;
 	uint32_t magic = f->get_32();
 
 	if (magic != PACK_HEADER_MAGIC) {
@@ -38,6 +39,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		if (magic != PACK_HEADER_MAGIC) {
 			return false;
 		}
+		is_exe = true;
 	}
 
 	uint32_t version = f->get_32();
@@ -92,7 +94,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	pckinfo.instantiate();
 	pckinfo->init(
 			pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count,
-			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), GDRESettings::PackInfo::PCK);
+			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), is_exe ? GDRESettings::PackInfo::EXE : GDRESettings::PackInfo::PCK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	for (uint32_t i = 0; i < file_count; i++) {
