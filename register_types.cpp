@@ -49,6 +49,8 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ScriptCompDialog>();
 	ClassDB::register_class<ScriptDecompDialog>();
 
+	Engine::get_singleton()->add_singleton(Engine::Singleton("GDRECLIMain", memnew(GDRECLIMain)));
+
 #ifdef TOOLS_ENABLED
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);
 #endif
