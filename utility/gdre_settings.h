@@ -115,10 +115,10 @@ private:
 	bool check_if_dir_is_v2();
 	int get_ver_major_from_dir();
 	Error _load_import_file(const String &p_path, bool should_load_md5);
-
-public:
 	Error load_dir(const String &p_path);
 	Error unload_dir();
+
+public:
 	Error load_pack(const String &p_path);
 	Error unload_pack();
 	String get_gdre_resource_path() const;
