@@ -1,6 +1,8 @@
 #include "gdre_cli_main.h"
 #include "editor/gdre_version.gen.h"
 
+GDRECLIMain *GDRECLIMain::singleton = nullptr;
+
 Error GDRECLIMain::open_log(const String &path) {
 	return GDRESettings::get_singleton()->open_log_file(path);
 }
@@ -90,10 +92,6 @@ String GDRECLIMain::get_gdre_version() {
 	return GDRE_VERSION;
 }
 GDRECLIMain::GDRECLIMain() {
-	//GDRESettings::get_singleton()->set_is_gui(false);
-	//gdres_singleton = memnew(GDRESettings);
 }
 GDRECLIMain::~GDRECLIMain() {
-	close_log();
-	//memdelete(gdres_singleton);
 }

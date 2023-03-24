@@ -2,7 +2,6 @@ extends Control
 
 var ver_major = 0
 var ver_minor = 0
-var main : GDRECLIMain
 
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -130,13 +129,13 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
-	input_file = main.get_cli_abs_path(input_file)
+	input_file = GDRECLIMain.get_cli_abs_path(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
 		if output_dir.get_extension():
 			output_dir += "_recovery"
 	else:
-		output_dir = main.get_cli_abs_path(output_dir)
+		output_dir = GDRECLIMain.get_cli_abs_path(output_dir)
 
 	da = DirAccess.open(input_file.get_base_dir())
 
@@ -152,22 +151,22 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 		print("Error: failed to locate " + input_file)
 		return
 
-	main.open_log(output_dir)
+	GDRECLIMain.open_log(output_dir)
 	if (enc_key != ""):
-		err = main.set_key(enc_key)
+		err = GDRECLIMain.set_key(enc_key)
 		if (err != OK):
 			print("Error: failed to set key!")
 			return
 	
-	err = main.load_pack(input_file)
+	err = GDRECLIMain.load_pack(input_file)
 	if (err != OK):
 		print("Error: failed to open " + input_file)
 		return
 
 	print("Successfully loaded PCK!") 
-	ver_major = main.get_engine_version().split(".")[0].to_int()
-	ver_minor = main.get_engine_version().split(".")[1].to_int()
-	var version:String = main.get_engine_version()
+	ver_major = GDRECLIMain.get_engine_version().split(".")[0].to_int()
+	ver_minor = GDRECLIMain.get_engine_version().split(".")[1].to_int()
+	var version:String = GDRECLIMain.get_engine_version()
 	print("Version: " + version)
 
 	if output_dir != input_file and not is_dir: 
@@ -178,7 +177,7 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 		if extract_only:
 			print("Why did you open a folder to extract it??? What's wrong with you?!!?")
 			return
-		if main.copy_dir(input_file, output_dir) != OK:
+		if GDRECLIMain.copy_dir(input_file, output_dir) != OK:
 			print("Error: failed to copy " + input_file + " to " + output_dir)
 			return
 	else:
@@ -191,7 +190,7 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 	export_imports(output_dir)
 
 func print_version():
-	print("Godot RE Tools " + main.get_gdre_version())
+	print("Godot RE Tools " + GDRECLIMain.get_gdre_version())
 
 func handle_cli() -> bool:
 	var args = OS.get_cmdline_args()
@@ -202,7 +201,6 @@ func handle_cli() -> bool:
 	var txt_to_bin: String = ""
 	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
 		return false
-	main = GDRECLIMain.new()
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
@@ -224,17 +222,17 @@ func handle_cli() -> bool:
 			enc_key = get_arg_value(arg)
 	if input_file != "":
 		recovery(input_file, output_dir, enc_key, false)
-		main.clear_data()
-		main.close_log()
+		GDRECLIMain.clear_data()
+		GDRECLIMain.close_log()
 		get_tree().quit()
 	elif input_extract_file != "":
 		recovery(input_extract_file, output_dir, enc_key, true)
-		main.clear_data()
-		main.close_log()
+		GDRECLIMain.clear_data()
+		GDRECLIMain.close_log()
 		get_tree().quit()
 	elif txt_to_bin != "":
-		txt_to_bin = main.get_cli_abs_path(txt_to_bin)
-		output_dir = main.get_cli_abs_path(output_dir)
+		txt_to_bin = GDRECLIMain.get_cli_abs_path(txt_to_bin)
+		output_dir = GDRECLIMain.get_cli_abs_path(output_dir)
 		test_text_to_bin(txt_to_bin, output_dir)
 		get_tree().quit()
 	else:
