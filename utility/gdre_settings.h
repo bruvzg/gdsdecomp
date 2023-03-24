@@ -44,6 +44,7 @@ public:
 			APK,
 			ZIP,
 			DIR,
+			EXE,
 			UNKNOWN
 		};
 
@@ -138,7 +139,7 @@ public:
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
 	PackInfo::PackType get_pack_type();
 	String get_pack_path();
-	uint32_t get_pack_version();
+	uint32_t get_pack_format();
 	String get_version_string();
 	uint32_t get_ver_major();
 	uint32_t get_ver_minor();

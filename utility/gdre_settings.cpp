@@ -204,7 +204,7 @@ GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() {
 String GDRESettings::get_pack_path() {
 	return is_pack_loaded() ? current_pack->pack_file : "";
 }
-uint32_t GDRESettings::get_pack_version() {
+uint32_t GDRESettings::get_pack_format() {
 	return is_pack_loaded() ? current_pack->fmt_version : 0;
 }
 String GDRESettings::get_version_string() {
