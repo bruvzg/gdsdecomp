@@ -172,6 +172,7 @@ GDRESettings::~GDRESettings() {
 String GDRESettings::get_cwd() {
 	return GDRESettings::_get_cwd();
 };
+
 String GDRESettings::get_exec_dir() {
 	return GDRESettings::exec_dir;
 }
@@ -304,8 +305,12 @@ Error GDRESettings::load_dir(const String &p_path) {
 		unload_pack();
 		ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project directory!");
 	}
-	err = load_project_config();
-	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project config!");
+	if (!pack_has_project_config()) {
+		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource directory...");
+	} else {
+		err = load_project_config();
+		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
+	}
 	return OK;
 }
 
@@ -393,8 +398,12 @@ Error GDRESettings::load_pack(const String &p_path) {
 			ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project pack!");
 		}
 	}
-	err = load_project_config();
-	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project config!");
+	if (!pack_has_project_config()) {
+		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
+	} else {
+		err = load_project_config();
+		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
+	}
 	return OK;
 }
 
@@ -438,15 +447,11 @@ Error GDRESettings::load_project_config() {
 	Error err;
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_OPEN, "Pack not loaded!");
 	ERR_FAIL_COND_V_MSG(is_project_config_loaded(), ERR_ALREADY_IN_USE, "Project config is already loaded!");
-
+	ERR_FAIL_COND_V_MSG(!pack_has_project_config(), ERR_FILE_NOT_FOUND, "Could not find project config!");
 	if (get_ver_major() == 2) {
-		ERR_FAIL_COND_V_MSG(!has_res_path("res://engine.cfb"), ERR_FILE_NOT_FOUND,
-				"Cannot find project config in pack/project folder!");
 		err = current_pack->pcfg->load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	} else if (get_ver_major() == 3 || get_ver_major() == 4) {
-		ERR_FAIL_COND_V_MSG(!has_res_path("res://project.binary"), ERR_FILE_NOT_FOUND,
-				"Cannot find project config in pack/project folder!");
 		err = current_pack->pcfg->load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	} else {
@@ -816,8 +821,11 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 }
 
 bool GDRESettings::has_project_setting(const String &p_setting) {
-	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), Variant(), "Pack not loaded!");
-	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), Variant(), "project config not loaded!");
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), false, "Pack not loaded!");
+	if (!is_project_config_loaded()) {
+		WARN_PRINT("Attempted to check project setting " + p_setting + ", but no project config loaded");
+		return false;
+	}
 	return current_pack->pcfg->has_setting(p_setting);
 }
 
@@ -1013,6 +1021,21 @@ Ref<ImportInfo> GDRESettings::get_import_info(const String &p_path) {
 
 Vector<String> GDRESettings::get_code_files() {
 	return code_files;
+}
+
+bool GDRESettings::pack_has_project_config() {
+	if (get_ver_major() == 2) {
+		if (has_res_path("res://engine.cfb")) {
+			return true;
+		}
+	} else if (get_ver_major() == 3 || get_ver_major() == 4) {
+		if (has_res_path("res://project.binary")) {
+			return true;
+		}
+	} else {
+		WARN_PRINT("Unsupported godot version " + itos(get_ver_major()) + "...");
+	}
+	return false;
 }
 
 // This is at the bottom to account for the platform header files pulling in their respective OS headers and creating all sorts of issues
