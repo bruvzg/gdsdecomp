@@ -120,7 +120,7 @@ bool GDRESettings::check_if_dir_is_v3() {
 
 bool GDRESettings::check_if_dir_is_v2() {
 	// these are files that will only show up in version 2
-	static const Vector<String> wildcards = { "*.converted.*", "*.tex" };
+	static const Vector<String> wildcards = { "*.tex" };
 	if (get_file_list(wildcards).size() > 0) {
 		return true;
 	} else {
