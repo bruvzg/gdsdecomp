@@ -263,11 +263,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 	}
 
-	if (get_settings()->save_project_config(output_dir) != OK) {
-		print_line("ERROR: Failed to save project config!");
-	} else {
-		// Remove binary project config, as editors will load from it instead of the text one
-		dir->remove(get_settings()->get_project_config_path().get_file());
+	if (get_settings()->is_project_config_loaded()) { // some pcks do not have project configs
+		if (get_settings()->save_project_config(output_dir) != OK) {
+			print_line("ERROR: Failed to save project config!");
+		} else {
+			// Remove binary project config, as editors will load from it instead of the text one
+			dir->remove(get_settings()->get_project_config_path().get_file());
+		}
 	}
 	print_report();
 	return OK;
@@ -277,6 +279,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	GDScriptDecomp *decomp;
 	// we have to remove remaps if they exist
 	bool has_remaps = get_settings()->has_any_remaps();
+	bool config_requires_resave = false;
 	Vector<String> code_files = get_settings()->get_code_files();
 	if (code_files.is_empty()) {
 		return OK;
@@ -383,7 +386,10 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	}
 	memdelete(decomp);
 	// save changed config file
-	err = get_settings()->save_project_config(p_out_dir);
+	if (get_settings()->is_project_config_loaded()) { // some game pcks do not have project configs
+		err = get_settings()->save_project_config(p_out_dir);
+	}
+
 	if (err) {
 		WARN_PRINT("Failed to save changed project config!");
 	}
@@ -486,7 +492,7 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	Error err;
 	ResourceFormatLoaderCompat rlc;
 	// translation files are usually imported from one CSV and converted to multiple "<LOCALE>.translation" files
-	String default_locale = get_settings()->has_project_setting("locale/fallback")
+	String default_locale = get_settings()->pack_has_project_config() && get_settings()->has_project_setting("locale/fallback")
 			? get_settings()->get_project_setting("locale/fallback")
 			: "en";
 	Vector<Ref<Translation>> translations;

@@ -176,6 +176,7 @@ public:
 	String get_sys_info_string() const;
 	Error load_project_config();
 	Error save_project_config(const String &p_out_dir);
+	bool pack_has_project_config();
 
 	static GDRESettings *get_singleton();
 	GDRESettings();
