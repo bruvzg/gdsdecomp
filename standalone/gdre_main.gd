@@ -93,14 +93,17 @@ func export_imports(output_dir:String):
 	importer.reset()
 				
 	
-func dump_files(output_dir:String) -> int:
+func dump_files(output_dir:String, ignore_checksum_errors: bool = false) -> int:
 	var err:int = OK;
 	var pckdump = PckDumper.new()
 	if err == OK:
 		err = pckdump.check_md5_all_files()
-		if err != OK and err != ERR_SKIP:
-			print("Error md5")
-			return err
+		if err != OK:
+			if (err != ERR_SKIP and not ignore_checksum_errors):
+				print("MD5 checksum failed, not proceeding...")
+				return err
+			elif (ignore_checksum_errors):
+				print("MD5 checksum failed, but --ignore_checksum_errors specified, proceeding anyway...")
 		err = pckdump.pck_dump_to_dir(output_dir)
 		if err != OK:
 			print("error dumping to dir")
@@ -124,8 +127,13 @@ func print_usage():
 	print("\nOptions:\n")
 	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
+	print("--ignore-checksum-errors\t\tIgnore MD5 checksum errors when extracting/recovering")
 
-func recovery(input_file:String, output_dir:String, enc_key:String, extract_only: bool):
+func recovery(  input_file:String,
+				output_dir:String,
+				enc_key:String,
+				extract_only: bool,
+				ignore_checksum_errors: bool = false):
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
@@ -181,7 +189,7 @@ func recovery(input_file:String, output_dir:String, enc_key:String, extract_only
 			print("Error: failed to copy " + input_file + " to " + output_dir)
 			return
 	else:
-		err = dump_files(output_dir)
+		err = dump_files(output_dir, ignore_checksum_errors)
 		if (err != OK):
 			print("Error: failed to extract PAK file, not exporting assets")
 			return
@@ -199,6 +207,7 @@ func handle_cli() -> bool:
 	var output_dir: String = ""
 	var enc_key: String = ""
 	var txt_to_bin: String = ""
+	var ignore_md5: bool = false
 	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
 		return false
 	for i in range(args.size()):
@@ -220,13 +229,16 @@ func handle_cli() -> bool:
 			output_dir = normalize_path(get_arg_value(arg))
 		elif arg.begins_with("--key"):
 			enc_key = get_arg_value(arg)
+		elif arg.begins_with("--ignore-checksum-errors"):
+			ignore_md5 = true
+
 	if input_file != "":
-		recovery(input_file, output_dir, enc_key, false)
+		recovery(input_file, output_dir, enc_key, false, ignore_md5)
 		GDRECLIMain.clear_data()
 		GDRECLIMain.close_log()
 		get_tree().quit()
 	elif input_extract_file != "":
-		recovery(input_extract_file, output_dir, enc_key, true)
+		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5)
 		GDRECLIMain.clear_data()
 		GDRECLIMain.close_log()
 		get_tree().quit()
