@@ -11,6 +11,8 @@
 #include "core/version_generated.gen.h"
 #include "modules/regex/regex.h"
 
+const static Vector<uint8_t> empty_md5 = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 bool PckDumper::_pck_file_check_md5(Ref<PackedFileInfo> &file) {
 	// Loading an encrypted file automatically checks the md5
 	if (file->is_encrypted()) {
@@ -37,7 +39,7 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 	}
 	Error err = OK;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
-
+	int skipped_files = 0;
 	for (int i = 0; i < files.size(); i++) {
 		if (pr) {
 			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
@@ -47,6 +49,11 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 					return ERR_PRINTER_ON_FIRE;
 				}
 			}
+		}
+		if (files[i]->get_md5() == empty_md5) {
+			print_verbose("Skipping MD5 check for " + files[i]->path + " (no MD5 hash found)");
+			skipped_files++;
+			continue;
 		}
 		files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
 		if (files[i]->md5_passed) {
@@ -58,9 +65,15 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 		}
 		checked_files++;
 	}
+
 	if (err) {
 		print_error("At least one error was detected while verifying files in pack!\n");
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
+	} else if (skipped_files > 0) {
+		print_line("Verified " + itos(checked_files) + " files, " + itos(skipped_files) + " files skipped (MD5 hash entry was empty)");
+		if (skipped_files == files.size()) {
+			return ERR_SKIP;
+		}
 	} else {
 		print_line("Verified " + itos(checked_files) + " files, no errors detected!");
 		//show_warning(RTR("No errors detected."), RTR("Read PCK"), RTR("The operation completed successfully!"));
