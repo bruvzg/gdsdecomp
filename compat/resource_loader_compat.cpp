@@ -984,7 +984,19 @@ Error ResourceLoaderCompat::load() {
 			// FakeResource inherits from PackedScene
 			Ref<PackedScene> ps;
 			ps.instantiate();
-			ps->set(lrp.front()->get().name, lrp.front()->get().value);
+			Dictionary bundle;
+			// iterate through linked list to find "_bundled"
+			for (List<ResourceProperty>::Element *E = lrp.front(); E; E = E->next()) {
+				if (E->get().name == "_bundled") {
+					bundle = E->get().value;
+					break;
+				}
+			}
+			if (bundle.is_empty()) {
+				error = ERR_FILE_CORRUPT;
+				ERR_FAIL_V_MSG(error, "Failed to load packed scene");
+			}
+			ps->set("_bundled", bundle);
 			resource = ps;
 		} else if (main) {
 			resource = res;
@@ -1152,7 +1164,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		String title = is_scene ? "[gd_scene " : "[gd_resource ";
 		if (!is_scene) {
 			title += "type=\"" + main_type + "\" ";
-			if (!script_class.is_empty()) {
+			if (!script_class.is_empty() && ver_format_text > 2) { // only present on 4.x and above
 				title += "script_class=\"" + script_class + "\" ";
 			}
 		}
