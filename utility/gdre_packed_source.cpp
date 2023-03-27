@@ -3,7 +3,7 @@
 #include "gdre_settings.h"
 
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
-	if (p_path.get_extension().to_lower() == "apk") {
+	if (p_path.get_extension().to_lower() == "apk" || p_path.get_extension().to_lower() == "zip") {
 		return false;
 	}
 	String pck_path = p_path.replace("_GDRE_a_really_dumb_hack", "");
