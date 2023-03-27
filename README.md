@@ -52,14 +52,19 @@ In addition, it does not support decompiling any GDNative or GDMono scripts. For
 ![Recovery log](images/recovery_log.png)
 
 ### Command Line
+#### Example:
 
 ```bash
 gdre_tools --headless --recover=game.pck
 ```
+#### Main arguments:
+- `--recover=<pck/exe/apk>` : Perform full project recovery on the specified PCK/EXE/APK.
+- `--extract=<pck/exe/apk>` : Perform extraction only (no resource conversion) on the specified PCK/EXE/APK
 
 #### Optional arguments:
 - `--output-dir=<out_dir>` : Output directory, defaults to `<NAME>_extracted`, or the project directory if one is specified
 - `--key=<key>` : The Key to use if PAK/EXE/APK is encrypted (64 character hex string)
+- `--ignore-checksum-errors` : Ignore MD5 errors during PCK checking and perform recovery/extraction anyway
 
 Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
