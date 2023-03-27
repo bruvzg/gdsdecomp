@@ -161,8 +161,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
 		) {
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-			// for v2 projects, remove the autoconverted file in the project path
-			if (get_ver_major() == 2 && !err) {
+			// v2-v3 export left the autoconverted resource in the main path, remove it
+			if (get_ver_major() <= 3 && !err) {
 				dir->remove(iinfo->get_path().replace("res://", ""));
 			}
 		} else if (importer == "scene" && !iinfo->is_auto_converted()) {
