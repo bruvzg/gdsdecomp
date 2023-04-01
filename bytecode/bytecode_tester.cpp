@@ -226,21 +226,27 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 		}
 	}
 	if (rev == 0) {
-		// ed80f45 didn't pass or fail, but this passed, so it's probably this version.
-		if (_85585c7_passed) {
-			rev = 0x85585c7;
-		} else if (ed80f45_failed) {
-			// 7124599 doesn't currently have a pass condition; if the others have failed and this has not, then it's probably this version.
-			if (!_7124599_failed) {
-				if (_85585c7_failed) {
-					rev = 0x7124599;
-				} else {
-					rev = 0x85585c7;
-				}
+		if (!ed80f45_failed) {
+			if (_85585c7_passed) {
+				rev = 0x85585c7;
+				// major token changes in ed80f45, the others should have failed
+			} else if (_7124599_failed && _85585c7_failed) {
+				rev = 0xed80f45;
 			}
-		} else if ((!ed80f45_failed && !_85585c7_failed && !_7124599_failed)) {
-			// It likely won't matter what we decompile as, just return the highest revision.
-			rev = 0xed80f45;
+		} else if (ed80f45_failed) {
+			// it's quite possible for both 85585c7 and 7124599 to not fail, as 85585c7 is testing ColorN, which came towards the end of the builtin_func list
+			// and our pass cases are pretty limited there.
+			// if the game doesn't use 	"ColorN", "print_stack", or "instance_from_id", neither will fail.
+			// in that case, it doesn't matter which one we pick, so we'll just use 85585c7.
+			if (!_85585c7_failed) {
+				rev = 0x85585c7;
+				// otherwise, it's probably 7124599
+			} else if (!_7124599_failed) {
+				rev = 0x7124599;
+			}
+		}
+		if (rev == 0) {
+			ERR_PRINT("Failed to detect GDScript revision for engine version 2.1.x, please report this issue on GitHub");
 		}
 	}
 	memdelete(decomp_ed80f45);
@@ -346,10 +352,11 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 	}
 
 	if (rev == 0) {
-		if (_1a36141_passed && _1ca61a3_failed) {
-			// 0x514a3fb didn't pass or fail, but 0x1a36141 passed, so it's likely 0x1a36141
+		if (!_514a3fb_failed && _1a36141_passed) {
 			rev = 0x1a36141;
-		} else if (!_514a3fb_failed && !_1a36141_failed && _1ca61a3_failed) {
+		} else if ((!_514a3fb_failed || !_1a36141_failed) && _1ca61a3_passed) {
+			rev = 0x1ca61a3;
+		} else if (!_514a3fb_failed && !_1a36141_failed && _1ca61a3_failed) { // there were major token changes in 3.1-beta, 1ca61a3 should have failed if the others didn't
 			// it likely will not matter which revision we use here, as they seem to have not used many built-in functions
 			// just use 3.1.1 (514a3fb), less than a month passed between 3.1.0 and 3.1.1
 			rev = 0x514a3fb;
@@ -359,7 +366,7 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 			rev = 0x1ca61a3;
 		} else {
 			// If we made it here, our current way of testing is insufficient, the user should report this.
-			ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for engine version 2.1.x, please report this issue on GitHub.");
+			ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for engine version 3.1.x, please report this issue on GitHub.");
 		}
 	}
 
