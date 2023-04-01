@@ -20,6 +20,7 @@ protected:
 
 	String script_text;
 	String error_message;
+	uint64_t bytecode_rev;
 	int engine_ver_major;
 	int variant_ver_major; // Some early dev versions of 3.0 used v2 variants, and early dev versions of 4.0 used v3 variants
 public:
