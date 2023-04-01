@@ -33,6 +33,9 @@ int get_ver_major() {
 int get_ver_minor() {
 	return get_settings()->get_ver_minor();
 }
+int get_ver_rev() {
+	return get_settings()->get_ver_rev();
+}
 
 // export all the imported resources
 Error ImportExporter::export_imports(const String &p_out_dir, const Vector<String> &files_to_export) {
@@ -301,7 +304,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				case 0:
 					decomp = memnew(GDScriptDecomp_23441ec);
 					break;
-				case 1:
+				case 1: // TODO: They broke compatibility in a patch release. Fix this.
 					decomp = memnew(GDScriptDecomp_ed80f45);
 					break;
 			}
@@ -312,21 +315,40 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 					decomp = memnew(GDScriptDecomp_054a2ac);
 					break;
 				case 1:
+					// They broke compatibility in a patch release
+					// TODO: they didn't start writing the real patch numbers to the PCK until v3.2; need to do static script testing to determine which bytecode
+					// Defaulting to the bytecode for 3.1.1 for now because of the short time between releases (less than two months)
+					// if (get_ver_rev() == 0) {
+					// 	decomp = memnew(GDScriptDecomp_1a36141);
+					//	break;
+					// }
+
+					// 3.1.1
 					decomp = memnew(GDScriptDecomp_514a3fb);
 					break;
 				case 2:
+				case 3:
+				case 4:
 					decomp = memnew(GDScriptDecomp_5565f55);
 					break;
-				default: // We do not anticipate further GSScript changes in 3.x because GDScript 2.0 in 4.x can't be backported
-					decomp = memnew(GDScriptDecomp_5565f55);
+				case 5:
+					decomp = memnew(GDScriptDecomp_a7aad78);
+					break;
+				default:
+					// We do not anticipate further GSScript changes in 3.x because GDScript 2.0 in 4.x can't be backported
+					// but just in case...
+					WARN_PRINT("Unsupported version 3." + itos(get_ver_minor()) + "." + itos(get_ver_rev()) + " of Godot detected");
+					WARN_PRINT("If your scripts are mangled, please report this on the Github issue tracker");
+					decomp = memnew(GDScriptDecomp_a7aad78);
 					break;
 			}
 			break;
 		case 4:
 			switch (get_ver_minor()) {
-					// Compiled mode was removed in 4.0; if this is part of a 4.0 project, might be in one of the pre GDScript 2.0 4.0-dev bytecodes
+				// Compiled mode was removed in 4.0; if this is part of a 4.0 project, might be in one of the pre GDScript 2.0 4.0-dev bytecodes
+				// but we can't really detect which mutually incompatible revision it is (there are several), so we just fail
 				case 0:
-					decomp = memnew(GDScriptDecomp_5565f55);
+					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.0 pre-release dev GDScript not implemented, failed to decompile");
 					break;
 				case 1: // might be added back in 4.1; if so, this will need to be updated
 					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.1 GDScript not yet implemented, failed to decompile");

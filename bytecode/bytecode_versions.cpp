@@ -57,6 +57,7 @@ void register_decomp_versions() {
 	ClassDB::register_class<GDScriptDecomp_a60f242>();
 	ClassDB::register_class<GDScriptDecomp_6694c11>();
 	ClassDB::register_class<GDScriptDecomp_5565f55>();
+	ClassDB::register_class<GDScriptDecomp_a7aad78>();
 }
 
 GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash) {
@@ -161,6 +162,8 @@ GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash) {
 			return memnew(GDScriptDecomp_6694c11);
 		case 0x5565f55:
 			return memnew(GDScriptDecomp_5565f55);
+		case 0xa7aad78:
+			return memnew(GDScriptDecomp_a7aad78);
 		case 0x506df14:
 			return memnew(GDScriptDecomp_506df14);
 		case 0xf3f05dc:
