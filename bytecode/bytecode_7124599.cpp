@@ -581,3 +581,29 @@ Error GDScriptDecomp_7124599::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+
+// 7124599 (Godot v2.1.0-v2.1.1) added `type_exists` function
+GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_7124599::test_bytecode(Vector<uint8_t> buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+
+	int token_count = tokens.size();
+	for (int i = 0; i < token_count; i++) {
+		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
+			int func_id = tokens[i] >> TOKEN_BITS;
+
+			// the other potential function that takes up type_exists`s spot is str(), which has var_args,
+			// which would be insanely hard to test for and could also end up with one argument.
+			// So, the test for this version this is super simple and doesn't have a PASS result, just FAIL and UNKNOWN.
+			// we just check to see if the function id is >= the size of func_names
+			if (func_id >= 65) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+		}
+	}
+	// we didn't find a call that exceeded func_id
+	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+}

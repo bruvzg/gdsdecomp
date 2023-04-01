@@ -586,3 +586,34 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+
+// bytecode rev ed80f45 (Godot v2.1.3-v2.1.6) introduced TK_PR_ENUM token, need to test for this
+GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_ed80f45::test_bytecode(Vector<uint8_t> buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+	int token_count = tokens.size();
+	for (int i = 0; i < token_count; i++) {
+		// Test for the existence of the TK_PR_ENUM token
+		// the next token after TK_PR_ENUM should be TK_IDENTIFIER OR TK_CURLY_BRACKET_OPEN
+		if ((tokens[i] & TOKEN_MASK) == TK_PR_ENUM) { // ignore all tokens until we find TK_PR_ENUM
+			if (i + 1 >= token_count) { // if we're at the end of the token list, then we don't have a valid enum token OR a valud TK_PR_PRELOAD token
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+
+			if ((tokens[i + 1] & TOKEN_MASK) == TK_IDENTIFIER || (tokens[i + 1] & TOKEN_MASK) == TK_CURLY_BRACKET_OPEN) { // if the next token is TK_IDENTIFIER, then we have a valid enum
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
+			}
+			// If we don't have that, this is actually TK_PR_PRELOAD of the previous bytecode version, which requires TK_PARENTHESIS_OPEN as the next token
+			if ((tokens[i + 1] & TOKEN_MASK) == TK_PARENTHESIS_OPEN) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+
+			// All bytecode version 10 revisions had TK_PR_PRELOAD as token id 60; if this wasn't a valid TK_PR_PRELOAD, then this is either corrupt or this isn't bytecode version 10
+			return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+		}
+	}
+	// we didn't find an enum token
+	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+}

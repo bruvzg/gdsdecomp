@@ -582,3 +582,64 @@ Error GDScriptDecomp_85585c7::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+
+// 85585c7 (Godot v2.1.2) added ColorN func
+GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_85585c7::test_bytecode(Vector<uint8_t> buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+
+	int token_count = tokens.size();
+	for (int i = 0; i < token_count; i++) {
+		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
+			int func_id = tokens[i] >> TOKEN_BITS;
+
+			// if the func_id is >= size of func_names, this is likely an earlier version 10 revision
+			if (func_id >= 66) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			if (func_names[func_id] != "ColorN") { // if not ColorN, ignore
+				continue;
+			}
+			if (i + 2 >= token_count) { // if we're at the end of the token list, then we don't have a valid call in either case
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+
+			if ((tokens[i + 1] & TOKEN_MASK) != TK_PARENTHESIS_OPEN) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			// skip new any lines
+			int pos = i + 2;
+			while (tokens[pos] == TK_NEWLINE) {
+				pos++;
+				if (pos >= token_count) {
+					return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+				}
+			}
+			// the func in the previous bytecode revision's slot is print_stack, which has no arguments
+			// so if the next token is TK_PARENTHESIS_CLOSE, then this fails.
+			if ((tokens[pos] & TOKEN_MASK) == TK_PARENTHESIS_CLOSE) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			// we currently aren't able to parse the arguments properly,
+			// but we can at least test for the vast majority of usecases of ColorN,
+			// which was the first argument was a string literal
+			if ((tokens[pos] & TOKEN_MASK) == TK_CONSTANT) {
+				uint32_t constant = tokens[i] >> TOKEN_BITS;
+				ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT);
+				if (constants[constant].get_type() == Variant::STRING) {
+					return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
+				}
+				// If the first argument in this call is a constant which is not a string literal, then this is an earlier version 10 revision
+				// (it's likely `instance_from_id`, which takes an INT)
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+
+			// we currently aren't able to parse the arguments properly, so we can't say for sure
+			return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+		}
+	}
+	// we didn't find a ColorN call
+	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+}
