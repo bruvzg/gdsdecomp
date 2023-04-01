@@ -589,7 +589,7 @@ Error GDScriptDecomp_85585c7::decompile_buffer(Vector<uint8_t> p_buffer) {
 namespace {
 // TODO: Refactor bytecode classes so that this can be moved to bytecode base
 // we should be after the open parenthesis, which has already been checked
-bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos, int &num_args) {
 	int pos = curr_pos;
 	int comma_count = 0;
 	int min_args = arg_count.first;
@@ -643,6 +643,7 @@ bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int>
 	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
 		return false;
 	}
+	num_args = comma_count + 1;
 	curr_pos = pos;
 	return true;
 }
@@ -654,10 +655,12 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_85585c7::test_bytecode(Vecto
 	Vector<Variant> constants;
 	Vector<uint32_t> tokens;
 	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
-	bool tested_colorN = false;
+	bool tested_colorN_shift = false;
 	int token_count = tokens.size();
 	for (int i = 0; i < token_count; i++) {
 		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
+			int num_args = 0;
+
 			int func_id = tokens[i] >> TOKEN_BITS;
 
 			// if the func_id is >= size of func_names, this is likely an earlier version 10 revision
@@ -676,44 +679,17 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_85585c7::test_bytecode(Vecto
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
 			i += 2; // skip TK_BUILT_IN_FUNC and TK_PARENTHESIS_OPEN
-			if (func_names[func_id] == "ColorN") { // if not ColorN, ignore
-				// skip new any lines
-				int pos = i;
-				while (tokens[pos] == TK_NEWLINE) {
-					pos++;
-					if (pos >= token_count) {
-						return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
-					}
-				}
-				// the func in the previous bytecode revision's slot is print_stack, which has no arguments
-				// so if the next token is TK_PARENTHESIS_CLOSE, then this fails.
-				if ((tokens[pos] & TOKEN_MASK) == TK_PARENTHESIS_CLOSE) {
-					return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
-				}
-				// we can't parse expressions or function calls as arguments,
-				// but we can at least test for the vast majority of usecases of ColorN,
-				// which was the first argument was a string literal
-				if ((tokens[pos] & TOKEN_MASK) == TK_CONSTANT) {
-					tested_colorN = true; // we have a pass case
-					uint32_t constant = tokens[i] >> TOKEN_BITS;
-					ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT);
-					// If the first argument in this call is a constant which is not a string literal, then this is an earlier version 10 revision
-					// (it's likely `instance_from_id`, which takes an INT)
-					if (constants[constant].get_type() != Variant::STRING) {
-						return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
-					}
-				}
-				continue;
-			}
-			// otherwise, just test the arg count
 			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
-			// no pass case here
-			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
+			if (!tested_colorN_shift && func_id >= 63 && func_id + 1 < FUNC_MAX) {
+				// ColorN and print_stack would be pass cases here.
+				tested_colorN_shift = true;
+			}
+			if (!test_built_in_func_arg_count(tokens, arg_count, i, num_args)) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
 		}
 	}
-	if (tested_colorN) {
+	if (tested_colorN_shift) {
 		return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
 	}
 	// we didn't find a ColorN call
