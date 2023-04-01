@@ -28,6 +28,7 @@ public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
 	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> buffer) override { return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN; }; // not implemented
 	GDScriptDecomp_8c1731b() {
+		bytecode_rev = 0x8c1731b;
 		engine_ver_major = 1;
 		variant_ver_major = 2; // we just use variant parser/writer for v2
 	}

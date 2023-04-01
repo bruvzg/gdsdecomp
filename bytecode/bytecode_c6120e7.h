@@ -28,6 +28,7 @@ public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
 	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> buffer) override { return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN; }; // not implemented
 	GDScriptDecomp_c6120e7() {
+		bytecode_rev = 0xc6120e7;
 		engine_ver_major = 3;
 		variant_ver_major = 3;
 	}

@@ -27,6 +27,7 @@ public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
 	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> buffer) override;
 	GDScriptDecomp_514a3fb() {
+		bytecode_rev = 0x514a3fb;
 		engine_ver_major = 3;
 		variant_ver_major = 3;
 	}
