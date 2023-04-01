@@ -672,28 +672,118 @@ Error GDScriptDecomp_514a3fb::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+namespace {
+// we should be after the open parenthesis, which has already been checked
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+	int pos = curr_pos;
+	int comma_count = 0;
+	int min_args = arg_count.first;
+	int max_args = arg_count.second;
+	uint32_t t = tokens[pos] & 255; // TOKEN_MASK for all revisions
+	int bracket_open = 0;
 
-// added smoothstep
-// The other potentials for this slot are either dectime or move_towards, both of which take 3 floats, the same as smoothstep.
-// So we can't test for this statically. No pass case.
-// We only have a failing case where there's a built-in function id >= the size of func_names
+	if (min_args == 0 && max_args == 0) {
+		for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+			if (t == TK_PARENTHESIS_CLOSE) {
+				break;
+			} else if (t != TK_NEWLINE) {
+				return false;
+			}
+		}
+		// if we didn't find a close parenthesis, then we have an error
+		if (pos == tokens.size()) {
+			return false;
+		}
+		curr_pos = pos;
+		return true;
+	}
+	// count the commas
+	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
+	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+		switch (t) {
+			case TK_BRACKET_OPEN:
+			case TK_CURLY_BRACKET_OPEN:
+			case TK_PARENTHESIS_OPEN:
+				bracket_open++;
+				break;
+			case TK_BRACKET_CLOSE:
+			case TK_CURLY_BRACKET_CLOSE:
+			case TK_PARENTHESIS_CLOSE:
+				bracket_open--;
+				break;
+			case TK_COMMA:
+				if (bracket_open == 0) {
+					comma_count++;
+				}
+				break;
+			default:
+				break;
+		}
+		if (bracket_open == -1) {
+			break;
+		}
+	}
+	// trailing commas are not allowed after the last argument
+	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
+		return false;
+	}
+	curr_pos = pos;
+	return true;
+}
+} //namespace
+// check for function shift caused by added smoothstep
+// NOTE: This only considers 3.1.x beta/release bytecode 13 revisions for its pass case, not any dev revisions or 3.2.x or 3.5.x
 GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_514a3fb::test_bytecode(Vector<uint8_t> buffer) {
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	Vector<uint32_t> tokens;
 	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
 
+	// pass case: built-in function shift caused by smoothstep is tested
+	bool tested_smoothstep_shift = false;
 	int token_count = tokens.size();
 	for (int i = 0; i < token_count; i++) {
 		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
 			int func_id = tokens[i] >> TOKEN_BITS;
 
 			// if the func_id is >= size of func_names, this is another version 13 revision
-			if (func_id >= 83) {
+			if (func_id >= FUNC_MAX) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
-			continue;
+			// All bytecode 13 revisions had the same position for TK_BUILT_IN_FUNC; if this check fails, then the bytecode is corrupt
+			if (i + 2 >= token_count) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			i++;
+			if (tokens[i] != TK_PARENTHESIS_OPEN) {
+				// 3.1 beta still had the DO, CASE, and SWITCH tokens, which were before TK_PARENTHESIS_OPEN.
+				// this resulted in the token id for TK_PARENTHESIS_OPEN being shifted lower by 3 in the 3.1.x releases.
+				// If what follows is not a '(', then this is probably 3.1 beta, fail case.
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			i++;
+
+			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
+			if (!tested_smoothstep_shift && func_id >= 29) { // smoothstep is at position 29, all functions after are shifted up by one vs. the previous 3.1 beta/release revision
+				if (func_id + 1 < 83) { // if the next function has a different arg count than the current one, then we have a pass case
+					auto next_arg_count = get_arg_count_for_builtin(func_names[func_id + 1]);
+					// require both min and max args to be different, also don't count testing var args as a pass case.
+					if (arg_count.first != next_arg_count.first && arg_count.second != next_arg_count.second &&
+							arg_count.first == arg_count.second && next_arg_count.first == next_arg_count.second) {
+						tested_smoothstep_shift = true;
+					}
+				}
+			}
+			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			};
+			// we keep going until the end for func arg count checking
 		}
+	}
+	if (tested_smoothstep_shift) {
+		return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
 	}
 	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
 }

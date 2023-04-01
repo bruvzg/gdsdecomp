@@ -683,3 +683,108 @@ Error GDScriptDecomp_1ca61a3::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+
+namespace {
+// we should be after the open parenthesis, which has already been checked
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+	int pos = curr_pos;
+	int comma_count = 0;
+	int min_args = arg_count.first;
+	int max_args = arg_count.second;
+	uint32_t t = tokens[pos] & 255; // TOKEN_MASK for all revisions
+	int bracket_open = 0;
+
+	if (min_args == 0 && max_args == 0) {
+		for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+			if (t == TK_PARENTHESIS_CLOSE) {
+				break;
+			} else if (t != TK_NEWLINE) {
+				return false;
+			}
+		}
+		// if we didn't find a close parenthesis, then we have an error
+		if (pos == tokens.size()) {
+			return false;
+		}
+		curr_pos = pos;
+		return true;
+	}
+	// count the commas
+	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
+	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+		switch (t) {
+			case TK_BRACKET_OPEN:
+			case TK_CURLY_BRACKET_OPEN:
+			case TK_PARENTHESIS_OPEN:
+				bracket_open++;
+				break;
+			case TK_BRACKET_CLOSE:
+			case TK_CURLY_BRACKET_CLOSE:
+			case TK_PARENTHESIS_CLOSE:
+				bracket_open--;
+				break;
+			case TK_COMMA:
+				if (bracket_open == 0) {
+					comma_count++;
+				}
+				break;
+			default:
+				break;
+		}
+		if (bracket_open == -1) {
+			break;
+		}
+	}
+	// trailing commas are not allowed after the last argument
+	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
+		return false;
+	}
+	curr_pos = pos;
+	return true;
+}
+} //anonymous namespace
+
+// check for DO, CASE, SWITCH tokens; only fail cases because the likelihood of encountering beta scripts in the wild is remote
+// and we should only consider using this if all the other 3.1 decompilers fail
+GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_1ca61a3::test_bytecode(Vector<uint8_t> buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
+
+	// pass case: built-in function shift caused by smoothstep is tested
+	bool tested_smoothstep_shift = false;
+	int token_count = tokens.size();
+	for (int i = 0; i < token_count; i++) {
+		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
+			int func_id = tokens[i] >> TOKEN_BITS;
+
+			// if the func_id is >= size of func_names, this is another version 13 revision
+			if (func_id >= FUNC_MAX) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			// All bytecode 13 revisions had the same position for TK_BUILT_IN_FUNC; if this check fails, then the bytecode is corrupt
+			if (i + 2 >= token_count) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			i++;
+			if (tokens[i] != TK_PARENTHESIS_OPEN) {
+				// 3.1 beta still had the DO, CASE, and SWITCH tokens, which were before TK_PARENTHESIS_OPEN.
+				// this resulted in the token id for TK_PARENTHESIS_OPEN being shifted lower by 3 in the 3.1.x releases.
+				// this is probably not 3.1 beta, fail.
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			i++;
+
+			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
+			// we're only testing fail cases for this
+			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			};
+			// we keep going until the end for func arg count checking
+		}
+	}
+	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+}

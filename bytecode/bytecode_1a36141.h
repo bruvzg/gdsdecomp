@@ -26,7 +26,7 @@ protected:
 
 public:
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) override;
-	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> buffer) override { return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN; }; // not implemented
+	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> buffer) override;
 	GDScriptDecomp_1a36141() {
 		bytecode_rev = 0x1a36141;
 		engine_ver_major = 3;
