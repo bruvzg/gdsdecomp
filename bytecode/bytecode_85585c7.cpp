@@ -586,62 +586,135 @@ Error GDScriptDecomp_85585c7::decompile_buffer(Vector<uint8_t> p_buffer) {
 	return OK;
 }
 
+namespace {
+// TODO: Refactor bytecode classes so that this can be moved to bytecode base
+// we should be after the open parenthesis, which has already been checked
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+	int pos = curr_pos;
+	int comma_count = 0;
+	int min_args = arg_count.first;
+	int max_args = arg_count.second;
+	uint32_t t = tokens[pos] & 255; // TOKEN_MASK for all revisions
+	int bracket_open = 0;
+
+	if (min_args == 0 && max_args == 0) {
+		for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+			if (t == TK_PARENTHESIS_CLOSE) {
+				break;
+			} else if (t != TK_NEWLINE) {
+				return false;
+			}
+		}
+		// if we didn't find a close parenthesis, then we have an error
+		if (pos == tokens.size()) {
+			return false;
+		}
+		curr_pos = pos;
+		return true;
+	}
+	// count the commas
+	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
+	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+		switch (t) {
+			case TK_BRACKET_OPEN:
+			case TK_CURLY_BRACKET_OPEN:
+			case TK_PARENTHESIS_OPEN:
+				bracket_open++;
+				break;
+			case TK_BRACKET_CLOSE:
+			case TK_CURLY_BRACKET_CLOSE:
+			case TK_PARENTHESIS_CLOSE:
+				bracket_open--;
+				break;
+			case TK_COMMA:
+				if (bracket_open == 0) {
+					comma_count++;
+				}
+				break;
+			default:
+				break;
+		}
+		if (bracket_open == -1) {
+			break;
+		}
+	}
+	// trailing commas are not allowed after the last argument
+	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
+		return false;
+	}
+	curr_pos = pos;
+	return true;
+}
+} //anonymous namespace
+
 // 85585c7 (Godot v2.1.2) added ColorN func
 GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_85585c7::test_bytecode(Vector<uint8_t> buffer) {
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	Vector<uint32_t> tokens;
 	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
-
+	bool tested_colorN = false;
 	int token_count = tokens.size();
 	for (int i = 0; i < token_count; i++) {
 		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
 			int func_id = tokens[i] >> TOKEN_BITS;
 
 			// if the func_id is >= size of func_names, this is likely an earlier version 10 revision
-			if (func_id >= 66) {
+			if (func_id >= FUNC_MAX) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
-			if (func_names[func_id] != "ColorN") { // if not ColorN, ignore
+
+			if (i + 2 >= token_count) {
+				// if we're at the end of the token list, then we don't have a valid call in any bytecode revision
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+
+			// all TK_BUILT_IN_FUNC tokens must be followed by TK_PARENTHESIS_OPEN
+			if ((tokens[i + 1] & TOKEN_MASK) != TK_PARENTHESIS_OPEN) {
+				// ed80f45 added the ENUM token, which shifted PARENTHESIS_OPEN by 1. this is another bytecode 10 revision
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			i += 2; // skip TK_BUILT_IN_FUNC and TK_PARENTHESIS_OPEN
+			if (func_names[func_id] == "ColorN") { // if not ColorN, ignore
+				// skip new any lines
+				int pos = i;
+				while (tokens[pos] == TK_NEWLINE) {
+					pos++;
+					if (pos >= token_count) {
+						return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+					}
+				}
+				// the func in the previous bytecode revision's slot is print_stack, which has no arguments
+				// so if the next token is TK_PARENTHESIS_CLOSE, then this fails.
+				if ((tokens[pos] & TOKEN_MASK) == TK_PARENTHESIS_CLOSE) {
+					return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+				}
+				// we can't parse expressions or function calls as arguments,
+				// but we can at least test for the vast majority of usecases of ColorN,
+				// which was the first argument was a string literal
+				if ((tokens[pos] & TOKEN_MASK) == TK_CONSTANT) {
+					tested_colorN = true; // we have a pass case
+					uint32_t constant = tokens[i] >> TOKEN_BITS;
+					ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT);
+					// If the first argument in this call is a constant which is not a string literal, then this is an earlier version 10 revision
+					// (it's likely `instance_from_id`, which takes an INT)
+					if (constants[constant].get_type() != Variant::STRING) {
+						return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+					}
+				}
 				continue;
 			}
-			if (i + 2 >= token_count) { // if we're at the end of the token list, then we don't have a valid call in either case
-				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
-			}
-
-			if ((tokens[i + 1] & TOKEN_MASK) != TK_PARENTHESIS_OPEN) {
-				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
-			}
-			// skip new any lines
-			int pos = i + 2;
-			while (tokens[pos] == TK_NEWLINE) {
-				pos++;
-				if (pos >= token_count) {
-					return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
-				}
-			}
-			// the func in the previous bytecode revision's slot is print_stack, which has no arguments
-			// so if the next token is TK_PARENTHESIS_CLOSE, then this fails.
-			if ((tokens[pos] & TOKEN_MASK) == TK_PARENTHESIS_CLOSE) {
+			// otherwise, just test the arg count
+			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
+			// no pass case here
+			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
-			// we currently aren't able to parse the arguments properly,
-			// but we can at least test for the vast majority of usecases of ColorN,
-			// which was the first argument was a string literal
-			if ((tokens[pos] & TOKEN_MASK) == TK_CONSTANT) {
-				uint32_t constant = tokens[i] >> TOKEN_BITS;
-				ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT);
-				if (constants[constant].get_type() == Variant::STRING) {
-					return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
-				}
-				// If the first argument in this call is a constant which is not a string literal, then this is an earlier version 10 revision
-				// (it's likely `instance_from_id`, which takes an INT)
-				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
-			}
-
-			// we currently aren't able to parse the arguments properly, so we can't say for sure
-			return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
 		}
+	}
+	if (tested_colorN) {
+		return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
 	}
 	// we didn't find a ColorN call
 	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;

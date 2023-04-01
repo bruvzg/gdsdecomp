@@ -1,5 +1,6 @@
 
 #include "import_exporter.h"
+#include "bytecode/bytecode_tester.h"
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
 #include "compat/optimized_translation_extractor.h"
@@ -287,59 +288,62 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	if (code_files.is_empty()) {
 		return OK;
 	}
-	// TODO: instead of doing this, run the detect bytecode script
+	String patch_version = "x";
+	uint64_t revision = 0;
+
+	// we don't consider the dev versions here, only the release/beta versions
 	switch (get_ver_major()) {
 		case 1:
 			switch (get_ver_minor()) {
 				case 0:
-					decomp = memnew(GDScriptDecomp_e82dc40);
+					revision = 0xe82dc40;
 					break;
 				case 1:
-					decomp = memnew(GDScriptDecomp_e82dc40);
+					revision = 0x65d48d6;
 					break;
 			}
 			break;
 		case 2:
 			switch (get_ver_minor()) {
 				case 0:
-					decomp = memnew(GDScriptDecomp_23441ec);
+					revision = 0x23441ec;
 					break;
-				case 1: // TODO: They broke compatibility in a patch release. Fix this.
-					decomp = memnew(GDScriptDecomp_ed80f45);
+				case 1:
+					// They broke compatibility for 2.1.x in successive patch releases. We have to detect the exact version.
+					// They didn't start writing the actual patch version to the PCK until 3.2, they wrote '0' regardless of the actual patch version, so we can't use that.
+					revision = BytecodeTester::test_files(code_files, 2, 1);
+					if (revision == 0) {
+						ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Failed to detect bytecode revision for 2.1.x scripts, please report this!");
+					}
 					break;
 			}
 			break;
 		case 3:
 			switch (get_ver_minor()) {
 				case 0:
-					decomp = memnew(GDScriptDecomp_054a2ac);
+					revision = 0x54a2ac;
 					break;
-				case 1:
-					// They broke compatibility in a patch release
-					// TODO: they didn't start writing the real patch numbers to the PCK until v3.2; need to do static script testing to determine which bytecode
-					// Defaulting to the bytecode for 3.1.1 for now because of the short time between releases (less than two months)
-					// if (get_ver_rev() == 0) {
-					// 	decomp = memnew(GDScriptDecomp_1a36141);
-					//	break;
-					// }
-
-					// 3.1.1
-					decomp = memnew(GDScriptDecomp_514a3fb);
-					break;
+				case 1: {
+					// They broke compatibility for 3.1.x in successive patch releases. We have to detect the exact version.
+					revision = BytecodeTester::test_files(code_files, 3, 1);
+					if (revision == 0) {
+						ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Failed to detect bytecode version for 3.1.x scripts, please report this!");
+					}
+				} break;
 				case 2:
 				case 3:
 				case 4:
-					decomp = memnew(GDScriptDecomp_5565f55);
+					revision = 0x5565f55;
 					break;
 				case 5:
-					decomp = memnew(GDScriptDecomp_a7aad78);
+					revision = 0xa7aad78;
 					break;
 				default:
 					// We do not anticipate further GSScript changes in 3.x because GDScript 2.0 in 4.x can't be backported
 					// but just in case...
 					WARN_PRINT("Unsupported version 3." + itos(get_ver_minor()) + "." + itos(get_ver_rev()) + " of Godot detected");
 					WARN_PRINT("If your scripts are mangled, please report this on the Github issue tracker");
-					decomp = memnew(GDScriptDecomp_a7aad78);
+					revision = 0xa7aad78;
 					break;
 			}
 			break;
@@ -361,7 +365,36 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		default:
 			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
-	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + ".x detected");
+	if (revision > 0) {
+		decomp = create_decomp_for_commit(revision);
+	} else {
+		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
+	}
+	// need to put the patch version in the string for 2.1.0-2.1.6 and 3.1.0-3.1.1
+	switch (revision) {
+		case 0xe82dc40:
+			patch_version = "3-6";
+			break;
+		case 0x85585c7:
+			patch_version = "2";
+			break;
+		case 0x7124599:
+			patch_version = "0-1";
+			break;
+		case 0x1a36141:
+			patch_version = "0";
+			break;
+		case 0x514a3fb:
+			patch_version = "1";
+			break;
+		case 0x1ca61a3:
+			patch_version = "0-beta";
+			break;
+		default:
+			// default is already "x"
+			break;
+	}
+	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + "." + patch_version + " (rev 0x" + String::num_int64(revision, 16) + ") detected");
 	Error err;
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");

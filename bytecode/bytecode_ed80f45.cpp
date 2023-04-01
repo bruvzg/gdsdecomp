@@ -8,7 +8,7 @@
 
 #include "bytecode_ed80f45.h"
 
-static const char *func_names[] = {
+static constexpr char *func_names[] = {
 
 	"sin",
 	"cos",
@@ -590,31 +590,121 @@ Error GDScriptDecomp_ed80f45::decompile_buffer(Vector<uint8_t> p_buffer) {
 	return OK;
 }
 
+namespace {
+// we should be after the open parenthesis, which has already been checked
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+	int pos = curr_pos;
+	int comma_count = 0;
+	int min_args = arg_count.first;
+	int max_args = arg_count.second;
+	uint32_t t = tokens[pos] & 255; // TOKEN_MASK for all revisions
+	int bracket_open = 0;
+
+	if (min_args == 0 && max_args == 0) {
+		for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+			if (t == TK_PARENTHESIS_CLOSE) {
+				break;
+			} else if (t != TK_NEWLINE) {
+				return false;
+			}
+		}
+		// if we didn't find a close parenthesis, then we have an error
+		if (pos == tokens.size()) {
+			return false;
+		}
+		curr_pos = pos;
+		return true;
+	}
+	// count the commas
+	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
+	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+		switch (t) {
+			case TK_BRACKET_OPEN:
+			case TK_CURLY_BRACKET_OPEN:
+			case TK_PARENTHESIS_OPEN:
+				bracket_open++;
+				break;
+			case TK_BRACKET_CLOSE:
+			case TK_CURLY_BRACKET_CLOSE:
+			case TK_PARENTHESIS_CLOSE:
+				bracket_open--;
+				break;
+			case TK_COMMA:
+				if (bracket_open == 0) {
+					comma_count++;
+				}
+				break;
+			default:
+				break;
+		}
+		if (bracket_open == -1) {
+			break;
+		}
+	}
+	// trailing commas are not allowed after the last argument
+	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
+		return false;
+	}
+	curr_pos = pos;
+	return true;
+}
+} //namespace
+
 // bytecode rev ed80f45 (Godot v2.1.3-v2.1.6) introduced TK_PR_ENUM token, need to test for this
+// also test function arg counts (only fail cases)
 GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_ed80f45::test_bytecode(Vector<uint8_t> buffer) {
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	Vector<uint32_t> tokens;
 	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
 	int token_count = tokens.size();
+	bool tested_enum_case = false;
 	for (int i = 0; i < token_count; i++) {
 		// Test for the existence of the TK_PR_ENUM token
 		// the next token after TK_PR_ENUM should be TK_IDENTIFIER OR TK_CURLY_BRACKET_OPEN
 		if ((tokens[i] & TOKEN_MASK) == TK_PR_ENUM) { // ignore all tokens until we find TK_PR_ENUM
+			tested_enum_case = true;
 			if (i + 1 >= token_count) { // if we're at the end of the token list, then we don't have a valid enum token OR a valud TK_PR_PRELOAD token
-				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
-			}
-
-			if ((tokens[i + 1] & TOKEN_MASK) == TK_IDENTIFIER || (tokens[i + 1] & TOKEN_MASK) == TK_CURLY_BRACKET_OPEN) { // if the next token is TK_IDENTIFIER, then we have a valid enum
-				return BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS;
-			}
-			// If we don't have that, this is actually TK_PR_PRELOAD of the previous bytecode version, which requires TK_PARENTHESIS_OPEN as the next token
-			if ((tokens[i + 1] & TOKEN_MASK) == TK_PARENTHESIS_OPEN) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
 
-			// All bytecode version 10 revisions had TK_PR_PRELOAD as token id 60; if this wasn't a valid TK_PR_PRELOAD, then this is either corrupt or this isn't bytecode version 10
-			return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			// ENUM requires TK_IDENTIFIER or TK_CURLY_BRACKET_OPEN as the next token
+			if ((tokens[i + 1] & TOKEN_MASK) != TK_IDENTIFIER && (tokens[i + 1] & TOKEN_MASK) != TK_CURLY_BRACKET_OPEN) {
+				// If we don't have that, this is actually TK_PR_PRELOAD of the previous bytecode version, which requires TK_PARENTHESIS_OPEN as the next token
+				if ((tokens[i + 1] & TOKEN_MASK) == TK_CURLY_BRACKET_CLOSE) { // TK_CURLY_BRACKET_CLOSE in this rev is TK_PARENTHESIS_OPEN in the previous rev
+					// TODO: Something special here?
+					return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+				}
+				// if we don't have TK_PARENTHESIS_OPEN, then this is likely another bytecode revision or something screwy is going on, return BYTECODE_TEST_CORRUPT
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			// keep testing until the end
+		} else if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) {
+			int func_id = tokens[i] >> TOKEN_BITS;
+
+			// this rev was the highest possible bytecode version 10, there were no more builtin funcs after this;
+			// if the func_id is >= size of func_names, then this is corrupt
+			if (func_id >= FUNC_MAX) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			// All bytecode 10 revisions had the same position for TK_BUILT_IN_FUNC; if this check fails, then the bytecode is corrupt
+			if (i + 2 >= token_count) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			i++;
+			if (tokens[i] != TK_PARENTHESIS_OPEN) {
+				// ENUM shifted the position of TK_PARENTHESIS_OPEN by 1, so if we don't have TK_PARTEHESIS_OPEN, then this is another version 10 revision
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			i++;
+
+			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
+			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			};
+			// we keep going until the end for func arg count checking
 		}
 	}
 	// we didn't find an enum token

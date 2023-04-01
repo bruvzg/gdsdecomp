@@ -584,6 +584,66 @@ Error GDScriptDecomp_7124599::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+namespace {
+// we should be after the open parenthesis, which has already been checked
+bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int &curr_pos) {
+	int pos = curr_pos;
+	int comma_count = 0;
+	int min_args = arg_count.first;
+	int max_args = arg_count.second;
+	uint32_t t = tokens[pos] & 255; // TOKEN_MASK for all revisions
+	int bracket_open = 0;
+
+	if (min_args == 0 && max_args == 0) {
+		for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+			if (t == TK_PARENTHESIS_CLOSE) {
+				break;
+			} else if (t != TK_NEWLINE) {
+				return false;
+			}
+		}
+		// if we didn't find a close parenthesis, then we have an error
+		if (pos == tokens.size()) {
+			return false;
+		}
+		curr_pos = pos;
+		return true;
+	}
+	// count the commas
+	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
+	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	for (; pos < tokens.size(); pos++, t = tokens[pos] & 255) {
+		switch (t) {
+			case TK_BRACKET_OPEN:
+			case TK_CURLY_BRACKET_OPEN:
+			case TK_PARENTHESIS_OPEN:
+				bracket_open++;
+				break;
+			case TK_BRACKET_CLOSE:
+			case TK_CURLY_BRACKET_CLOSE:
+			case TK_PARENTHESIS_CLOSE:
+				bracket_open--;
+				break;
+			case TK_COMMA:
+				if (bracket_open == 0) {
+					comma_count++;
+				}
+				break;
+			default:
+				break;
+		}
+		if (bracket_open == -1) {
+			break;
+		}
+	}
+	// trailing commas are not allowed after the last argument
+	if (pos == tokens.size() || t != TK_PARENTHESIS_CLOSE || comma_count < min_args - 1 || comma_count > max_args - 1) {
+		return false;
+	}
+	curr_pos = pos;
+	return true;
+}
+} //anonymous namespace
 
 // 7124599 (Godot v2.1.0-v2.1.1) added `type_exists` function
 GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_7124599::test_bytecode(Vector<uint8_t> buffer) {
@@ -597,16 +657,27 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_7124599::test_bytecode(Vecto
 		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
 			int func_id = tokens[i] >> TOKEN_BITS;
 
-			// the other potential function that takes up type_exists`s spot is str(), which has var_args,
-			// which would be insanely hard to test for and could also end up with one argument.
-			// So, the test for this version this is super simple and doesn't have a PASS result, just FAIL and UNKNOWN.
-			// we just check to see if the function id is >= the size of func_names
-			if (func_id >= 65) {
+			if (func_id >= FUNC_MAX) {
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}
+			// All bytecode 10 revisions had the same position for TK_BUILT_IN_FUNC; if this check fails, then the bytecode is corrupt
+			if (i + 2 >= token_count) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT;
+			}
+			i++;
+			if (tokens[i] != TK_PARENTHESIS_OPEN) {
+				// ENUM shifted the position of TK_PARENTHESIS_OPEN by 1, so if we don't have TK_PARTEHESIS_OPEN, then this is another version 10 revision
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			i++;
+			auto arg_count = get_arg_count_for_builtin(func_names[func_id]);
+			// only fail cases for this
+			if (!test_built_in_func_arg_count(tokens, arg_count, i)) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			};
 			return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
 		}
 	}
-	// we didn't find a call that exceeded func_id
+	// we didn't find a builtin call
 	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
 }
