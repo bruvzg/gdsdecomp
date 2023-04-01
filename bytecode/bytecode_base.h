@@ -40,7 +40,7 @@ public:
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);
 
-	Error get_buffer_encrypted(const String &p_path, Vector<uint8_t> p_key, Vector<uint8_t> &r_buffer);
+	static Error get_buffer_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key, Vector<uint8_t> &r_buffer);
 	String get_script_text();
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);

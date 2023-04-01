@@ -161,8 +161,18 @@ Pair<int, int> GDScriptDecomp::get_arg_count_for_builtin(String builtin_func_nam
 
 Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
 	Vector<uint8_t> bytecode;
-	Error err = get_buffer_encrypted(p_path, p_key, bytecode);
-	ERR_FAIL_COND_V(err != OK, err);
+	Error err = get_buffer_encrypted(p_path, engine_ver_major, p_key, bytecode);
+	if (err != OK) {
+		if (err == ERR_BUG) {
+			error_message = RTR("FAE doesn't exist...???");
+		} else if (err == ERR_UNAUTHORIZED) {
+			error_message = RTR("Encryption Error");
+		} else {
+			error_message = RTR("File Error");
+		}
+		ERR_FAIL_V_MSG(err, error_message);
+	}
+	error_message = RTR("No error");
 	return decompile_buffer(bytecode);
 }
 
@@ -176,7 +186,7 @@ Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
 	return decompile_buffer(bytecode);
 }
 
-Error GDScriptDecomp::get_buffer_encrypted(const String &p_path, Vector<uint8_t> p_key, Vector<uint8_t> &bytecode) {
+Error GDScriptDecomp::get_buffer_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key, Vector<uint8_t> &bytecode) {
 	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V(fa.is_null(), ERR_FILE_CANT_OPEN);
 
@@ -185,36 +195,24 @@ Error GDScriptDecomp::get_buffer_encrypted(const String &p_path, Vector<uint8_t>
 	if (engine_ver_major == 3) {
 		Ref<FileAccessEncryptedv3> fae;
 		fae.instantiate();
-		if (fae.is_null()) {
-			error_message = RTR("FAE doesn't exist?!");
-			ERR_FAIL_COND_V(fae.is_null(), ERR_BUG);
-		}
+		ERR_FAIL_COND_V(fae.is_null(), ERR_BUG);
 
 		Error err = fae->open_and_parse(fa, p_key, FileAccessEncryptedv3::MODE_READ);
-
-		if (err) {
-			error_message = RTR("Encryption Error");
-			ERR_FAIL_V(ERR_FILE_CORRUPT);
-		}
+		ERR_FAIL_COND_V(err != OK, ERR_UNAUTHORIZED);
 
 		bytecode.resize(fae->get_length());
 		fae->get_buffer(bytecode.ptrw(), bytecode.size());
 	} else {
 		Ref<FileAccessEncrypted> fae;
 		fae.instantiate();
-		ERR_FAIL_COND_V(fae.is_null(), ERR_FILE_CORRUPT);
+		ERR_FAIL_COND_V(fae.is_null(), ERR_BUG);
 
 		Error err = fae->open_and_parse(fa, p_key, FileAccessEncrypted::MODE_READ);
-
-		if (err) {
-			error_message = RTR("Encryption Error");
-			ERR_FAIL_V(ERR_FILE_CORRUPT);
-		}
+		ERR_FAIL_COND_V(err != OK, ERR_UNAUTHORIZED);
 
 		bytecode.resize(fae->get_length());
 		fae->get_buffer(bytecode.ptrw(), bytecode.size());
 	}
-	error_message = RTR("No error");
 	return OK;
 }
 

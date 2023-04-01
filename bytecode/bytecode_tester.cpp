@@ -226,7 +226,7 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 		}
 	}
 	if (rev == 0) {
-		// ed80f45 didn't pass, but this passed, so it's probably this version.
+		// ed80f45 didn't pass or fail, but this passed, so it's probably this version.
 		if (_85585c7_passed) {
 			rev = 0x85585c7;
 		} else if (ed80f45_failed) {
@@ -249,7 +249,7 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 	return rev;
 }
 
-uint64_t test_files_3_1(const Vector<String> &p_paths) {
+uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_key = Vector<uint8_t>()) {
 	uint64_t rev = 0;
 	bool _514a3fb_failed = false;
 	bool _1a36141_failed = false;
@@ -262,13 +262,19 @@ uint64_t test_files_3_1(const Vector<String> &p_paths) {
 	GDScriptDecomp_1ca61a3 *decomp_1ca61a3 = memnew(GDScriptDecomp_1ca61a3);
 
 	for (String path : p_paths) {
-		Vector<uint8_t> data = FileAccess::get_file_as_bytes(path);
+		Vector<uint8_t> data;
+		if (p_key.size() > 0) {
+			Error err = GDScriptDecomp::get_buffer_encrypted(path, 3, p_key, data);
+			ERR_FAIL_COND_V_MSG(err == ERR_UNAUTHORIZED, 0, "Failed to decrypt file " + path + " (Did you set the correct key?)");
+			ERR_FAIL_COND_V_MSG(err != OK, 0, "Failed to read file " + path);
+		} else {
+			data = FileAccess::get_file_as_bytes(path);
+		}
 		if (data.size() == 0) {
 			continue;
 		}
 		if (!_514a3fb_failed) {
 			auto test_result = decomp_514a3fb->test_bytecode(data);
-			// the same as the above, but as a switch statement like in test_files_2_1
 			switch (test_result) {
 				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
 					_514a3fb_failed = true;
@@ -340,14 +346,20 @@ uint64_t test_files_3_1(const Vector<String> &p_paths) {
 	}
 
 	if (rev == 0) {
-		if (!_514a3fb_failed && !_1a36141_failed) {
-			// won't matter, just use 3.1.1 (514a3fb), less than a month passed between 3.1.0 and 3.1.1
+		if (_1a36141_passed && _1ca61a3_failed) {
+			// 0x514a3fb didn't pass or fail, but 0x1a36141 passed, so it's likely 0x1a36141
+			rev = 0x1a36141;
+		} else if (!_514a3fb_failed && !_1a36141_failed && _1ca61a3_failed) {
+			// it likely will not matter which revision we use here, as they seem to have not used many built-in functions
+			// just use 3.1.1 (514a3fb), less than a month passed between 3.1.0 and 3.1.1
 			rev = 0x514a3fb;
-		} else if (_514a3fb_failed && !_1a36141_failed) {
+		} else if (_514a3fb_failed && !_1a36141_failed && _1a36141_failed) {
 			rev = 0x1a36141;
 		} else if (_514a3fb_failed && _1a36141_failed && !_1ca61a3_failed) {
-			// unlikely to be beta, which is why we check this last
 			rev = 0x1ca61a3;
+		} else {
+			// If we made it here, our current way of testing is insufficient, the user should report this.
+			ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for engine version 2.1.x, please report this issue on GitHub.");
 		}
 	}
 
@@ -363,6 +375,19 @@ uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major
 		return test_files_2_1(p_paths);
 	} else if (ver_major == 3 && ver_minor == 1) {
 		return test_files_3_1(p_paths);
+	} else {
+		return 0;
+	}
+	return rev;
+}
+
+uint64_t BytecodeTester::test_files_encrypted(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major, int ver_minor) {
+	uint64_t rev = 0;
+	if (ver_major <= 2) {
+		// 1-2 didn't have encrypted scripts....???
+		ERR_FAIL_V_MSG(0, "Encrypted scripts were not supported in Godot 1.x or 2.x.");
+	} else if (ver_major == 3 && ver_minor == 1) {
+		return test_files_3_1(p_paths, p_key);
 	} else {
 		return 0;
 	}
