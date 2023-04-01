@@ -214,7 +214,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	uint32_t version = f->get_32();
 	uint32_t ver_major = f->get_32();
 	uint32_t ver_minor = f->get_32();
-	uint32_t ver_rev = f->get_32(); // patch number, not used for validation.
+	uint32_t ver_rev = f->get_32(); // patch number, did not start getting set to anything other than 0 until 3.2
 
 	if (version > PACK_FORMAT_VERSION) {
 		ERR_FAIL_V_MSG(false, "Pack version unsupported: " + itos(version) + ".");
