@@ -817,7 +817,7 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 }
 
 void ImportExporter::report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn, bool suppress_print) {
-	String type_format_str = type + "%" + format_name;
+	String type_format_str = type + "%" + format_name.to_lower();
 	if (unsupported_types.find(type_format_str) == -1) {
 		WARN_PRINT("Conversion for Resource of type " + type + " and format " + format_name + " not implemented");
 		unsupported_types.push_back(type_format_str);
