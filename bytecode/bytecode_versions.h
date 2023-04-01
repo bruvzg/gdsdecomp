@@ -84,7 +84,7 @@ static GDScriptDecompVersion decomp_versions[] = {
 	{ 0xc00427a, "     3.2 dev (c00427a / 2019-06-01 / Bytecode version: 13) - added `move_toward` function" },
 	{ 0x620ec47, "     3.2 dev (620ec47 / 2019-05-01 / Bytecode version: 13) - added `step_decimals` function" },
 	{ 0x7f7d97f, "     3.2 dev (7f7d97f / 2019-04-29 / Bytecode version: 13) - added `is_equal_approx` and `is_zero_approx` functions" },
-	{ 0x514a3fb, "3.1.1 release (514a3fb / 2019-03-19 / Bytecode version: 13) - added `smoothstep` function" },
+	{ 0x514a3fb, "3.1.1 release (514a3fb / 2019-03-19 / Bytecode version: 13) - added `smoothstep` function, add 2nd optional arg to `var2bytes` and `bytes2var`" },
 	{ 0x1a36141, "3.1.0 release (1a36141 / 2019-02-20 / Bytecode version: 13) - removed `DO`, `CASE`, `SWITCH` tokens" },
 	{ 0x1ca61a3, "     3.1 beta 1 - beta 5 (1ca61a3 / 2018-10-31 / Bytecode version: 13) - added `push_error`, `push_warning` function" },
 	{ 0xd6b31da, "     3.1 dev (d6b31da / 2018-09-15 / Bytecode version: 13) - added `PUPPET` token, token `SLAVESYNC` renamed to `PUPPETSYNC`" },

@@ -28,6 +28,137 @@ void GDScriptDecomp::_ensure_space(String &p_code) {
 	}
 }
 
+static const Pair<String, Pair<int, int>> builtin_func_arg_elements[] = {
+	{ "sin", Pair<int, int>(1, 1) },
+	{ "cos", Pair<int, int>(1, 1) },
+	{ "tan", Pair<int, int>(1, 1) },
+	{ "sinh", Pair<int, int>(1, 1) },
+	{ "cosh", Pair<int, int>(1, 1) },
+	{ "tanh", Pair<int, int>(1, 1) },
+	{ "asin", Pair<int, int>(1, 1) },
+	{ "acos", Pair<int, int>(1, 1) },
+	{ "atan", Pair<int, int>(1, 1) },
+	{ "atan2", Pair<int, int>(2, 2) },
+	{ "sqrt", Pair<int, int>(1, 1) },
+	{ "fmod", Pair<int, int>(2, 2) },
+	{ "fposmod", Pair<int, int>(2, 2) },
+	{ "posmod", Pair<int, int>(2, 2) },
+	{ "floor", Pair<int, int>(1, 1) },
+	{ "ceil", Pair<int, int>(1, 1) },
+	{ "round", Pair<int, int>(1, 1) },
+	{ "abs", Pair<int, int>(1, 1) },
+	{ "sign", Pair<int, int>(1, 1) },
+	{ "pow", Pair<int, int>(2, 2) },
+	{ "log", Pair<int, int>(1, 1) },
+	{ "exp", Pair<int, int>(1, 1) },
+	{ "is_nan", Pair<int, int>(1, 1) },
+	{ "is_inf", Pair<int, int>(1, 1) },
+	{ "is_equal_approx", Pair<int, int>(2, 2) },
+	{ "is_zero_approx", Pair<int, int>(1, 1) },
+	{ "ease", Pair<int, int>(2, 2) },
+	{ "decimals", Pair<int, int>(1, 1) },
+	{ "step_decimals", Pair<int, int>(1, 1) },
+	{ "stepify", Pair<int, int>(2, 2) },
+	{ "lerp", Pair<int, int>(3, 3) },
+	{ "lerp_angle", Pair<int, int>(3, 3) },
+	{ "inverse_lerp", Pair<int, int>(3, 3) },
+	{ "range_lerp", Pair<int, int>(5, 5) },
+	{ "smoothstep", Pair<int, int>(3, 3) },
+	{ "move_toward", Pair<int, int>(3, 3) },
+	{ "dectime", Pair<int, int>(3, 3) },
+	{ "randomize", Pair<int, int>(0, 0) },
+	{ "randi", Pair<int, int>(0, 0) },
+	{ "randf", Pair<int, int>(0, 0) },
+	{ "rand_range", Pair<int, int>(2, 2) },
+	{ "seed", Pair<int, int>(1, 1) },
+	{ "rand_seed", Pair<int, int>(1, 1) },
+	{ "deg2rad", Pair<int, int>(1, 1) },
+	{ "rad2deg", Pair<int, int>(1, 1) },
+	{ "linear2db", Pair<int, int>(1, 1) },
+	{ "db2linear", Pair<int, int>(1, 1) },
+	{ "polar2cartesian", Pair<int, int>(2, 2) },
+	{ "cartesian2polar", Pair<int, int>(2, 2) },
+	{ "wrapi", Pair<int, int>(3, 3) },
+	{ "wrapf", Pair<int, int>(3, 3) },
+	{ "max", Pair<int, int>(2, 2) },
+	{ "min", Pair<int, int>(2, 2) },
+	{ "clamp", Pair<int, int>(3, 3) },
+	{ "nearest_po2", Pair<int, int>(1, 1) },
+	{ "weakref", Pair<int, int>(1, 1) },
+	{ "funcref", Pair<int, int>(2, 2) },
+	{ "convert", Pair<int, int>(2, 2) },
+	{ "typeof", Pair<int, int>(1, 1) },
+	{ "type_exists", Pair<int, int>(1, 1) },
+	{ "char", Pair<int, int>(1, 1) },
+	{ "ord", Pair<int, int>(1, 1) },
+	{ "str", Pair<int, int>(1, INT_MAX) },
+	{ "print", Pair<int, int>(0, INT_MAX) },
+	{ "printt", Pair<int, int>(0, INT_MAX) },
+	{ "prints", Pair<int, int>(0, INT_MAX) },
+	{ "printerr", Pair<int, int>(0, INT_MAX) },
+	{ "printraw", Pair<int, int>(0, INT_MAX) },
+	{ "print_debug", Pair<int, int>(0, INT_MAX) },
+	{ "push_error", Pair<int, int>(1, 1) },
+	{ "push_warning", Pair<int, int>(1, 1) },
+	{ "var2str", Pair<int, int>(1, 1) },
+	{ "str2var", Pair<int, int>(1, 1) },
+	{ "var2bytes", Pair<int, int>(1, 1) }, // 3.1.1 onwards added an optional 2nd argument, handled below
+	{ "bytes2var", Pair<int, int>(1, 1) }, // 3.1.1 onwards added an optional 2nd argument, handled below
+	{ "range", Pair<int, int>(1, 3) },
+	{ "load", Pair<int, int>(1, 1) },
+	{ "inst2dict", Pair<int, int>(1, 1) },
+	{ "dict2inst", Pair<int, int>(1, 1) },
+	{ "validate_json", Pair<int, int>(1, 1) },
+	{ "parse_json", Pair<int, int>(1, 1) },
+	{ "to_json", Pair<int, int>(1, 1) },
+	{ "hash", Pair<int, int>(1, 1) },
+	{ "Color8", Pair<int, int>(3, 3) },
+	{ "ColorN", Pair<int, int>(1, 2) },
+	{ "print_stack", Pair<int, int>(0, 0) },
+	{ "get_stack", Pair<int, int>(0, 0) },
+	{ "instance_from_id", Pair<int, int>(1, 1) },
+	{ "len", Pair<int, int>(1, 1) },
+	{ "is_instance_valid", Pair<int, int>(1, 1) },
+	{ "deep_equal", Pair<int, int>(2, 2) },
+	{ "get_inst", Pair<int, int>(1, 1) } // rename of instance_from_id
+};
+static constexpr int BUILTIN_FUNC_ARG_ELEMENTS_MAX = sizeof(builtin_func_arg_elements) / sizeof(builtin_func_arg_elements[0]);
+
+HashMap<String, Pair<int, int>> _inithashmap() {
+	HashMap<String, Pair<int, int>> hm;
+	for (int i = 0; i < BUILTIN_FUNC_ARG_ELEMENTS_MAX; i++) {
+		hm[builtin_func_arg_elements[i].first] = builtin_func_arg_elements[i].second;
+	}
+	return hm;
+}
+
+static const HashMap<String, Pair<int, int>> builtin_func_arg_map = _inithashmap();
+
+Pair<int, int> GDScriptDecomp::get_arg_count_for_builtin(String builtin_func_name) {
+	if (!builtin_func_arg_map.has(builtin_func_name)) {
+		return Pair<int, int>(-1, -1);
+	}
+	switch (bytecode_rev) {
+		case 0xf3f05dc: // 4.0 dev
+		case 0x506df14:
+		case 0xa7aad78: // 3.5
+		case 0x5565f55: // 3.2
+		case 0x6694c11: // 3.2 dev
+		case 0xa60f242:
+		case 0xc00427a:
+		case 0x620ec47:
+		case 0x7f7d97f:
+		case 0x514a3fb: // 3.1.1
+			if (builtin_func_name == "var2bytes" || builtin_func_name == "bytes2var") {
+				return Pair<int, int>(1, 2);
+			}
+			break;
+		default:
+			break;
+	}
+	return builtin_func_arg_map[builtin_func_name];
+}
+
 Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key) {
 	Vector<uint8_t> bytecode;
 	Error err = get_buffer_encrypted(p_path, p_key, bytecode);
