@@ -439,7 +439,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 	}
 	current_pack->ver_major = ver_major;
 	current_pack->ver_minor = ver_minor;
-	current_pack->version_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(0);
+	current_pack->version_string = itos(ver_major) + "." + itos(ver_minor) + ".x";
 	return OK;
 }
 

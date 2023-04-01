@@ -257,13 +257,21 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		}
 		f = fae;
 	}
+	String ver_string;
+
+	// they only started writing the actual patch number in 3.2
+	if (ver_major < 3 || (ver_major == 3 && ver_minor < 2)) {
+		ver_string = itos(ver_major) + "." + itos(ver_minor) + ".x";
+	} else {
+		ver_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev);
+	}
 
 	// Everything worked, now set the data
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
 	pckinfo->init(
 			pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count,
-			itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev), is_exe ? GDRESettings::PackInfo::EXE : GDRESettings::PackInfo::PCK);
+			ver_string, is_exe ? GDRESettings::PackInfo::EXE : GDRESettings::PackInfo::PCK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	for (uint32_t i = 0; i < file_count; i++) {
