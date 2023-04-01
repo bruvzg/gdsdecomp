@@ -669,3 +669,28 @@ Error GDScriptDecomp_514a3fb::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	return OK;
 }
+
+// added smoothstep
+// The other potentials for this slot are either dectime or move_towards, both of which take 3 floats, the same as smoothstep.
+// So we can't test for this statically. No pass case.
+// We only have a failing case where there's a built-in function id >= the size of func_names
+GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_514a3fb::test_bytecode(Vector<uint8_t> buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+
+	int token_count = tokens.size();
+	for (int i = 0; i < token_count; i++) {
+		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC
+			int func_id = tokens[i] >> TOKEN_BITS;
+
+			// if the func_id is >= size of func_names, this is another version 13 revision
+			if (func_id >= 83) {
+				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
+			}
+			continue;
+		}
+	}
+	return BYTECODE_TEST_RESULT::BYTECODE_TEST_UNKNOWN;
+}
