@@ -72,6 +72,8 @@ static const char *func_names[] = {
 	"get_inst",
 };
 
+static constexpr uint64_t FUNC_MAX = sizeof(func_names) / sizeof(func_names[0]);
+
 enum Token {
 
 	TK_EMPTY,
@@ -271,6 +273,7 @@ Error GDScriptDecomp_97f34a1::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += VariantDecoderCompat::get_variant_type_name(tokens[i] >> TOKEN_BITS, variant_ver_major);
 			} break;
 			case TK_BUILT_IN_FUNC: {
+				ERR_FAIL_COND_V(tokens[i] >> TOKEN_BITS >= FUNC_MAX, ERR_INVALID_DATA);
 				line += func_names[tokens[i] >> TOKEN_BITS];
 			} break;
 			case TK_OP_IN: {
