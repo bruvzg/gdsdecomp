@@ -45,6 +45,7 @@
 #include "bytecode/bytecode_a3f1ee5.h"
 #include "bytecode/bytecode_a56d6ff.h"
 #include "bytecode/bytecode_a60f242.h"
+#include "bytecode/bytecode_a7aad78.h"
 #include "bytecode/bytecode_be46be7.h"
 #include "bytecode/bytecode_c00427a.h"
 #include "bytecode/bytecode_c24c739.h"
@@ -76,6 +77,7 @@ static GDScriptDecompVersion decomp_versions[] = {
 	//  { 0x69c95f4, "     4.0 dev (69c95f4 / 2020-02-20 / Bytecode version: 13) - added Callable and Signal to Variant" },
 	{ 0xf3f05dc, "     4.0 dev (f3f05dc / 2020-02-13 / Bytecode version: 13) - removed `SYNC` and `SLAVE` tokens" },
 	{ 0x506df14, "     4.0 dev (506df14 / 2020-02-12 / Bytecode version: 13) - removed `decimals` function" },
+	{ 0xa7aad78, "3.5.0 release (a7aad78 / 2020-10-07 / Bytecode version: 13) - added `deep_equal` function (never added to 4.x)" },
 	{ 0x5565f55, "3.2.0 release (5565f55 / 2019-08-26 / Bytecode version: 13) - added `ord` function" },
 	{ 0x6694c11, "     3.2 dev (6694c11 / 2019-07-20 / Bytecode version: 13) - added `lerp_angle` function" },
 	{ 0xa60f242, "     3.2 dev (a60f242 / 2019-07-19 / Bytecode version: 13) - added `posmod` function" },

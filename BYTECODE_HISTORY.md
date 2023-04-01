@@ -92,6 +92,12 @@
 |                           | [6694c11](https://github.com/godotengine/godot/commit/6694c11) | `2019.07.20` | 13               | Added `lerp_angle` function                                     |
 | **3.2**                   | [5565f55](https://github.com/godotengine/godot/commit/5565f55) | `2019.08.26` | 13               | Added `ord` function                                            |
 | *4.0 branch diverge*      |                                                                |              |                  |                                                                 |
+| *3.5 branch diverge*      |                                                                |              |                  |                                                                 |
+
+### Branch 3.5
+| Release                   | Commit                                                         | Date         | Bytecode         | Changes                                                         |
+| ------------------------- | -------------------------------------------------------------- | ------------ | ---------------- | --------------------------------------------------------------- |
+| **3.5**                   | [a7aad78](https://github.com/godotengine/godot/commit/a7aad78) | `2020.10.07` | 13               | added `deep_equal` function (never added to 4. x)               |
 
 ### Branch 4.0 (master)
 
