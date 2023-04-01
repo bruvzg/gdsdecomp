@@ -23,6 +23,9 @@ protected:
 	uint64_t bytecode_rev;
 	int engine_ver_major;
 	int variant_ver_major; // Some early dev versions of 3.0 used v2 variants, and early dev versions of 4.0 used v3 variants
+
+	Pair<int, int> get_arg_count_for_builtin(String builtin_func_name);
+
 public:
 	enum BYTECODE_TEST_RESULT {
 		BYTECODE_TEST_PASS,
@@ -30,6 +33,7 @@ public:
 		BYTECODE_TEST_CORRUPT,
 		BYTECODE_TEST_UNKNOWN,
 	};
+
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer) = 0;
 	virtual BYTECODE_TEST_RESULT test_bytecode(Vector<uint8_t> p_buffer) = 0;
 
