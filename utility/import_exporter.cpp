@@ -372,7 +372,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	}
 	// need to put the patch version in the string for 2.1.0-2.1.6 and 3.1.0-3.1.1
 	switch (revision) {
-		case 0xe82dc40:
+		case 0xed80f45:
 			patch_version = "3-6";
 			break;
 		case 0x85585c7:
