@@ -302,12 +302,11 @@ void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
 	if (!cf->has_section("remap")) {
 		return;
 	}
-	if (p_dest_files.size() > 1) {
+	if (!cf->has_section_key("remap", "path")) {
 		List<String> remap_keys;
 		cf->get_section_keys("remap", &remap_keys);
 		// if set, we likely have multiple paths
 		if (get_metadata_prop().has("imported_formats")) {
-			Vector<String> fmts = get_metadata_prop()["imported_formats"];
 			for (int i = 0; i < p_dest_files.size(); i++) {
 				Vector<String> spl = p_dest_files[i].split(".");
 				// second to last split
@@ -316,19 +315,16 @@ void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
 				List<String>::Element *E = remap_keys.find("path." + ext);
 
 				if (!E) {
-					WARN_PRINT("Dunno what happened here, setting remap path dumbly");
-					E = remap_keys.find("path." + fmts[i]);
-					ERR_FAIL_COND_MSG(!E, "failed to find path." + fmts[i] + " key in remaps section");
+					WARN_PRINT("Did not find key path." + ext + " in remap metadata");
+					continue;
 				}
 				cf->set_value("remap", E->get(), p_dest_files[i]);
 			}
 		} else {
 			ERR_FAIL_MSG("we don't have imported_formats in the remap metadata...????");
 		}
-	} else if (cf->has_section_key("remap", "path")) {
-		cf->set_value("remap", "path", p_dest_files[0]);
 	} else {
-		ERR_FAIL_MSG("We don't have a path key...?");
+		cf->set_value("remap", "path", p_dest_files[0]);
 	}
 }
 
@@ -391,60 +387,47 @@ Error ImportInfoModern::_load(const String &p_path) {
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + path);
 	import_md_path = path;
 	preferred_import_path = cf->get_value("remap", "path", "");
-	// special handler for imports with more than one path
-	// path won't be found if there are two or more
-	if (preferred_import_path.is_empty()) {
-		bool lossy_texture = false;
-		List<String> remap_keys;
-		cf->get_section_keys("remap", &remap_keys);
-		ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_BUG, "Failed to load import data from " + path);
 
-		// check metadata first
-		if (get_metadata_prop().size() != 0 && get_metadata_prop().has("imported_formats")) {
-			Dictionary mdprop = get_metadata_prop();
-			Array fmts = mdprop["imported_formats"];
-			for (int i = 0; i < fmts.size(); i++) {
-				String f_fmt = fmts[i];
+	bool missing_deps = false;
+	Vector<String> dest_files;
 
-				if (remap_keys.find("path." + f_fmt)) {
-					preferred_import_path = cf->get_value("remap", "path." + f_fmt, "");
-					// Make sure the res exists first
-					if (!GDRESettings::get_singleton()->has_res_path(preferred_import_path)) {
-						continue;
-					}
-					// if it's a texture that's vram compressed, there's a chance that it may have a ghost texture file
-					if (mdprop.get("vram_texture", false)) {
-						lossy_texture = true;
-					}
-					break;
+	// Godot 4.x started stripping the deps section from the .import file, need to recreate it
+	if (!cf->has_section("deps")) {
+		missing_deps = true;
+		// the source file is the import_md path minus ".import"
+		cf->set_value("deps", "source_file", path.substr(0, path.length() - 7));
+		if (!preferred_import_path.is_empty()) {
+			cf->set_value("deps", "dest_files", Vector<String>({ preferred_import_path }));
+		} else {
+			// this is a multi-path import, get all the "path.*" key values
+			List<String> remap_keys;
+			cf->get_section_keys("remap", &remap_keys);
+			ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_FILE_CORRUPT, "Failed to load remap data from " + path);
+			// iterate over keys in remap section
+			for (auto E = remap_keys.front(); E; E = E->next()) {
+				// if we find a path key, we have a match
+				if (E->get().begins_with("path.")) {
+					auto try_path = cf->get_value("remap", E->get(), "");
+					dest_files.append(try_path);
 				}
-				WARN_PRINT("Did not find path for imported format " + f_fmt);
 			}
+			cf->set_value("deps", "dest_files", dest_files);
 		}
-		//otherwise, check destination files
-		if (preferred_import_path.is_empty()) {
-			preferred_import_path = get_dest_files()[0];
-		}
-		// special case for textures: if we have multiple formats, and it's a lossy import,
-		// we look to see if there's a ghost texture file with the same prefix.
-		// Godot 3.x and 4.x will often import it as a lossless texture first, then imports it
-		// as lossy textures, and this sometimes ends up in the exported project.
-		// It's just not listed in the .import file.
-		if (preferred_import_path != "" && lossy_texture) {
-			String basedir = preferred_import_path.get_base_dir();
-			Vector<String> split = preferred_import_path.get_file().split(".");
-			if (split.size() == 4) {
-				// for example, "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.s3tc.stex"
-				// will become "res://.import/Texture.png-cefbe538e1226e204b4081ac39cf177b.stex"
-				String new_path = basedir.path_join(split[0] + "." + split[1] + "." + split[3]);
-				// if we have the ghost texture, set it to be the import path
-				if (GDRESettings::get_singleton()->has_res_path(new_path)) {
-					preferred_import_path = new_path;
-				}
+	} else {
+		dest_files = get_dest_files();
+	}
+
+	// "remap.path" does not exist if there are two or more destination files
+	if (preferred_import_path.is_empty()) {
+		//check destination files
+		ERR_FAIL_COND_V_MSG(dest_files.size() == 0, ERR_FILE_CORRUPT, p_path + ": no destination files found in import data");
+		for (int i = 0; i < dest_files.size(); i++) {
+			if (GDRESettings::get_singleton()->has_res_path(dest_files[i])) {
+				preferred_import_path = dest_files[i];
+				break;
 			}
 		}
 	}
-
 	// If we fail to find the import path, throw error
 	ERR_FAIL_COND_V_MSG(preferred_import_path.is_empty() || get_type().is_empty(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
 
@@ -698,6 +681,9 @@ Error ImportInfov2::save_to(const String &new_import_file) {
 Error ImportInfoModern::save_md5_file(const String &output_dir) {
 	String md5_file_path;
 	Vector<String> dest_files = get_dest_files();
+	if (dest_files.size() == 0) {
+		return ERR_PRINTER_ON_FIRE;
+	}
 	// Only imports under these paths have .md5 files
 	if (!dest_files[0].begins_with("res://.godot") && !dest_files[0].begins_with("res://.import")) {
 		return ERR_PRINTER_ON_FIRE;
