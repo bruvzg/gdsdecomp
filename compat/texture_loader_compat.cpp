@@ -842,7 +842,11 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 	if (*r_err == ERR_UNAVAILABLE) {
 		return Ref<Image>();
 	}
-	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
+
+	ERR_FAIL_COND_V_MSG(err || image.is_null(), Ref<Image>(), "Failed to load image from " + p_path);
+	if (image->is_empty()) {
+		WARN_PRINT("Image data is empty: " + p_path);
+	}
 	return image;
 }
 

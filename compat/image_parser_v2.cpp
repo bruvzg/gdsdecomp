@@ -193,7 +193,12 @@ Error ImageParserV2::decode_image_v2(Ref<FileAccess> f, Variant &r_v, bool conve
 		data.resize(f->get_32());
 		uint8_t *w = data.ptrw();
 		f->get_buffer(w, data.size());
-
+		// Godot 2.0 sometimes exported empty images as "IMAGE_ENCODING_LOSSY" rather than "IMAGE_ENCODING_EMPTY", so we need to check for that.
+		if (data.size() == 0) {
+			img.instantiate();
+			r_v = img;
+			return OK;
+		}
 		if (encoding == V2Image::IMAGE_ENCODING_LOSSY) {
 			img = WebPCompat::webp_unpack_v2v3(data);
 		} else if (encoding == V2Image::IMAGE_ENCODING_LOSSLESS && Image::png_unpacker) {

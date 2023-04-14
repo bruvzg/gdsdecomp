@@ -820,7 +820,8 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 		print_line("Did not convert deprecated Texture resource " + p_path);
 		return err;
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load texture " + p_path);
+	ERR_FAIL_COND_V_MSG(err != OK || img.is_null(), err, "Failed to load texture " + p_path);
+	ERR_FAIL_COND_V_MSG(img->is_empty(), ERR_FILE_EOF, "Image data is empty for texture " + p_path + ", not saving");
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	if (img->is_compressed()) {
