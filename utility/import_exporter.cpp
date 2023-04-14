@@ -119,7 +119,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 			should_rewrite_metadata = true;
 		}
-		String src_ext = iinfo->get_source_file().get_extension();
+		String src_ext = iinfo->get_source_file().get_extension().to_lower();
 		// ***** Export resource *****
 		if (opt_export_textures && importer == "texture") {
 			// Right now we only convert 2d image textures
@@ -164,6 +164,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				//|| (opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
 				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
 		) {
+			// We don't currently support converting old 2.x xml resources
+			if (src_ext == "xml") {
+				WARN_PRINT_ONCE("Conversion of Godot 2.x xml resource files currently unimplemented");
+				report_unsupported_resource(type, src_ext, path);
+				not_converted.push_back(iinfo);
+				continue;
+			}
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			// v2-v3 export left the autoconverted resource in the main path, remove it
 			if (get_ver_major() <= 3 && !err) {
@@ -401,7 +408,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
 		print_verbose("decompiling " + f);
 		bool encrypted = false;
-		if (f.get_extension() == "gde") {
+		if (f.get_extension().to_lower() == "gde") {
 			encrypted = true;
 			err = decomp->decompile_byte_code_encrypted(f, get_settings()->get_encryption_key());
 		} else {
