@@ -608,6 +608,15 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	}
 	// We can't recover the keys from Optimized translations, we have to guess
 	int missing_keys = 0;
+
+	if (default_translation.is_null()) {
+		if (translations.size() == 1) {
+			// this is one of the rare dynamic translation schemes, which we don't support currently
+			report_unsupported_resource("Translation", "Dynamic multi-csv", iinfo->get_path());
+			return ERR_UNAVAILABLE;
+		}
+		ERR_FAIL_V_MSG(ERR_FILE_MISSING_DEPENDENCIES, "No default translation found for " + iinfo->get_path());
+	}
 	if (keys.size() == 0) {
 		for (const StringName &s : default_messages) {
 			String key = guess_key_from_tr(s, default_translation);
