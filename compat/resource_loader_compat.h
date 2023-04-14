@@ -215,6 +215,8 @@ protected:
 	bool using_script_class = false;
 	bool using_real_t_double = false;
 
+	bool suspect_version = false;
+
 	// text
 	int lines;
 	int resource_current;

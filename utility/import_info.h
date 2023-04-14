@@ -74,6 +74,7 @@ struct _ResourceInfo {
 	Ref<ResourceImportMetadatav2> v2metadata = nullptr;
 	bool auto_converted_export = false;
 	bool is_text = false;
+	bool suspect = false;
 };
 
 class ImportInfo : public RefCounted {

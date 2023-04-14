@@ -259,8 +259,15 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	}
 	String ver_string;
 
-	// they only started writing the actual patch number in 3.2
-	if (ver_major < 3 || (ver_major == 3 && ver_minor < 2)) {
+	if (ver_major < 2) {
+		// it is very unlikely that we will encounter Godot 1.x games in the wild.
+		// This is likely a pck created with a creation tool.
+		// We need to determine the version number from the binary resources.
+		// (if it is 1.x, we'll determine that through the binary resources too)
+		ver_major = 0;
+		ver_string = "unknown";
+	} else if (ver_major < 3 || (ver_major == 3 && ver_minor < 2)) {
+		// they only started writing the actual patch number in 3.2
 		ver_string = itos(ver_major) + "." + itos(ver_minor) + ".x";
 	} else {
 		ver_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev);
