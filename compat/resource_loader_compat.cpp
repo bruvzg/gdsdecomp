@@ -150,6 +150,7 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	i_info.type = loader->res_type;
 	i_info.ver_major = loader->engine_ver_major;
 	i_info.ver_minor = loader->engine_ver_minor;
+	i_info.suspect = loader->suspect_version;
 	if (loader->engine_ver_major == 2 && !i_info.is_text) {
 		error = loader->load_import_metadata();
 		ERR_RFLBC_COND_V_MSG_CLEANUP(error == ERR_CANT_ACQUIRE_RESOURCE, error, "Cannot load resource '" + p_path + "'.", loader);
@@ -376,6 +377,31 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 			"Unsupported engine version " + itos(engine_ver_major) + " used to create resource '" + res_path + "'.");
 	ERR_FAIL_COND_V_MSG(ver_format_bin > VariantBin::FORMAT_VERSION, ERR_FILE_UNRECOGNIZED,
 			"Unsupported binary resource format '" + res_path + "'.");
+
+	// Double check version major and compare against the format version of the binary
+
+	// Version 1.x? unlikely
+	if (engine_ver_major < 2) {
+		switch (ver_format_bin) {
+			case 1:
+				// Version 1.x, format 1
+				// Ok, this might actually be Godot 1.x
+				break;
+			case 2:
+			case 3:
+				suspect_version = true;
+				// Godot didn't support format version 2-3 until Godot 3.x.
+				engine_ver_major = 3;
+				// this is likely SCU, so we'll just put 1 for the minor version here.
+				engine_ver_minor = 1;
+				break;
+			case 4:
+			case 5:
+				suspect_version = true;
+				engine_ver_major = 4;
+				break;
+		}
+	}
 
 	res_type = get_unicode_string();
 
