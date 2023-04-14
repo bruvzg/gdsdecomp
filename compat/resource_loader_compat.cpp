@@ -952,7 +952,12 @@ Error ResourceLoaderCompat::load() {
 			rp.type = value.get_type();
 			if (rp.type == Variant::OBJECT) {
 				Object *obj = value;
-				rp.class_name = obj->get_class_name();
+				if (obj) {
+					rp.class_name = obj->get_class_name();
+				} else {
+					// We screwed up a load of an embedded object, just fail
+					ERR_FAIL_V_MSG(error, "Failed to load resource " + path + ": Object property " + name + " was null, please report this!!");
+				}
 			}
 			lrp.push_back(rp);
 			// If not a fake_load, set the properties of the instanced resource
