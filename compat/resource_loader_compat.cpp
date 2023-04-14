@@ -151,16 +151,18 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	i_info.ver_major = loader->engine_ver_major;
 	i_info.ver_minor = loader->engine_ver_minor;
 	if (loader->engine_ver_major == 2 && !i_info.is_text) {
-		// these do not have any metadata info in them
-		if (loader->local_path.find(".converted.") != -1) {
-			i_info.auto_converted_export = true;
-			memdelete(loader);
-			return OK;
-		}
 		error = loader->load_import_metadata();
+		ERR_RFLBC_COND_V_MSG_CLEANUP(error == ERR_CANT_ACQUIRE_RESOURCE, error, "Cannot load resource '" + p_path + "'.", loader);
 		// If this is a 2.x resource with no imports, it will have no import metadata
 		if (error != OK) {
 			memdelete(loader);
+			// if this is an auto converted resource, it's expected that it won't have any import metadata
+			Vector<String> spl = p_path.get_file().split(".");
+			if (spl.size() == 4 && loader->local_path.find(".converted.") != -1) {
+				i_info.auto_converted_export = true;
+				return OK;
+			}
+			// otherwise return an error to indicate that this is a non-autoconverted 2.x resource with no import metadata
 			return ERR_PRINTER_ON_FIRE;
 		}
 
