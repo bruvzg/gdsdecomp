@@ -30,14 +30,12 @@ void ProgressDialog::_notification(int p_what) {
 
 void ProgressDialog::_popup() {
 	Size2 ms = main->get_combined_minimum_size();
-	ms.width = MAX(500 * EDSCALE, ms.width);
+	ms.width = MAX(600 * EDSCALE, ms.width);
 
 	Ref<StyleBox> style = get_theme_stylebox("panel", "PopupMenu");
 	ms += style->get_minimum_size();
 	main->set_offset(SIDE_LEFT, style->get_margin(SIDE_LEFT));
 	main->set_offset(SIDE_RIGHT, -style->get_margin(SIDE_RIGHT));
-	main->set_offset(SIDE_TOP, style->get_margin(SIDE_TOP));
-	main->set_offset(SIDE_BOTTOM, -style->get_margin(SIDE_BOTTOM));
 
 	auto *ed = GodotREEditor::get_singleton();
 	if (ed && !is_inside_tree()) {
@@ -60,15 +58,20 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 
 	ERR_FAIL_COND_MSG(tasks.has(p_task), "Task '" + p_task + "' already exists.");
 	ProgressDialog::Task t;
+
 	t.vb = memnew(VBoxContainer);
 	VBoxContainer *vb2 = memnew(VBoxContainer);
 	t.vb->add_margin_child(p_label, vb2);
+
 	t.progress = memnew(ProgressBar);
 	t.progress->set_max(p_steps);
 	t.progress->set_value(p_steps);
+
 	vb2->add_child(t.progress);
+
 	t.state = memnew(Label);
 	t.state->set_clip_text(true);
+
 	vb2->add_child(t.state);
 	main->add_child(t.vb);
 
@@ -79,6 +82,7 @@ void ProgressDialog::add_task(const String &p_task, const String &p_label, int p
 		cancel_hb->hide();
 	}
 	cancel_hb->move_to_front();
+
 	canceled = false;
 	_popup();
 	if (p_can_cancel) {
@@ -136,20 +140,25 @@ void ProgressDialog::_bind_methods() {
 
 ProgressDialog::ProgressDialog() {
 	main = memnew(VBoxContainer);
+	main->set_custom_minimum_size(Size2(600, 150) * EDSCALE);
 	add_child(main);
 	main->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+
 	set_exclusive(true);
 	set_flag(Window::FLAG_POPUP, false);
 	last_progress_tick = 0;
 	singleton = this;
+
 	cancel_hb = memnew(HBoxContainer);
 	main->add_child(cancel_hb);
 	cancel_hb->hide();
+
 	cancel = memnew(Button);
 	cancel_hb->add_spacer();
 	cancel_hb->add_child(cancel);
 	cancel->set_text(RTR("Cancel"));
 	cancel_hb->add_spacer();
+
 	cancel->connect("pressed", callable_mp(this, &ProgressDialog::_cancel_pressed));
 }
 

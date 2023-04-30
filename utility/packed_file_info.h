@@ -5,6 +5,8 @@
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
 
+#define PATH_REPLACER "_"
+
 class PackedFileInfo : public RefCounted {
 	GDCLASS(PackedFileInfo, RefCounted);
 	friend class GDRESettings;
@@ -68,6 +70,9 @@ private:
 		} else if (path.begins_with("local://")) {
 			path = path.replace_first("local://", "");
 			prefix = "local://";
+		} else if (path.begins_with("user://")) {
+			path = path.replace_first("user://", "");
+			prefix = "user://";
 		}
 
 		while (path.begins_with("~")) {
@@ -76,58 +81,56 @@ private:
 		}
 		while (path.begins_with("/")) {
 			path = path.substr(1, path.length() - 1);
+		}
+		while (path.begins_with("\\")) {
+			path = path.substr(1, path.length() - 1);
+		}
+		while (path.find("./") >= 0) {
+			path = path.replace("./", PATH_REPLACER);
 			malformed_path = true;
 		}
-		while (path.find("...") >= 0) {
-			path = path.replace("...", "_");
-			malformed_path = true;
-		}
-		while (path.find("..") >= 0) {
-			path = path.replace("..", "_");
-			malformed_path = true;
-		}
-		if (path.find("\\.") >= 0) {
-			path = path.replace("\\.", "_");
+		while (path.find(".\\") >= 0) {
+			path = path.replace(".\\", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("//") >= 0) {
-			path = path.replace("//", "_");
+			path = path.replace("//", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("\\") >= 0) {
-			path = path.replace("\\", "_");
+			path = path.replace("\\", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find(":") >= 0) {
-			path = path.replace(":", "_");
+			path = path.replace(":", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("|") >= 0) {
-			path = path.replace("|", "_");
+			path = path.replace("|", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("?") >= 0) {
-			path = path.replace("?", "_");
+			path = path.replace("?", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find(">") >= 0) {
-			path = path.replace(">", "_");
+			path = path.replace(">", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("<") >= 0) {
-			path = path.replace("<", "_");
+			path = path.replace("<", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("*") >= 0) {
-			path = path.replace("*", "_");
+			path = path.replace("*", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("\"") >= 0) {
-			path = path.replace("\"", "_");
+			path = path.replace("\"", PATH_REPLACER);
 			malformed_path = true;
 		}
 		if (path.find("\'") >= 0) {
-			path = path.replace("\'", "_");
+			path = path.replace("\'", PATH_REPLACER);
 			malformed_path = true;
 		}
 

@@ -35,7 +35,7 @@
 
 #include "gdre_icons.gen.h"
 
-#if VERSION_MAJOR < 4
+#if VERSION_MAJOR != 4
 #error Unsupported Godot version
 #endif
 
@@ -785,16 +785,17 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		bool is_malformed = file->is_malformed();
 		if (p_check_md5 && md5_error) {
 			icon = icons["REFileBroken"];
-			error_string += "MD5 mismatch";
+			error_string += "MD5 checksum mismatch";
 		} else if (file->is_malformed()) {
 			icon = icons["REFileBroken"];
-			error_string += String(error_string.length() > 0 ? ", " : "") + "Malformed_path";
+			String raw = file->get_raw_path();
+			error_string += String(raw.length() > 0 ? raw + " is a " : "") + "malformed path; ";
 		} else if (!p_check_md5) {
 			icon = icons["REFile"];
 		} else {
 			icon = icons["REFileOk"];
 		}
-		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, file->is_malformed(), file->is_encrypted());
+		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, is_malformed, file->is_encrypted());
 	}
 	pck_dialog->popup_centered(Size2(600, 400));
 }

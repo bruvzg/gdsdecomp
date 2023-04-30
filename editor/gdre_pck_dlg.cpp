@@ -28,7 +28,7 @@ PackDialog::PackDialog() {
 
 	//Version inf label
 	vernfo = memnew(Label);
-	script_vb->add_margin_child(RTR("Version:"), vernfo);
+	script_vb->add_margin_child(RTR("Godot version:"), vernfo);
 
 	//PCK stats
 	gennfo = memnew(Label);
