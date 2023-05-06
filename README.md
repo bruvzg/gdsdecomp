@@ -92,5 +92,3 @@ $ bin/godot.linuxbsd.template_debug.x86_64.llvm --headless --path=modules/gdsdec
 ## License
 
 The source code of the module is licensed under MIT license.
-
-[![Travis Build Status](https://travis-ci.org/bruvzg/gdsdecomp.svg?branch=master)](https://travis-ci.org/bruvzg/gdsdecomp)
