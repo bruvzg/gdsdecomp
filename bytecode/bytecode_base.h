@@ -10,6 +10,7 @@
 #include "core/object/class_db.h"
 #include "core/object/object.h"
 #include "core/templates/rb_map.h"
+#include "core/templates/vmap.h"
 
 class GDScriptDecomp : public Object {
 	GDCLASS(GDScriptDecomp, Object);

@@ -29,6 +29,7 @@
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/main/canvas_item.h"
 #include "scene/resources/audio_stream_wav.h"
+#include "scene/resources/image_texture.h"
 #include "scene/resources/resource_format_text.h"
 
 #include "core/version_generated.gen.h"
@@ -164,7 +165,7 @@ GodotREEditor::GodotREEditor(EditorNode *p_editor) {
 	ne_parent = editor->get_gui_base();
 	gdres_singleton = memnew(GDRESettings);
 
-	init_gui(editor->get_gui_base(), editor->get_menu_hb(), false);
+	init_gui(editor->get_gui_base(), (HBoxContainer *)editor->get_title_bar(), false);
 }
 #endif
 
