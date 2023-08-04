@@ -119,6 +119,9 @@ private:
 	Error load_dir(const String &p_path);
 	Error unload_dir();
 
+protected:
+	static void _bind_methods();
+
 public:
 	Error load_pack(const String &p_path);
 	Error unload_pack();
@@ -130,12 +133,13 @@ public:
 
 	void _set_error_encryption(bool is_encryption_error);
 	void set_encryption_key(Vector<uint8_t> key);
-	void set_encryption_key(const String &key);
+	void set_encryption_key_string(const String &key);
 	void reset_encryption_key();
 	void add_pack_info(Ref<PackInfo> packinfo);
 	void add_pack_file(const Ref<PackedFileInfo> &f_info);
 
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
+	Array get_file_info_array(const Vector<String> &filters);
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
 	PackInfo::PackType get_pack_type();
 	String get_pack_path();
@@ -177,10 +181,11 @@ public:
 	Error load_project_config();
 	Error save_project_config(const String &p_out_dir);
 	bool pack_has_project_config();
-
+	float get_auto_display_scale() const;
 	static GDRESettings *get_singleton();
 	GDRESettings();
 	~GDRESettings();
 };
 
+VARIANT_ENUM_CAST(GDRESettings::PackInfo::PackType);
 #endif

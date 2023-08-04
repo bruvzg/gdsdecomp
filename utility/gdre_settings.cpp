@@ -503,7 +503,7 @@ void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 void GDRESettings::_set_error_encryption(bool is_encryption_error) {
 	error_encryption = is_encryption_error;
 }
-void GDRESettings::set_encryption_key(const String &key_str) {
+void GDRESettings::set_encryption_key_string(const String &key_str) {
 	String skey = key_str.replace_first("0x", "");
 	ERR_FAIL_COND_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, "not a valid key");
 
@@ -552,6 +552,24 @@ Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 	Vector<Ref<PackedFileInfo>> flist = get_file_info_list(filters);
 	for (int i = 0; i < flist.size(); i++) {
 		ret.push_back(flist[i]->path);
+	}
+	return ret;
+}
+
+Array GDRESettings::get_file_info_array(const Vector<String> &filters) {
+	Array ret;
+	bool no_filters = !filters.size();
+	for (auto E : file_map) {
+		if (no_filters) {
+			ret.push_back(E.value);
+			continue;
+		}
+		for (int j = 0; j < filters.size(); j++) {
+			if (E.key.get_file().match(filters[j])) {
+				ret.push_back(E.value);
+				break;
+			}
+		}
 	}
 	return ret;
 }
@@ -891,6 +909,10 @@ Array GDRESettings::get_import_files(bool copy) {
 	return ifiles;
 }
 
+bool GDRESettings::has_file(const String &p_path) {
+	return file_map.has(p_path);
+}
+
 Error GDRESettings::load_import_files() {
 	Vector<String> file_names;
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -1036,6 +1058,63 @@ bool GDRESettings::pack_has_project_config() {
 		WARN_PRINT("Unsupported godot version " + itos(get_ver_major()) + "...");
 	}
 	return false;
+}
+
+void GDRESettings::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("load_pack", "p_path"), &GDRESettings::load_pack);
+	ClassDB::bind_method(D_METHOD("unload_pack"), &GDRESettings::unload_pack);
+	ClassDB::bind_method(D_METHOD("get_gdre_resource_path"), &GDRESettings::get_gdre_resource_path);
+	ClassDB::bind_method(D_METHOD("get_encryption_key"), &GDRESettings::get_encryption_key);
+	ClassDB::bind_method(D_METHOD("get_encryption_key_string"), &GDRESettings::get_encryption_key_string);
+	ClassDB::bind_method(D_METHOD("is_pack_loaded"), &GDRESettings::is_pack_loaded);
+	ClassDB::bind_method(D_METHOD("_set_error_encryption", "is_encryption_error"), &GDRESettings::_set_error_encryption);
+	ClassDB::bind_method(D_METHOD("set_encryption_key", "key"), &GDRESettings::set_encryption_key_string);
+	ClassDB::bind_method(D_METHOD("reset_encryption_key"), &GDRESettings::reset_encryption_key);
+	ClassDB::bind_method(D_METHOD("add_pack_info", "packinfo"), &GDRESettings::add_pack_info);
+	ClassDB::bind_method(D_METHOD("add_pack_file", "f_info"), &GDRESettings::add_pack_file);
+	ClassDB::bind_method(D_METHOD("get_file_list", "filters"), &GDRESettings::get_file_list);
+	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array);
+	ClassDB::bind_method(D_METHOD("get_pack_type"), &GDRESettings::get_pack_type);
+	ClassDB::bind_method(D_METHOD("get_pack_path"), &GDRESettings::get_pack_path);
+	ClassDB::bind_method(D_METHOD("get_pack_format"), &GDRESettings::get_pack_format);
+	ClassDB::bind_method(D_METHOD("get_version_string"), &GDRESettings::get_version_string);
+	ClassDB::bind_method(D_METHOD("get_ver_major"), &GDRESettings::get_ver_major);
+	ClassDB::bind_method(D_METHOD("get_ver_minor"), &GDRESettings::get_ver_minor);
+	ClassDB::bind_method(D_METHOD("get_ver_rev"), &GDRESettings::get_ver_rev);
+	ClassDB::bind_method(D_METHOD("get_file_count"), &GDRESettings::get_file_count);
+	ClassDB::bind_method(D_METHOD("globalize_path", "p_path", "resource_path"), &GDRESettings::globalize_path);
+	ClassDB::bind_method(D_METHOD("localize_path", "p_path", "resource_path"), &GDRESettings::localize_path);
+	ClassDB::bind_method(D_METHOD("set_project_path", "p_path"), &GDRESettings::set_project_path);
+	ClassDB::bind_method(D_METHOD("get_project_path"), &GDRESettings::get_project_path);
+	ClassDB::bind_method(D_METHOD("get_res_path", "p_path", "resource_dir"), &GDRESettings::get_res_path);
+	ClassDB::bind_method(D_METHOD("has_res_path", "p_path", "resource_dir"), &GDRESettings::has_res_path);
+	ClassDB::bind_method(D_METHOD("open_log_file", "output_dir"), &GDRESettings::open_log_file);
+	ClassDB::bind_method(D_METHOD("get_log_file_path"), &GDRESettings::get_log_file_path);
+	ClassDB::bind_method(D_METHOD("is_fs_path", "p_path"), &GDRESettings::is_fs_path);
+	ClassDB::bind_method(D_METHOD("close_log_file"), &GDRESettings::close_log_file);
+	ClassDB::bind_method(D_METHOD("has_any_remaps"), &GDRESettings::has_any_remaps);
+	ClassDB::bind_method(D_METHOD("has_remap", "src", "dst"), &GDRESettings::has_remap);
+	ClassDB::bind_method(D_METHOD("add_remap", "src", "dst"), &GDRESettings::add_remap);
+	ClassDB::bind_method(D_METHOD("remove_remap", "src", "dst", "output_dir"), &GDRESettings::remove_remap);
+	ClassDB::bind_method(D_METHOD("get_project_setting", "p_setting"), &GDRESettings::get_project_setting);
+	ClassDB::bind_method(D_METHOD("has_project_setting", "p_setting"), &GDRESettings::has_project_setting);
+	ClassDB::bind_method(D_METHOD("get_project_config_path"), &GDRESettings::get_project_config_path);
+	ClassDB::bind_method(D_METHOD("get_cwd"), &GDRESettings::get_cwd);
+	ClassDB::bind_method(D_METHOD("get_import_files", "copy"), &GDRESettings::get_import_files);
+	ClassDB::bind_method(D_METHOD("has_file", "p_path"), &GDRESettings::has_file);
+	ClassDB::bind_method(D_METHOD("load_import_files"), &GDRESettings::load_import_files);
+	ClassDB::bind_method(D_METHOD("load_import_file", "p_path"), &GDRESettings::load_import_file);
+	ClassDB::bind_method(D_METHOD("get_import_info", "p_path"), &GDRESettings::get_import_info);
+	ClassDB::bind_method(D_METHOD("get_code_files"), &GDRESettings::get_code_files);
+	ClassDB::bind_method(D_METHOD("get_exec_dir"), &GDRESettings::get_exec_dir);
+	ClassDB::bind_method(D_METHOD("are_imports_loaded"), &GDRESettings::are_imports_loaded);
+	ClassDB::bind_method(D_METHOD("is_project_config_loaded"), &GDRESettings::is_project_config_loaded);
+	ClassDB::bind_method(D_METHOD("is_headless"), &GDRESettings::is_headless);
+	ClassDB::bind_method(D_METHOD("get_sys_info_string"), &GDRESettings::get_sys_info_string);
+	ClassDB::bind_method(D_METHOD("load_project_config"), &GDRESettings::load_project_config);
+	ClassDB::bind_method(D_METHOD("save_project_config", "p_out_dir"), &GDRESettings::save_project_config);
+	ClassDB::bind_method(D_METHOD("pack_has_project_config"), &GDRESettings::pack_has_project_config);
+	// ClassDB::bind_method(D_METHOD("get_auto_display_scale"), &GDRESettings::get_auto_display_scale);
 }
 
 // This is at the bottom to account for the platform header files pulling in their respective OS headers and creating all sorts of issues

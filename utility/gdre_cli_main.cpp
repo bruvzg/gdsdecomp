@@ -39,7 +39,7 @@ Error GDRECLIMain::copy_dir(const String &src_path, const String dst_path) {
 	return err;
 }
 Error GDRECLIMain::set_key(const String &key) {
-	GDRESettings::get_singleton()->set_encryption_key(key);
+	GDRESettings::get_singleton()->set_encryption_key_string(key);
 	return OK;
 }
 
