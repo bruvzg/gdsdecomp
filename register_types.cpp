@@ -43,6 +43,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<OggStreamLoaderCompat>();
 	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRECLIMain>();
+	ClassDB::register_class<GDRESettings>();
 
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();
@@ -50,6 +51,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ScriptDecompDialog>();
 
 	Engine::get_singleton()->add_singleton(Engine::Singleton("GDRECLIMain", memnew(GDRECLIMain)));
+	Engine::get_singleton()->add_singleton(Engine::Singleton("GDRESettings", memnew(GDRESettings)));
 
 #ifdef TOOLS_ENABLED
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);

@@ -37,7 +37,6 @@ class EditorNode;
 #include "gdre_pck_dlg.h"
 #include "gdre_progress.h"
 
-class GDRESettings;
 class ResultDialog : public AcceptDialog {
 	GDCLASS(ResultDialog, AcceptDialog)
 
@@ -81,7 +80,6 @@ private:
 #else
 	Node *editor;
 #endif
-	GDRESettings *gdres_singleton;
 	ProgressDialog *pdialog_singleton;
 
 	Control *ne_parent;
