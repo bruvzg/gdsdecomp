@@ -205,7 +205,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	uint32_t magic = f->get_32();
 
 	if (magic != PACK_HEADER_MAGIC) {
-		if (!seek_offset_from_exe(f, p_path, p_offset)) {
+		if (!seek_offset_from_exe(f, pck_path, p_offset)) {
 			return false;
 		}
 		is_exe = true;
