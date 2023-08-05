@@ -29,7 +29,6 @@
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/main/canvas_item.h"
 #include "scene/resources/audio_stream_wav.h"
-#include "scene/resources/image_texture.h"
 #include "scene/resources/resource_format_text.h"
 
 #include "core/version_generated.gen.h"
