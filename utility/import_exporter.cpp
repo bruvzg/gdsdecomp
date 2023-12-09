@@ -121,6 +121,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			should_rewrite_metadata = true;
 		}
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
+		bool not_exported = false;
 		// ***** Export resource *****
 		if (opt_export_textures && importer == "texture") {
 			// Right now we only convert 2d image textures
@@ -143,18 +144,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				default:
 					report_unsupported_resource(type, src_ext, path);
 					not_converted.push_back(iinfo);
-					continue;
+					not_exported = true;
 			}
 		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
-			// if (iinfo->get_import_loss_type() == ImportInfo::LOSSLESS) {
 			err = export_sample(output_dir, iinfo);
-			// } else {
-			// 	// Godot doesn't support saving ADPCM samples as waves, nor converting them to PCM16
-			// 	WARN_PRINT_ONCE("Conversion for samples stored in IMA ADPCM format not yet implemented");
-			// 	report_unsupported_resource("ADPCM Sample", src_ext, path, true, false);
-			// 	not_converted.push_back(iinfo);
-			// 	continue;
-			// }
 		} else if (opt_export_ogg && importer == "ogg_vorbis") {
 			err = convert_oggstr_to_ogg(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (opt_export_mp3 && importer == "mp3") {
@@ -170,7 +163,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				WARN_PRINT_ONCE("Conversion of Godot 2.x xml resource files currently unimplemented");
 				report_unsupported_resource(type, src_ext, path);
 				not_converted.push_back(iinfo);
-				continue;
+				not_exported = true;
 			}
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			// v2-v3 export left the autoconverted resource in the main path, remove it
@@ -186,7 +179,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				WARN_PRINT_ONCE("Export of models/imported scenes currently unimplemented");
 				report_unsupported_resource(type, src_ext, path);
 				not_converted.push_back(iinfo);
-				continue;
+				not_exported = true;
 			}
 		} else if (importer == "csv_translation") {
 			err = export_translation(output_dir, iinfo);
@@ -194,11 +187,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			WARN_PRINT_ONCE("Export of obj meshes currently unimplemented");
 			report_unsupported_resource(type, src_ext, path);
 			not_converted.push_back(iinfo);
-			continue;
+			not_exported = true;
 		} else {
 			report_unsupported_resource(type, src_ext, path);
 			not_converted.push_back(iinfo);
-			continue;
+			not_exported = true;
 		}
 
 		// ****REWRITE METADATA****
@@ -229,7 +222,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			// saved to non-original path, but we exporter knows we can't rewrite the metadata
 		} else if (err == ERR_DATABASE_CANT_WRITE) {
 			print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
-		} else if (iinfo->is_dirty()) {
+		} else if (err == OK && iinfo->is_dirty()) {
 			err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 			if (err == OK) {
 				err = ERR_PRINTER_ON_FIRE;
@@ -238,6 +231,12 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				err = ERR_DATABASE_CANT_WRITE;
 			}
 		}
+
+		// We continue down here so that modified import metadata is saved
+		if (not_exported) {
+			continue;
+		}
+
 		// write md5 files
 		if (opt_write_md5_files && iinfo->is_import() && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
 			err = ((Ref<ImportInfoModern>)iinfo)->save_md5_file(output_dir);
