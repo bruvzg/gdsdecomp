@@ -39,6 +39,8 @@ class ImportExporter : public RefCounted {
 	Vector<Ref<ImportInfo>> rewrote_metadata;
 	Vector<Ref<ImportInfo>> failed_rewrite_md;
 	Vector<Ref<ImportInfo>> failed_rewrite_md5;
+	Vector<String> failed_plugin_cfg_create;
+	Vector<String> failed_gdnative_copy;
 	Vector<String> unsupported_types;
 
 	Vector<Ref<ImportInfo>> failed;
