@@ -426,7 +426,7 @@ Error ImportInfoModern::_load(const String &p_path) {
 	}
 	if (!cf->has_section("params")) {
 		dirty = true;
-		// this gets taken care of during saving
+		cf->set_value("params", "dummy_value_ignore_me", 0);
 	}
 
 	// "remap.path" does not exist if there are two or more destination files
@@ -686,17 +686,6 @@ void ImportInfov2::set_params(Dictionary params) {
 }
 
 Error ImportInfoModern::save_to(const String &new_import_file) {
-	// If we have no params section, we need to add an empty one
-	if (!cf->has_section("params")) {
-		String text = cf->encode_to_text();
-		text += "\n[params]\n";
-		Ref<FileAccess> f = FileAccess::open(new_import_file, FileAccess::WRITE);
-		ERR_FAIL_COND_V_MSG(f.is_null(), ERR_FILE_CANT_OPEN, "Failed to open " + new_import_file + " for writing");
-		f->store_string(text);
-		f->flush();
-		return OK;
-	}
-	// else...
 	Error err = cf->save(new_import_file);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
 	return OK;
