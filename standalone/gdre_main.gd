@@ -3,6 +3,7 @@ extends Control
 var ver_major = 0
 var ver_minor = 0
 
+
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
 	var dst_file = txt_to_bin.get_file().replace(".tscn", ".scn").replace(".tres", ".res")
@@ -87,13 +88,13 @@ func test_decomp(fname):
 			else:
 				print("error failed to save "+ f)
 
-func export_imports(output_dir:String):
+func export_imports(output_dir:String, files: PackedStringArray):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.export_imports(output_dir)
+	importer.export_imports(output_dir, files)
 	importer.reset()
 				
 	
-func dump_files(output_dir:String, ignore_checksum_errors: bool = false) -> int:
+func dump_files(output_dir:String, files: PackedStringArray, ignore_checksum_errors: bool = false) -> int:
 	var err:int = OK;
 	var pckdump = PckDumper.new()
 	if err == OK:
@@ -104,7 +105,7 @@ func dump_files(output_dir:String, ignore_checksum_errors: bool = false) -> int:
 				return err
 			elif (ignore_checksum_errors):
 				print("MD5 checksum failed, but --ignore_checksum_errors specified, proceeding anyway...")
-		err = pckdump.pck_dump_to_dir(output_dir)
+		err = pckdump.pck_dump_to_dir(output_dir, files)
 		if err != OK:
 			print("error dumping to dir")
 			return err
@@ -128,6 +129,9 @@ func print_usage():
 	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
 	print("--ignore-checksum-errors\t\tIgnore MD5 checksum errors when extracting/recovering")
+
+# TODO: remove this hack
+var translation_only = false
 
 func recovery(  input_file:String,
 				output_dir:String,
@@ -176,6 +180,16 @@ func recovery(  input_file:String,
 	ver_minor = GDRECLIMain.get_engine_version().split(".")[1].to_int()
 	var version:String = GDRECLIMain.get_engine_version()
 	print("Version: " + version)
+	var files: PackedStringArray = []
+	if (translation_only):
+		files = GDRECLIMain.get_loaded_files()
+		var new_files:PackedStringArray = []
+		# remove all the non ".translation" files
+		for i in range(files.size()-1, -1, -1):
+			if (files[i].get_extension() == "translation"):
+				new_files.append(files[i])
+		files = new_files
+		print("Translation only mode, only extracting translation files")
 
 	if output_dir != input_file and not is_dir: 
 		if (da.file_exists(output_dir)):
@@ -189,13 +203,13 @@ func recovery(  input_file:String,
 			print("Error: failed to copy " + input_file + " to " + output_dir)
 			return
 	else:
-		err = dump_files(output_dir, ignore_checksum_errors)
+		err = dump_files(output_dir, files, ignore_checksum_errors)
 		if (err != OK):
 			print("Error: failed to extract PAK file, not exporting assets")
 			return
 	if (extract_only):
 		return
-	export_imports(output_dir)
+	export_imports(output_dir, files)
 
 func print_version():
 	print("Godot RE Tools " + GDRECLIMain.get_gdre_version())
@@ -231,6 +245,8 @@ func handle_cli() -> bool:
 			enc_key = get_arg_value(arg)
 		elif arg.begins_with("--ignore-checksum-errors"):
 			ignore_md5 = true
+		elif arg.begins_with("--translation-only"):
+			translation_only = true
 
 	if input_file != "":
 		recovery(input_file, output_dir, enc_key, false, ignore_md5)
