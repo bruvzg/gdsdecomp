@@ -273,11 +273,13 @@ String ImportInfoModern::get_source_file() const {
 
 void ImportInfoModern::set_source_file(const String &p_path) {
 	cf->set_value("deps", "source_file", p_path);
+	dirty = true;
 }
 
 void ImportInfoModern::set_source_and_md5(const String &path, const String &md5) {
 	cf->set_value("deps", "source_file", path);
 	src_md5 = md5;
+	dirty = true;
 	// TODO: change the md5 file?
 }
 
@@ -287,6 +289,7 @@ String ImportInfoModern::get_source_md5() const {
 
 void ImportInfoModern::set_source_md5(const String &md5) {
 	src_md5 = md5;
+	dirty = true;
 }
 
 String ImportInfoModern::get_uid() const {
@@ -299,6 +302,7 @@ Vector<String> ImportInfoModern::get_dest_files() const {
 
 void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
 	cf->set_value("deps", "dest_files", p_dest_files);
+	dirty = true;
 	if (!cf->has_section("remap")) {
 		return;
 	}
@@ -334,6 +338,7 @@ Dictionary ImportInfoModern::get_metadata_prop() const {
 
 void ImportInfoModern::set_metadata_prop(Dictionary r_dict) {
 	cf->set_value("remap", "metadata", Dictionary());
+	dirty = true;
 }
 
 Variant ImportInfoModern::get_param(const String &p_key) const {
@@ -342,6 +347,7 @@ Variant ImportInfoModern::get_param(const String &p_key) const {
 
 void ImportInfoModern::set_param(const String &p_key, const Variant &p_val) {
 	cf->set_value("params", p_key, p_val);
+	dirty = true;
 }
 
 bool ImportInfoModern::has_param(const String &p_key) const {
@@ -354,6 +360,7 @@ Variant ImportInfoModern::get_iinfo_val(const String &p_section, const String &p
 
 void ImportInfoModern::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
 	cf->set_value(p_section, p_prop, p_val);
+	dirty = true;
 }
 
 Dictionary ImportInfoModern::get_params() const {
@@ -375,6 +382,7 @@ void ImportInfoModern::set_params(Dictionary params) {
 	for (auto E = param_keys.front(); E; E = E->next()) {
 		cf->set_value("params", E->get(), params[E->get()]);
 	}
+	dirty = true;
 }
 
 Error ImportInfoModern::_load(const String &p_path) {
@@ -388,12 +396,12 @@ Error ImportInfoModern::_load(const String &p_path) {
 	import_md_path = path;
 	preferred_import_path = cf->get_value("remap", "path", "");
 
-	bool missing_deps = false;
 	Vector<String> dest_files;
 
 	// Godot 4.x started stripping the deps section from the .import file, need to recreate it
 	if (!cf->has_section("deps")) {
-		missing_deps = true;
+		dirty = true;
+
 		// the source file is the import_md path minus ".import"
 		cf->set_value("deps", "source_file", path.substr(0, path.length() - 7));
 		if (!preferred_import_path.is_empty()) {
@@ -415,6 +423,10 @@ Error ImportInfoModern::_load(const String &p_path) {
 		}
 	} else {
 		dest_files = get_dest_files();
+	}
+	if (!cf->has_section("params")) {
+		dirty = true;
+		// this gets taken care of during saving
 	}
 
 	// "remap.path" does not exist if there are two or more destination files
@@ -581,6 +593,7 @@ String ImportInfov2::get_source_file() const {
 
 void ImportInfov2::set_source_file(const String &p_path) {
 	set_source_and_md5(p_path, "");
+	dirty = true;
 }
 
 void ImportInfov2::set_source_and_md5(const String &path, const String &md5) {
@@ -588,6 +601,7 @@ void ImportInfov2::set_source_and_md5(const String &path, const String &md5) {
 		v2metadata->remove_source(0);
 	}
 	v2metadata->add_source_at(path, md5, 0);
+	dirty = true;
 }
 
 String ImportInfov2::get_source_md5() const {
@@ -599,6 +613,7 @@ String ImportInfov2::get_source_md5() const {
 
 void ImportInfov2::set_source_md5(const String &md5) {
 	v2metadata->set_source_md5(0, md5);
+	dirty = true;
 }
 
 Vector<String> ImportInfov2::get_dest_files() const {
@@ -625,6 +640,7 @@ void ImportInfov2::set_additional_sources(const Vector<String> &p_add_sources) {
 		}
 		v2metadata->add_source_at(p_add_sources[i], "", i);
 	}
+	dirty = true;
 }
 
 Variant ImportInfov2::get_param(const String &p_key) const {
@@ -632,6 +648,7 @@ Variant ImportInfov2::get_param(const String &p_key) const {
 }
 
 void ImportInfov2::set_param(const String &p_key, const Variant &p_val) {
+	dirty = true;
 	return v2metadata->set_option(p_key, p_val);
 }
 
@@ -649,6 +666,7 @@ Variant ImportInfov2::get_iinfo_val(const String &p_section, const String &p_pro
 
 void ImportInfov2::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
 	if (p_section == "params" || p_section == "options") {
+		dirty = true;
 		return v2metadata->set_option(p_prop, p_val);
 	}
 	//TODO: others?
@@ -664,10 +682,24 @@ void ImportInfov2::set_params(Dictionary params) {
 	for (auto E = param_keys.front(); E; E = E->next()) {
 		v2metadata->set_option(E->get(), params[E->get()]);
 	}
+	dirty = true;
 }
 
 Error ImportInfoModern::save_to(const String &new_import_file) {
-	return cf->save(new_import_file);
+	// If we have no params section, we need to add an empty one
+	if (!cf->has_section("params")) {
+		String text = cf->encode_to_text();
+		text += "\n[params]\n";
+		Ref<FileAccess> f = FileAccess::open(new_import_file, FileAccess::WRITE);
+		ERR_FAIL_COND_V_MSG(f.is_null(), ERR_FILE_CANT_OPEN, "Failed to open " + new_import_file + " for writing");
+		f->store_string(text);
+		f->flush();
+		return OK;
+	}
+	// else...
+	Error err = cf->save(new_import_file);
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
+	return OK;
 }
 
 Error ImportInfov2::save_to(const String &new_import_file) {

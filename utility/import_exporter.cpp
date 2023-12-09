@@ -201,16 +201,16 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 
 		// ****REWRITE METADATA****
-		if ((err == ERR_PRINTER_ON_FIRE || (err == OK && should_rewrite_metadata)) && iinfo->is_import()) {
+		if ((err == ERR_PRINTER_ON_FIRE || ((err == OK && should_rewrite_metadata)) && iinfo->is_import())) {
 			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
 				// TODO: handle v2 imports with more than one source, like atlas textures
-				err = rewrite_import_data(iinfo->get_export_dest(), output_dir, iinfo);
-			} else if (iinfo->get_ver_major() >= 3 && opt_rewrite_imd_v3) {
+				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
+			} else if (iinfo->get_ver_major() >= 3 && opt_rewrite_imd_v3 && (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) != -1)) {
 				// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
 				// But is still in the project structure
-				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) != -1) {
-					err = rewrite_import_data(iinfo->get_export_dest(), output_dir, iinfo);
-				}
+				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
+			} else if (iinfo->is_dirty()) {
+				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 			}
 			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
 			// if we failed, it won't be OK
@@ -222,12 +222,20 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				}
 				err = ERR_DATABASE_CANT_WRITE;
 			} else {
-				// we successfully rewrote the printer data
+				// we successfully rewrote the import data
 				err = ERR_PRINTER_ON_FIRE;
 			}
 			// saved to non-original path, but we exporter knows we can't rewrite the metadata
 		} else if (err == ERR_DATABASE_CANT_WRITE) {
 			print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
+		} else if (iinfo->is_dirty()) {
+			err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+			if (err == OK) {
+				err = ERR_PRINTER_ON_FIRE;
+			} else {
+				print_line("Failed to rewrite import metadata for " + iinfo->get_source_file());
+				err = ERR_DATABASE_CANT_WRITE;
+			}
 		}
 		// write md5 files
 		if (opt_write_md5_files && iinfo->is_import() && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
@@ -756,7 +764,7 @@ Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &i
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
 // but is still in the project directory structure, which means no resource rewriting is necessary
-Error ImportExporter::rewrite_import_data(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo) {
+Error ImportExporter::rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo) {
 	String new_source = rel_dest_path;
 	String new_import_file = output_dir.path_join(iinfo->get_import_md_path().replace("res://", ""));
 	String abs_file_path = GDRESettings::get_singleton()->globalize_path(new_source, output_dir);
