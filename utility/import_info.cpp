@@ -52,6 +52,7 @@ int ImportInfo::get_import_loss_type() const {
 		return UNKNOWN;
 	}
 	String ext = source_file.get_extension();
+	bool has_compress_param = params.has("compress/mode") && params["compress/mode"].is_num();
 
 	// textures and layered textures
 	if (importer.begins_with("texture")) {
@@ -62,7 +63,6 @@ int ImportInfo::get_import_loss_type() const {
 		if (ext == "svg" || ext == "jpg") {
 			stat |= IMPORTED_LOSSY;
 		}
-		bool has_compress_param = params.has("compress/mode") && params["compress/mode"].is_num();
 		if (ver_major == 2) { //v2 all textures
 			if (params.has("storage") && params["storage"].is_num()) { //v2
 				stat |= (int)params["storage"] != V2ImportEnums::Storage::STORAGE_COMPRESS_LOSSY ? LOSSLESS : STORED_LOSSY;
@@ -83,7 +83,7 @@ int ImportInfo::get_import_loss_type() const {
 		return LossType(stat);
 	} else if (importer == "wav" || (ver_major == 2 && importer == "sample")) {
 		// Not possible to recover asset used to import losslessly
-		if (params.has("compress/mode") && params["compress/mode"].is_num()) {
+		if (has_compress_param) {
 			return (int)params["compress/mode"] == 0 ? LOSSLESS : STORED_LOSSY;
 		}
 	}
