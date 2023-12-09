@@ -468,11 +468,144 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 
 Error ImportExporter::recreate_plugin_config(const String &output_dir, const String &plugin_dir) {
 	Error err;
-	Vector<String> wildcards;
-	wildcards.push_back("*.gd");
-	String abs_plugin_path = output_dir.path_join("addons").path_join(plugin_dir);
+	static const Vector<String> wildcards = { "*.gd" };
+	String rel_plugin_path = String("addons").path_join(plugin_dir);
+	String abs_plugin_path = output_dir.path_join(rel_plugin_path);
 	auto gd_scripts = gdreutil::get_recursive_dir_list(abs_plugin_path, wildcards, false);
 	String main_script;
+
+	auto copy_gdext_dll_func = [&](String gdextension_path) -> Error {
+		bool is_gdnative = gdextension_path.ends_with(".gdnlib");
+		String lib_section_name = is_gdnative ? "entry" : "libraries";
+		// check if directory; we can't do anything here if we're working from an unpacked dir
+		if (get_settings()->get_pack_type() == GDRESettings::PackInfo::PackType::DIR) {
+			return OK;
+		}
+		String parent_dir = get_settings()->get_pack_path().get_base_dir();
+		// open gdextension_path like a config file
+		Vector<String> libs_to_find;
+		List<String> platforms;
+		Dictionary lib_to_parentdir;
+		Dictionary lib_to_platform;
+		// what the decomp is running on
+		String our_platform = OS::get_singleton()->get_name().to_lower();
+		Ref<ConfigFile> cf;
+		cf.instantiate();
+		cf->load(gdextension_path);
+		cf->get_section_keys(lib_section_name, &platforms);
+		auto add_path_func = [&](String path, String platform) mutable {
+			String plugin_pardir = path.get_base_dir();
+			if (!plugin_pardir.is_absolute_path()) {
+				plugin_pardir = rel_plugin_path.path_join(plugin_pardir);
+			} else {
+				plugin_pardir = plugin_pardir.replace("res://", "");
+			}
+			libs_to_find.push_back(path.get_file());
+			lib_to_parentdir[path.get_file()] = plugin_pardir;
+			auto splits = platform.split(".");
+			if (!splits.is_empty()) {
+				platform = splits[0];
+			}
+			platform = platform.to_lower();
+			// normalize old platform names
+			if (platform == "x11") {
+				platform = "linux";
+			} else if (platform == "osx") {
+				platform = "macos";
+			}
+			lib_to_platform[path.get_file()] = platform;
+		};
+		for (String &platform : platforms) {
+			add_path_func(cf->get_value(lib_section_name, platform), platform);
+		}
+		platforms.clear();
+		cf->get_section_keys("dependencies", &platforms);
+		for (String &platform : platforms) {
+			Array keys;
+			if (!is_gdnative) {
+				Dictionary val = cf->get_value("dependencies", platform);
+				// the keys in the dict are the library names
+				keys = val.keys();
+			} else {
+				// they're just arrays in gdnlib
+				keys = cf->get_value("dependencies", platform);
+			}
+			for (int i = 0; i < keys.size(); i++) {
+				add_path_func(keys[i], platform);
+			}
+		}
+		// search for the libraries
+		Vector<String> lib_paths;
+		// auto paths = gdreutil::get_recursive_dir_list(parent_dir, libs_to_find, true);
+
+		// get a non-recursive dir listing
+		{
+			Ref<DirAccess> da = DirAccess::open(parent_dir, &err);
+			ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_OPEN, "Failed to open directory " + parent_dir);
+			da->list_dir_begin();
+			String f = da->get_next();
+			while (!f.is_empty()) {
+				if (f != "." && f != "..") {
+					if (libs_to_find.has(f)) {
+						lib_paths.push_back(parent_dir.path_join(f));
+					}
+				}
+				f = da->get_next();
+			}
+		}
+		if (lib_paths.size() == 0) {
+			// if we're on MacOS, try one path up
+			if (parent_dir.get_file() == "Resources") {
+				parent_dir = parent_dir.get_base_dir();
+				lib_paths = gdreutil::get_recursive_dir_list(parent_dir, libs_to_find, true);
+			}
+			if (lib_paths.size() == 0) {
+				WARN_PRINT("Failed to find gdextension libraries for plugin " + plugin_dir);
+				return ERR_BUG;
+			}
+		}
+		// copy all of the libraries to the plugin directory
+		Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+		bool found_our_platform = false;
+		for (String path : lib_paths) {
+			String lib_name = path.get_file();
+			String lib_dir_path = output_dir.path_join(lib_to_parentdir[lib_name]);
+			if (!da->dir_exists(lib_dir_path)) {
+				ERR_FAIL_COND_V_MSG(da->make_dir_recursive(lib_dir_path), ERR_FILE_CANT_WRITE, "Failed to make plugin directory " + lib_dir_path);
+			}
+			String dest_path = lib_dir_path.path_join(lib_name);
+			ERR_FAIL_COND_V_MSG(da->copy(path, dest_path), ERR_FILE_CANT_WRITE, "Failed to copy library " + path + " to " + dest_path);
+			if (lib_to_platform[lib_name] == our_platform) {
+				found_our_platform = true;
+			}
+		}
+		if (!found_our_platform) {
+			WARN_PRINT("Failed to find library for our platform for plugin " + plugin_dir);
+			return ERR_PRINTER_ON_FIRE;
+		}
+		return OK;
+	};
+	bool is_gdext = false;
+	bool found_our_platform = false;
+	if (get_ver_major() >= 3) {
+		// check if this is a gdextension/gdnative plugin
+		static const Vector<String> gdext_wildcards = { "*.gdextension", "*.gdnlib" };
+		auto gdexts = gdreutil::get_recursive_dir_list(abs_plugin_path, gdext_wildcards, true);
+		if (gdexts.size() > 0) {
+			is_gdext = true;
+		}
+		for (String gdext : gdexts) {
+			err = copy_gdext_dll_func(gdext);
+			if (!err) {
+				found_our_platform = true;
+			}
+		}
+		// gdextension/gdnative plugins may not have a main script, and no plugin.cfg
+		if (gd_scripts.is_empty()) {
+			return found_our_platform ? OK : ERR_PRINTER_ON_FIRE;
+		}
+	}
+
 	for (int j = 0; j < gd_scripts.size(); j++) {
 		String gd_script_abs_path = abs_plugin_path.path_join(gd_scripts[j]);
 		String gd_text = FileAccess::get_file_as_string(gd_script_abs_path, &err);
@@ -493,7 +626,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
 	f->store_string(plugin_cfg_text);
 	print_line("Recreated plugin config for " + plugin_dir);
-	return OK;
+	return found_our_platform ? OK : ERR_PRINTER_ON_FIRE;
 }
 
 // Recreates the "plugin.cfg" files for each plugin to avoid loading errors.
@@ -515,8 +648,13 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 	da->list_dir_end();
 	for (int i = 0; i < dirs.size(); i++) {
 		err = recreate_plugin_config(output_dir, dirs[i]);
-		if (err) {
+		if (err == ERR_PRINTER_ON_FIRE) {
+			// we successfully copied the dlls, but failed to find one for our platform
+			WARN_PRINT("Failed to find library for this platform for plugin " + dirs[i]);
+			failed_gdnative_copy.push_back(dirs[i]);
+		} else if (err) {
 			WARN_PRINT("Failed to recreate plugin.cfg for " + dirs[i]);
+			failed_plugin_cfg_create.push_back(dirs[i]);
 		}
 	}
 	return OK;
@@ -991,6 +1129,21 @@ String ImportExporter::get_session_notes() {
 		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
 		report += "Note: consider just asking the creator if you wish to add a translation\n";
 	}
+
+	if (!failed_gdnative_copy.is_empty() || !failed_plugin_cfg_create.is_empty()) {
+		if (!unsup.is_empty() || !translation_export_message.is_empty()) {
+			report += "-------\n";
+		}
+		report += "The following addons failed to have their libraries copied or plugin.cfg regenerated:\n";
+		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
+			report += "- " + failed_gdnative_copy[i] + String("\n");
+		}
+		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
+			report += "- " + failed_plugin_cfg_create[i] + String("\n");
+		}
+		report += "You may encounter editor errors due to this.\n";
+		report += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
+	}
 	return report;
 }
 String ImportExporter::get_editor_message() {
@@ -1042,6 +1195,21 @@ String ImportExporter::get_report() {
 			for (int i = 0; i < lossy_imports.size(); i++) {
 				report += lossy_imports[i]->get_path() + String("\n");
 			}
+		}
+	}
+	if (failed_plugin_cfg_create.size() > 0) {
+		report += "------\n";
+		report += "\nThe following plugins failed to have their plugin.cfg regenerated:" + String("\n");
+		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
+			report += failed_plugin_cfg_create[i] + String("\n");
+		}
+	}
+
+	if (failed_gdnative_copy.size() > 0) {
+		report += "------\n";
+		report += "\nThe following native plugins failed to have their libraries copied:" + String("\n");
+		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
+			report += failed_gdnative_copy[i] + String("\n");
 		}
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
