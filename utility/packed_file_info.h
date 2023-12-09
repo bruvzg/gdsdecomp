@@ -126,10 +126,6 @@ private:
 			path = path.replace("\"", "_");
 			malformed_path = true;
 		}
-		if (path.find("\'") >= 0) {
-			path = path.replace("\'", "_");
-			malformed_path = true;
-		}
 
 		// add the prefix back
 		if (prefix != "") {
