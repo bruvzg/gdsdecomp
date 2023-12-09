@@ -108,7 +108,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		if (!iinfo->get_source_file().begins_with("res://")) {
 			if (get_ver_major() <= 2) {
 				// import_md_path is the resource path in v2
-				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
+				iinfo->set_export_dest(String("res://.assets").path_join(
+					iinfo->get_import_md_path().get_base_dir().path_join(
+						iinfo->get_source_file().get_file()
+					).replace("res://", "")
+				));
 			} else {
 				// import_md_path is the .import/.remap path in v3-v4
 				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
@@ -464,27 +468,34 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	wildcards.push_back("*.gd");
 	String abs_plugin_path = output_dir.path_join("addons").path_join(plugin_dir);
 	auto gd_scripts = gdreutil::get_recursive_dir_list(abs_plugin_path, wildcards, false);
-	String main_script;
-	for (int j = 0; j < gd_scripts.size(); j++) {
-		String gd_script_abs_path = abs_plugin_path.path_join(gd_scripts[j]);
-		String gd_text = FileAccess::get_file_as_string(gd_script_abs_path, &err);
-		ERR_FAIL_COND_V_MSG(err, err, "failed to open gd_script " + gd_script_abs_path + "!");
-		if (gd_text.find("extends EditorPlugin") != -1) {
-			main_script = gd_scripts[j];
-			break;
+	String main_script = "";
+	if (gd_scripts.size() > 1) {
+		for (int j = 0; j < gd_scripts.size(); j++) {
+			String gd_script_abs_path = abs_plugin_path.path_join(gd_scripts[j]);
+			String gd_text = FileAccess::get_file_as_string(gd_script_abs_path, &err);
+			ERR_FAIL_COND_V_MSG(err, err, "failed to open gd_script " + gd_script_abs_path + "!");
+			if (gd_text.find("extends EditorPlugin") != -1) {
+				main_script = gd_scripts[j];
+				break;
+			}
 		}
+	} else if (gd_scripts.size() == 1) {
+		main_script = gd_scripts[0];
 	}
-	ERR_FAIL_COND_V_MSG(main_script == "", ERR_FILE_NOT_FOUND, "Failed to find main script for plugin " + plugin_dir + "!");
-	String plugin_cfg_text = String("[plugin]\n\n") +
-			"name=\"" + plugin_dir.replace("_", " ").replace(".", " ") + "\"\n" +
-			"description=\"" + plugin_dir.replace("_", " ").replace(".", " ") + " plugin\"\n" +
-			"author=\"Unknown\"\n" +
-			"version=\"1.0\"\n" +
-			"script=\"" + main_script + "\"";
-	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.path_join("plugin.cfg"), FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
-	f->store_string(plugin_cfg_text);
-	print_line("Recreated plugin config for " + plugin_dir);
+	if (main_script != "") {
+		String plugin_cfg_text = String("[plugin]\n\n") +
+				"name=\"" + plugin_dir.replace("_", " ").replace(".", " ") + "\"\n" +
+				"description=\"" + plugin_dir.replace("_", " ").replace(".", " ") + " plugin\"\n" +
+				"author=\"Unknown\"\n" +
+				"version=\"1.0\"\n" +
+				"script=\"" + main_script + "\"";
+		Ref<FileAccess> f = FileAccess::open(abs_plugin_path.path_join("plugin.cfg"), FileAccess::WRITE, &err);
+		ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
+		f->store_string(plugin_cfg_text);
+		print_line("Recreated plugin config for " + plugin_dir);
+	} else {
+		print_line("Failed to find main script for plugin " + plugin_dir + ", ignoring it!");
+	}
 	return OK;
 }
 
@@ -1037,15 +1048,15 @@ String ImportExporter::get_report() {
 	}
 	if (failed_rewrite_md.size() > 0) {
 		report += "------\n";
-		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
-		report += "These files will not be re-imported when loading the project." + String("\n");
+		report += "\nThe following file(s) were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
+		report += "They will not be re-imported when loading the project." + String("\n");
 		for (int i = 0; i < failed_rewrite_md.size(); i++) {
 			report += failed_rewrite_md[i]->get_path() + " to " + failed_rewrite_md[i]->get_export_dest() + String("\n");
 		}
 	}
 	if (not_converted.size() > 0) {
 		report += "------\n";
-		report += "\nThe following files were not converted because support has not been implemented yet:" + String("\n");
+		report += "\nThe following file(s) were not converted because support has not been implemented yet:" + String("\n");
 		for (int i = 0; i < not_converted.size(); i++) {
 			report += not_converted[i]->get_path() + String("\n");
 		}
