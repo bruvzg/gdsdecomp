@@ -93,6 +93,7 @@ protected:
 	int format_ver = 0;
 	bool not_an_import = false;
 	bool auto_converted_export = false;
+	bool dirty = false;
 	String preferred_import_path;
 	String export_dest;
 	String export_lossless_copy;
@@ -113,6 +114,7 @@ public:
 	int get_ver_minor() const { return ver_minor; }
 	bool is_auto_converted() const { return auto_converted_export; }
 	bool is_import() const { return !not_an_import; }
+	bool is_dirty() const { return dirty; }
 
 	String get_import_md_path() const { return import_md_path; }
 	void set_import_md_path(const String &p_path) { import_md_path = p_path; }
