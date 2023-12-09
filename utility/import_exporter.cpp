@@ -23,6 +23,7 @@
 #include "modules/regex/regex.h"
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
 #include "scene/resources/audio_stream_wav.h"
+#include "scene/resources/font.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
 
 GDRESettings *get_settings() {
@@ -181,6 +182,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				not_converted.push_back(iinfo);
 				not_exported = true;
 			}
+		} else if (importer == "font_data_dynamic") {
+			err = export_fontfile(output_dir, iinfo);
 		} else if (importer == "csv_translation") {
 			err = export_translation(output_dir, iinfo);
 		} else if (importer == "wavefront_obj") {
@@ -657,6 +660,23 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 			failed_plugin_cfg_create.push_back(dirs[i]);
 		}
 	}
+	return OK;
+}
+
+Error ImportExporter::export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo) {
+	Error err;
+	Ref<FontFile> fontfile = ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to load font file " + iinfo->get_path());
+	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
+	err = ensure_dir(out_path.get_base_dir());
+	ERR_FAIL_COND_V(err, err);
+	Ref<FileAccess> f = FileAccess::open(out_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V(err, err);
+	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
+	// just get the raw data and write it; TTF files are stored as raw data in the fontdata file
+	PackedByteArray data = fontfile->get_data();
+	f->store_buffer(data.ptr(), data.size());
+	f->flush();
 	return OK;
 }
 

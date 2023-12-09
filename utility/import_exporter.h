@@ -49,6 +49,7 @@ class ImportExporter : public RefCounted {
 
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
+	Error export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
 	Error export_translation(const String &output_dir, Ref<ImportInfo> &iinfo);
