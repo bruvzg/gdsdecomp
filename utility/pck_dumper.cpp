@@ -137,6 +137,9 @@ Error PckDumper::_pck_dump_to_dir(
 		}
 		fa->flush();
 		files_extracted++;
+		if (files.get(i)->is_malformed() && files.get(i)->get_raw_path() != files.get(i)->get_path()) {
+			print_line("Warning: " + files.get(i)->get_raw_path() + " is a malformed path!\nSaving to " + files.get(i)->get_path() + " instead.");
+		}
 		print_verbose("Extracted " + target_name);
 	}
 
