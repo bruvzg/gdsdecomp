@@ -69,12 +69,12 @@ protected:
 		WINDOWS,
 		GODOT
 	};
-	virtual String as_text() const;
 	virtual _TYPE get_type() const { return STRICT; }
 	static bool parse_digit_only_field(const String &p_field, uint64_t &r_result);
 	static void _bind_methods();
 
 public:
+	virtual String as_text() const;
 	virtual int cmp(const Ref<SemVer> &p_b) const;
 	// strict comparison; if the build data is different, the versions are considered different
 	bool eq(const Ref<SemVer> &b) const {
@@ -202,10 +202,10 @@ class GodotVer : public SemVer {
 #endif
 protected:
 	virtual int cmp(const Ref<SemVer> &p_b) const override;
-	virtual String as_text() const override;
 	static void _bind_methods();
 
 public:
+	virtual String as_text() const override;
 	bool is_not_custom_build();
 	static bool parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver);
 	static Ref<GodotVer> parse(const String &p_ver_text);

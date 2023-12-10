@@ -3,6 +3,7 @@
 #include "import_info.h"
 #include "packed_file_info.h"
 #include "pcfg_loader.h"
+#include "utility/godotver.h"
 
 #include "core/config/project_settings.h"
 #include "core/io/logger.h"
@@ -50,31 +51,33 @@ public:
 
 	private:
 		String pack_file = "";
-		uint32_t ver_major = 0;
-		uint32_t ver_minor = 0;
-		uint32_t ver_rev = 0;
+		Ref<GodotVer> version;
 		uint32_t fmt_version = 0;
 		uint32_t pack_flags = 0;
 		uint64_t file_base = 0;
 		uint32_t file_count = 0;
 		PackType type = PCK;
-		String version_string = "unknown";
 		Ref<ProjectConfigLoader> pcfg;
 
 	public:
 		void init(
-				String f, uint32_t vmaj, uint32_t vmin, uint32_t vrev, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, String ver_string, PackType tp) {
+				String f, Ref<GodotVer> godot_ver, uint32_t fver, uint32_t flags, uint64_t base, uint32_t count, PackType tp) {
 			pack_file = f;
-			ver_major = vmaj;
-			ver_minor = vmin;
-			ver_rev = vrev;
+			// copy the version, or set it to null if it's invalid
+			if (godot_ver.is_valid() && godot_ver->is_valid_semver()) {
+				version = GodotVer::create(godot_ver->get_major(), godot_ver->get_minor(), godot_ver->get_patch(), godot_ver->get_prerelease(), godot_ver->get_build_metadata());
+			} else {
+				version.instantiate();
+			}
 			fmt_version = fver;
 			pack_flags = flags;
 			file_base = base;
 			file_count = count;
-			version_string = ver_string;
 			type = tp;
 			pcfg.instantiate();
+		}
+		bool has_unknown_version() {
+			return !version.is_valid() || !version->is_valid_semver();
 		}
 		void set_project_config() {
 		}
@@ -119,6 +122,7 @@ private:
 	Error load_dir(const String &p_path);
 	Error unload_dir();
 	void fix_patch_number();
+	bool has_valid_version() const;
 
 protected:
 	static void _bind_methods();
@@ -142,14 +146,14 @@ public:
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
 	Array get_file_info_array(const Vector<String> &filters = Vector<String>());
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
-	PackInfo::PackType get_pack_type();
-	String get_pack_path();
-	uint32_t get_pack_format();
-	String get_version_string();
-	uint32_t get_ver_major();
-	uint32_t get_ver_minor();
-	uint32_t get_ver_rev();
-	uint32_t get_file_count();
+	PackInfo::PackType get_pack_type() const;
+	String get_pack_path() const;
+	uint32_t get_pack_format() const;
+	String get_version_string() const;
+	uint32_t get_ver_major() const;
+	uint32_t get_ver_minor() const;
+	uint32_t get_ver_rev() const;
+	uint32_t get_file_count() const;
 	void set_ver_rev(uint32_t p_rev);
 	String globalize_path(const String &p_path, const String &resource_path = "") const;
 	String localize_path(const String &p_path, const String &resource_path = "") const;

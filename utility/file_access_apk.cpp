@@ -200,10 +200,9 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	packages.push_back(pkg);
 	int pkg_num = packages.size() - 1;
 	uint32_t asset_count = 0;
-	uint32_t version = 1;
-	uint32_t ver_major = 0;
-	uint32_t ver_minor = 0;
-	uint32_t ver_rev = 0;
+	uint32_t fmt_ver = 1;
+	Ref<GodotVer> godot_ver;
+	godot_ver.instantiate();
 	String ver_string = "unknown";
 	bool need_version_from_bin_resource = false;
 	for (uint64_t i = 0; i < gi.number_entry; i++) {
@@ -221,19 +220,16 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		if (is_apk) {
 			if (original_fname == "AndroidManifest.xml") {
 				files[original_fname] = f;
-				get_version_string_from_manifest(ver_string);
-				if (ver_string == "unknown") {
+				if (get_version_string_from_manifest(ver_string) != OK) {
+					WARN_PRINT("Failed to parse APK manifest!");
+				}
+				if (ver_string == "unknown" || ver_string.is_empty()) {
 					// Godot 2.x did not set a version string in the manifest, and there's no other easy way to get it
 					// get it from the bin resources
 					WARN_PRINT("Could not retrieve version string from AndroidManifest.xml");
+				} else {
+					godot_ver = GodotVer::parse(ver_string);
 				}
-				PackedStringArray sa = ver_string.split(".", false);
-				if (sa.size() < 3 && ver_string != "unknown") {
-					WARN_PRINT("Version number in manifest is mangled");
-				}
-				ver_major = sa.size() >= 1 ? sa[0].to_int() : 0;
-				ver_minor = sa.size() >= 2 ? sa[1].to_int() : 0;
-				ver_rev = sa.size() >= 3 ? sa[2].to_int() : 0;
 
 				// reset the position
 				unzGoToFilePos(zfile, &f.file_pos);
@@ -278,7 +274,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	}
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
-	pckinfo->init(pack_path, ver_major, ver_minor, ver_rev, version, 0, 0, asset_count, ver_string, is_apk ? GDRESettings::PackInfo::APK : GDRESettings::PackInfo::ZIP);
+	pckinfo->init(pack_path, godot_ver, fmt_ver, 0, 0, asset_count, is_apk ? GDRESettings::PackInfo::APK : GDRESettings::PackInfo::ZIP);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	return true;

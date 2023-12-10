@@ -260,26 +260,29 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	}
 	String ver_string;
 
+	Ref<GodotVer> godot_ver;
 	if (ver_major < 2) {
 		// it is very unlikely that we will encounter Godot 1.x games in the wild.
 		// This is likely a pck created with a creation tool.
 		// We need to determine the version number from the binary resources.
 		// (if it is 1.x, we'll determine that through the binary resources too)
 		ver_major = 0;
-		ver_string = "unknown";
-	} else if (ver_major < 3 || (ver_major == 3 && ver_minor < 2)) {
-		// they only started writing the actual patch number in 3.2
-		ver_string = itos(ver_major) + "." + itos(ver_minor) + ".x";
+		godot_ver.instantiate();
 	} else {
-		ver_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev);
+		if (ver_major < 3 || (ver_major == 3 && ver_minor < 2)) {
+			// they only started writing the actual patch number in 3.2
+			ver_string = itos(ver_major) + "." + itos(ver_minor);
+		} else {
+			ver_string = itos(ver_major) + "." + itos(ver_minor) + "." + itos(ver_rev);
+		}
+		godot_ver = GodotVer::parse(ver_string);
 	}
 
 	// Everything worked, now set the data
 	Ref<GDRESettings::PackInfo> pckinfo;
 	pckinfo.instantiate();
 	pckinfo->init(
-			pck_path, ver_major, ver_minor, ver_rev, version, pack_flags, file_base, file_count,
-			ver_string, is_exe ? GDRESettings::PackInfo::EXE : GDRESettings::PackInfo::PCK);
+			pck_path, godot_ver, version, pack_flags, file_base, file_count, is_exe ? GDRESettings::PackInfo::EXE : GDRESettings::PackInfo::PCK);
 	GDRESettings::get_singleton()->add_pack_info(pckinfo);
 
 	for (uint32_t i = 0; i < file_count; i++) {
