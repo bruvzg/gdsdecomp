@@ -32,6 +32,7 @@ class ImportExporter : public RefCounted {
 	bool opt_write_md5_files = true;
 
 	bool had_encryption_error = false;
+	bool godotsteam_detected = false;
 	Vector<String> decompiled_scripts;
 	Vector<String> failed_scripts;
 	String translation_export_message;

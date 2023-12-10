@@ -393,21 +393,27 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	switch (revision) {
 		case 0xed80f45:
 			patch_version = "3-6";
+			get_settings()->set_ver_rev(6);
 			break;
 		case 0x85585c7:
 			patch_version = "2";
+			get_settings()->set_ver_rev(2);
 			break;
 		case 0x7124599:
 			patch_version = "0-1";
+			get_settings()->set_ver_rev(1);
 			break;
 		case 0x1a36141:
 			patch_version = "0";
+			get_settings()->set_ver_rev(0);
 			break;
 		case 0x514a3fb:
 			patch_version = "1";
+			get_settings()->set_ver_rev(1);
 			break;
 		case 0x1ca61a3:
 			patch_version = "0-beta";
+			get_settings()->set_ver_rev(0);
 			break;
 		default:
 			// default is already "x"
@@ -651,6 +657,9 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 	}
 	da->list_dir_end();
 	for (int i = 0; i < dirs.size(); i++) {
+		if (dirs[i].contains("godotsteam")) {
+			godotsteam_detected = true;
+		}
 		err = recreate_plugin_config(output_dir, dirs[i]);
 		if (err == ERR_PRINTER_ON_FIRE) {
 			// we successfully copied the dlls, but failed to find one for our platform
@@ -1169,11 +1178,19 @@ String ImportExporter::get_session_notes() {
 		report += "You may encounter editor errors due to this.\n";
 		report += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
 	}
+	if (get_ver_major() == 2) {
+		// Godot 2.x's assets are all exported to .assets
+		report += "-------\n";
+		report += "All exported assets can be found in the '.assets' directory in the project folder.\n";
+	}
 	return report;
 }
 String ImportExporter::get_editor_message() {
 	String report = "";
-	report += "Use Godot editor version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + " to edit the project." + String("\n");
+	report += "Use Godot editor version " + get_settings()->get_version_string() + String(godotsteam_detected ? "(steam version) " : "") + " to edit the project." + String("\n");
+	if (godotsteam_detected) {
+		report += "GodotSteam can be found here: https://github.com/CoaguCo-Industries/GodotSteam/releases \n";
+	}
 	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
 	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
 	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");

@@ -223,6 +223,15 @@ uint32_t GDRESettings::get_ver_rev() {
 uint32_t GDRESettings::get_file_count() {
 	return is_pack_loaded() ? current_pack->file_count : 0;
 }
+// Minor hack to compensate for the fact that we can't detect the patch versions for 2.x-3.1 during pck loading
+// This gets called by the ImportExporter when it detects the script bytecode version
+void GDRESettings::set_ver_rev(uint32_t p_rev) {
+	if (is_pack_loaded()) {
+		current_pack->ver_rev = p_rev;
+	}
+	// TODO: make this use semver
+	current_pack->version_string = itos(current_pack->ver_major) + "." + itos(current_pack->ver_minor) + "." + itos(current_pack->ver_rev);
+}
 void GDRESettings::set_project_path(const String &p_path) {
 	project_path = p_path;
 }
