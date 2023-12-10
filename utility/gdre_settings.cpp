@@ -475,6 +475,15 @@ Error GDRESettings::get_version_from_bin_resources() {
 		if (ver_major == _res_ver_major && _res_ver_minor == ver_minor) {
 			consistent_versions++;
 		} else {
+			if (ver_major != _res_ver_major) {
+				WARN_PRINT_ONCE("WARNING!!!!! Inconsistent major versions in binary resources!");
+				if (ver_major < _res_ver_major) {
+					ver_major = _res_ver_major;
+					ver_minor = _res_ver_minor;
+				}
+			} else if (ver_minor < _res_ver_minor) {
+				ver_minor = _res_ver_minor;
+			}
 			inconsistent_versions++;
 		}
 	}
