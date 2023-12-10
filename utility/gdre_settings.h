@@ -132,14 +132,14 @@ public:
 	bool is_pack_loaded() const;
 
 	void _set_error_encryption(bool is_encryption_error);
-	void set_encryption_key(Vector<uint8_t> key);
-	void set_encryption_key_string(const String &key);
+	Error set_encryption_key(Vector<uint8_t> key);
+	Error set_encryption_key_string(const String &key);
 	void reset_encryption_key();
 	void add_pack_info(Ref<PackInfo> packinfo);
 	void add_pack_file(const Ref<PackedFileInfo> &f_info);
 
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
-	Array get_file_info_array(const Vector<String> &filters);
+	Array get_file_info_array(const Vector<String> &filters = Vector<String>());
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
 	PackInfo::PackType get_pack_type();
 	String get_pack_path();
@@ -183,6 +183,7 @@ public:
 	Error save_project_config(const String &p_out_dir);
 	bool pack_has_project_config();
 	float get_auto_display_scale() const;
+	String get_gdre_version() const;
 	static GDRESettings *get_singleton();
 	GDRESettings();
 	~GDRESettings();

@@ -12,7 +12,6 @@
 #include "compat/oggstr_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "editor/gdre_editor.h"
-#include "utility/gdre_cli_main.h"
 #include "utility/gdre_settings.h"
 #include "utility/import_exporter.h"
 #include "utility/pck_dumper.h"
@@ -42,7 +41,6 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ImportExporter>();
 	ClassDB::register_class<OggStreamLoaderCompat>();
 	ClassDB::register_class<TextureLoaderCompat>();
-	ClassDB::register_class<GDRECLIMain>();
 	ClassDB::register_class<GDRESettings>();
 
 	ClassDB::register_class<PackDialog>();
@@ -50,7 +48,6 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ScriptCompDialog>();
 	ClassDB::register_class<ScriptDecompDialog>();
 
-	Engine::get_singleton()->add_singleton(Engine::Singleton("GDRECLIMain", memnew(GDRECLIMain)));
 	Engine::get_singleton()->add_singleton(Engine::Singleton("GDRESettings", memnew(GDRESettings)));
 
 #ifdef TOOLS_ENABLED

@@ -512,9 +512,9 @@ void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 void GDRESettings::_set_error_encryption(bool is_encryption_error) {
 	error_encryption = is_encryption_error;
 }
-void GDRESettings::set_encryption_key_string(const String &key_str) {
+Error GDRESettings::set_encryption_key_string(const String &key_str) {
 	String skey = key_str.replace_first("0x", "");
-	ERR_FAIL_COND_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, "not a valid key");
+	ERR_FAIL_COND_V_MSG(!skey.is_valid_hex_number(false) || skey.size() < 64, ERR_INVALID_PARAMETER, "not a valid key");
 
 	Vector<uint8_t> key;
 	key.resize(32);
@@ -542,8 +542,8 @@ void GDRESettings::set_encryption_key_string(const String &key_str) {
 	set_encryption_key(key);
 }
 
-void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
-	ERR_FAIL_COND_MSG(key.size() < 32, "key size incorrect!");
+Error GDRESettings::set_encryption_key(Vector<uint8_t> key) {
+	ERR_FAIL_COND_V_MSG(key.size() < 32, ERR_INVALID_PARAMETER, "Key must be 32 bytes!");
 	if (!set_key) {
 		memcpy(old_key, script_encryption_key, 32);
 	}
@@ -551,6 +551,7 @@ void GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 	set_key = true;
 	enc_key = key;
 	enc_key_str = String::hex_encode_buffer(key.ptr(), 32);
+	return OK;
 }
 
 Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
@@ -1069,6 +1070,10 @@ bool GDRESettings::pack_has_project_config() {
 	return false;
 }
 
+String GDRESettings::get_gdre_version() const {
+	return GDRE_VERSION;
+}
+
 void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_pack", "p_path"), &GDRESettings::load_pack);
 	ClassDB::bind_method(D_METHOD("unload_pack"), &GDRESettings::unload_pack);
@@ -1077,12 +1082,13 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_encryption_key_string"), &GDRESettings::get_encryption_key_string);
 	ClassDB::bind_method(D_METHOD("is_pack_loaded"), &GDRESettings::is_pack_loaded);
 	ClassDB::bind_method(D_METHOD("_set_error_encryption", "is_encryption_error"), &GDRESettings::_set_error_encryption);
-	ClassDB::bind_method(D_METHOD("set_encryption_key", "key"), &GDRESettings::set_encryption_key_string);
+	ClassDB::bind_method(D_METHOD("set_encryption_key_string", "key"), &GDRESettings::set_encryption_key_string);
+	ClassDB::bind_method(D_METHOD("set_encryption_key", "key"), &GDRESettings::set_encryption_key);
 	ClassDB::bind_method(D_METHOD("reset_encryption_key"), &GDRESettings::reset_encryption_key);
 	ClassDB::bind_method(D_METHOD("add_pack_info", "packinfo"), &GDRESettings::add_pack_info);
 	ClassDB::bind_method(D_METHOD("add_pack_file", "f_info"), &GDRESettings::add_pack_file);
-	ClassDB::bind_method(D_METHOD("get_file_list", "filters"), &GDRESettings::get_file_list);
-	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array);
+	ClassDB::bind_method(D_METHOD("get_file_list", "filters"), &GDRESettings::get_file_list, DEFVAL(Vector<String>()));
+	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_pack_type"), &GDRESettings::get_pack_type);
 	ClassDB::bind_method(D_METHOD("get_pack_path"), &GDRESettings::get_pack_path);
 	ClassDB::bind_method(D_METHOD("get_pack_format"), &GDRESettings::get_pack_format);
@@ -1123,6 +1129,7 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_project_config"), &GDRESettings::load_project_config);
 	ClassDB::bind_method(D_METHOD("save_project_config", "p_out_dir"), &GDRESettings::save_project_config);
 	ClassDB::bind_method(D_METHOD("pack_has_project_config"), &GDRESettings::pack_has_project_config);
+	ClassDB::bind_method(D_METHOD("get_gdre_version"), &GDRESettings::get_gdre_version);
 	// ClassDB::bind_method(D_METHOD("get_auto_display_scale"), &GDRESettings::get_auto_display_scale);
 }
 
