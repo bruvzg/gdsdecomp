@@ -199,39 +199,45 @@ bool GDRESettings::is_pack_loaded() const {
 void GDRESettings::add_pack_file(const Ref<PackedFileInfo> &f_info) {
 	file_map.insert(f_info->path, f_info);
 }
-
-GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() {
+bool GDRESettings::has_valid_version() const {
+	return is_pack_loaded() && current_pack->version.is_valid() && current_pack->version->is_valid_semver();
+}
+GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() const {
 	return is_pack_loaded() ? current_pack->type : PackInfo::UNKNOWN;
 }
-String GDRESettings::get_pack_path() {
+String GDRESettings::get_pack_path() const {
 	return is_pack_loaded() ? current_pack->pack_file : "";
 }
-uint32_t GDRESettings::get_pack_format() {
+uint32_t GDRESettings::get_pack_format() const {
 	return is_pack_loaded() ? current_pack->fmt_version : 0;
 }
-String GDRESettings::get_version_string() {
-	return is_pack_loaded() ? current_pack->version_string : String();
+String GDRESettings::get_version_string() const {
+	return has_valid_version() ? current_pack->version->as_text() : String();
 }
-uint32_t GDRESettings::get_ver_major() {
-	return is_pack_loaded() ? current_pack->ver_major : 0;
+uint32_t GDRESettings::get_ver_major() const {
+	return has_valid_version() ? current_pack->version->get_major() : 0;
 }
-uint32_t GDRESettings::get_ver_minor() {
-	return is_pack_loaded() ? current_pack->ver_minor : 0;
+uint32_t GDRESettings::get_ver_minor() const {
+	return has_valid_version() ? current_pack->version->get_minor() : 0;
 }
-uint32_t GDRESettings::get_ver_rev() {
-	return is_pack_loaded() ? current_pack->ver_rev : 0;
+uint32_t GDRESettings::get_ver_rev() const {
+	return has_valid_version() ? current_pack->version->get_patch() : 0;
 }
-uint32_t GDRESettings::get_file_count() {
+uint32_t GDRESettings::get_file_count() const {
 	return is_pack_loaded() ? current_pack->file_count : 0;
 }
-// Minor hack to compensate for the fact that we can't detect the patch versions for 2.x-3.1 during pck loading
-// This gets called by the ImportExporter when it detects the script bytecode version
+
 void GDRESettings::set_ver_rev(uint32_t p_rev) {
 	if (is_pack_loaded()) {
-		current_pack->ver_rev = p_rev;
+		if (!has_valid_version()) {
+			current_pack->version = Ref<GodotVer>(memnew(GodotVer(0, 0, p_rev)));
+		} else {
+			current_pack->version->set_patch(p_rev);
+			if (current_pack->version->get_build_metadata() == "x") {
+				current_pack->version->set_build_metadata("");
+			}
+		}
 	}
-	// TODO: make this use semver
-	current_pack->version_string = itos(current_pack->ver_major) + "." + itos(current_pack->ver_minor) + "." + itos(current_pack->ver_rev);
 }
 void GDRESettings::set_project_path(const String &p_path) {
 	project_path = p_path;
@@ -301,8 +307,7 @@ void GDRESettings::fix_patch_number() {
 			set_ver_rev(1);
 			break;
 		case 0x1ca61a3: // 3.1.beta
-			set_ver_rev(0);
-			current_pack->version_string = "3.1.0-beta";
+			current_pack->version = GodotVer::parse("3.1.0-beta5");
 			break;
 		default:
 			break;
@@ -336,8 +341,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 	Ref<PackInfo> pckinfo;
 	pckinfo.instantiate();
 	pckinfo->init(
-			p_path, 0, 0, 0, 1, 0, 0, pa.size(),
-			"unknown", PackInfo::DIR);
+			p_path, Ref<GodotVer>(memnew(GodotVer)), 1, 0, 0, pa.size(), PackInfo::DIR);
 	// Need to get version number from binary resources
 
 	add_pack_info(pckinfo);
@@ -435,7 +439,7 @@ Error GDRESettings::load_pack(const String &p_path) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
-	if (get_version_string() == "unknown") {
+	if (!has_valid_version()) {
 		err = get_version_from_bin_resources();
 		// this is a catastrophic failure, unload the pack
 		if (err) {
@@ -483,9 +487,8 @@ Error GDRESettings::get_version_from_bin_resources() {
 		ver_major = get_ver_major_from_dir();
 		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
 	}
-	current_pack->ver_major = ver_major;
-	current_pack->ver_minor = ver_minor;
-	current_pack->version_string = itos(ver_major) + "." + itos(ver_minor) + ".x";
+
+	current_pack->version = GodotVer::create(ver_major, ver_minor, 0);
 	return OK;
 }
 
@@ -798,7 +801,7 @@ String GDRESettings::get_res_path(const String &p_path, const String &resource_d
 bool GDRESettings::has_any_remaps() const {
 	if (is_pack_loaded()) {
 		// version 3-4
-		if (current_pack->ver_major >= 3) {
+		if (get_ver_major() >= 3) {
 			if (remap_iinfo.size() > 0) {
 				return true;
 			}
@@ -814,7 +817,7 @@ bool GDRESettings::has_any_remaps() const {
 //only works on 2.x right now
 bool GDRESettings::has_remap(const String &src, const String &dst) const {
 	if (is_pack_loaded()) {
-		if (current_pack->ver_major >= 3) {
+		if (get_ver_major() >= 3) {
 			String remap_file = localize_path(src) + ".remap";
 			if (remap_iinfo.has(remap_file)) {
 				if (dst.is_empty()) {
@@ -838,7 +841,7 @@ bool GDRESettings::has_remap(const String &src, const String &dst) const {
 //only works on 2.x right now
 Error GDRESettings::add_remap(const String &src, const String &dst) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
-	if (current_pack->ver_major >= 3) {
+	if (get_ver_major() >= 3) {
 		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Adding Remaps is not supported in 3.x-4.x packs yet!");
 	} else {
 		ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
@@ -855,7 +858,7 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
 	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
 	Error err;
-	if (current_pack->ver_major >= 3) {
+	if (get_ver_major() >= 3) {
 		ERR_FAIL_COND_V_MSG(output_dir.is_empty(), ERR_INVALID_PARAMETER, "Output directory must be specified for 3.x-4.x packs!");
 		String remap_file = localize_path(src) + ".remap";
 		if (remap_iinfo.has(remap_file)) {
