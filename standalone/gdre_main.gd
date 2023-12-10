@@ -32,7 +32,6 @@ func get_arg_value(arg):
 
 func normalize_path(path: String):
 	return path.replace("\\","/")
-	
 # func print_import_info_from_pak(pak_file: String):
 # 	var pckdump = PckDumper.new()
 # 	pckdump.load_pck(pak_file)
@@ -129,9 +128,26 @@ func print_usage():
 	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
 	print("--ignore-checksum-errors\t\tIgnore MD5 checksum errors when extracting/recovering")
+	print("--translation-only\t\tOnly extract translation files")
 
 # TODO: remove this hack
 var translation_only = false
+
+func copy_dir(src:String, dst:String) -> int:
+	var da:DirAccess = DirAccess.open(src)
+	if !da.dir_exists(src):
+		print("Error: " + src + " does not appear to be a directory")
+		return ERR_FILE_NOT_FOUND
+	da.make_dir_recursive(dst)
+	da.copy_dir(src, dst)
+	return OK
+
+func get_cli_abs_path(path:String) -> String:
+	if path.is_absolute_path():
+		return path
+	var exec_path = GDRESettings.get_exec_dir()
+	var abs_path = exec_path.path_join(path)
+	return abs_path
 
 func recovery(  input_file:String,
 				output_dir:String,
@@ -141,13 +157,13 @@ func recovery(  input_file:String,
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
-	input_file = GDRECLIMain.get_cli_abs_path(input_file)
+	input_file = get_cli_abs_path(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
 		if output_dir.get_extension():
 			output_dir += "_recovery"
 	else:
-		output_dir = GDRECLIMain.get_cli_abs_path(output_dir)
+		output_dir = get_cli_abs_path(output_dir)
 
 	da = DirAccess.open(input_file.get_base_dir())
 
@@ -163,26 +179,26 @@ func recovery(  input_file:String,
 		print("Error: failed to locate " + input_file)
 		return
 
-	GDRECLIMain.open_log(output_dir)
+	GDRESettings.open_log_file(output_dir)
 	if (enc_key != ""):
-		err = GDRECLIMain.set_key(enc_key)
+		err = GDRESettings.set_encryption_key_string(enc_key)
 		if (err != OK):
 			print("Error: failed to set key!")
 			return
 	
-	err = GDRECLIMain.load_pack(input_file)
+	err = GDRESettings.load_pack(input_file)
 	if (err != OK):
 		print("Error: failed to open " + input_file)
 		return
 
 	print("Successfully loaded PCK!") 
-	ver_major = GDRECLIMain.get_engine_version().split(".")[0].to_int()
-	ver_minor = GDRECLIMain.get_engine_version().split(".")[1].to_int()
-	var version:String = GDRECLIMain.get_engine_version()
+	ver_major = GDRESettings.get_ver_major()
+	ver_minor = GDRESettings.get_ver_minor()
+	var version:String = GDRESettings.get_version_string()
 	print("Version: " + version)
 	var files: PackedStringArray = []
 	if (translation_only):
-		files = GDRECLIMain.get_loaded_files()
+		files = GDRESettings.get_file_list()
 		var new_files:PackedStringArray = []
 		# remove all the non ".translation" files
 		for i in range(files.size()-1, -1, -1):
@@ -199,7 +215,7 @@ func recovery(  input_file:String,
 		if extract_only:
 			print("Why did you open a folder to extract it??? What's wrong with you?!!?")
 			return
-		if GDRECLIMain.copy_dir(input_file, output_dir) != OK:
+		if copy_dir(input_file, output_dir) != OK:
 			print("Error: failed to copy " + input_file + " to " + output_dir)
 			return
 	else:
@@ -212,7 +228,15 @@ func recovery(  input_file:String,
 	export_imports(output_dir, files)
 
 func print_version():
-	print("Godot RE Tools " + GDRECLIMain.get_gdre_version())
+	print("Godot RE Tools " + GDRESettings.get_gdre_version())
+
+func close_log():
+	var path = GDRESettings.get_log_file_path()
+	if path == "":
+		return
+	GDRESettings.close_log_file()
+	print("Log file written to: " + path)
+	print("Please include this file when reporting issues!")
 
 func handle_cli() -> bool:
 	var args = OS.get_cmdline_args()
@@ -250,17 +274,17 @@ func handle_cli() -> bool:
 
 	if input_file != "":
 		recovery(input_file, output_dir, enc_key, false, ignore_md5)
-		GDRECLIMain.clear_data()
-		GDRECLIMain.close_log()
+		GDRESettings.unload_pack()
+		close_log()
 		get_tree().quit()
 	elif input_extract_file != "":
 		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5)
-		GDRECLIMain.clear_data()
-		GDRECLIMain.close_log()
+		GDRESettings.unload_pack()
+		close_log()
 		get_tree().quit()
 	elif txt_to_bin != "":
-		txt_to_bin = GDRECLIMain.get_cli_abs_path(txt_to_bin)
-		output_dir = GDRECLIMain.get_cli_abs_path(output_dir)
+		txt_to_bin = get_cli_abs_path(txt_to_bin)
+		output_dir = get_cli_abs_path(output_dir)
 		test_text_to_bin(txt_to_bin, output_dir)
 		get_tree().quit()
 	else:
