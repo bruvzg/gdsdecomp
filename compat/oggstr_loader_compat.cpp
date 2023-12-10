@@ -36,12 +36,15 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 	ogg_packet *pkt;
 	ogg_stream_state os_en;
 	ogg_stream_init(&os_en, rand());
+
 	int page_cursor = 0;
 	bool reached_eos = false;
-	bool force_break = false;
 	r_data.resize_zeroed(total_estimated_size);
-	// next_ogg_packet is broken and will keep returning packets after EOS
-	while (playback->next_ogg_packet(&pkt)) {
+	while (page_cursor < page_sizes.size() && !reached_eos) {
+		if (!playback->next_ogg_packet(&pkt)) {
+			WARN_PRINT("next_ogg_packet returned false, breaking...");
+			break;
+		}
 		int page_size = 4096;
 		page_size = page_sizes[page_cursor];
 		if (pkt->e_o_s) {
@@ -49,7 +52,10 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 		}
 		ogg_stream_packetin(&os_en, pkt);
 		ERR_FAIL_COND_V_MSG(ogg_stream_check(&os_en), ERR_FILE_CORRUPT, "Ogg stream is corrupt.");
-		if (os_en.body_fill >= page_size) {
+		if (os_en.body_fill >= page_size || reached_eos) {
+			if (os_en.body_fill < page_size) {
+				WARN_PRINT("Reached EOS: Recorded page size is " + itos(page_size) + " but body fill is " + itos(os_en.body_fill) + ".");
+			}
 			ogg_page og;
 			ERR_FAIL_COND_V_MSG(ogg_stream_flush_fill(&os_en, &og, page_size) == 0, ERR_FILE_CORRUPT, "Could not add page.");
 			int cur_pos = total_acc_size;
@@ -62,9 +68,6 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 			memcpy(r_data.ptrw() + cur_pos, og.header, og.header_len);
 			memcpy(r_data.ptrw() + cur_pos + og.header_len, og.body, og.body_len);
 			page_cursor++;
-			if (page_cursor >= page_sizes.size() || reached_eos) {
-				break;
-			}
 		}
 	}
 	if (total_actual_body_size != total_pagedata_body_size) {
