@@ -58,7 +58,7 @@ Error GDRELogger::open_file(const String &p_base_path) {
 	Error err;
 	file = FileAccess::open(p_base_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(file.is_null(), err, "Failed to open log file " + p_base_path + " for writing.");
-	base_path = p_base_path;
+	base_path = p_base_path.simplify_path();
 	return OK;
 }
 
