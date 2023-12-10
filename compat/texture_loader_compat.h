@@ -7,6 +7,8 @@
 #include "core/io/resource_loader.h"
 #include "core/object/ref_counted.h"
 #include "core/templates/vector.h"
+#include "scene/resources/atlas_texture.h"
+#include "scene/resources/compressed_texture.h"
 #include "scene/resources/texture.h"
 
 class TextureLoaderCompat : public RefCounted {

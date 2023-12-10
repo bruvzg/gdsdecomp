@@ -22,6 +22,7 @@
 #include "scene/gui/progress_bar.h"
 #include "scene/gui/text_edit.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/resources/image_texture.h"
 
 #ifdef TOOLS_ENABLED
 class EditorNode;
