@@ -199,7 +199,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 
 		// ****REWRITE METADATA****
-		if ((err == ERR_PRINTER_ON_FIRE || ((err == OK && should_rewrite_metadata)) && iinfo->is_import())) {
+		if (err == ERR_PRINTER_ON_FIRE || ((err == OK && should_rewrite_metadata) && iinfo->is_import())) {
 			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
 				// TODO: handle v2 imports with more than one source, like atlas textures
 				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
