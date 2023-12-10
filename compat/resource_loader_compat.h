@@ -166,7 +166,7 @@ protected:
 	// TODO: make a fake_load() or something so we don't have to do this
 	friend class TextureLoaderCompat;
 	friend class OggStreamLoaderCompat;
-
+	friend class SampleLoaderCompat;
 	struct ExtResource {
 		String path;
 		String type;
@@ -261,6 +261,7 @@ protected:
 	//TODO: make a fake_load() or something so we don't have to do this
 	friend class TextureLoaderCompat;
 	friend class OggStreamLoaderCompat;
+	friend class SampleLoaderCompat;
 	static RBMap<String, String> _get_file_info(Ref<FileAccess> f, Error *r_error);
 	Error load_import_metadata();
 	static Error _get_resource_header(Ref<FileAccess> f);

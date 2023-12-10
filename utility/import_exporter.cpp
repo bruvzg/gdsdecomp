@@ -5,6 +5,7 @@
 #include "compat/oggstr_loader_compat.h"
 #include "compat/optimized_translation_extractor.h"
 #include "compat/resource_loader_compat.h"
+#include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
@@ -909,16 +910,12 @@ Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &
 }
 
 Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	if (iinfo->get_ver_major() == 2) {
-		WARN_PRINT_ONCE("Godot 2.x sample to wav conversion not yet implemented");
-		report_unsupported_resource("Sample", "v2", iinfo->get_path());
-		return ERR_UNAVAILABLE;
-	}
+	Error err = convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->get_export_dest());
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert sample " + iinfo->get_path() + " to WAV");
 	if (iinfo->get_import_loss_type() != ImportInfo::LOSSLESS) {
 		// We convert from ADPCM to 16-bit, so we need to make sure we reimport as lossless to avoid quality loss
 		iinfo->set_param("compress/mode", 0);
 	}
-	convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 	return OK;
 }
 
@@ -1067,120 +1064,13 @@ void ImportExporter::report_unsupported_resource(const String &type, const Strin
 	if (!suppress_print)
 		print_line("Did not convert " + type + " resource " + import_path);
 }
-struct IMA_ADPCM_State {
-	int16_t step_index = 0;
-	int32_t predictor = 0;
-	/* values at loop point */
-	int16_t loop_step_index = 0;
-	int32_t loop_predictor = 0;
-	int32_t last_nibble = -1;
-	int32_t loop_pos = 0x7FFFFFFF;
-	int32_t window_ofs = 0;
-};
-
-struct IntAudioFrame {
-	int16_t l;
-	int16_t r;
-};
-
-Error convert_idapcm_to_16bit(const Ref<AudioStreamWAV> &sample, PackedByteArray &dest_data) {
-	IMA_ADPCM_State p_ima_adpcm[2];
-	int32_t final, final_r, next, next_r;
-	int64_t p_offset = 0;
-	int64_t p_increment = 1;
-	auto data = sample->get_data();
-	bool is_stereo = sample->is_stereo();
-	int64_t p_amount = data.size() * (is_stereo ? 1 : 2);
-	dest_data.resize(p_amount * sizeof(int16_t) * (is_stereo ? 2 : 1));
-	int16_t *dest = (int16_t *)dest_data.ptrw();
-	while (p_amount) {
-		p_amount--;
-		int64_t pos = p_offset;
-
-		while (pos > p_ima_adpcm[0].last_nibble) {
-			static const int16_t _ima_adpcm_step_table[89] = {
-				7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
-				19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
-				50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
-				130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
-				337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
-				876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
-				2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
-				5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
-				15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
-			};
-
-			static const int8_t _ima_adpcm_index_table[16] = {
-				-1, -1, -1, -1, 2, 4, 6, 8,
-				-1, -1, -1, -1, 2, 4, 6, 8
-			};
-
-			for (int i = 0; i < (is_stereo ? 2 : 1); i++) {
-				int16_t nibble, diff, step;
-
-				p_ima_adpcm[i].last_nibble++;
-				const uint8_t *src_ptr = (const uint8_t *)data.ptr();
-				// src_ptr += AudioStreamWAV::DATA_PAD;
-				int source_index = (p_ima_adpcm[i].last_nibble >> 1) * (is_stereo ? 2 : 1) + i;
-				uint8_t nbb = src_ptr[source_index];
-				nibble = (p_ima_adpcm[i].last_nibble & 1) ? (nbb >> 4) : (nbb & 0xF);
-				step = _ima_adpcm_step_table[p_ima_adpcm[i].step_index];
-
-				p_ima_adpcm[i].step_index += _ima_adpcm_index_table[nibble];
-				if (p_ima_adpcm[i].step_index < 0) {
-					p_ima_adpcm[i].step_index = 0;
-				}
-				if (p_ima_adpcm[i].step_index > 88) {
-					p_ima_adpcm[i].step_index = 88;
-				}
-
-				diff = step >> 3;
-				if (nibble & 1) {
-					diff += step >> 2;
-				}
-				if (nibble & 2) {
-					diff += step >> 1;
-				}
-				if (nibble & 4) {
-					diff += step;
-				}
-				if (nibble & 8) {
-					diff = -diff;
-				}
-
-				p_ima_adpcm[i].predictor += diff;
-				if (p_ima_adpcm[i].predictor < -0x8000) {
-					p_ima_adpcm[i].predictor = -0x8000;
-				} else if (p_ima_adpcm[i].predictor > 0x7FFF) {
-					p_ima_adpcm[i].predictor = 0x7FFF;
-				}
-
-				//printf("%i - %i - pred %i\n",int(p_ima_adpcm[i].last_nibble),int(nibble),int(p_ima_adpcm[i].predictor));
-			}
-		}
-
-		final = p_ima_adpcm[0].predictor;
-		if (is_stereo) {
-			final_r = p_ima_adpcm[1].predictor;
-		}
-
-		*dest = final;
-		dest++;
-		if (is_stereo) {
-			*dest = final_r;
-			dest++;
-		}
-		p_offset += p_increment;
-	}
-	return OK;
-}
 
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 
-	Ref<AudioStreamWAV> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	Ref<AudioStreamWAV> sample = SampleLoaderCompat::load_wav(src_path, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
 
 	err = ensure_dir(dst_path.get_base_dir());
@@ -1188,11 +1078,7 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 
 	if (sample->get_format() == AudioStreamWAV::FORMAT_IMA_ADPCM) {
 		// convert to 16-bit
-		PackedByteArray new_data;
-		err = convert_idapcm_to_16bit(sample, new_data);
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert sample " + p_path + " to 16-bit");
-		sample->set_format(AudioStreamWAV::FORMAT_16_BITS);
-		sample->set_data(new_data);
+		sample = SampleLoaderCompat::convert_adpcm_to_16bit(sample);
 	}
 	err = sample->save_to_wav(dst_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);
