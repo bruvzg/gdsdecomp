@@ -307,7 +307,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	if (code_files.is_empty()) {
 		return OK;
 	}
-	String patch_version = "x";
 	uint64_t revision = 0;
 
 	// we don't consider the dev versions here, only the release/beta versions
@@ -327,14 +326,23 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				case 0:
 					revision = 0x23441ec;
 					break;
-				case 1:
-					// They broke compatibility for 2.1.x in successive patch releases. We have to detect the exact version.
-					// They didn't start writing the actual patch version to the PCK until 3.2, they wrote '0' regardless of the actual patch version, so we can't use that.
-					revision = BytecodeTester::test_files(code_files, 2, 1);
-					if (revision == 0) {
-						ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Failed to detect bytecode revision for 2.1.x scripts, please report this!");
+				case 1: {
+					switch (get_settings()->get_ver_rev()) {
+						case 0:
+						case 1:
+							revision = 0x7124599;
+							break;
+						case 2:
+							revision = 0x85585c7;
+							break;
+						case 3:
+						case 4:
+						case 5:
+						case 6:
+							revision = 0xed80f45;
+							break;
 					}
-					break;
+				} break;
 			}
 			break;
 		case 3:
@@ -343,10 +351,18 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 					revision = 0x54a2ac;
 					break;
 				case 1: {
-					// They broke compatibility for 3.1.x in successive patch releases. We have to detect the exact version.
-					revision = BytecodeTester::test_files(code_files, 3, 1);
-					if (revision == 0) {
-						ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Failed to detect bytecode version for 3.1.x scripts, please report this!");
+					// They broke compatibility for 3.1.x in successive patch releases.
+					if (get_settings()->get_version_string().contains("beta")) {
+						revision = 0x1ca61a3;
+					} else {
+						switch (get_settings()->get_ver_rev()) {
+							case 0:
+								revision = 0x1a36141;
+								break;
+							case 1:
+								revision = 0x514a3fb;
+								break;
+						}
 					}
 				} break;
 				case 2:
@@ -389,37 +405,8 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
-	// need to put the patch version in the string for 2.1.0-2.1.6 and 3.1.0-3.1.1
-	switch (revision) {
-		case 0xed80f45:
-			patch_version = "3-6";
-			get_settings()->set_ver_rev(6);
-			break;
-		case 0x85585c7:
-			patch_version = "2";
-			get_settings()->set_ver_rev(2);
-			break;
-		case 0x7124599:
-			patch_version = "0-1";
-			get_settings()->set_ver_rev(1);
-			break;
-		case 0x1a36141:
-			patch_version = "0";
-			get_settings()->set_ver_rev(0);
-			break;
-		case 0x514a3fb:
-			patch_version = "1";
-			get_settings()->set_ver_rev(1);
-			break;
-		case 0x1ca61a3:
-			patch_version = "0-beta";
-			get_settings()->set_ver_rev(0);
-			break;
-		default:
-			// default is already "x"
-			break;
-	}
-	print_line("Script version " + itos(get_ver_major()) + "." + itos(get_ver_minor()) + "." + patch_version + " (rev 0x" + String::num_int64(revision, 16) + ") detected");
+
+	print_line("Script version " + get_settings()->get_version_string() + " (rev 0x" + String::num_int64(revision, 16) + ") detected");
 	Error err;
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
