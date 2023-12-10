@@ -8,6 +8,7 @@
 #include "core/io/file_access.h"
 #include "core/io/resource.h"
 #include "core/io/resource_format_binary.h"
+#include "core/object/script_language.h"
 #include "core/variant/variant.h"
 #include "scene/resources/packed_scene.h"
 

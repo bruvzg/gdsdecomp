@@ -1,5 +1,6 @@
 #include "gdre_packed_source.h"
 #include "core/io/file_access_encrypted.h"
+#include "core/object/script_language.h"
 #include "gdre_settings.h"
 
 uint64_t get_offset_unix(const String &p_path) {
