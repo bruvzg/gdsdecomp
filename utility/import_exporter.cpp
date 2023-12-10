@@ -150,7 +150,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
 			err = export_sample(output_dir, iinfo);
-		} else if (opt_export_ogg && importer == "ogg_vorbis") {
+		} else if (opt_export_ogg && (importer == "ogg_vorbis" || importer == "oggvorbisstr")) {
 			err = convert_oggstr_to_ogg(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (opt_export_mp3 && importer == "mp3") {
 			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
