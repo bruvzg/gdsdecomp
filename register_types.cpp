@@ -14,6 +14,7 @@
 #include "editor/gdre_editor.h"
 #include "utility/gdre_settings.h"
 #include "utility/glob.h"
+#include "utility/godotver.h"
 #include "utility/import_exporter.h"
 #include "utility/pck_dumper.h"
 
@@ -44,6 +45,8 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRESettings>();
 	ClassDB::register_class<Glob>();
+	ClassDB::register_class<SemVer>();
+	ClassDB::register_class<GodotVer>();
 
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();
