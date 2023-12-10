@@ -167,6 +167,10 @@ func recovery(  input_file:String,
 
 	da = DirAccess.open(input_file.get_base_dir())
 
+	# check if da works
+	if da == null:
+		print("Error: failed to locate parent dir for " + input_file)
+		return
 	#directory
 	if da.dir_exists(input_file):
 		if !da.dir_exists(input_file.path_join(".import")):
