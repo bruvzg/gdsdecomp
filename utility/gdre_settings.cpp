@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+#include "bytecode/bytecode_tester.h"
 #include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
 #include "file_access_apk.h"
@@ -274,6 +275,40 @@ String get_standalone_pck_path() {
 	return exec_dir.path_join(exec_basename + ".pck");
 }
 
+void GDRESettings::fix_patch_number() {
+	if (!is_pack_loaded()) {
+		return;
+	}
+	// This is only implemented for 3.1 and 2.1; they started writing the correct patch number to the pck in 3.2
+	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1)) {
+		return;
+	}
+	auto revision = BytecodeTester::test_files(code_files, get_ver_major(), get_ver_minor());
+	switch (revision) {
+		case 0xed80f45: // 2.1.{3-6}
+			set_ver_rev(6);
+			break;
+		case 0x85585c7: // 2.1.2
+			set_ver_rev(2);
+			break;
+		case 0x7124599: // 2.1.{0-1}
+			set_ver_rev(1);
+			break;
+		case 0x1a36141: // 3.1.0
+			set_ver_rev(0);
+			break;
+		case 0x514a3fb: // 3.1.1
+			set_ver_rev(1);
+			break;
+		case 0x1ca61a3: // 3.1.beta
+			set_ver_rev(0);
+			current_pack->version_string = "3.1.0-beta";
+			break;
+		default:
+			break;
+	}
+}
+
 // This loads project directories by setting the global resource path to the project directory
 // We have to be very careful about this, this means that any GDRE resources we have loaded
 // could fail to reload if they somehow became unloaded while we were messing with the project.
@@ -320,6 +355,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 		err = load_project_config();
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
 	}
+	fix_patch_number();
 	return OK;
 }
 
@@ -413,6 +449,7 @@ Error GDRESettings::load_pack(const String &p_path) {
 		err = load_project_config();
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
 	}
+	fix_patch_number();
 	return OK;
 }
 

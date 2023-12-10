@@ -118,6 +118,7 @@ private:
 	Error _load_import_file(const String &p_path, bool should_load_md5);
 	Error load_dir(const String &p_path);
 	Error unload_dir();
+	void fix_patch_number();
 
 protected:
 	static void _bind_methods();
