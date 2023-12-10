@@ -374,6 +374,7 @@ public:
 	enum FormatType {
 		BINARY,
 		TEXT,
+		TEXTURE,
 		UNKNOWN,
 		FILE_ERROR
 	};

@@ -79,6 +79,81 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 	return FORMAT_NOT_TEXTURE;
 }
 
+int TextureLoaderCompat::get_ver_major_from_textype(TextureVersionType type) {
+	switch (type) {
+		case FORMAT_V2_TEXTURE:
+		case FORMAT_V2_IMAGE_TEXTURE:
+		case FORMAT_V2_ATLAS_TEXTURE:
+		case FORMAT_V2_LARGE_TEXTURE:
+		case FORMAT_V2_CUBEMAP:
+			return 2;
+		case FORMAT_V3_STREAM_TEXTURE2D:
+		case FORMAT_V3_STREAM_TEXTURE3D:
+		case FORMAT_V3_STREAM_TEXTUREARRAY:
+			return 3;
+		case FORMAT_V4_COMPRESSED_TEXTURE2D:
+		case FORMAT_V4_COMPRESSED_TEXTURE3D:
+		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
+			return 4;
+		default:
+			return -1;
+	}
+}
+
+TextureLoaderCompat::TextureType TextureLoaderCompat::get_texture_from_version_type(TextureVersionType type) {
+	switch (type) {
+		// layered
+		case FORMAT_V2_LARGE_TEXTURE:
+		case FORMAT_V2_CUBEMAP:
+		case FORMAT_V3_STREAM_TEXTUREARRAY:
+		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
+			return TEXTURE_TYPE_LAYERED;
+		// 3d
+		case FORMAT_V3_STREAM_TEXTURE3D:
+		case FORMAT_V4_COMPRESSED_TEXTURE3D:
+			return TEXTURE_TYPE_3D;
+		// 2d
+		case FORMAT_V2_TEXTURE:
+		case FORMAT_V2_IMAGE_TEXTURE:
+		case FORMAT_V3_STREAM_TEXTURE2D:
+		case FORMAT_V4_COMPRESSED_TEXTURE2D:
+			return TEXTURE_TYPE_2D;
+		case FORMAT_V2_ATLAS_TEXTURE:
+			return TEXTURE_TYPE_ATLAS;
+		default:
+			return TEXTURE_TYPE_UNKNOWN;
+	}
+}
+
+String TextureLoaderCompat::get_type_name_from_textype(TextureVersionType type) {
+	switch (type) {
+		case FORMAT_V2_TEXTURE:
+			return "Texture";
+		case FORMAT_V2_IMAGE_TEXTURE:
+			return "ImageTexture";
+		case FORMAT_V2_ATLAS_TEXTURE:
+			return "AtlasTexture";
+		case FORMAT_V2_LARGE_TEXTURE:
+			return "LargeTexture";
+		case FORMAT_V2_CUBEMAP:
+			return "CubeMap";
+		case FORMAT_V3_STREAM_TEXTURE2D:
+			return "StreamTexture";
+		case FORMAT_V3_STREAM_TEXTURE3D:
+			return "StreamTexture3D";
+		case FORMAT_V3_STREAM_TEXTUREARRAY:
+			return "StreamTextureArray";
+		case FORMAT_V4_COMPRESSED_TEXTURE2D:
+			return "CompressedTexture2D";
+		case FORMAT_V4_COMPRESSED_TEXTURE3D:
+			return "CompressedTexture3D";
+		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
+			return "CompressedTextureLayered";
+		default:
+			return "Unknown";
+	}
+}
+
 Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
 	Image::Format format;
 	if (!(df & FORMAT_BIT_STREAM)) {
@@ -602,29 +677,14 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const St
 		if (r_err) {
 			*r_err = err;
 		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<Image>());
+		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTextureLayered>(), "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V(err != OK, Ref<CompressedTextureLayered>());
 	}
 
-	int ver_major = 0;
-	switch (t) {
-		case FORMAT_V2_LARGE_TEXTURE:
-		case FORMAT_V2_CUBEMAP:
-			ver_major = 2;
-			break;
-		case FORMAT_V3_STREAM_TEXTUREARRAY:
-			ver_major = 3;
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
-			ver_major = 4;
-			break;
-		default:
-			if (r_err) {
-				*r_err = ERR_INVALID_PARAMETER;
-			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a layered texture: " + res_path);
-			break;
-	}
+	int ver_major = get_ver_major_from_textype(t);
+	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_LAYERED,
+			Ref<Image>(), "Not a layered texture: " + res_path);
+
 	Ref<CompressedTexture3D> texture;
 	Vector<Ref<Image>> r_data;
 	int type;
@@ -650,29 +710,14 @@ Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path
 		if (r_err) {
 			*r_err = err;
 		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<Image>());
+		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTexture3D>(), "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V(err != OK, Ref<CompressedTexture3D>());
 	}
 
-	int ver_major = 0;
-	switch (t) {
-		// TODO: what the hell does v2 use for 3d textures?
-		case FORMAT_V2_TEXTURE:
-			ver_major = 2;
-			break;
-		case FORMAT_V3_STREAM_TEXTURE3D:
-			ver_major = 3;
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURE3D:
-			ver_major = 4;
-			break;
-		default:
-			if (r_err) {
-				*r_err = ERR_INVALID_PARAMETER;
-			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 3d image texture: " + p_path);
-			break;
-	}
+	int ver_major = get_ver_major_from_textype(t);
+	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_3D,
+			Ref<CompressedTexture3D>(), "Not a 3d image texture: " + res_path);
+
 	Ref<CompressedTexture3D> texture;
 	Vector<Ref<Image>> r_data;
 
@@ -703,28 +748,14 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 		if (r_err) {
 			*r_err = err;
 		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<Image>());
+		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTexture2D>(), "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V(err != OK, Ref<CompressedTexture2D>());
 	}
 
-	int ver_major = 0;
-	switch (t) {
-		case FORMAT_V2_IMAGE_TEXTURE:
-			ver_major = 2;
-			break;
-		case FORMAT_V3_STREAM_TEXTURE2D:
-			ver_major = 3;
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURE2D:
-			ver_major = 4;
-			break;
-		default:
-			if (r_err) {
-				*r_err = ERR_INVALID_PARAMETER;
-			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + res_path);
-			break;
-	}
+	int ver_major = get_ver_major_from_textype(t);
+	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_2D,
+			Ref<Image>(), "Not a 2d image texture: " + res_path);
+
 	Ref<CompressedTexture2D> texture;
 	Ref<Image> image;
 	bool size_override = false;
@@ -748,6 +779,49 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 	return texture;
 }
 
+Ref<Texture> TextureLoaderCompat::load_texture(const String p_path, Error *r_err) {
+	Error err;
+	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
+	if (t == FORMAT_NOT_TEXTURE) {
+		if (r_err) {
+			*r_err = err;
+		}
+		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Texture>(), "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V(err != OK, Ref<Texture>());
+	}
+
+	Ref<Texture> texture;
+	switch (get_texture_from_version_type(t)) {
+		case TEXTURE_TYPE_2D:
+			texture = load_texture2d(p_path, &err);
+			break;
+		case TEXTURE_TYPE_3D:
+			texture = load_texture3d(p_path, &err);
+			break;
+		case TEXTURE_TYPE_LAYERED:
+			texture = load_texture_layered(p_path, &err);
+			break;
+		case TEXTURE_TYPE_ATLAS: {
+			if (r_err) {
+				*r_err = ERR_UNAVAILABLE;
+			}
+			ERR_FAIL_V_MSG(Ref<Texture>(), "Atlas texture loading not yet supported! : " + res_path);
+		} break;
+		default: { // UNKNOWN
+			if (r_err) {
+				*r_err = ERR_FILE_UNRECOGNIZED;
+			}
+			ERR_FAIL_V_MSG(Ref<Texture>(), "Unknown texture type : " + res_path);
+		} break;
+	}
+	if (r_err) {
+		*r_err = err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
+	return texture;
+}
+
 // TODO: What to do with this?
 Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error *r_err) {
 	Error err;
@@ -764,26 +838,14 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 	}
 	int type;
 	Ref<Resource> res;
-	switch (t) {
-		// TODO: what the hell does v2 use for 3d textures?
-		case FORMAT_V2_TEXTURE:
-			_load_texture3d(res_path, data, &err, 2);
+	int ver_major = get_ver_major_from_textype(t);
+	auto textype = get_texture_from_version_type(t);
+	switch (textype) {
+		case TEXTURE_TYPE_3D:
+			res = _load_texture3d(res_path, data, &err, ver_major);
 			break;
-		case FORMAT_V3_STREAM_TEXTURE3D:
-			_load_texture3d(res_path, data, &err, 3);
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURE3D:
-			_load_texture3d(res_path, data, &err, 4);
-			break;
-		case FORMAT_V2_LARGE_TEXTURE:
-		case FORMAT_V2_CUBEMAP:
-			_load_texture_layered(res_path, data, type, &err, 2);
-			break;
-		case FORMAT_V3_STREAM_TEXTUREARRAY:
-			_load_texture_layered(res_path, data, type, &err, 3);
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
-			_load_texture_layered(res_path, data, type, &err, 4);
+		case TEXTURE_TYPE_LAYERED:
+			res = _load_texture_layered(res_path, data, type, &err, ver_major);
 			break;
 		default:
 			if (r_err) {
@@ -812,24 +874,10 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 		ERR_FAIL_COND_V(err != OK, Ref<Image>());
 	}
 
-	int ver_major = 0;
-	switch (t) {
-		case FORMAT_V2_IMAGE_TEXTURE:
-			ver_major = 2;
-			break;
-		case FORMAT_V3_STREAM_TEXTURE2D:
-			ver_major = 3;
-			break;
-		case FORMAT_V4_COMPRESSED_TEXTURE2D:
-			ver_major = 4;
-			break;
-		default:
-			if (r_err) {
-				*r_err = ERR_INVALID_PARAMETER;
-			}
-			ERR_FAIL_V_MSG(Ref<Image>(), "Not a 2d image texture: " + res_path);
-			break;
-	}
+	int ver_major = get_ver_major_from_textype(t);
+	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_2D,
+			Ref<Image>(), "Not a 2d image texture: " + res_path);
+
 	Ref<Image> image;
 	image.instantiate();
 	bool size_override;

@@ -65,17 +65,11 @@ Error ResourceFormatLoaderCompat::convert_bin_to_txt(const String &p_path, const
 // This is really only for loading certain resources to view them, and debugging.
 // This is not suitable for conversion of resources
 Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const String &project_dir, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
-	Error err = ERR_FILE_CANT_OPEN;
+	Error err = OK;
 	if (!r_error) {
 		r_error = &err;
 	} else {
 		*r_error = err;
-	}
-	if (p_path.get_extension() == "tex" || // 2.x
-			p_path.get_extension() == "stex" || // 3.x
-			p_path.get_extension() == "ctex") { // 4.x
-		TextureLoaderCompat rflct;
-		return rflct.load_texture2d(p_path, r_error);
 	}
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path, project_dir);
 	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, project_dir);
@@ -90,6 +84,9 @@ Ref<Resource> ResourceFormatLoaderCompat::load(const String &p_path, const Strin
 		}
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
 		loader = _open_text(p_path, project_dir, false, r_error, r_progress);
+	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXTURE) {
+		TextureLoaderCompat rflct;
+		return rflct.load_texture(p_path, r_error);
 	} else {
 		ERR_FAIL_V_MSG(Ref<Resource>(), "failed to open resource '" + p_path + "'.");
 	}
@@ -143,6 +140,13 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
 		loader = _open_text(p_path, base_dir, true, &error, nullptr);
 		i_info.is_text = true;
+	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXTURE) {
+		auto textype = TextureLoaderCompat::recognize(p_path, &error);
+		i_info.type = TextureLoaderCompat::get_type_name_from_textype(textype);
+		i_info.ver_major = TextureLoaderCompat::get_ver_major_from_textype(textype);
+		i_info.ver_minor = 0;
+		i_info.suspect = false;
+		return OK;
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_CANT_OPEN, "Could not recognize resource '" + p_path + "'.");
 	}
@@ -267,6 +271,12 @@ ResourceFormatLoaderCompat::FormatType ResourceFormatLoaderCompat::recognize(con
 	if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
 			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		return ResourceFormatLoaderCompat::FormatType::BINARY;
+	} else if (header[0] == 'G' && (header[1] == 'D' || header[1] == 'S')) {
+		// texture
+		auto ext = p_path.get_extension().to_lower();
+		if (ext.contains("cube") || ext.contains("tex") || ext.contains("atlas")) {
+			return ResourceFormatLoaderCompat::FormatType::TEXTURE;
+		}
 	}
 	f->seek(0);
 	VariantParser::StreamFile stream;

@@ -27,6 +27,13 @@ public:
 		FORMAT_V4_COMPRESSED_TEXTURE3D, //ctex3d
 		FORMAT_V4_COMPRESSED_TEXTURELAYERED //ctexarray, ccube, ccubearray
 	};
+	enum TextureType {
+		TEXTURE_TYPE_UNKNOWN = -1,
+		TEXTURE_TYPE_2D,
+		TEXTURE_TYPE_3D,
+		TEXTURE_TYPE_LAYERED,
+		TEXTURE_TYPE_ATLAS
+	};
 
 private:
 	GDCLASS(TextureLoaderCompat, RefCounted);
@@ -49,11 +56,14 @@ protected:
 
 public:
 	static TextureVersionType recognize(const String &p_path, Error *r_err);
+	static int get_ver_major_from_textype(TextureVersionType type);
+	static TextureType get_texture_from_version_type(TextureVersionType type);
+	static String get_type_name_from_textype(TextureVersionType type);
 
 	Ref<CompressedTextureLayered> load_texture_layered(const String p_path, Error *r_err);
 	Ref<CompressedTexture3D> load_texture3d(const String p_path, Error *r_err);
 	Ref<CompressedTexture2D> load_texture2d(const String p_path, Error *r_err);
-
+	Ref<Texture> load_texture(const String p_path, Error *r_err);
 	Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error *r_err);
 	Ref<Image> load_image_from_tex(const String p_path, Error *r_err);
 	Ref<Image> load_image_from_bitmap(const String p_path, Error *r_err);
