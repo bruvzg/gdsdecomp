@@ -57,7 +57,7 @@ protected:
 public:
 	static TextureVersionType recognize(const String &p_path, Error *r_err);
 	static int get_ver_major_from_textype(TextureVersionType type);
-	static TextureType get_texture_from_version_type(TextureVersionType type);
+	static TextureType get_type_enum_from_version_type(TextureVersionType type);
 	static String get_type_name_from_textype(TextureVersionType type);
 
 	Ref<CompressedTextureLayered> load_texture_layered(const String p_path, Error *r_err);
