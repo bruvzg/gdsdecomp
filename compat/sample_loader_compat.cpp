@@ -22,7 +22,7 @@ Ref<AudioStreamWAV> SampleLoaderCompat::convert_adpcm_to_16bit(const Ref<AudioSt
 	new_sample->set_stereo(p_sample->is_stereo());
 
 	IMA_ADPCM_State p_ima_adpcm[2];
-	int32_t final, final_r, next, next_r;
+	int32_t final, final_r;
 	int64_t p_offset = 0;
 	int64_t p_increment = 1;
 	auto data = p_sample->get_data();
@@ -154,7 +154,7 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 	AudioStreamWAV::Format format;
 	AudioStreamWAV::LoopMode loop_mode;
 	bool stereo = false;
-	int loop_begin, loop_end, mix_rate, data_bytes;
+	int loop_begin, loop_end, mix_rate, data_bytes = 0;
 	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
 	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
 		ResourceProperty pe = PE->get();
@@ -178,6 +178,9 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 			if (dat.has("stereo")) {
 				stereo = dat["stereo"];
 			}
+			if (dat.has("length")) {
+				data_bytes = dat["length"];
+			}
 		} else if (pe.name == "loop_format") {
 			loop_mode = (AudioStreamWAV::LoopMode)(int)pe.value;
 		} else if (pe.name == "stereo") {
@@ -188,9 +191,13 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 			loop_end = pe.value;
 		} else if (pe.name == "mix_rate") {
 			mix_rate = pe.value;
-		} else if (pe.name == "length") {
-			data_bytes = pe.value;
 		}
+	}
+	if (data_bytes == 0) {
+		data_bytes = data.size();
+	} else if (data_bytes != data.size()) {
+		// TODO: something?
+		// WARN_PRINT("Data size mismatch: " + itos(data_bytes) + " vs " + itos(data.size()));
 	}
 	// create a new sample
 	Ref<AudioStreamWAV> sample = memnew(AudioStreamWAV);

@@ -139,7 +139,6 @@ uint64_t get_offset_windows(const String &p_path) {
 }
 
 bool seek_offset_from_exe(Ref<FileAccess> f, const String &p_path, uint64_t p_offset) {
-	uint64_t off = 0;
 	bool pck_header_found = false;
 	uint32_t magic = 0;
 	// Loading with offset feature not supported for self contained exe files.

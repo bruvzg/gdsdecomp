@@ -436,7 +436,7 @@ Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, i
 	uint32_t df = f->get_32(); //data format
 
 	//skip reserved
-	int mipmap_limit = int(f->get_32());
+	f->get_32(); // mipmap_limit, unused
 	//reserved
 	f->get_32();
 	f->get_32();

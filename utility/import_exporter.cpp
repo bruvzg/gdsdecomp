@@ -302,7 +302,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 	GDScriptDecomp *decomp;
 	// we have to remove remaps if they exist
 	bool has_remaps = get_settings()->has_any_remaps();
-	bool config_requires_resave = false;
 	Vector<String> code_files = get_settings()->get_code_files();
 	if (code_files.is_empty()) {
 		return OK;
@@ -582,15 +581,11 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 		}
 		return OK;
 	};
-	bool is_gdext = false;
 	bool found_our_platform = false;
 	if (get_ver_major() >= 3) {
 		// check if this is a gdextension/gdnative plugin
 		static const Vector<String> gdext_wildcards = { "*.gdextension", "*.gdnlib" };
 		auto gdexts = gdreutil::get_recursive_dir_list(abs_plugin_path, gdext_wildcards, true);
-		if (gdexts.size() > 0) {
-			is_gdext = true;
-		}
 		for (String gdext : gdexts) {
 			err = copy_gdext_dll_func(gdext);
 			if (!err) {

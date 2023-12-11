@@ -755,7 +755,6 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_1ca61a3::test_bytecode(Vecto
 	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
 
 	// pass case: built-in function shift caused by smoothstep is tested
-	bool tested_smoothstep_shift = false;
 	int token_count = tokens.size();
 	for (int i = 0; i < token_count; i++) {
 		if ((tokens[i] & TOKEN_MASK) == TK_BUILT_IN_FUNC) { // ignore all tokens until we find TK_BUILT_IN_FUNC

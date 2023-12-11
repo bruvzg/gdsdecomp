@@ -650,7 +650,7 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_7124599::test_bytecode(Vecto
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	Vector<uint32_t> tokens;
-	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
+	ERR_FAIL_COND_V_MSG(get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens) != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
 
 	int token_count = tokens.size();
 	for (int i = 0; i < token_count; i++) {

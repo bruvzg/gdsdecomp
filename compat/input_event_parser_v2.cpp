@@ -311,6 +311,8 @@ V2JoyButton convert_v4_joy_button_to_v2_joy_button(JoyButton jb) {
 			return V2InputEvent::JOY_DPAD_LEFT;
 		case JoyButton::DPAD_RIGHT:
 			return V2InputEvent::JOY_DPAD_RIGHT;
+		default:
+			return V2JoyButton(jb);
 	}
 	return V2JoyButton(jb);
 }
@@ -337,6 +339,8 @@ JoyButton convert_v2_joy_button_to_v4_joy_button(V2JoyButton jb) {
 			return JoyButton::DPAD_LEFT;
 		case V2InputEvent::JOY_DPAD_RIGHT:
 			return JoyButton::DPAD_RIGHT;
+		default:
+			return JoyButton(jb);
 	}
 	return JoyButton(jb);
 }
@@ -542,6 +546,7 @@ Error InputEventParserV2::decode_input_event(Variant &r_variant, const uint8_t *
 			}
 		} break;
 	}
+	ie->set_device(ie_device);
 	r_variant = ie;
 	return OK;
 }

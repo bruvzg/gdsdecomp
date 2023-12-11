@@ -589,6 +589,7 @@ Error GDRESettings::set_encryption_key_string(const String &key_str) {
 		key.write[i] = v;
 	}
 	set_encryption_key(key);
+	return OK;
 }
 
 Error GDRESettings::set_encryption_key(Vector<uint8_t> key) {

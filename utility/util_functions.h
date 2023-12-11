@@ -99,7 +99,6 @@ static Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 	}
 
 	const Vector<uint8_t> image_data = source_image->get_data();
-	const uint8_t *reader = image_data.ptr();
 	// we may be passed a buffer with existing content we're expected to append to
 	Error err;
 	_____tmp_file = FileAccess::open(p_path, FileAccess::WRITE, &err);
