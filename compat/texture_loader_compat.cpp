@@ -100,7 +100,7 @@ int TextureLoaderCompat::get_ver_major_from_textype(TextureVersionType type) {
 	}
 }
 
-TextureLoaderCompat::TextureType TextureLoaderCompat::get_texture_from_version_type(TextureVersionType type) {
+TextureLoaderCompat::TextureType TextureLoaderCompat::get_type_enum_from_version_type(TextureVersionType type) {
 	switch (type) {
 		// layered
 		case FORMAT_V2_LARGE_TEXTURE:
@@ -682,7 +682,7 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const St
 	}
 
 	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_LAYERED,
+	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_LAYERED,
 			Ref<Image>(), "Not a layered texture: " + res_path);
 
 	Ref<CompressedTexture3D> texture;
@@ -715,7 +715,7 @@ Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path
 	}
 
 	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_3D,
+	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_3D,
 			Ref<CompressedTexture3D>(), "Not a 3d image texture: " + res_path);
 
 	Ref<CompressedTexture3D> texture;
@@ -753,7 +753,7 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 	}
 
 	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_2D,
+	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_2D,
 			Ref<Image>(), "Not a 2d image texture: " + res_path);
 
 	Ref<CompressedTexture2D> texture;
@@ -792,7 +792,7 @@ Ref<Texture> TextureLoaderCompat::load_texture(const String p_path, Error *r_err
 	}
 
 	Ref<Texture> texture;
-	switch (get_texture_from_version_type(t)) {
+	switch (get_type_enum_from_version_type(t)) {
 		case TEXTURE_TYPE_2D:
 			texture = load_texture2d(p_path, &err);
 			break;
@@ -839,7 +839,7 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 	int type;
 	Ref<Resource> res;
 	int ver_major = get_ver_major_from_textype(t);
-	auto textype = get_texture_from_version_type(t);
+	auto textype = get_type_enum_from_version_type(t);
 	switch (textype) {
 		case TEXTURE_TYPE_3D:
 			res = _load_texture3d(res_path, data, &err, ver_major);
@@ -875,7 +875,7 @@ Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *
 	}
 
 	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_texture_from_version_type(t) != TEXTURE_TYPE_2D,
+	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_2D,
 			Ref<Image>(), "Not a 2d image texture: " + res_path);
 
 	Ref<Image> image;
