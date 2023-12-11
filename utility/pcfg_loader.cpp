@@ -64,7 +64,6 @@ Error ProjectConfigLoader::set_setting(String p_var, Variant value) {
 Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {
 	Error err;
 	uint8_t hdr[4];
-	int file_length = f->get_length();
 	int bytes_read = f->get_buffer(hdr, 4);
 	if (hdr[0] != 'E' || hdr[1] != 'C' || hdr[2] != 'F' || hdr[3] != 'G') {
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Corrupted header in binary project.binary (not ECFG).");

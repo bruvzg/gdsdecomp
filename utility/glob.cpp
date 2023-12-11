@@ -29,6 +29,7 @@
 #include "core/templates/hash_map.h"
 #include "modules/regex/regex.h"
 
+#include <functional>
 namespace {
 
 // SPECIAL_CHARS

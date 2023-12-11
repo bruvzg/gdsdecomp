@@ -8,7 +8,7 @@
 
 #include "bytecode_ed80f45.h"
 
-static constexpr char *func_names[] = {
+static const char *func_names[] = {
 
 	"sin",
 	"cos",
@@ -660,12 +660,11 @@ GDScriptDecomp::BYTECODE_TEST_RESULT GDScriptDecomp_ed80f45::test_bytecode(Vecto
 	Error err = get_ids_consts_tokens(buffer, bytecode_version, identifiers, constants, tokens);
 	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens from bytecode.");
 	int token_count = tokens.size();
-	bool tested_enum_case = false;
+
 	for (int i = 0; i < token_count; i++) {
 		// Test for the existence of the TK_PR_ENUM token
 		// the next token after TK_PR_ENUM should be TK_IDENTIFIER OR TK_CURLY_BRACKET_OPEN
 		if ((tokens[i] & TOKEN_MASK) == TK_PR_ENUM) { // ignore all tokens until we find TK_PR_ENUM
-			tested_enum_case = true;
 			if (i + 1 >= token_count) { // if we're at the end of the token list, then we don't have a valid enum token OR a valud TK_PR_PRELOAD token
 				return BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL;
 			}

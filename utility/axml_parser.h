@@ -18,16 +18,16 @@ class AXMLParser {
 	bool screen_support_large;
 	bool screen_support_xlarge;
 
-	int xr_mode_index;
-	int hand_tracking_index;
-	int hand_tracking_frequency_index;
+	// int xr_mode_index;
+	// int hand_tracking_index;
+	// int hand_tracking_frequency_index;
 
-	bool backup_allowed;
-	bool classify_as_game;
-	bool retain_data_on_uninstall;
-	bool exclude_from_recents;
-	bool is_resizeable;
-	bool has_read_write_storage_permission;
+	// bool backup_allowed;
+	// bool classify_as_game;
+	// bool retain_data_on_uninstall;
+	// bool exclude_from_recents;
+	// bool is_resizeable;
+	// bool has_read_write_storage_permission;
 
 	String xr_hand_tracking_metadata_name;
 	String xr_hand_tracking_metadata_value;

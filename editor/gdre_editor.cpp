@@ -515,7 +515,7 @@ void GodotREEditor::print_log(const String &p_text) {
 void GodotREEditor::print_warning(const String &p_text, const String &p_title, const String &p_sub_text) {
 	char timestamp[21];
 	OS::DateTime date = OS::get_singleton()->get_datetime();
-	sprintf(timestamp, "-%04d-%02d-%02d-%02d-%02d-%02d", (uint16_t)date.year, date.month, date.day, date.hour, date.minute, date.second);
+	snprintf(timestamp, sizeof(timestamp), "-%04d-%02d-%02d-%02d-%02d-%02d", (uint16_t)date.year, date.month, date.day, date.hour, date.minute, date.second);
 
 	Vector<String> lines = p_text.split("\n");
 	if (lines.size() > 1) {
@@ -783,7 +783,7 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		if (p_check_md5 && md5_error) {
 			icon = icons["REFileBroken"];
 			error_string += "MD5 mismatch";
-		} else if (file->is_malformed()) {
+		} else if (is_malformed) {
 			icon = icons["REFileBroken"];
 			error_string += String(error_string.length() > 0 ? ", " : "") + "Malformed_path";
 		} else if (!p_check_md5) {

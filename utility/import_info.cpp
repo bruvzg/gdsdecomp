@@ -110,7 +110,7 @@ Ref<ConfigFile> copy_config_file(Ref<ConfigFile> p_cf) {
 		String section = E->get();
 		List<String> *section_keys = memnew(List<String>);
 		p_cf->get_section_keys(section, section_keys);
-		for (auto F = section_keys->front(); F; F->next()) {
+		for (auto F = section_keys->front(); F; F = F->next()) {
 			String key = F->get();
 			r_cf->set_value(section, key, p_cf->get_value(section, key));
 		}
@@ -499,6 +499,9 @@ Error ImportInfov2::_load(const String &p_path) {
 	_ResourceInfo res_info;
 	preferred_import_path = p_path;
 	err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
+	if (err) {
+		ERR_FAIL_V_MSG(err, "Could not load resource info from " + p_path);
+	}
 	String dest;
 	String source_file;
 	String importer;

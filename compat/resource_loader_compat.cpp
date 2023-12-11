@@ -284,7 +284,9 @@ ResourceFormatLoaderCompat::FormatType ResourceFormatLoaderCompat::recognize(con
 	VariantParser::Tag tag;
 	int lines = 1;
 	String error_test;
-	Error err = VariantParserCompat::parse_tag(&stream, lines, error_test, tag);
+	if (VariantParserCompat::parse_tag(&stream, lines, error_test, tag) != OK) {
+		return ResourceFormatLoaderCompat::FormatType::UNKNOWN;
+	}
 	if (tag.name == "gd_scene" || tag.name == "gd_resource") {
 		return ResourceFormatLoaderCompat::FormatType::TEXT;
 	} else {
@@ -923,12 +925,10 @@ Error ResourceLoaderCompat::load() {
 		return error;
 	}
 
-	int stage = 0;
 	Vector<String> lines;
 	for (int i = 0; i < external_resources.size(); i++) {
 		error = load_ext_resource(i);
 		ERR_FAIL_COND_V_MSG(error != OK, error, "Can't load external resource " + external_resources[i].path);
-		stage++;
 	}
 
 	// On a fake load, we don't instance the internal resources here.
@@ -1044,8 +1044,6 @@ Error ResourceLoaderCompat::load() {
 		} else if (main) {
 			resource = res;
 		}
-
-		stage++;
 
 		if (progress) {
 			*progress = (i + 1) / float(internal_resources.size());
@@ -2727,7 +2725,6 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 	f = p_f;
 
 	stream.f = f;
-	bool ignore_resource_parsing = false;
 	resource_current = 0;
 
 	VariantParser::Tag tag;
@@ -3101,7 +3098,7 @@ Error ResourceLoaderCompat::fake_load_text() {
 	rp.ext_func = _parse_ext_resource_dummys;
 	rp.sub_func = _parse_sub_resource_dummys;
 	rp.userdata = this;
-	int lexndex = 0;
+
 	HashMap<int, int> ext_id_remap;
 	while (next_tag.name == "ext_resource") {
 		if (!next_tag.fields.has("path")) {
@@ -3139,7 +3136,6 @@ Error ResourceLoaderCompat::fake_load_text() {
 			return error;
 		}
 
-		lexndex++;
 		error = VariantParser::parse_tag(&stream, lines, error_text, next_tag, &rp);
 
 		if (error) {

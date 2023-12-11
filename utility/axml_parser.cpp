@@ -21,10 +21,10 @@ Error AXMLParser::parse_manifest(Vector<uint8_t> &p_manifest) {
 
 	uint32_t string_count = 0;
 	uint32_t string_flags = 0;
-	uint32_t string_data_offset = 0;
+	// uint32_t string_data_offset = 0;
 
-	uint32_t string_table_begins = 0;
-	uint32_t string_table_ends = 0;
+	// uint32_t string_table_begins = 0;
+	// uint32_t string_table_ends = 0;
 	Vector<uint8_t> stable_extra;
 
 	while (ofs < (uint32_t)p_manifest.size()) {
@@ -37,13 +37,13 @@ Error AXMLParser::parse_manifest(Vector<uint8_t> &p_manifest) {
 
 				string_count = decode_uint32(&p_manifest[iofs]);
 				string_flags = decode_uint32(&p_manifest[iofs + 8]);
-				string_data_offset = decode_uint32(&p_manifest[iofs + 12]);
+				/*string_data_offset = */ decode_uint32(&p_manifest[iofs + 12]);
 
 				uint32_t st_offset = iofs + 20;
 				string_table.resize(string_count);
 				uint32_t string_end = 0;
 
-				string_table_begins = st_offset;
+				/*string_table_begins = st_offset;*/
 
 				for (uint32_t i = 0; i < string_count; i++) {
 					uint32_t string_at = decode_uint32(&p_manifest[st_offset + i * 4]);
@@ -70,7 +70,7 @@ Error AXMLParser::parse_manifest(Vector<uint8_t> &p_manifest) {
 					stable_extra.push_back(p_manifest[i]);
 				}
 
-				string_table_ends = ofs + size;
+				// string_table_ends = ofs + size;
 
 			} break;
 			case CHUNK_XML_START_TAG: {
@@ -84,7 +84,6 @@ Error AXMLParser::parse_manifest(Vector<uint8_t> &p_manifest) {
 				String previous_value = "";
 
 				for (uint32_t i = 0; i < attrcount; i++) {
-					bool get_version_num = false;
 					uint32_t attr_nspace = decode_uint32(&p_manifest[iofs]);
 					uint32_t attr_name = decode_uint32(&p_manifest[iofs + 4]);
 					uint32_t attr_value = decode_uint32(&p_manifest[iofs + 8]);

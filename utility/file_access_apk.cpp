@@ -204,7 +204,6 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 	Ref<GodotVer> godot_ver;
 	godot_ver.instantiate();
 	String ver_string = "unknown";
-	bool need_version_from_bin_resource = false;
 	for (uint64_t i = 0; i < gi.number_entry; i++) {
 		char filename_inzip[256];
 
@@ -214,7 +213,8 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 
 		File f;
 		f.package = pkg_num;
-		int pos = unzGetFilePos(zfile, &f.file_pos);
+
+		unzGetFilePos(zfile, &f.file_pos);
 		String original_fname = String::utf8(filename_inzip);
 		String fname;
 		if (is_apk) {
