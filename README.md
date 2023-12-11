@@ -6,7 +6,7 @@
 
 ![Code Screenshot](images/screenshot.png)
 
-This module includes following tools:
+This module includes following features:
 
 - Full project recovery
 - PCK archive extractor / creator.
@@ -24,15 +24,6 @@ Full project recovery performs the following:
 This module has support for decompiling Godot 4.x, 3.x, and 2.x projects.
 
 Grab the latest release version from here: https://github.com/bruvzg/gdsdecomp/releases
-## Limitations
-
-Support has yet to be implemented for converting the following resources:
-- ADPCM wavs
-- Fonts
-- Translation files
-- Models (`obj`, `dae`, `fbx`, `glb`, etc.)
-
-In addition, it does not support decompiling any GDNative or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
 
 ## Usage
 
@@ -68,6 +59,17 @@ gdre_tools --headless --recover=game.pck
 
 Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
+## Limitations
+
+Support has yet to be implemented for converting the following resources:
+- Bitmap and image fonts (recovering 4.x TTF/OTF fontfiles is supported)
+- Models (`obj`, `dae`, `fbx`, `glb`, etc.)
+
+Support for converting certain resources is limited:
+- Recovered .csv translation files will likely have missing keys; this is due to `.translation` files only storing the hashes of the keys. It is recommended to just politely ask the developer if you want to add additional translations.
+
+In addition, it does not support decompiling any GDNative/GDExtension or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
+
 ## Compiling from source
 
 Clone this repository into Godot's `modules` subfolder as `gdsdecomp`.
@@ -77,7 +79,7 @@ For ease of bootstrapping development, we have included launch, build, and setti
 
 ### Requirements
 
-Godot 4.0 (master branch) @ 4.1.1-stable
+Godot 4.0 (master branch) @ daeb1c7292cbb426fd45c5ca98b1c7da40b390ba
 - Support for building on 3.x has been dropped and no new features are being pushed
 	- Godot RE Tools still retains the ability to decompile 3.x and 2.x projects, however.
 
