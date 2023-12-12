@@ -334,8 +334,10 @@ Error GDRESettings::load_dir(const String &p_path) {
 	da = da->open("res://");
 	project_path = p_path;
 	PackedStringArray pa = da->get_files_at("res://");
-	for (auto s : pa) {
-		print_verbose(s);
+	if (is_print_verbose_enabled()) {
+		for (auto s : pa) {
+			print_verbose(s);
+		}
 	}
 
 	Ref<PackInfo> pckinfo;
