@@ -1346,6 +1346,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 			NodePath path = state->get_node_path(i, true);
 			NodePath owner = state->get_node_owner_path(i);
 			Ref<Resource> instance = state->get_node_instance(i);
+			Vector<String> deferred_node_paths = state->get_node_deferred_nodepath_properties(i);
 
 			String instance_placeholder = state->get_node_instance_placeholder(i);
 			Vector<StringName> groups = state->get_node_groups(i);
@@ -1363,6 +1364,10 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 			}
 			if (index >= 0) {
 				header += " index=\"" + itos(index) + "\"";
+			}
+
+			if (deferred_node_paths.size()) {
+				header += " node_paths=" + Variant(deferred_node_paths).get_construct_string();
 			}
 
 			if (groups.size()) {
@@ -2905,6 +2910,15 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 				type = SceneState::TYPE_INSTANTIATED; // no type? assume this was instantiated
 			}
 
+			HashSet<StringName> path_properties;
+
+			if (next_tag.fields.has("node_paths")) {
+				Vector<String> paths = next_tag.fields["node_paths"];
+				for (int i = 0; i < paths.size(); i++) {
+					path_properties.insert(paths[i]);
+				}
+			}
+
 			if (next_tag.fields.has("instance")) {
 				instance = packed_scene->get_state()->add_value(next_tag.fields["instance"]);
 
@@ -2967,9 +2981,10 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 				}
 
 				if (!assign.is_empty()) {
+					StringName assign_name = assign;
 					int nameidx = packed_scene->get_state()->add_name(assign);
 					int valueidx = packed_scene->get_state()->add_value(value);
-					packed_scene->get_state()->add_node_property(node_id, nameidx, valueidx);
+					packed_scene->get_state()->add_node_property(node_id, nameidx, valueidx, path_properties.has(assign_name));
 
 					// We add the values to the resourceproperty list too, as while object properties will be correctly set,
 					// we can't get them out of the packed_scene if they're not instanced without traversing the node list,
