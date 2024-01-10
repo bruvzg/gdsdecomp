@@ -1160,11 +1160,13 @@ String ResourceLoaderCompat::_write_rlc_resource(const Ref<Resource> &res) {
 	// Godot 4.x ids are strings, Godot 3.x are integers
 	if (engine_ver_major >= 4) {
 		id = "\"" + id + "\"";
+	} else {
+		id = " " + id + " ";
 	}
 	if (has_internal_resource(path)) {
-		return "SubResource( " + id + " )";
+		return "SubResource(" + id + ")";
 	} else if (has_external_resource(path)) {
-		return "ExtResource( " + id + " )";
+		return "ExtResource(" + id + ")";
 	}
 	ERR_FAIL_V_MSG("null", "Resource was not pre cached for the resource section, bug?");
 }
