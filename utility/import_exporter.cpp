@@ -858,6 +858,7 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 	err = doc->append_from_scene(root, state, flags);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to append scene " + iinfo->get_path() + " to glTF document");
 	err = doc->write_to_filesystem(state, out_path);
+	root->queue_free();
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to write glTF document to " + out_path);
 	return ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
 }
