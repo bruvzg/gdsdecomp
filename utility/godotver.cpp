@@ -389,9 +389,11 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 #ifdef MODULE_REGEX_ENABLED
 	// this will match: "v1" "2" "1.1" "2.4.stable" "1.4.5.6" "3.4.0.stable" "3.4.5.stable.official.f9ac000d5"
 	// if this is not a Windows-type version number ("1.4.5.6"), then everything after the patch number will be build metadata as we can't use it for precedence.
+	//OLD: ^[vV]?(?P<major>0|[1-9]\\d*)(?:\\.(?P<minor>0|[1-9]\\d*))?(?:\\.(?P<patch>0|[1-9]\\d*))?(?:\\.(?P<prerelease>(?:0|[1-9]\\d*)))?(?:[\\.](?P<buildmetadata>(?:[\\w\\-_\\+\\.]*)))?$
 	if (GodotVer::non_strict_regex == nullptr) {
 		GodotVer::non_strict_regex = memnew(RegEx);
-		GodotVer::non_strict_regex->compile("^[vV]?(?P<major>0|[1-9]\\d*)(?:\\.(?P<minor>0|[1-9]\\d*))?(?:\\.(?P<patch>0|[1-9]\\d*))?(?:\\.(?P<prerelease>(?:0|[1-9]\\d*)))?(?:[\\.](?P<buildmetadata>(?:[\\w\\-_\\+\\.]*)))?$");
+		static const char *regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:[a-zA-Z\d]*)))?(?:[\.-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
+		GodotVer::non_strict_regex->compile(regex_str);
 		ERR_FAIL_COND_V(!GodotVer::non_strict_regex->is_valid(), false);
 	}
 
@@ -400,6 +402,15 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 		// Godot version specific hacks
 		String prerelease = match->get_string("prerelease");
 		String build = match->get_string("buildmetadata");
+		// if prerelease begins with "stable" or it does NOT begin with "beta", "rc", or "alpha", then it's actually build metadata
+		if (!prerelease.is_empty() && (prerelease.begins_with("stable") || !(prerelease.begins_with("beta") || prerelease.begins_with("rc") || prerelease.begins_with("alpha")))) {
+			if (build.is_empty()) {
+				build = prerelease;
+			} else {
+				build = prerelease + "." + build;
+			}
+			prerelease = "";
+		}
 		if (build.begins_with("beta") || build.begins_with("rc") || build.begins_with("alpha")) {
 			auto parts = build.split(".", false, 1);
 			prerelease = parts[0];
