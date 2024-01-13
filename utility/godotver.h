@@ -50,11 +50,6 @@
 class SemVer : public RefCounted {
 	GDCLASS(SemVer, RefCounted);
 
-private:
-#ifdef MODULE_REGEX_ENABLED
-	static RegEx *regex;
-#endif
-
 protected:
 	int major = 0;
 	int minor = 0;
@@ -197,9 +192,6 @@ public:
 class GodotVer : public SemVer {
 	GDCLASS(GodotVer, SemVer);
 
-#ifdef MODULE_REGEX_ENABLED
-	static RegEx *non_strict_regex;
-#endif
 protected:
 	virtual int cmp(const Ref<SemVer> &p_b) const override;
 	static void _bind_methods();
