@@ -64,7 +64,7 @@ public:
 	// Error add_our_pack(const String &p_path, bool p_replace_files, uint64_t p_offset);
 	String fix_res_path(const String &p_path);
 	_FORCE_INLINE_ Ref<FileAccess> try_open_path(const String &p_path);
-	_FORCE_INLINE_ bool has_path(const String &p_path);
+	bool has_path(const String &p_path);
 
 	_FORCE_INLINE_ Ref<DirAccess> try_open_directory(const String &p_path);
 	_FORCE_INLINE_ bool has_directory(const String &p_path);
