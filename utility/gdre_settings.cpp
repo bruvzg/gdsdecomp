@@ -1045,7 +1045,19 @@ Error GDRESettings::load_import_file(const String &p_path) {
 	return _load_import_file(p_path, false);
 }
 
-Ref<ImportInfo> GDRESettings::get_import_info(const String &p_path) {
+Ref<ImportInfo> GDRESettings::get_import_info_by_source(const String &p_path) {
+	Ref<ImportInfo> iinfo;
+	for (int i = 0; i < import_files.size(); i++) {
+		iinfo = import_files[i];
+		if (iinfo->get_source_file() == p_path) {
+			return iinfo;
+		}
+	}
+	// not found
+	return Ref<ImportInfo>();
+}
+
+Ref<ImportInfo> GDRESettings::get_import_info_by_dest(const String &p_path) {
 	Ref<ImportInfo> iinfo;
 	for (int i = 0; i < import_files.size(); i++) {
 		iinfo = import_files[i];
@@ -1125,7 +1137,8 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_file", "p_path"), &GDRESettings::has_file);
 	ClassDB::bind_method(D_METHOD("load_import_files"), &GDRESettings::load_import_files);
 	ClassDB::bind_method(D_METHOD("load_import_file", "p_path"), &GDRESettings::load_import_file);
-	ClassDB::bind_method(D_METHOD("get_import_info", "p_path"), &GDRESettings::get_import_info);
+	ClassDB::bind_method(D_METHOD("get_import_info_by_source", "p_path"), &GDRESettings::get_import_info_by_source);
+	ClassDB::bind_method(D_METHOD("get_import_info_by_dest", "p_path"), &GDRESettings::get_import_info_by_dest);
 	ClassDB::bind_method(D_METHOD("get_code_files"), &GDRESettings::get_code_files);
 	ClassDB::bind_method(D_METHOD("get_exec_dir"), &GDRESettings::get_exec_dir);
 	ClassDB::bind_method(D_METHOD("are_imports_loaded"), &GDRESettings::are_imports_loaded);

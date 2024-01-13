@@ -177,7 +177,8 @@ public:
 	bool has_file(const String &p_path);
 	Error load_import_files();
 	Error load_import_file(const String &p_path);
-	Ref<ImportInfo> get_import_info(const String &p_path);
+	Ref<ImportInfo> get_import_info_by_dest(const String &p_path);
+	Ref<ImportInfo> get_import_info_by_source(const String &p_path);
 	Vector<String> get_code_files();
 	String get_exec_dir();
 	bool are_imports_loaded() const;
