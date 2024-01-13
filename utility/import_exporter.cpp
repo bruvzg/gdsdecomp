@@ -581,15 +581,15 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 		}
 		return OK;
 	};
-	bool found_our_platform = false;
+	bool found_our_platform = true;
 	if (get_ver_major() >= 3) {
 		// check if this is a gdextension/gdnative plugin
 		static const Vector<String> gdext_wildcards = { "*.gdextension", "*.gdnlib" };
 		auto gdexts = gdreutil::get_recursive_dir_list(abs_plugin_path, gdext_wildcards, true);
 		for (String gdext : gdexts) {
 			err = copy_gdext_dll_func(gdext);
-			if (!err) {
-				found_our_platform = true;
+			if (err) {
+				found_our_platform = false;
 			}
 		}
 		// gdextension/gdnative plugins may not have a main script, and no plugin.cfg
