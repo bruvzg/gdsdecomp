@@ -55,6 +55,7 @@ protected:
 	static void _bind_methods();
 
 public:
+	bool glft_export = false;
 	static TextureVersionType recognize(const String &p_path, Error *r_err);
 	static int get_ver_major_from_textype(TextureVersionType type);
 	static TextureType get_type_enum_from_version_type(TextureVersionType type);
