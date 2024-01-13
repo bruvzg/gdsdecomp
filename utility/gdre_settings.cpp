@@ -388,8 +388,21 @@ Error GDRESettings::load_pack(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
-	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
-	if (da->dir_exists(p_path)) {
+	if (DirAccess::exists(p_path)) {
+		// This may be a ".app" bundle, so we need to check if it's a valid Godot app
+		// and if so, load the pck from inside the bundle
+		if (p_path.get_extension().to_lower() == "app") {
+			String resources_path = p_path.path_join("Contents").path_join("Resources");
+			if (DirAccess::exists(resources_path)) {
+				auto list = gdreutil::get_recursive_dir_list(resources_path, { "*.pck" }, true);
+				if (!list.is_empty()) {
+					if (list.size() > 1) {
+						WARN_PRINT("Found multiple pck files in bundle, using first one!!!");
+					}
+					return load_pack(list[0]);
+				}
+			}
+		}
 		return load_dir(p_path);
 	}
 	print_line("Opening file: " + p_path);
