@@ -20,6 +20,7 @@
 #include "core/string/optimized_translation.h"
 #include "core/variant/variant_parser.h"
 #include "core/version_generated.gen.h"
+#include "modules/gltf/gltf_document.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/regex/regex.h"
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
@@ -178,10 +179,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			if (src_ext == "escn") {
 				err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 			} else {
-				WARN_PRINT_ONCE("Export of models/imported scenes currently unimplemented");
-				report_unsupported_resource(type, src_ext, path);
-				not_converted.push_back(iinfo);
-				not_exported = true;
+				if (iinfo->get_ver_major() <= 3) {
+					WARN_PRINT_ONCE("Export of Godot 2/3.x models/imported scenes currently unimplemented");
+					report_unsupported_resource(itos(iinfo->get_ver_major()) + ".x " + type, src_ext, path);
+					not_converted.push_back(iinfo);
+					not_exported = true;
+				} else {
+					err = export_scene(output_dir, iinfo);
+				}
 			}
 		} else if (importer == "font_data_dynamic") {
 			err = export_fontfile(output_dir, iinfo);
@@ -209,6 +214,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
 			} else if (iinfo->is_dirty()) {
 				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+				if (iinfo->get_export_dest() != iinfo->get_source_file()) {
+					// we still report this as unwritten so that we can report to the user that it was saved to a non-original path
+					err = ERR_PRINTER_ON_FIRE;
+				}
 			}
 			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
 			// if we failed, it won't be OK
@@ -818,6 +827,39 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	}
 	print_line("Recreated translation.csv");
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
+}
+
+Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
+	Error err;
+	// real load here
+	// All 3.x scenes that were imported from scenes/models SHOULD be compatible with 4.x
+	// The "escn" format basically force Godot to have compatibility with 3.x scenes
+	// This will also pull in any dependencies that were created by the importer (like textures and materials, which should also be similarly compatible)
+	Ref<PackedScene> scene = ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to load scene " + iinfo->get_path());
+	// GLTF export can result in inaccurate models
+	// save it under .assets, which won't be picked up for import by the godot editor
+	String new_path = iinfo->get_export_dest().replace("res://", "res://.assets/");
+	// we only export glbs
+	if (new_path.get_extension().to_lower() != "glb") {
+		new_path = new_path.get_basename() + ".glb";
+	}
+	iinfo->set_export_dest(new_path);
+	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
+	err = ensure_dir(out_path.get_base_dir());
+	List<String> deps;
+	Ref<GLTFDocument> doc;
+	doc.instantiate();
+	Ref<GLTFState> state;
+	state.instantiate();
+	int32_t flags = 0;
+	flags |= 16; // EditorSceneFormatImporter::IMPORT_USE_NAMED_SKIN_BINDS;
+	Node *root = scene->instantiate();
+	err = doc->append_from_scene(root, state, flags);
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to append scene " + iinfo->get_path() + " to glTF document");
+	err = doc->write_to_filesystem(state, out_path);
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to write glTF document to " + out_path);
+	return ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
 }
 
 Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &iinfo) {
