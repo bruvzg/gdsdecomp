@@ -159,6 +159,7 @@ GDRESettings::GDRESettings() {
 	addCompatibilityClasses();
 	gdre_resource_path = ProjectSettings::get_singleton()->get_resource_path();
 	logger = memnew(GDRELogger);
+	headless = !RenderingServer::get_singleton() || RenderingServer::get_singleton()->get_video_adapter_name().is_empty();
 	add_logger();
 }
 
@@ -168,6 +169,7 @@ GDRESettings::~GDRESettings() {
 		memdelete(new_singleton);
 	}
 	singleton = nullptr;
+	logger->_disable();
 	// logger doesn't get memdeleted because the OS singleton will do so
 }
 String GDRESettings::get_cwd() {
@@ -928,7 +930,7 @@ String GDRESettings::get_log_file_path() {
 }
 
 bool GDRESettings::is_headless() const {
-	return RenderingServer::get_singleton()->get_video_adapter_name().is_empty();
+	return headless;
 }
 
 String GDRESettings::get_sys_info_string() const {
@@ -1183,6 +1185,8 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("pack_has_project_config"), &GDRESettings::pack_has_project_config);
 	ClassDB::bind_method(D_METHOD("get_gdre_version"), &GDRESettings::get_gdre_version);
 	// ClassDB::bind_method(D_METHOD("get_auto_display_scale"), &GDRESettings::get_auto_display_scale);
+	// TODO: route this through GDRE Settings rather than GDRE Editor
+	//ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
 }
 
 // This is at the bottom to account for the platform header files pulling in their respective OS headers and creating all sorts of issues
