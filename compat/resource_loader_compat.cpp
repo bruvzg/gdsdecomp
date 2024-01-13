@@ -2546,8 +2546,11 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 	fw->store_32(engine_ver_major);
 	fw->store_32(engine_ver_minor);
 
-	// If we're using named_scene_ids, it's version 4
-	if (using_named_scene_ids) {
+	// If we're using_script_class, it's version 5
+	if (using_script_class) {
+		ver_format_bin = 5;
+	} else if (using_named_scene_ids) {
+		// If we're using named_scene_ids, it's version 4
 		ver_format_bin = 4;
 		// else go by engine major version
 	} else if (engine_ver_major == 3) {
@@ -2635,7 +2638,7 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 			}
 			save_ustring(fw, path);
 		}
-		if (ver_format_bin == 4) {
+		if (ver_format_bin >= 4) {
 			internal_resources.ptrw()[i].save_order = i;
 		} else {
 			internal_resources.ptrw()[i].save_order = i + 1;
