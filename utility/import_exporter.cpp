@@ -1500,45 +1500,26 @@ String ImportExporterReport::get_detected_unsupported_resource_string() {
 
 String ImportExporterReport::get_session_notes_string() {
 	String report = "";
-	String unsup = get_detected_unsupported_resource_string();
-	if (!unsup.is_empty()) {
-		report += "The following resource types were detected in the project that conversion is not implemented for yet:\n";
-		report += unsup;
-		report += "See Export Report to see which resources were not exported.\n";
-		report += "You will still be able to edit the project in the editor regardless.\n";
+	Dictionary notes = get_session_notes();
+	auto keys = notes.keys();
+	if (keys.size() == 0) {
+		return report;
 	}
-
-	if (!translation_export_message.is_empty()) {
-		if (!unsup.is_empty()) {
-			report += "-------\n";
+	report += String("\n");
+	for (int i = 0; i < keys.size(); i++) {
+		Dictionary note = notes[keys[i]];
+		if (i > 0) {
+			report += String("------\n");
 		}
-		report += translation_export_message;
-		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
-		report += "Note: consider just asking the creator if you wish to add a translation\n";
-	}
-	if (had_encryption_error) {
-		report += "-------\n";
-		report += "Failed to decompile encrypted scripts!\n";
-		report += "Set the correct key and try again!\n\n";
-	}
-	if (!failed_gdnative_copy.is_empty() || !failed_plugin_cfg_create.is_empty()) {
-		if (!unsup.is_empty() || !translation_export_message.is_empty()) {
-			report += "-------\n";
+		String title = note["title"];
+		String message = note["message"];
+		report += title + ":" + String("\n");
+		report += message + String("\n");
+		PackedStringArray details = note["details"];
+		for (int j = 0; j < details.size(); j++) {
+			report += " - " + details[j] + String("\n");
 		}
-		report += "The following addons failed to have their libraries copied or plugin.cfg regenerated:\n";
-		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
-			report += "- " + failed_gdnative_copy[i] + String("\n");
-		}
-		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
-			report += "- " + failed_plugin_cfg_create[i] + String("\n");
-		}
-		report += "You may encounter editor errors due to this.\n";
-		report += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
-	}
-	if (ver->get_major() == 2) {
-		// Godot 2.x's assets are all exported to .assets
-		report += "-------\n";
-		report += "All exported assets can be found in the '.assets' directory in the project folder.\n";
+		report += String("\n");
 	}
 	return report;
 }
