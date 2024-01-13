@@ -156,6 +156,7 @@ void addCompatibilityClasses() {
 }
 
 GDRESettings::GDRESettings() {
+	RenderingServer::get_singleton()->set_warn_on_surface_upgrade(false);
 	singleton = this;
 	gdre_packeddata_singleton = memnew(GDREPackedData);
 	addCompatibilityClasses();
@@ -399,8 +400,6 @@ Error GDRESettings::load_pack(const String &p_path) {
 	}
 	print_line("Opening file: " + p_path);
 	Error err;
-	// check if GDRE resources are loaded from a pack
-	bool is_gdre_pack = GDREPackedData::real_packed_data_has_pack_loaded();
 
 	err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
