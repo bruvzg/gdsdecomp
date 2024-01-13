@@ -304,10 +304,32 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 	return OK;
 }
 
+class OverrideTexture2D : public CompressedTexture2D {
+public:
+	Ref<Image> image;
+	virtual Ref<Image> get_image() const override {
+		// otherwise, call the parent
+		return image;
+	}
+};
+class faketex2D : Texture2D {
+	GDCLASS(faketex2D, Texture2D);
+
+public:
+	String path_to_file;
+	mutable RID texture;
+	Image::Format format = Image::FORMAT_L8;
+	int w = 0;
+	int h = 0;
+	mutable Ref<BitMap> alpha_cache;
+};
+static_assert(sizeof(faketex2D) == sizeof(CompressedTexture2D), "faketex2D must be the same size as CompressedTexture2D");
+
 Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const {
 	int lw, lh, lwc, lhc, lflags;
 	Error err;
 	Ref<CompressedTexture2D> texture;
+	Ref<OverrideTexture2D> override_texture;
 	if (ver_major == 2) {
 		err = _load_data_tex_v2(p_path, lw, lh, lwc, lhc, lflags, image);
 	} else if (ver_major == 3) {
@@ -324,12 +346,20 @@ Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_pa
 		return texture;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	texture.instantiate();
-	texture->set("w", lwc ? lwc : lw);
-	texture->set("h", lhc ? lhc : lh);
-	texture->set("path_to_file", p_path);
-	texture->set("format", image->get_format());
+	if (glft_export) {
+		override_texture.instantiate();
+		override_texture->image = image;
+		texture = override_texture;
+	} else {
+		texture.instantiate();
+	}
+	faketex2D *fake = reinterpret_cast<faketex2D *>(texture.ptr());
+	fake->w = lwc ? lwc : lw;
+	fake->h = lhc ? lhc : lh;
+	fake->format = image->get_format();
+	fake->path_to_file = p_path;
 	size_override = lwc || lhc;
+	// alpha_cache gets generated dynamically if necessary
 	// we no longer care about flags, apparently
 	return texture;
 }
@@ -599,12 +629,34 @@ Error TextureLoaderCompat::_load_data_ctexlayered_v4(const String &p_path, Vecto
 	return OK;
 }
 
+class OverrideTexture3D : public CompressedTexture3D {
+public:
+	Vector<Ref<Image>> data;
+	virtual Vector<Ref<Image>> get_data() const override {
+		return data;
+	}
+};
+class faketex3D : Texture3D {
+	GDCLASS(faketex3D, Texture3D);
+
+public:
+	String path_to_file;
+	mutable RID texture;
+	Image::Format format = Image::FORMAT_L8;
+	int w = 0;
+	int h = 0;
+	int d = 0;
+	bool mipmaps = false;
+};
+static_assert(sizeof(faketex3D) == sizeof(CompressedTexture3D), "faketex3D must be the same size as CompressedTexture3D");
+
 Ref<CompressedTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const {
 	int lw, lh, ld, ltype;
 	bool mipmaps;
 	Image::Format fmt;
 	Error err;
 	Ref<CompressedTexture3D> texture;
+	Ref<OverrideTexture3D> override_texture;
 	if (ver_major == 2) {
 		err = ERR_UNAVAILABLE;
 	} else if (ver_major == 3) {
@@ -618,15 +670,47 @@ Ref<CompressedTexture3D> TextureLoaderCompat::_load_texture3d(const String p_pat
 		*r_err = err;
 	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, texture, "V2 Texture3d conversion unimplemented");
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	texture.instantiate();
-	texture->set("w", lw);
-	texture->set("h", lh);
-	texture->set("d", ld);
-	texture->set("mipmaps", mipmaps);
-	texture->set("format", fmt);
-	texture->set("path_to_file", p_path);
+	if (glft_export) {
+		override_texture.instantiate();
+		override_texture->data = r_data;
+		texture = override_texture;
+	} else {
+		texture.instantiate();
+	}
+	faketex3D *fake = reinterpret_cast<faketex3D *>(texture.ptr());
+	fake->w = lw;
+	fake->h = lh;
+	fake->d = ld;
+	fake->mipmaps = mipmaps;
+	fake->format = fmt;
+	fake->path_to_file = p_path;
 	return texture;
 }
+
+template <class T>
+class OverrideTextureLayered : public T {
+	static_assert(std::is_base_of<TextureLayered, T>::value, "T must be a subclass of TextureLayered");
+
+public:
+	Vector<Ref<Image>> layer_data;
+	virtual Ref<Image> get_layer_data(int layer) const override {
+		return layer_data[layer];
+	}
+};
+class faketexlayered : TextureLayered {
+	GDCLASS(faketexlayered, TextureLayered);
+
+public:
+	String path_to_file;
+	mutable RID texture;
+	Image::Format format = Image::FORMAT_L8;
+	int w = 0;
+	int h = 0;
+	int layers = 0;
+	bool mipmaps = false;
+	LayeredType layered_type = LayeredType::LAYERED_TYPE_2D_ARRAY;
+};
+static_assert(sizeof(faketexlayered) == sizeof(CompressedTextureLayered), "faketexlayered must be the same size as CompressedTextureLayered");
 
 Ref<CompressedTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const {
 	int lw, lh, ld;
@@ -648,23 +732,49 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::_load_texture_layered(const S
 		*r_err = err;
 	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, Ref<Resource>(), "V2 TextureLayered conversion unimplemented");
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load image from texture file " + p_path);
-	Ref<Resource> res;
+	Ref<CompressedTextureLayered> texture;
+	TextureLayered::LayeredType tl_type = TextureLayered::LayeredType::LAYERED_TYPE_2D_ARRAY;
+
 	if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
-		res = Ref<CompressedTexture2DArray>();
+		if (glft_export) {
+			Ref<OverrideTextureLayered<CompressedTexture2DArray>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = r_data;
+			texture = override_texture;
+		} else {
+			texture = Ref<CompressedTexture2DArray>();
+		}
+		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_2D_ARRAY;
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
-		res = Ref<CompressedCubemap>();
+		if (glft_export) {
+			Ref<OverrideTextureLayered<CompressedCubemap>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = r_data;
+			texture = override_texture;
+		} else {
+			texture = Ref<CompressedCubemap>();
+		}
+		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_CUBEMAP;
 	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
-		res = Ref<CompressedCubemapArray>();
+		if (glft_export) {
+			Ref<OverrideTextureLayered<CompressedCubemapArray>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = r_data;
+			texture = override_texture;
+		} else {
+			texture = Ref<CompressedCubemapArray>();
+		}
+		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_CUBEMAP_ARRAY;
 	}
 
-	Ref<CompressedTextureLayered> texture = res;
-
-	texture->set("w", lw);
-	texture->set("h", lh);
-	texture->set("mipmaps", mipmaps);
-	texture->set("format", fmt);
-	texture->set("layers", r_data.size());
-	texture->set("path_to_file", p_path);
+	faketexlayered *fake = reinterpret_cast<faketexlayered *>(texture.ptr());
+	fake->w = lw;
+	fake->h = lh;
+	fake->layers = r_data.size();
+	fake->mipmaps = mipmaps;
+	fake->format = fmt;
+	fake->path_to_file = p_path;
+	fake->layered_type = tl_type;
 	return texture;
 }
 
@@ -695,7 +805,8 @@ Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const St
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture");
 	// put the texture into the rendering server
 	RID texture_rid = RS::get_singleton()->texture_2d_layered_create(r_data, RS::TextureLayeredType(type));
-	texture->set("texture", texture_rid);
+	faketexlayered *fake = reinterpret_cast<faketexlayered *>(texture.ptr());
+	fake->texture = texture_rid;
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
 	RS::get_singleton()->texture_set_path(texture_rid, local_path);
 	texture->set_path(local_path, false);
@@ -733,7 +844,8 @@ Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path
 			texture->get_depth(),
 			texture->has_mipmaps(),
 			r_data);
-	texture->set("texture", texture_rid);
+	faketex3D *fake = reinterpret_cast<faketex3D *>(texture.ptr());
+	fake->texture = texture_rid;
 	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
 	RS::get_singleton()->texture_set_path(texture_rid, local_path);
 	texture->set_path(local_path, false);
@@ -769,7 +881,8 @@ Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path
 	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
 	// put the texture into the rendering server
 	RID texture_rid = RS::get_singleton()->texture_2d_create(image);
-	texture->set("texture", texture_rid);
+	faketex2D *fake = reinterpret_cast<faketex2D *>(texture.ptr());
+	fake->texture = texture_rid;
 	if (size_override) {
 		RS::get_singleton()->texture_set_size_override(texture_rid, texture->get_width(), texture->get_height());
 	}
