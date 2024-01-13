@@ -48,6 +48,7 @@ class ImportExporter : public RefCounted {
 	Vector<Ref<ImportInfo>> success;
 	Vector<Ref<ImportInfo>> not_converted;
 
+	Error export_scene(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo);
