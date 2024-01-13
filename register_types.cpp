@@ -16,6 +16,7 @@
 #include "utility/glob.h"
 #include "utility/godotver.h"
 #include "utility/import_exporter.h"
+#include "utility/packed_file_info.h"
 #include "utility/pck_dumper.h"
 
 #ifdef TOOLS_ENABLED
@@ -48,6 +49,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Glob>();
 	ClassDB::register_class<SemVer>();
 	ClassDB::register_class<GodotVer>();
+	ClassDB::register_class<PackedFileInfo>();
 
 	ClassDB::register_class<PackDialog>();
 	ClassDB::register_class<NewPackDialog>();

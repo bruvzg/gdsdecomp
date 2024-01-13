@@ -5,6 +5,7 @@
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
 
+static constexpr uint8_t MD5_EMPTY[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 class PackedFileInfo : public RefCounted {
 	GDCLASS(PackedFileInfo, RefCounted);
 	friend class GDRESettings;
@@ -51,9 +52,23 @@ public:
 		memcpy(ret.ptrw(), pf.md5, 16);
 		return ret;
 	}
-	bool is_malformed() const { return malformed_path; }
-	bool is_encrypted() const { return pf.encrypted; }
-	bool is_checksum_validated() const { return md5_passed; }
+	bool has_md5() const {
+		// check if all 16 bytes are 0
+		return memcmp(pf.md5, MD5_EMPTY, 16) != 0;
+	}
+
+	bool is_malformed() const {
+		return malformed_path;
+	}
+	bool is_encrypted() const {
+		return pf.encrypted;
+	}
+	bool is_checksum_validated() const {
+		return md5_passed;
+	}
+
+protected:
+	static void _bind_methods();
 
 private:
 	void fix_path() {
