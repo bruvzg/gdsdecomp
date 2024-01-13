@@ -909,8 +909,9 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 					WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
 					continue;
 				}
+#ifdef TOOLS_ENABLED
 				texture->set_import_path(tex_iinfo->get_path());
-
+#endif
 				texture->set_path(splits[2]);
 				if (!splits[0].is_empty()) {
 					auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);

@@ -795,6 +795,9 @@ String PathFinder::_fix_path_file_access(const String &p_path) {
 
 	// TODO: This will have to be modified if additional fix_path overrides are added
 #ifdef WINDOWS_ENABLED
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
 	String r_path = p_path;
 	if (r_path.is_absolute_path() && !r_path.is_network_share_path() && r_path.length() > MAX_PATH) {
 		r_path = "\\\\?\\" + r_path.replace("/", "\\");
