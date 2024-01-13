@@ -65,7 +65,23 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		WARN_PRINT_ONCE("Converting lossy imports, you may lose fidelity for indicated assets when re-importing upon loading the project");
 	}
 	// TODO: make this use "copy"
-	Array files = get_settings()->get_import_files();
+	Array _files = get_settings()->get_import_files();
+	Vector<Ref<ImportInfo>> files;
+
+	// Put scene files at the end, otherwise it slows down the export tremendously
+	for (int i = 0; i < _files.size(); i++) {
+		Ref<ImportInfo> thing = _files[i];
+		if (thing->get_importer() != "scene") {
+			files.push_back(_files[i]);
+		}
+	}
+	for (int i = 0; i < _files.size(); i++) {
+		Ref<ImportInfo> thing = _files[i];
+		if (thing->get_importer() == "scene") {
+			files.push_back(_files[i]);
+		}
+	}
+
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 	bool partial_export = files_to_export.size() > 0;
 	report->session_files_total = partial_export ? files_to_export.size() : files.size();
@@ -835,9 +851,8 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
 
-Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
+Error _export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	Error err;
-	// real load here
 	// All 3.x scenes that were imported from scenes/models SHOULD be compatible with 4.x
 	// The "escn" format basically force Godot to have compatibility with 3.x scenes
 	// This will also pull in any dependencies that were created by the importer (like textures and materials, which should also be similarly compatible)
@@ -852,7 +867,7 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 	}
 	iinfo->set_export_dest(new_path);
 	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
-	err = ensure_dir(out_path.get_base_dir());
+	err = ImportExporter::ensure_dir(out_path.get_base_dir());
 	List<String> deps;
 	Ref<GLTFDocument> doc;
 	doc.instantiate();
@@ -866,7 +881,59 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 	err = doc->write_to_filesystem(state, out_path);
 	root->queue_free();
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to write glTF document to " + out_path);
-	return ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
+	return OK;
+}
+
+Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
+	Error err;
+	report->exported_scenes = true;
+	Vector<uint64_t> texture_uids;
+	{
+		// real load here
+		List<String> get_deps;
+		// We need to preload any Texture resources that are used by the scene with our own loader
+		ResourceLoader::get_dependencies(iinfo->get_path(), &get_deps, true);
+		TextureLoaderCompat tlc;
+		tlc.glft_export = true; // overides `get_image()` for glTF export
+		Vector<Ref<Texture>> textures;
+		for (String dep : get_deps) {
+			auto splits = dep.split("::");
+			if (splits[1].contains("Texture")) {
+				Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(splits[2]);
+				if (tex_iinfo.is_null()) {
+					WARN_PRINT("Failed to find import info for texture " + splits[2] + " for scene " + iinfo->get_path());
+					continue;
+				}
+				Ref<Texture> texture = tlc.load_texture(tex_iinfo->get_path(), &err);
+				if (err || texture.is_null()) {
+					WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
+					continue;
+				}
+				texture->set_import_path(tex_iinfo->get_path());
+
+				texture->set_path(splits[2]);
+				if (!splits[0].is_empty()) {
+					auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);
+					if (id != ResourceUID::INVALID_ID) {
+						if (!ResourceUID::get_singleton()->has_id(id)) {
+							ResourceUID::get_singleton()->add_id(id, splits[2]);
+						} else {
+							ResourceUID::get_singleton()->set_id(id, splits[2]);
+						}
+						texture_uids.push_back(id);
+					}
+				}
+				textures.push_back(texture);
+			}
+		}
+		err = _export_scene(output_dir, iinfo);
+	}
+	// remove the UIDs
+	for (uint64_t id : texture_uids) {
+		ResourceUID::get_singleton()->remove_id(id);
+	}
+
+	return err ? err : ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
 }
 
 Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &iinfo) {
@@ -1262,6 +1329,14 @@ Dictionary ImportExporterReport::get_session_notes() {
 		}
 		unsupported["details"] = list;
 		notes["unsupported_types"] = unsupported;
+	}
+	if (exported_scenes) {
+		Dictionary export_scenes_note;
+		export_scenes_note["title"] = "Experimental Scene Export";
+		export_scenes_note["message"] = "Scene export is EXPERIMENTAL and exported scenes may be inaccurate.\n"
+										"Thus, all exported scenes have been saved to the .assets directory, which will not be picked up by the editor for import.\n"
+										"Please report any issues you encounter with exported scenes to the Github page Github.";
+		notes["export_scenes"] = export_scenes_note;
 	}
 
 	if (had_encryption_error) {
