@@ -22,6 +22,7 @@ class ImportExporterReport : public RefCounted {
 	friend class ImportExporter;
 	bool had_encryption_error = false;
 	bool godotsteam_detected = false;
+	bool exported_scenes = false;
 	int session_files_total = 0;
 	String log_file_location;
 	Vector<String> decompiled_scripts;
@@ -114,7 +115,6 @@ class ImportExporter : public RefCounted {
 	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
 	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst);
 
-	static Error ensure_dir(const String &dst_dir);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
 	void report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn = false, bool suppress_print = false);
@@ -123,6 +123,7 @@ protected:
 	static void _bind_methods();
 
 public:
+	static Error ensure_dir(const String &dst_dir);
 	String get_session_notes_string();
 	String get_detected_unsupported_resource_string();
 	Error recreate_plugin_config(const String &output_dir, const String &plugin_dir);
