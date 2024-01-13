@@ -29,10 +29,6 @@
 /*************************************************************************/
 
 #include "godotver.h"
-#ifdef MODULE_REGEX_ENABLED
-RegEx *SemVer::regex = nullptr;
-RegEx *GodotVer::non_strict_regex = nullptr;
-#endif
 
 bool SemVer::parse_digit_only_field(const String &p_field, uint64_t &r_result) {
 	if (p_field.is_empty()) {
@@ -172,13 +168,9 @@ bool SemVer::parse_valid(const String &p_ver_text, Ref<SemVer> &r_semver) {
 #ifdef MODULE_REGEX_ENABLED
 	// this will match: "1.2.3" "1.1.3-pre.1" "4.2.0-rc.1+sha.md5.f9300dc53"
 	// we strip "v" in front of the string in case it's there
-	if (SemVer::regex == nullptr) {
-		SemVer::regex = memnew(RegEx);
-		SemVer::regex->compile("^[vV]?(?P<major>0|[1-9]\\d*)\\.(?P<minor>0|[1-9]\\d*)\\.(?P<patch>0|[1-9]\\d*)(?:-(?P<prerelease>(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$");
-		ERR_FAIL_COND_V(!SemVer::regex->is_valid(), false);
-	}
+	static const Ref<RegEx> regex = RegEx::create_from_string("^[vV]?(?P<major>0|[1-9]\\d*)\\.(?P<minor>0|[1-9]\\d*)\\.(?P<patch>0|[1-9]\\d*)(?:-(?P<prerelease>(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$");
 
-	Ref<RegExMatch> match = SemVer::regex->search(p_ver_text);
+	Ref<RegExMatch> match = regex->search(p_ver_text);
 
 	if (match.is_valid()) {
 		r_semver = SemVer::create(
@@ -390,14 +382,11 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 	// this will match: "v1" "2" "1.1" "2.4.stable" "1.4.5.6" "3.4.0.stable" "3.4.5.stable.official.f9ac000d5"
 	// if this is not a Windows-type version number ("1.4.5.6"), then everything after the patch number will be build metadata as we can't use it for precedence.
 	//OLD: ^[vV]?(?P<major>0|[1-9]\\d*)(?:\\.(?P<minor>0|[1-9]\\d*))?(?:\\.(?P<patch>0|[1-9]\\d*))?(?:\\.(?P<prerelease>(?:0|[1-9]\\d*)))?(?:[\\.](?P<buildmetadata>(?:[\\w\\-_\\+\\.]*)))?$
-	if (GodotVer::non_strict_regex == nullptr) {
-		GodotVer::non_strict_regex = memnew(RegEx);
-		static const char *regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:[a-zA-Z\d]*)))?(?:[\.-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
-		GodotVer::non_strict_regex->compile(regex_str);
-		ERR_FAIL_COND_V(!GodotVer::non_strict_regex->is_valid(), false);
-	}
+	static const char *regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:[a-zA-Z\d]*)))?(?:[\.-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
+	// TODO: this is leaking at exit; fix it
+	static const Ref<RegEx> non_strict_regex = RegEx::create_from_string(regex_str);
 
-	Ref<RegExMatch> match = GodotVer::non_strict_regex->search(p_ver_text);
+	Ref<RegExMatch> match = non_strict_regex->search(p_ver_text);
 	if (match.is_valid()) {
 		// Godot version specific hacks
 		String prerelease = match->get_string("prerelease");
