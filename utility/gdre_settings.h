@@ -107,6 +107,7 @@ private:
 	String project_path = "";
 	static GDRESettings *singleton;
 	static String exec_dir;
+	bool headless = false;
 	void remove_current_pack();
 	Vector<Ref<PackedFileInfo>> files;
 	String _get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors);
