@@ -34,7 +34,9 @@
 #include "axml_parser.h"
 #include "compat/resource_loader_compat.h"
 #include "core/io/file_access.h"
+#include "file_access_gdre.h"
 #include "gdre_settings.h"
+
 APKArchive *APKArchive::instance = nullptr;
 
 extern "C" {
@@ -266,7 +268,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		pf_info.instantiate();
 		pf_info->init(fname, &pf);
 		GDRESettings::get_singleton()->add_pack_file(pf_info);
-		PackedData::get_singleton()->add_path(pack_path, fname, 1, 0, md5, this, p_replace_files, false);
+		GDREPackedData::get_singleton()->add_path(pack_path, fname, 1, 0, md5, this, p_replace_files, false);
 
 		if ((i + 1) < gi.number_entry) {
 			unzGoToNextFile(zfile);
