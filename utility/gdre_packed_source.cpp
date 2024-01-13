@@ -1,6 +1,7 @@
 #include "gdre_packed_source.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/object/script_language.h"
+#include "file_access_gdre.h"
 #include "gdre_settings.h"
 
 uint64_t get_offset_unix(const String &p_path) {
@@ -318,7 +319,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		GDRESettings::get_singleton()->add_pack_file(pf_info);
 		// use the corrected path, not the raw path
 		path = pf_info->get_path();
-		PackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
+		GDREPackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
 	}
 
 	return true;

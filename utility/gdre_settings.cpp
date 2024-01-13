@@ -3,6 +3,7 @@
 #include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
 #include "file_access_apk.h"
+#include "file_access_gdre.h"
 #include "gdre_logger.h"
 #include "gdre_packed_source.h"
 #include "util_functions.h"
@@ -156,6 +157,7 @@ void addCompatibilityClasses() {
 
 GDRESettings::GDRESettings() {
 	singleton = this;
+	gdre_packeddata_singleton = memnew(GDREPackedData);
 	addCompatibilityClasses();
 	gdre_resource_path = ProjectSettings::get_singleton()->get_resource_path();
 	logger = memnew(GDRELogger);
@@ -165,9 +167,7 @@ GDRESettings::GDRESettings() {
 
 GDRESettings::~GDRESettings() {
 	remove_current_pack();
-	if (new_singleton != nullptr) {
-		memdelete(new_singleton);
-	}
+	memdelete(gdre_packeddata_singleton);
 	singleton = nullptr;
 	logger->_disable();
 	// logger doesn't get memdeleted because the OS singleton will do so
@@ -376,14 +376,6 @@ Error GDRESettings::unload_dir() {
 	return OK;
 }
 
-// This loads the pack into PackedData so that the paths are globally accessible with FileAccess.
-// This is VERY hacky. We have to make a new PackedData singleton when loading a pack, and then
-// delete it and make another new one while unloading.
-// A side-effect of this approach is that the standalone files will be in the path when running
-// standalone, which is why they were renamed with the prefix "gdre_" to avoid collision.
-// This also means that directory listings on the pack will include the standalone files, but we
-// specifically avoid doing that.
-// TODO: Consider submitting a PR to refactor PackedData to add and remove packs and sources
 Error GDRESettings::load_pack(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
@@ -406,54 +398,14 @@ Error GDRESettings::load_pack(const String &p_path) {
 		return load_dir(p_path);
 	}
 	print_line("Opening file: " + p_path);
-	// So that we don't use PackedSourcePCK when we load this
-	String pack_path = p_path + "_GDRE_a_really_dumb_hack";
-
-	old_pack_data_singleton = PackedData::get_singleton();
-	// if packeddata is disabled, we're in the editor
-	in_editor = PackedData::get_singleton()->is_disabled();
-	// the PackedData constructor will set the singleton to the newly instanced one
-	new_singleton = memnew(PackedData);
-	GDREPackedSource *src = memnew(GDREPackedSource);
 	Error err;
+	// check if GDRE resources are loaded from a pack
+	bool is_gdre_pack = GDREPackedData::real_packed_data_has_pack_loaded();
 
-	new_singleton->add_pack_source(src);
-	new_singleton->set_disabled(false);
-
-#ifdef MINIZIP_ENABLED
-	// For loading APKs
-	new_singleton->add_pack_source(memnew(APKArchive));
-#endif
-
-	// If we're not in the editor, we have to add project pack back
-	if (!in_editor) {
-		// using the base PackedSourcePCK here
-		// TODO: We should fail hard if we fail to add the pack back in,
-		// but the way of detecting of whether or not we have the pck
-		// is insufficient, find another way.
-		err = new_singleton->add_pack(get_standalone_pck_path(), false, 0);
-		//ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Failed to load GDRE pack!");
-	}
-	// set replace to true so that project.binary gets overwritten in case its loaded
-	// Project settings have already been loaded by this point and this won't affect them,
-	// so it's fine
-	err = new_singleton->add_pack(pack_path, true, 0);
-	if (err) {
-		if (error_encryption) {
-			error_encryption = false;
-			ERR_FAIL_V_MSG(ERR_PRINTER_ON_FIRE, "FATAL ERROR: Failed to decrypt encrypted pack!");
-		}
-		ERR_FAIL_V_MSG(err, "FATAL ERROR: Failed to load project pack!");
-	}
-
-	// If we're in a first load, the old PackedData singleton is still held by main.cpp
-	// If we delete it, we'll cause a double free when the program closes because main.cpp deletes it
-	if (!first_load) {
-		memdelete(old_pack_data_singleton);
-	} else {
-		first_load = false;
-	}
+	err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
+
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 	if (!has_valid_version()) {
@@ -553,19 +505,7 @@ Error GDRESettings::unload_pack() {
 	}
 
 	remove_current_pack();
-	// we have to re-init PackedData to clear the paths
-	PackedData *new_old_singleton = memnew(PackedData);
-	new_old_singleton->set_disabled(in_editor);
-	if (!in_editor) {
-		new_old_singleton->add_pack(get_standalone_pck_path(), false, 0);
-// main.cpp normally adds this
-#ifdef MINIZIP_ENABLED
-		// instead of the singleton
-		new_old_singleton->add_pack_source(memnew(ZipArchive));
-#endif
-	}
-	memdelete(new_singleton);
-	new_singleton = nullptr;
+	GDREPackedData::get_singleton()->clear();
 	return OK;
 }
 
@@ -668,7 +608,7 @@ Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String
 	}
 	return ret;
 }
-
+// TODO: Overhaul all these pathing functions
 String GDRESettings::localize_path(const String &p_path, const String &resource_dir) const {
 	String res_path = resource_dir != "" ? resource_dir : project_path;
 
@@ -777,17 +717,17 @@ String GDRESettings::_get_res_path(const String &p_path, const String &resource_
 	String res_path;
 	// Try and find it in the packed data
 	if (is_pack_loaded() && get_pack_type() != PackInfo::DIR) {
-		if (PackedData::get_singleton()->has_path(p_path)) {
+		if (GDREPackedData::get_singleton()->has_path(p_path)) {
 			return p_path;
 		}
 		res_path = localize_path(p_path, res_dir);
-		if (res_path != p_path && PackedData::get_singleton()->has_path(res_path)) {
+		if (res_path != p_path && GDREPackedData::get_singleton()->has_path(res_path)) {
 			return res_path;
 		}
 		// localize_path did nothing
 		if (!res_path.is_absolute_path()) {
 			res_path = "res://" + res_path;
-			if (PackedData::get_singleton()->has_path(res_path)) {
+			if (GDREPackedData::get_singleton()->has_path(res_path)) {
 				return res_path;
 			}
 		}

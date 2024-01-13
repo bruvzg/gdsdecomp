@@ -30,6 +30,7 @@ public:
 };
 
 class GDRELogger;
+class GDREPackedData;
 class GDRESettings : public Object {
 	GDCLASS(GDRESettings, Object);
 	_THREAD_SAFE_CLASS_
@@ -87,8 +88,7 @@ private:
 	Vector<Ref<PackInfo>> packs;
 	HashMap<String, Ref<PackedFileInfo>> file_map;
 	Ref<PackInfo> current_pack = Ref<PackInfo>();
-	PackedData *old_pack_data_singleton = nullptr;
-	PackedData *new_singleton = nullptr;
+	GDREPackedData *gdre_packeddata_singleton = nullptr;
 	GDRELogger *logger;
 	Array import_files;
 	Vector<String> code_files;
@@ -109,7 +109,6 @@ private:
 	static String exec_dir;
 	bool headless = false;
 	void remove_current_pack();
-	Vector<Ref<PackedFileInfo>> files;
 	String _get_res_path(const String &p_path, const String &resource_dir, const bool suppress_errors);
 	void add_logger();
 
