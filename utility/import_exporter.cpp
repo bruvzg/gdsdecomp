@@ -48,9 +48,15 @@ Error ImportExporter::export_imports(const String &p_out_dir, const Vector<Strin
 	return _export_imports(p_out_dir, files_to_export, nullptr, t);
 }
 
+Ref<ImportExporterReport> ImportExporter::get_report() {
+	return report;
+}
+
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 
+	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
+	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 	String output_dir = !p_out_dir.is_empty() ? p_out_dir : get_settings()->get_project_path();
@@ -62,7 +68,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	Array files = get_settings()->get_import_files();
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 	bool partial_export = files_to_export.size() > 0;
-	session_files_total = partial_export ? files_to_export.size() : files.size();
+	report->session_files_total = partial_export ? files_to_export.size() : files.size();
 	if (opt_decompile) {
 		decompile_scripts(output_dir);
 		// This only works if we decompile the scripts first
@@ -100,7 +106,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 		if (loss_type != ImportInfo::LOSSLESS) {
 			if (!opt_lossy) {
-				lossy_imports.push_back(iinfo);
+				report->lossy_imports.push_back(iinfo);
 				print_line("Not converting lossy import " + path);
 				continue;
 			}
@@ -142,11 +148,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 					} else {
 						WARN_PRINT("Failed to load texture " + type + " " + path);
 					}
-					not_converted.push_back(iinfo);
+					report->not_converted.push_back(iinfo);
 					break;
 				default:
 					report_unsupported_resource(type, src_ext, path);
-					not_converted.push_back(iinfo);
+					report->not_converted.push_back(iinfo);
 					not_exported = true;
 			}
 		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
@@ -165,7 +171,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			if (src_ext == "xml") {
 				WARN_PRINT_ONCE("Conversion of Godot 2.x xml resource files currently unimplemented");
 				report_unsupported_resource(type, src_ext, path);
-				not_converted.push_back(iinfo);
+				report->not_converted.push_back(iinfo);
 				not_exported = true;
 			}
 			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
@@ -182,7 +188,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				if (iinfo->get_ver_major() <= 3) {
 					WARN_PRINT_ONCE("Export of Godot 2/3.x models/imported scenes currently unimplemented");
 					report_unsupported_resource(itos(iinfo->get_ver_major()) + ".x " + type, src_ext, path);
-					not_converted.push_back(iinfo);
+					report->not_converted.push_back(iinfo);
 					not_exported = true;
 				} else {
 					err = export_scene(output_dir, iinfo);
@@ -195,11 +201,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else if (importer == "wavefront_obj") {
 			WARN_PRINT_ONCE("Export of obj meshes currently unimplemented");
 			report_unsupported_resource(type, src_ext, path);
-			not_converted.push_back(iinfo);
+			report->not_converted.push_back(iinfo);
 			not_exported = true;
 		} else {
 			report_unsupported_resource(type, src_ext, path);
-			not_converted.push_back(iinfo);
+			report->not_converted.push_back(iinfo);
 			not_exported = true;
 		}
 
@@ -264,28 +270,28 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		// the following are successful exports, but we failed to rewrite metadata or write md5 files
 		// we had to rewrite the import metadata
 		if (err == ERR_PRINTER_ON_FIRE) {
-			rewrote_metadata.push_back(iinfo);
+			report->rewrote_metadata.push_back(iinfo);
 			err = OK;
 			// necessary to rewrite import metadata but failed
 		} else if (err == ERR_DATABASE_CANT_WRITE) {
-			failed_rewrite_md.push_back(iinfo);
+			report->failed_rewrite_md.push_back(iinfo);
 			err = OK;
 		} else if (err == ERR_LINK_FAILED) {
-			failed_rewrite_md5.push_back(iinfo);
+			report->failed_rewrite_md5.push_back(iinfo);
 			err = OK;
 		}
 
 		if (err == ERR_UNAVAILABLE) {
 			// already reported in exporters below
-			not_converted.push_back(iinfo);
+			report->not_converted.push_back(iinfo);
 		} else if (err != OK) {
-			failed.push_back(iinfo);
+			report->failed.push_back(iinfo);
 			print_line("Failed to convert " + type + " resource " + path);
 		} else {
 			if (loss_type != ImportInfo::LOSSLESS) {
-				lossy_imports.push_back(iinfo);
+				report->lossy_imports.push_back(iinfo);
 			}
-			success.push_back(iinfo);
+			report->success.push_back(iinfo);
 		}
 		// remove remaps
 		if (!err && get_settings()->has_any_remaps()) {
@@ -303,7 +309,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			dir->remove(get_settings()->get_project_config_path().get_file());
 		}
 	}
-	print_report();
+	report->print_report();
 	return OK;
 }
 
@@ -429,10 +435,10 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 		}
 		if (err) {
 			memdelete(decomp);
-			failed_scripts.push_back(f);
+			report->failed_scripts.push_back(f);
 			// TODO: make it not fail hard on the first script that fails to decompile
 			if (encrypted) {
-				had_encryption_error = true;
+				report->had_encryption_error = true;
 				ERR_FAIL_V_MSG(err, "error decompiling encrypted script " + f);
 			} else {
 				ERR_FAIL_V_MSG(err, "error decompiling " + f);
@@ -442,7 +448,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			String out_path = p_out_dir.path_join(dest_file.replace("res://", ""));
 			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
-				failed_scripts.push_back(f);
+				report->failed_scripts.push_back(f);
 				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
@@ -456,7 +462,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				da->remove(f.replace(".gdc", ".gd.remap").replace("res://", ""));
 			}
 			print_verbose("successfully decompiled " + f);
-			decompiled_scripts.push_back(f);
+			report->decompiled_scripts.push_back(f);
 		}
 	}
 	memdelete(decomp);
@@ -649,16 +655,16 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
 	da->list_dir_end();
 	for (int i = 0; i < dirs.size(); i++) {
 		if (dirs[i].contains("godotsteam")) {
-			godotsteam_detected = true;
+			report->godotsteam_detected = true;
 		}
 		err = recreate_plugin_config(output_dir, dirs[i]);
 		if (err == ERR_PRINTER_ON_FIRE) {
 			// we successfully copied the dlls, but failed to find one for our platform
 			WARN_PRINT("Failed to find library for this platform for plugin " + dirs[i]);
-			failed_gdnative_copy.push_back(dirs[i]);
+			report->failed_gdnative_copy.push_back(dirs[i]);
 		} else if (err) {
 			WARN_PRINT("Failed to recreate plugin.cfg for " + dirs[i]);
-			failed_plugin_cfg_create.push_back(dirs[i]);
+			report->failed_plugin_cfg_create.push_back(dirs[i]);
 		}
 	}
 	return OK;
@@ -821,8 +827,8 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	f->flush();
 	f = Ref<FileAccess>();
 	if (missing_keys) {
-		translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
-		translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
+		report->translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
+		report->translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
 		WARN_PRINT("Could not guess all keys in translation.csv");
 	}
 	print_line("Recreated translation.csv");
@@ -1091,9 +1097,9 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 
 void ImportExporter::report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn, bool suppress_print) {
 	String type_format_str = type + "%" + format_name.to_lower();
-	if (unsupported_types.find(type_format_str) == -1) {
+	if (report->unsupported_types.find(type_format_str) == -1) {
 		WARN_PRINT("Conversion for Resource of type " + type + " and format " + format_name + " not implemented");
-		unsupported_types.push_back(type_format_str);
+		report->unsupported_types.push_back(type_format_str);
 	}
 	if (!suppress_print)
 		print_line("Did not convert " + type + " resource " + import_path);
@@ -1162,68 +1168,149 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	return OK;
 }
 
-String ImportExporter::get_detected_unsupported_resource_string() {
-	String str = "";
-	for (auto type : unsupported_types) {
-		Vector<String> spl = type.split("%");
-		str += vformat("Type: %-20s", spl[0]) + "\tFormat: " + spl[1] + "\n";
-	}
-	return str;
+void ImportExporter::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("decompile_scripts"), &ImportExporter::decompile_scripts);
+	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports, DEFVAL(""), DEFVAL(PackedStringArray()));
+	ClassDB::bind_method(D_METHOD("convert_res_txt_2_bin"), &ImportExporter::convert_res_txt_2_bin);
+	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
+	ClassDB::bind_method(D_METHOD("convert_tex_to_png"), &ImportExporter::convert_tex_to_png);
+	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
+	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
+	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
+	ClassDB::bind_method(D_METHOD("get_report"), &ImportExporter::get_report);
+
+	ClassDB::bind_method(D_METHOD("reset"), &ImportExporter::reset);
 }
-String ImportExporter::get_session_notes() {
-	String report = "";
+
+void ImportExporter::reset_log() {
+	report = Ref<ImportExporterReport>(memnew(ImportExporterReport));
+}
+
+void ImportExporter::reset() {
+	opt_bin2text = true;
+	opt_export_textures = true;
+	opt_export_samples = true;
+	opt_export_ogg = true;
+	opt_export_mp3 = true;
+	opt_lossy = true;
+	opt_export_jpg = true;
+	opt_export_webp = true;
+	opt_rewrite_imd_v2 = true;
+	opt_rewrite_imd_v3 = true;
+	opt_decompile = true;
+	opt_only_decompile = false;
+	reset_log();
+}
+
+ImportExporter::ImportExporter() {
+	reset_log();
+}
+ImportExporter::~ImportExporter() {
+	reset();
+}
+
+void ImportExporterReport::set_ver(String ver) {
+	this->ver = GodotVer::parse(ver);
+}
+
+String ImportExporterReport::get_ver() {
+	return ver->as_text();
+}
+
+Dictionary ImportExporterReport::get_totals() {
+	Dictionary totals;
+	totals["total"] = decompiled_scripts.size() + failed_scripts.size() + lossy_imports.size() + rewrote_metadata.size() + failed_rewrite_md.size() + failed_rewrite_md5.size() + failed.size() + success.size() + not_converted.size() + failed_plugin_cfg_create.size() + failed_gdnative_copy.size() + unsupported_types.size();
+	totals["decompiled_scripts"] = decompiled_scripts.size();
+	totals["success"] = success.size();
+	totals["failed"] = failed.size();
+	totals["not_converted"] = not_converted.size();
+	totals["failed_scripts"] = failed_scripts.size();
+	totals["lossy_imports"] = lossy_imports.size();
+	totals["rewrote_metadata"] = rewrote_metadata.size();
+	totals["failed_rewrite_md"] = failed_rewrite_md.size();
+	totals["failed_rewrite_md5"] = failed_rewrite_md5.size();
+
+	totals["failed_plugin_cfg_create"] = failed_plugin_cfg_create.size();
+	totals["failed_gdnative_copy"] = failed_gdnative_copy.size();
+	totals["unsupported_types"] = unsupported_types.size();
+	return totals;
+}
+
+Dictionary ImportExporterReport::get_unsupported_types() {
+	Dictionary unsupported;
+	for (int i = 0; i < unsupported_types.size(); i++) {
+		auto split = unsupported_types[i].split("%");
+		unsupported[i] = unsupported_types[i];
+	}
+	return unsupported;
+}
+
+Dictionary ImportExporterReport::get_session_notes() {
+	Dictionary notes;
 	String unsup = get_detected_unsupported_resource_string();
 	if (!unsup.is_empty()) {
-		report += "The following resource types were detected in the project that conversion is not implemented for yet:\n";
-		report += unsup;
-		report += "See Export Report to see which resources were not exported.\n";
-		report += "You will still be able to edit the project in the editor regardless.\n";
+		Dictionary unsupported;
+		unsupported["title"] = "Unsupported Resources Detected";
+		String message = "The following resource types were detected in the project that conversion is not implemented for yet.\n";
+		message += "See Export Report to see which resources were not exported.\n";
+		message += "You will still be able to edit the project in the editor regardless.";
+		unsupported["message"] = message;
+		PackedStringArray list;
+		for (int i = 0; i < unsupported_types.size(); i++) {
+			auto split = unsupported_types[i].split("%");
+			list.push_back("Resource Type: " + split[0] + ", Format: " + split[1]);
+		}
+		unsupported["details"] = list;
+		notes["unsupported_types"] = unsupported;
+	}
+
+	if (had_encryption_error) {
+		// notes["encryption_error"] = "Failed to decompile encrypted scripts!\nSet the correct key and try again!";
+		Dictionary encryption_error;
+		encryption_error["title"] = "Encryption Error";
+		encryption_error["message"] = "Failed to decompile encrypted scripts!\nSet the correct key and try again!";
+		encryption_error["details"] = PackedStringArray();
+		notes["encryption_error"] = encryption_error;
 	}
 
 	if (!translation_export_message.is_empty()) {
-		if (!unsup.is_empty()) {
-			report += "-------\n";
-		}
-		report += translation_export_message;
-		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
-		report += "Note: consider just asking the creator if you wish to add a translation\n";
+		// notes["translation_export_message"] = translation_export_message;
+		Dictionary translation_export;
+		translation_export["title"] = "Translation Export Incomplete";
+		translation_export["message"] = translation_export_message;
+		translation_export["details"] = PackedStringArray();
+		notes["translation_export_message"] = translation_export;
 	}
 
 	if (!failed_gdnative_copy.is_empty() || !failed_plugin_cfg_create.is_empty()) {
-		if (!unsup.is_empty() || !translation_export_message.is_empty()) {
-			report += "-------\n";
-		}
-		report += "The following addons failed to have their libraries copied or plugin.cfg regenerated:\n";
+		Dictionary failed_plugins;
+		failed_plugins["title"] = "Incomplete Plugin Export";
+		String message = "The following addons failed to have their libraries copied or plugin.cfg regenerated\n";
+		message += "You may encounter editor errors due to this.\n";
+		message += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
+		failed_plugins["message"] = message;
+		PackedStringArray list;
 		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
-			report += "- " + failed_gdnative_copy[i] + String("\n");
+			list.push_back(failed_gdnative_copy[i]);
 		}
 		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
-			report += "- " + failed_plugin_cfg_create[i] + String("\n");
+			list.push_back(failed_plugin_cfg_create[i]);
 		}
-		report += "You may encounter editor errors due to this.\n";
-		report += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
+		failed_plugins["details"] = list;
+		notes["failed_plugins"] = failed_plugins;
 	}
-	if (get_ver_major() == 2) {
+	if (ver->get_major() == 2) {
 		// Godot 2.x's assets are all exported to .assets
-		report += "-------\n";
-		report += "All exported assets can be found in the '.assets' directory in the project folder.\n";
+		Dictionary godot_2_assets;
+		godot_2_assets["title"] = "Godot 2.x Assets";
+		godot_2_assets["message"] = "All exported assets can be found in the '.assets' directory in the project folder.";
+		godot_2_assets["details"] = PackedStringArray();
+		notes["godot_2_assets"] = godot_2_assets;
 	}
-	return report;
-}
-String ImportExporter::get_editor_message() {
-	String report = "";
-	report += "Use Godot editor version " + get_settings()->get_version_string() + String(godotsteam_detected ? "(steam version) " : "") + " to edit the project." + String("\n");
-	if (godotsteam_detected) {
-		report += "GodotSteam can be found here: https://github.com/CoaguCo-Industries/GodotSteam/releases \n";
-	}
-	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
-	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
-	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");
-
-	return report;
+	return notes;
 }
 
-String ImportExporter::get_totals() {
+String ImportExporterReport::get_totals_string() {
 	String report = "";
 	report += vformat("%-40s", "Totals: ") + String("\n");
 	report += vformat("%-40s", "Decompiled scripts: ") + itos(decompiled_scripts.size()) + String("\n");
@@ -1242,13 +1329,92 @@ String ImportExporter::get_totals() {
 	return report;
 }
 
-String ImportExporter::get_report() {
-	String report;
-	if (had_encryption_error) {
-		report += "Failed to decompile encrypted scripts!\n";
-		report += "Set the correct key and try again!\n\n";
+Dictionary ImportExporterReport::get_report_sections() {
+	Dictionary sections;
+	// sections["totals"] = get_totals();
+	// sections["unsupported_types"] = get_unsupported_types();
+	// sections["session_notes"] = get_session_notes();
+	sections["success"] = Dictionary();
+	Dictionary success_dict = sections["success"];
+	for (int i = 0; i < success.size(); i++) {
+		success_dict[success[i]->get_path()] = success[i]->get_export_dest();
 	}
-	report += get_totals();
+	sections["decompiled_scripts"] = Dictionary();
+	Dictionary decompiled_scripts_dict = sections["decompiled_scripts"];
+	for (int i = 0; i < decompiled_scripts.size(); i++) {
+		decompiled_scripts_dict[decompiled_scripts[i]] = decompiled_scripts[i];
+	}
+
+	if (!not_converted.is_empty()) {
+		sections["not_converted"] = Dictionary();
+		Dictionary not_converted_dict = sections["not_converted"];
+		for (int i = 0; i < not_converted.size(); i++) {
+			not_converted_dict[not_converted[i]->get_path()] = not_converted[i]->get_export_dest();
+		}
+	}
+	if (!failed_scripts.is_empty()) {
+		sections["failed_scripts"] = Dictionary();
+		Dictionary failed_scripts_dict = sections["failed_scripts"];
+		for (int i = 0; i < failed_scripts.size(); i++) {
+			failed_scripts_dict[failed_scripts[i]] = failed_scripts[i];
+		}
+	}
+	if (!failed.is_empty()) {
+		sections["failed"] = Dictionary();
+		Dictionary failed_dict = sections["failed"];
+		for (int i = 0; i < failed.size(); i++) {
+			failed_dict[failed[i]->get_path()] = failed[i]->get_export_dest();
+		}
+	}
+	if (!lossy_imports.is_empty()) {
+		sections["lossy_imports"] = Dictionary();
+		Dictionary lossy_dict = sections["lossy_imports"];
+		for (int i = 0; i < lossy_imports.size(); i++) {
+			lossy_dict[lossy_imports[i]->get_path()] = lossy_imports[i]->get_export_dest();
+		}
+	}
+	if (!rewrote_metadata.is_empty()) {
+		sections["rewrote_metadata"] = Dictionary();
+		Dictionary rewrote_metadata_dict = sections["rewrote_metadata"];
+		for (int i = 0; i < rewrote_metadata.size(); i++) {
+			rewrote_metadata_dict[rewrote_metadata[i]->get_path()] = rewrote_metadata[i]->get_export_dest();
+		}
+	}
+	if (!failed_rewrite_md.is_empty()) {
+		sections["failed_rewrite_md"] = Dictionary();
+		Dictionary failed_rewrite_md_dict = sections["failed_rewrite_md"];
+		for (int i = 0; i < failed_rewrite_md.size(); i++) {
+			failed_rewrite_md_dict[failed_rewrite_md[i]->get_path()] = failed_rewrite_md[i]->get_export_dest();
+		}
+	}
+	if (!failed_rewrite_md5.is_empty()) {
+		sections["failed_rewrite_md5"] = Dictionary();
+		Dictionary failed_rewrite_md5_dict = sections["failed_rewrite_md5"];
+		for (int i = 0; i < failed_rewrite_md5.size(); i++) {
+			failed_rewrite_md5_dict[failed_rewrite_md5[i]->get_path()] = failed_rewrite_md5[i]->get_export_dest();
+		}
+	}
+	// plugins
+	if (!failed_plugin_cfg_create.is_empty()) {
+		sections["failed_plugin_cfg_create"] = Dictionary();
+		Dictionary failed_plugin_cfg_create_dict = sections["failed_plugin_cfg_create"];
+		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
+			failed_plugin_cfg_create_dict[failed_plugin_cfg_create[i]] = failed_plugin_cfg_create[i];
+		}
+	}
+	if (!failed_gdnative_copy.is_empty()) {
+		sections["failed_gdnative_copy"] = Dictionary();
+		Dictionary failed_gdnative_copy_dict = sections["failed_gdnative_copy"];
+		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
+			failed_gdnative_copy_dict[failed_gdnative_copy[i]] = failed_gdnative_copy[i];
+		}
+	}
+	return sections;
+}
+
+String ImportExporterReport::get_report_string() {
+	String report;
+	report += get_totals_string();
 	report += "-------------\n" + String("\n");
 	if (lossy_imports.size() > 0) {
 		if (opt_lossy) {
@@ -1280,7 +1446,7 @@ String ImportExporter::get_report() {
 		}
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
-	if (rewrote_metadata.size() > 0 && get_ver_major() != 2) {
+	if (rewrote_metadata.size() > 0 && ver->get_major() != 2) {
 		report += "------\n";
 		report += "\nThe following files had their import data rewritten:" + String("\n");
 		for (int i = 0; i < rewrote_metadata.size(); i++) {
@@ -1309,66 +1475,156 @@ String ImportExporter::get_report() {
 			report += failed[i]->get_path() + String("\n");
 		}
 	}
+	return report;
+}
+String ImportExporterReport::get_editor_message_string() {
+	String report = "";
+	report += "Use Godot editor version " + ver->as_text() + String(godotsteam_detected ? " (steam version)" : "") + " to edit the project." + String("\n");
+	if (godotsteam_detected) {
+		report += "GodotSteam can be found here: https://github.com/CoaguCo-Industries/GodotSteam/releases \n";
+	}
+	report += "Note: the project may be using a custom version of Godot. Detection for this has not been implemented yet." + String("\n");
+	report += "If you find that you have many non-import errors upon opening the project " + String("\n");
+	report += "(i.e. scripts or shaders have many errors), use the original game's binary as the export template." + String("\n");
 
 	return report;
 }
+String ImportExporterReport::get_detected_unsupported_resource_string() {
+	String str = "";
+	for (auto type : unsupported_types) {
+		Vector<String> spl = type.split("%");
+		str += vformat("Type: %-20s", spl[0]) + "\tFormat: " + spl[1] + "\n";
+	}
+	return str;
+}
 
-void ImportExporter::print_report() {
+String ImportExporterReport::get_session_notes_string() {
+	String report = "";
+	String unsup = get_detected_unsupported_resource_string();
+	if (!unsup.is_empty()) {
+		report += "The following resource types were detected in the project that conversion is not implemented for yet:\n";
+		report += unsup;
+		report += "See Export Report to see which resources were not exported.\n";
+		report += "You will still be able to edit the project in the editor regardless.\n";
+	}
+
+	if (!translation_export_message.is_empty()) {
+		if (!unsup.is_empty()) {
+			report += "-------\n";
+		}
+		report += translation_export_message;
+		report += "If you wish to modify the translation csv(s), you will have to manually find the missing keys, replace them in the csv, and then copy it back to the original path\n";
+		report += "Note: consider just asking the creator if you wish to add a translation\n";
+	}
+	if (had_encryption_error) {
+		report += "-------\n";
+		report += "Failed to decompile encrypted scripts!\n";
+		report += "Set the correct key and try again!\n\n";
+	}
+	if (!failed_gdnative_copy.is_empty() || !failed_plugin_cfg_create.is_empty()) {
+		if (!unsup.is_empty() || !translation_export_message.is_empty()) {
+			report += "-------\n";
+		}
+		report += "The following addons failed to have their libraries copied or plugin.cfg regenerated:\n";
+		for (int i = 0; i < failed_gdnative_copy.size(); i++) {
+			report += "- " + failed_gdnative_copy[i] + String("\n");
+		}
+		for (int i = 0; i < failed_plugin_cfg_create.size(); i++) {
+			report += "- " + failed_plugin_cfg_create[i] + String("\n");
+		}
+		report += "You may encounter editor errors due to this.\n";
+		report += "Tip: Try finding the plugin in the Godot Asset Library or Github.\n";
+	}
+	if (ver->get_major() == 2) {
+		// Godot 2.x's assets are all exported to .assets
+		report += "-------\n";
+		report += "All exported assets can be found in the '.assets' directory in the project folder.\n";
+	}
+	return report;
+}
+String ImportExporterReport::get_log_file_location() {
+	return log_file_location;
+}
+
+Vector<String> ImportExporterReport::get_decompiled_scripts() {
+	return decompiled_scripts;
+}
+Vector<String> ImportExporterReport::get_failed_scripts() {
+	return failed_scripts;
+}
+TypedArray<ImportInfo> iinfo_vector_to_typedarray(const Vector<Ref<ImportInfo>> &vec) {
+	TypedArray<ImportInfo> arr;
+	arr.resize(vec.size());
+	for (int i = 0; i < vec.size(); i++) {
+		arr.set(i, vec[i]);
+	}
+	return arr;
+}
+
+TypedArray<ImportInfo> ImportExporterReport::get_successes() {
+	return iinfo_vector_to_typedarray(success);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_failed() {
+	return iinfo_vector_to_typedarray(failed);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_not_converted() {
+	return iinfo_vector_to_typedarray(not_converted);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_lossy_imports() {
+	return iinfo_vector_to_typedarray(lossy_imports);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_rewrote_metadata() {
+	return iinfo_vector_to_typedarray(rewrote_metadata);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_failed_rewrite_md() {
+	return iinfo_vector_to_typedarray(failed_rewrite_md);
+}
+TypedArray<ImportInfo> ImportExporterReport::get_failed_rewrite_md5() {
+	return iinfo_vector_to_typedarray(failed_rewrite_md5);
+}
+Vector<String> ImportExporterReport::get_failed_plugin_cfg_create() {
+	return failed_plugin_cfg_create;
+}
+Vector<String> ImportExporterReport::get_failed_gdnative_copy() {
+	return failed_gdnative_copy;
+}
+
+void ImportExporterReport::print_report() {
 	print_line("\n\n********************************EXPORT REPORT********************************" + String("\n"));
-	print_line(get_report());
-	String notes = get_session_notes();
+	print_line(get_report_string());
+	String notes = get_session_notes_string();
 	if (!notes.is_empty()) {
 		print_line("\n\n---------------------------------IMPORTANT NOTES----------------------------------" + String("\n"));
 		print_line(notes);
 	}
 	print_line("\n------------------------------------------------------------------------------------" + String("\n"));
-	print_line(get_editor_message());
+	print_line(get_editor_message_string());
 	print_line("*******************************************************************************\n");
 }
 
-void ImportExporter::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("decompile_scripts"), &ImportExporter::decompile_scripts);
-	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports, DEFVAL(""), DEFVAL(PackedStringArray()));
-	ClassDB::bind_method(D_METHOD("convert_res_txt_2_bin"), &ImportExporter::convert_res_txt_2_bin);
-	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
-	ClassDB::bind_method(D_METHOD("convert_tex_to_png"), &ImportExporter::convert_tex_to_png);
-	ClassDB::bind_method(D_METHOD("convert_sample_to_wav"), &ImportExporter::convert_sample_to_wav);
-	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
-	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
-	ClassDB::bind_method(D_METHOD("reset"), &ImportExporter::reset);
-}
-
-void ImportExporter::reset_log() {
-	had_encryption_error = false;
-	lossy_imports.clear();
-	rewrote_metadata.clear();
-	failed_rewrite_md.clear();
-	failed.clear();
-	success.clear();
-	not_converted.clear();
-	decompiled_scripts.clear();
-	failed_scripts.clear();
-	translation_export_message.clear();
-	session_files_total = 0;
-}
-
-void ImportExporter::reset() {
-	opt_bin2text = true;
-	opt_export_textures = true;
-	opt_export_samples = true;
-	opt_export_ogg = true;
-	opt_export_mp3 = true;
-	opt_lossy = true;
-	opt_export_jpg = true;
-	opt_export_webp = true;
-	opt_rewrite_imd_v2 = true;
-	opt_rewrite_imd_v3 = true;
-	opt_decompile = true;
-	opt_only_decompile = false;
-	reset_log();
-}
-
-ImportExporter::ImportExporter() {}
-ImportExporter::~ImportExporter() {
-	reset();
+void ImportExporterReport::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_totals"), &ImportExporterReport::get_totals);
+	ClassDB::bind_method(D_METHOD("get_unsupported_types"), &ImportExporterReport::get_unsupported_types);
+	ClassDB::bind_method(D_METHOD("get_session_notes"), &ImportExporterReport::get_session_notes);
+	ClassDB::bind_method(D_METHOD("get_totals_string"), &ImportExporterReport::get_totals_string);
+	ClassDB::bind_method(D_METHOD("get_report_string"), &ImportExporterReport::get_report_string);
+	ClassDB::bind_method(D_METHOD("get_detected_unsupported_resource_string"), &ImportExporterReport::get_detected_unsupported_resource_string);
+	ClassDB::bind_method(D_METHOD("get_session_notes_string"), &ImportExporterReport::get_session_notes_string);
+	ClassDB::bind_method(D_METHOD("get_editor_message_string"), &ImportExporterReport::get_editor_message_string);
+	ClassDB::bind_method(D_METHOD("get_log_file_location"), &ImportExporterReport::get_log_file_location);
+	ClassDB::bind_method(D_METHOD("get_decompiled_scripts"), &ImportExporterReport::get_decompiled_scripts);
+	ClassDB::bind_method(D_METHOD("get_failed_scripts"), &ImportExporterReport::get_failed_scripts);
+	ClassDB::bind_method(D_METHOD("get_successes"), &ImportExporterReport::get_successes);
+	ClassDB::bind_method(D_METHOD("get_failed"), &ImportExporterReport::get_failed);
+	ClassDB::bind_method(D_METHOD("get_not_converted"), &ImportExporterReport::get_not_converted);
+	ClassDB::bind_method(D_METHOD("get_lossy_imports"), &ImportExporterReport::get_lossy_imports);
+	ClassDB::bind_method(D_METHOD("get_rewrote_metadata"), &ImportExporterReport::get_rewrote_metadata);
+	ClassDB::bind_method(D_METHOD("get_failed_rewrite_md"), &ImportExporterReport::get_failed_rewrite_md);
+	ClassDB::bind_method(D_METHOD("get_failed_rewrite_md5"), &ImportExporterReport::get_failed_rewrite_md5);
+	ClassDB::bind_method(D_METHOD("get_failed_plugin_cfg_create"), &ImportExporterReport::get_failed_plugin_cfg_create);
+	ClassDB::bind_method(D_METHOD("get_failed_gdnative_copy"), &ImportExporterReport::get_failed_gdnative_copy);
+	ClassDB::bind_method(D_METHOD("get_report_sections"), &ImportExporterReport::get_report_sections);
+	ClassDB::bind_method(D_METHOD("print_report"), &ImportExporterReport::print_report);
+	ClassDB::bind_method(D_METHOD("set_ver"), &ImportExporterReport::set_ver);
+	ClassDB::bind_method(D_METHOD("get_ver"), &ImportExporterReport::get_ver);
 }

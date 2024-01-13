@@ -849,16 +849,17 @@ void GodotREEditor::_pck_extract_files_process() {
 	String log_path = GDRESettings::get_singleton()->get_log_file_path();
 	String report = "Log file written to " + log_path;
 	report += "\nPlease include this file when reporting an issue!\n\n";
+	auto full_report = ie->get_report();
 	if (is_full_recovery) {
-		report += ie->get_editor_message();
-		String notes = ie->get_session_notes();
+		report += full_report->get_editor_message_string();
+		String notes = full_report->get_session_notes_string();
 		if (!notes.is_empty()) {
 			report += "\n------------IMPORTANT NOTES-----------\n";
 			report += notes;
 		}
 		report += "\n************EXPORT REPORT************\n";
 
-		report += ie->get_report();
+		report += full_report->get_report_string();
 	}
 
 	_pck_unload();
