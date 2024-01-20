@@ -314,18 +314,18 @@ void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
 			for (int i = 0; i < p_dest_files.size(); i++) {
 				Vector<String> spl = p_dest_files[i].split(".");
 				// second to last split
-				ERR_FAIL_COND_MSG(spl.size() >= 4, "Expected to see format in path " + p_dest_files[i]);
+				ERR_FAIL_COND_MSG(spl.size() < 4, "Expected to see format in path " + p_dest_files[i]);
 				String ext = spl[spl.size() - 2];
 				List<String>::Element *E = remap_keys.find("path." + ext);
 
 				if (!E) {
-					WARN_PRINT("Did not find key path." + ext + " in remap metadata");
-					continue;
+					WARN_PRINT("Did not find key path." + ext + " in remap metadata, setting anwyway...");
 				}
-				cf->set_value("remap", E->get(), p_dest_files[i]);
+				cf->set_value("remap", "path." + ext, p_dest_files[i]);
 			}
 		} else {
-			ERR_FAIL_MSG("we don't have imported_formats in the remap metadata...????");
+			WARN_PRINT("we don't have imported_formats in the remap metadata?? Setting anyway...");
+			cf->set_value("remap", "path", p_dest_files[0]);
 		}
 	} else {
 		cf->set_value("remap", "path", p_dest_files[0]);
