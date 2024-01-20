@@ -395,10 +395,14 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 	// Version 1.x? unlikely
 	if (engine_ver_major < 2) {
 		switch (ver_format_bin) {
-			case 1:
-				// Version 1.x, format 1
+			case 0:
+				// Version 1.x, format 0
 				// Ok, this might actually be Godot 1.x
 				break;
+			case 1:
+				suspect_version = true;
+				engine_ver_major = 2;
+				engine_ver_minor = 0;
 			case 2:
 			case 3:
 				suspect_version = true;
