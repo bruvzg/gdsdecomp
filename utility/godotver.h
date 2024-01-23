@@ -130,6 +130,7 @@ public:
 
 	operator String() const { return as_text(); };
 	virtual String to_string() override;
+	virtual String as_tag() const { return as_text(); }
 
 	bool is_prerelease() { return prerelease != ""; }
 
@@ -198,6 +199,8 @@ protected:
 
 public:
 	virtual String as_text() const override;
+	// outputs a string that can be used as a tag to look up the release on github
+	virtual String as_tag() const override;
 	bool is_not_custom_build();
 	static bool parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver);
 	static Ref<GodotVer> parse(const String &p_ver_text);
