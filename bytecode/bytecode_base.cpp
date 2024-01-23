@@ -4,16 +4,15 @@
 
 #include "bytecode/bytecode_base.h"
 #include "bytecode/bytecode_versions.h"
+#include "bytecode/gdscript_tokenizer_compat.h"
 #include "compat/file_access_encrypted_v3.h"
 #include "compat/variant_writer_compat.h"
 
 #include "core/config/engine.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
-#include "core/io/image.h"
 #include "core/io/marshalls.h"
 
-#include "bytecode_base.h"
 #include <limits.h>
 
 void GDScriptDecomp::_bind_methods() {
@@ -228,6 +227,44 @@ int GDScriptDecomp::read_bytecode_version_encrypted(const String &p_path, int en
 	int version = decode_uint32(&buf[4]);
 	return version;
 }
+
+#if DEBUG_ENABLED
+// template T where T is derived from Vector
+template <typename T>
+static int continuity_tester(const T &p_vector, const T &p_other, String name, int pos = 0) {
+	if (p_vector.is_empty() && p_other.is_empty()) {
+		return -1;
+	}
+	if (p_vector.is_empty() && !p_other.is_empty()) {
+		WARN_PRINT(name + " first is empty");
+		return -1;
+	}
+	if (!p_vector.is_empty() && p_other.is_empty()) {
+		WARN_PRINT(name + " second is empty");
+		return -1;
+	}
+	if (pos == 0) {
+		if (p_vector.size() != p_other.size()) {
+			WARN_PRINT(name + " size mismatch: " + itos(p_vector.size()) + " != " + itos(p_other.size()));
+		}
+	}
+	if (pos >= p_vector.size() || pos >= p_other.size()) {
+		WARN_PRINT(name + " pos out of range");
+		return MIN(p_vector.size(), p_other.size());
+	}
+	for (int i = pos; i < p_vector.size(); i++) {
+		if (i >= p_other.size()) {
+			WARN_PRINT(name + " discontinuity at index " + itos(i));
+			return i;
+		}
+		if (p_vector[i] != p_other[i]) {
+			WARN_PRINT(name + " bytecode discontinuity at index " + itos(i));
+			return i;
+		}
+	}
+	return -1;
+}
+#endif
 
 Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	//Cleanup
@@ -645,6 +682,101 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 		error_message = RTR("Invalid token");
 		return ERR_INVALID_DATA;
 	}
+
+	// Testing recompile of the bytecode
+	// TODO: move this elsewhere
+#if DEBUG_ENABLED
+	Error new_err;
+	Vector<uint8_t> recompiled_bytecode = compile_code_string(script_text);
+	// compare the recompiled bytecode to the original bytecode
+	int discontinuity = continuity_tester<Vector<uint8_t>>(recompiled_bytecode, p_buffer, "Bytecode");
+	if (discontinuity == -1) {
+		return OK;
+	}
+
+	Ref<GDScriptDecomp> decomp = create_decomp_for_commit(get_bytecode_rev());
+
+	Vector<StringName> newidentifiers;
+	Vector<Variant> newconstants;
+	VMap<uint32_t, uint32_t> newlines;
+	Vector<uint32_t> newtokens;
+	new_err = get_ids_consts_tokens(recompiled_bytecode, bytecode_version, newidentifiers, newconstants, newtokens, newlines);
+	if (new_err != OK) {
+		WARN_PRINT("Recompiled bytecode failed to decompile: " + error_message);
+		return OK;
+	}
+	discontinuity = continuity_tester<Vector<StringName>>(identifiers, newidentifiers, "Identifiers");
+	if (discontinuity != -1 && discontinuity < identifiers.size() && newidentifiers.size()) {
+		WARN_PRINT("Different StringNames: " + identifiers[discontinuity] + " != " + newidentifiers[discontinuity]);
+	}
+	discontinuity = continuity_tester<Vector<Variant>>(constants, newconstants, "Constants");
+	if (discontinuity != -1 && discontinuity < constants.size() && newconstants.size()) {
+		WARN_PRINT("Different Constants: " + constants[discontinuity].operator String() + " != " + newconstants[discontinuity].operator String());
+	}
+	auto old_tokens_size = tokens.size();
+	auto new_tokens_size = newtokens.size();
+	discontinuity = continuity_tester<Vector<uint32_t>>(tokens, newtokens, "Tokens");
+
+	if (is_print_verbose_enabled() && discontinuity != -1 && discontinuity < new_tokens_size && discontinuity < old_tokens_size) {
+		// go through and print the ALL the tokens, "oldtoken (val)  ==  newtoken  (val)"
+		print_verbose("START TOKEN PRINT");
+		for (int i = 0; i < old_tokens_size; i++) {
+			auto old_token = tokens[i];
+			auto new_token = newtokens[i];
+			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token & TOKEN_MASK));
+			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token & TOKEN_MASK));
+			if (old_token_name != new_token_name) {
+				print_verbose(String("Different Tokens: ") + old_token_name + String(" != ") + new_token_name);
+			} else {
+				int old_token_val = old_token >> TOKEN_BITS;
+				int new_token_val = new_token >> TOKEN_BITS;
+				if (old_token_val != new_token_val) {
+					print_verbose(String("Different Token Val for ") + old_token_name + ":" + itos(old_token_val) + String(" != ") + itos(new_token_val));
+				} else {
+					print_verbose(String("Same Token Val for ") + old_token_name + ":" + itos(old_token_val) + String(" == ") + itos(new_token_val));
+				}
+			}
+		}
+		print_verbose("END TOKEN PRINT");
+	}
+
+	if (discontinuity != -1 && discontinuity < tokens.size() && discontinuity < newtokens.size()) {
+		while (discontinuity < tokens.size() && discontinuity < newtokens.size() && discontinuity != -1) {
+			auto old_token = tokens[discontinuity];
+			auto new_token = newtokens[discontinuity];
+			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token & TOKEN_MASK));
+			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token & TOKEN_MASK));
+			if (old_token_name != new_token_name) {
+				WARN_PRINT(String("Different Tokens: ") + old_token_name + String(" != ") + new_token_name);
+			} else {
+				int old_token_val = old_token >> TOKEN_BITS;
+				int new_token_val = new_token >> TOKEN_BITS;
+				if (old_token_val != new_token_val) {
+					WARN_PRINT(String("Different Token Val for ") + old_token_name + ":" + itos(old_token_val) + String(" != ") + itos(new_token_val));
+				}
+			}
+
+			discontinuity = continuity_tester<Vector<uint32_t>>(tokens, newtokens, "Tokens", discontinuity + 1);
+		}
+	}
+	auto lines_Size = lines.size();
+	auto newlines_Size = newlines.size();
+	discontinuity = continuity_tester<VMap<uint32_t, uint32_t>>(lines, newlines, "Lines");
+	if (discontinuity != -1 && discontinuity < lines_Size && discontinuity < newlines_Size) {
+		WARN_PRINT("Different Lines: " + itos(lines[discontinuity]) + " != " + itos(newlines[discontinuity]));
+	}
+
+	new_err = decomp->decompile_buffer(recompiled_bytecode);
+	if (new_err != OK) {
+		WARN_PRINT("Recompiled bytecode failed to decompile: " + error_message);
+	} else if (script_text != decomp->script_text) {
+		WARN_PRINT("Recompiled bytecode decompiled differently: " + decomp->script_text + " != " + script_text);
+	} else {
+		WARN_PRINT("Recompiled bytecode decompiled the same");
+		return OK;
+	}
+
+#endif
 	return OK;
 }
 
@@ -818,4 +950,159 @@ bool GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens
 		return false;
 	}
 	return true;
+}
+
+Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
+	Vector<uint8_t> buf;
+
+	RBMap<StringName, int> identifier_map;
+	HashMap<Variant, int, VariantHasher, VariantComparator> constant_map;
+	RBMap<uint32_t, int> line_map;
+	Vector<uint32_t> token_array;
+
+	// compat: from 3.0 - 3.1.1, the tokenizer defaulted to storing full objects
+	// e61a074, Mar 28, 2019
+	Ref<GodotVer> NO_FULL_OBJ_VER = GodotVer::create(3, 2, 0, "dev1");
+	Ref<GodotVer> godot_ver = GodotVer::parse(get_engine_version());
+	bool encode_full_objects = godot_ver->lt(NO_FULL_OBJ_VER);
+	GDScriptTokenizerTextCompat tt(this);
+	tt.set_code(p_code);
+	int line = -1;
+
+	while (true) {
+		if (tt.get_token_line() != line) {
+			line = tt.get_token_line();
+			line_map[line] = token_array.size();
+		}
+		const GlobalToken g_token = tt.get_token();
+		uint32_t local_token = get_local_token_val(g_token);
+		switch (g_token) {
+			case G_TK_IDENTIFIER: {
+				StringName id = tt.get_token_identifier();
+				if (!identifier_map.has(id)) {
+					int idx = identifier_map.size();
+					identifier_map[id] = idx;
+				}
+				local_token |= identifier_map[id] << TOKEN_BITS;
+			} break;
+			case G_TK_CONSTANT: {
+				const Variant &c = tt.get_token_constant();
+				if (!constant_map.has(c)) {
+					int idx = constant_map.size();
+					constant_map[c] = idx;
+				}
+				local_token |= constant_map[c] << TOKEN_BITS;
+			} break;
+			case G_TK_BUILT_IN_TYPE: {
+				Variant::Type type = tt.get_token_type();
+				int local_type = VariantDecoderCompat::convert_variant_type_to_old(type, get_variant_ver_major());
+				local_token |= local_type << TOKEN_BITS;
+			} break;
+			case G_TK_BUILT_IN_FUNC: {
+				// built-in function already has correct value
+				local_token |= tt.get_token_built_in_func() << TOKEN_BITS;
+			} break;
+			case G_TK_NEWLINE: {
+				local_token |= tt.get_token_line_indent() << TOKEN_BITS;
+			} break;
+			case G_TK_ERROR: {
+				ERR_FAIL_V(Vector<uint8_t>());
+			} break;
+			default: {
+			}
+		};
+
+		token_array.push_back(local_token);
+
+		if (tt.get_token() == G_TK_EOF) {
+			break;
+		}
+		tt.advance();
+	}
+
+	//reverse maps
+
+	RBMap<int, StringName> rev_identifier_map;
+	for (RBMap<StringName, int>::Element *E = identifier_map.front(); E; E = E->next()) {
+		rev_identifier_map[E->get()] = E->key();
+	}
+
+	RBMap<int, Variant> rev_constant_map;
+	for (auto K : constant_map) {
+		rev_constant_map[K.value] = K.key;
+	}
+
+	RBMap<int, uint32_t> rev_line_map;
+	for (RBMap<uint32_t, int>::Element *E = line_map.front(); E; E = E->next()) {
+		rev_line_map[E->get()] = E->key();
+	}
+
+	//save header
+	buf.resize(24);
+	buf.write[0] = 'G';
+	buf.write[1] = 'D';
+	buf.write[2] = 'S';
+	buf.write[3] = 'C';
+	encode_uint32(get_bytecode_version(), &buf.write[4]);
+	encode_uint32(identifier_map.size(), &buf.write[8]);
+	encode_uint32(constant_map.size(), &buf.write[12]);
+	encode_uint32(line_map.size(), &buf.write[16]);
+	encode_uint32(token_array.size(), &buf.write[20]);
+
+	//save identifiers
+
+	for (RBMap<int, StringName>::Element *E = rev_identifier_map.front(); E; E = E->next()) {
+		CharString cs = String(E->get()).utf8();
+		int len = cs.length() + 1;
+		int extra = 4 - (len % 4);
+		if (extra == 4) {
+			extra = 0;
+		}
+
+		uint8_t ibuf[4];
+		encode_uint32(len + extra, ibuf);
+		for (int i = 0; i < 4; i++) {
+			buf.push_back(ibuf[i]);
+		}
+		for (int i = 0; i < len; i++) {
+			buf.push_back(cs[i] ^ 0xb6);
+		}
+		for (int i = 0; i < extra; i++) {
+			buf.push_back(0 ^ 0xb6);
+		}
+	}
+
+	for (RBMap<int, Variant>::Element *E = rev_constant_map.front(); E; E = E->next()) {
+		int len;
+		Error err = VariantDecoderCompat::encode_variant_compat(get_variant_ver_major(), E->get(), nullptr, len, encode_full_objects);
+		ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Error when trying to encode Variant.");
+		int pos = buf.size();
+		buf.resize(pos + len);
+		VariantDecoderCompat::encode_variant_compat(get_variant_ver_major(), E->get(), &buf.write[pos], len, encode_full_objects);
+	}
+
+	for (RBMap<int, uint32_t>::Element *E = rev_line_map.front(); E; E = E->next()) {
+		uint8_t ibuf[8];
+		encode_uint32(E->key(), &ibuf[0]);
+		encode_uint32(E->get(), &ibuf[4]);
+		for (int i = 0; i < 8; i++) {
+			buf.push_back(ibuf[i]);
+		}
+	}
+
+	for (int i = 0; i < token_array.size(); i++) {
+		uint32_t token = token_array[i];
+
+		if (token & ~TOKEN_MASK) {
+			uint8_t buf4[4];
+			encode_uint32(token_array[i] | TOKEN_BYTE_MASK, &buf4[0]);
+			for (int j = 0; j < 4; j++) {
+				buf.push_back(buf4[j]);
+			}
+		} else {
+			buf.push_back(token);
+		}
+	}
+
+	return buf;
 }
