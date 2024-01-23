@@ -21,7 +21,6 @@ protected:
 	String script_text;
 	String error_message;
 
-	Pair<int, int> get_arg_count_for_builtin(String builtin_func_name);
 	bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int curr_pos);
 
 public:
@@ -172,6 +171,7 @@ public:
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);
 	static Ref<GDScriptDecomp> create_decomp_for_commit(uint64_t p_commit_hash);
+	Vector<uint8_t> compile_code_string(const String &p_code);
 	virtual String get_engine_version() const = 0;
 	virtual String get_max_engine_version() const = 0;
 

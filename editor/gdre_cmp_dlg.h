@@ -27,6 +27,7 @@ class ScriptCompDialog : public AcceptDialog {
 
 	FileDialog *target_folder_selection;
 	FileDialog *file_selection;
+	OptionButton *scrver;
 
 	ItemList *file_list;
 
@@ -46,6 +47,7 @@ class ScriptCompDialog : public AcceptDialog {
 	void _clear_pressed();
 	void _dir_select_pressed();
 	void _dir_select_request(const String &p_path);
+	void _bytcode_changed(int p_id);
 
 protected:
 	void _notification(int p_notification);
@@ -56,6 +58,7 @@ public:
 	String get_target_dir() const;
 
 	ScriptCompDialog();
+	int get_bytecode_version() const;
 	~ScriptCompDialog();
 };
 

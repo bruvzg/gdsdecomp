@@ -47,6 +47,7 @@
 #include "main/main.h"
 
 #endif
+#include "compat/file_access_encrypted_v3.h"
 
 /*************************************************************************/
 
@@ -360,7 +361,6 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 		menu_popup = menu_button->get_popup();
 		menu_popup->add_icon_item(icons["REScript"], RTR("Decompile .GDC/.GDE script files..."), MENU_DECOMP_GDS);
 		menu_popup->add_icon_item(icons["REScript"], RTR("Compile .GD script files..."), MENU_COMP_GDS);
-		menu_popup->set_item_disabled(menu_popup->get_item_index(MENU_COMP_GDS), true); //TEMP RE-ENABLE WHEN IMPLEMENTED
 		menu_button->set_anchor(Side::SIDE_TOP, 0);
 		menu_popup->connect("id_pressed", callable_mp(this, &GodotREEditor::menu_option_pressed));
 		p_menu->add_child(menu_button);
@@ -665,18 +665,17 @@ void GodotREEditor::_compile_files() {
 }
 
 void GodotREEditor::_compile_process() {
-	/*
 	Vector<String> files = script_dialog_c->get_file_list();
-	Vector<uint8_t> key = key_dialog->get_key(); = script_dialog_c->get_key();
+	int rev = script_dialog_c->get_bytecode_version();
+	Vector<uint8_t> key = key_dialog->get_key();
 	String dir = script_dialog_c->get_target_dir();
 	String ext = (key.size() == 32) ? ".gde" : ".gdc";
 
 	String failed_files;
-
+	Ref<GDScriptDecomp> dce = GDScriptDecomp::create_decomp_for_commit(rev);
 	EditorProgressGDDC *pr = memnew(EditorProgressGDDC(ne_parent, "re_compile", RTR("Compiling files..."), files.size(), true));
 
 	for (int i = 0; i < files.size(); i++) {
-
 		print_warning(RTR("compiling") + " " + files[i].get_file(), RTR("Compile"));
 		String target_name = dir.path_join(files[i].get_file().get_basename() + ext);
 
@@ -689,25 +688,23 @@ void GodotREEditor::_compile_process() {
 		if (file.size() > 0) {
 			String txt;
 			txt.parse_utf8((const char *)file.ptr(), file.size());
-			file = GDScriptTokenizerBuffer::parse_code_string(txt);
+			file = dce->compile_code_string(txt);
 
 			Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
-			if (fa) {
+			if (fa.is_valid()) {
 				if (key.size() == 32) {
-					Ref<FileAccessEncrypted> fae;
+					Ref<FileAccessEncryptedv3> fae;
 					fae.instantiate();
-					Error err = fae->open_and_parse(fa, key, FileAccessEncrypted::MODE_WRITE_AES256);
+					Error err = fae->open_and_parse(fa, key, FileAccessEncryptedv3::MODE_WRITE_AES256);
 					if (err == OK) {
 						fae->store_buffer(file.ptr(), file.size());
 						fae->close();
 					} else {
 						failed_files += files[i] + " (FileAccessEncrypted error)\n";
 					}
-					memdelete(fae);
 				} else {
 					fa->store_buffer(file.ptr(), file.size());
 					fa->close();
-					memdelete(fa);
 				}
 			} else {
 				failed_files += files[i] + " (FileAccess error)\n";
@@ -724,7 +721,6 @@ void GodotREEditor::_compile_process() {
 	} else {
 		show_warning(RTR("No errors detected."), RTR("Compile"), RTR("The operation completed successfully!"));
 	}
-*/
 }
 
 /*************************************************************************/
