@@ -15,7 +15,7 @@ inputs:
     default: false
   vulkan_sdk_version:
     description: If installing the SDK, which version to install
-    default: 1.3.204.1
+    default: 1.3.250.1
 
   # backend:
   #   description: Vulkan or GLES.
