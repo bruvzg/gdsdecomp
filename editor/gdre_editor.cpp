@@ -1291,7 +1291,7 @@ uint64_t GodotREEditor::_pck_create_process_folder(EditorProgressGDDC *p_pr, con
 			finfo.instantiate();
 
 			String name = p_rel.path_join(f);
-			finfo->init(p_path, name, p_offset, file->get_length(), hash, nullptr, flags == (1 << 0));
+			finfo->init(p_path, name, offset, file->get_length(), hash, nullptr, flags == (1 << 0));
 
 			pck_save_files.push_back(finfo);
 
