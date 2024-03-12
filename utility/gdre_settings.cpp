@@ -286,13 +286,18 @@ String get_standalone_pck_path() {
 	return exec_dir.path_join(exec_basename + ".pck");
 }
 
-void GDRESettings::fix_patch_number() {
+Error GDRESettings::fix_patch_number() {
 	if (!is_pack_loaded()) {
-		return;
+		return OK;
+	}
+	if (get_ver_major() == 2 && get_ver_minor() == 0) {
+		// just set it to the latest patch
+		set_ver_rev(4);
+		return OK;
 	}
 	// This is only implemented for 3.1 and 2.1; they started writing the correct patch number to the pck in 3.2
 	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1)) {
-		return;
+		return OK;
 	}
 	auto revision = BytecodeTester::test_files(code_files, get_ver_major(), get_ver_minor());
 	switch (revision) {
@@ -315,8 +320,10 @@ void GDRESettings::fix_patch_number() {
 			current_pack->version = GodotVer::parse("3.1.0-beta5");
 			break;
 		default:
+			ERR_FAIL_COND_V_MSG(true, ERR_CANT_RESOLVE, "Could not determine patch number!");
 			break;
 	}
+	return OK;
 }
 
 // This loads project directories by setting the global resource path to the project directory
@@ -366,7 +373,11 @@ Error GDRESettings::load_dir(const String &p_path) {
 		err = load_project_config();
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
 	}
-	fix_patch_number();
+	err = fix_patch_number();
+	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
+		unload_pack();
+		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts!");
+	}
 	return OK;
 }
 
@@ -423,7 +434,11 @@ Error GDRESettings::load_pack(const String &p_path) {
 		err = load_project_config();
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
 	}
-	fix_patch_number();
+	err = fix_patch_number();
+	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
+		unload_pack();
+		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts, please report this on the GitHub page!");
+	}
 	return OK;
 }
 

@@ -162,6 +162,7 @@ void SemVer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_prerelease"), &SemVer::is_prerelease);
 
 	ClassDB::bind_method(D_METHOD("as_text"), &SemVer::as_text);
+	ClassDB::bind_method(D_METHOD("as_tag"), &SemVer::as_tag);
 }
 
 bool SemVer::parse_valid(const String &p_ver_text, Ref<SemVer> &r_semver) {
@@ -319,6 +320,8 @@ int GodotVer::cmp(const Ref<SemVer> &p_b) const {
 
 	// pre-release fields for godot go like "beta1", "rc1", "alpha20", etc.
 	if (prerelease != b_prerelease) {
+		bool a_is_dev = prerelease.contains("dev");
+		bool b_is_dev = b_prerelease.contains("dev");
 		bool a_is_alpha = prerelease.contains("alpha");
 		bool b_is_alpha = b_prerelease.contains("alpha");
 		bool a_is_beta = prerelease.contains("beta");
@@ -328,25 +331,31 @@ int GodotVer::cmp(const Ref<SemVer> &p_b) const {
 		// bool a_is_stable = prerelease.contains("stable");
 		// bool b_is_stable = b_prerelease.contains("stable");
 
-		bool a_valid_pfield = a_is_alpha || a_is_beta || a_is_rc;
-		bool b_valid_pfield = b_is_alpha || b_is_beta || b_is_rc;
-		// alpha < beta < rc
+		bool a_valid_pfield = a_is_dev || a_is_alpha || a_is_beta || a_is_rc;
+		bool b_valid_pfield = b_is_dev || b_is_alpha || b_is_beta || b_is_rc;
+		// dev < alpha < beta < rc
 		if (a_valid_pfield && !b_valid_pfield) {
 			return -1;
 		}
 		if (!a_valid_pfield && b_valid_pfield) {
 			return 1;
 		}
+		if (a_is_dev && (b_is_alpha || b_is_beta || b_is_rc)) {
+			return -1;
+		}
 		if (a_is_alpha && (b_is_beta || b_is_rc)) {
 			return -1;
+		}
+		if (a_is_alpha && b_is_dev) {
+			return 1;
 		}
 		if (a_is_beta && b_is_rc) {
 			return -1;
 		}
-		if (a_is_beta && b_is_alpha) {
+		if (a_is_beta && (b_is_dev || b_is_alpha)) {
 			return 1;
 		}
-		if (a_is_rc && (b_is_alpha || b_is_beta)) {
+		if (a_is_rc && (b_is_dev || b_is_alpha || b_is_beta)) {
 			return 1;
 		}
 
@@ -381,8 +390,7 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 #ifdef MODULE_REGEX_ENABLED
 	// this will match: "v1" "2" "1.1" "2.4.stable" "1.4.5.6" "3.4.0.stable" "3.4.5.stable.official.f9ac000d5"
 	// if this is not a Windows-type version number ("1.4.5.6"), then everything after the patch number will be build metadata as we can't use it for precedence.
-	//OLD: ^[vV]?(?P<major>0|[1-9]\\d*)(?:\\.(?P<minor>0|[1-9]\\d*))?(?:\\.(?P<patch>0|[1-9]\\d*))?(?:\\.(?P<prerelease>(?:0|[1-9]\\d*)))?(?:[\\.](?P<buildmetadata>(?:[\\w\\-_\\+\\.]*)))?$
-	static const char *regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:[a-zA-Z\d]*)))?(?:[\.-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
+	static const char *regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:dev|alpha|beta|rc)\d*))?(?:[\.+-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
 	// TODO: this is leaking at exit; fix it
 	static const Ref<RegEx> non_strict_regex = RegEx::create_from_string(regex_str);
 
@@ -392,23 +400,6 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 		String prerelease = match->get_string("prerelease");
 		String build = match->get_string("buildmetadata");
 		// if prerelease begins with "stable" or it does NOT begin with "beta", "rc", or "alpha", then it's actually build metadata
-		if (!prerelease.is_empty() && (prerelease.begins_with("stable") || !(prerelease.begins_with("beta") || prerelease.begins_with("rc") || prerelease.begins_with("alpha")))) {
-			if (build.is_empty()) {
-				build = prerelease;
-			} else {
-				build = prerelease + "." + build;
-			}
-			prerelease = "";
-		}
-		if (build.begins_with("beta") || build.begins_with("rc") || build.begins_with("alpha")) {
-			auto parts = build.split(".", false, 1);
-			prerelease = parts[0];
-			if (parts.size() > 1) {
-				build = parts[1];
-			} else {
-				build = "";
-			}
-		}
 		r_semver = GodotVer::create(
 				match->get_string("major").to_int(),
 				!match->get_string("minor").is_empty() ? match->get_string("minor").to_int() : 0,
@@ -447,6 +438,22 @@ String GodotVer::as_text() const {
 	}
 	if (!build_metadata.is_empty()) {
 		ver_text += "." + build_metadata;
+	}
+	return ver_text;
+}
+
+String GodotVer::as_tag() const {
+	if (!valid) {
+		return "";
+	}
+	String ver_text = itos(major) + "." + itos(minor);
+	if (patch >= 0) {
+		ver_text += "." + itos(patch);
+	}
+	if (!prerelease.is_empty()) {
+		ver_text += "-" + prerelease;
+	} else {
+		ver_text += "-stable";
 	}
 	return ver_text;
 }

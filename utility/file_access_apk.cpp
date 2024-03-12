@@ -249,7 +249,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 				fname = original_fname.replace_first("assets/", "res://");
 			}
 		} else {
-			fname = original_fname;
+			fname = "res://" + original_fname;
 		}
 
 		asset_count++;

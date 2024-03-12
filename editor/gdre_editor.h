@@ -26,8 +26,8 @@
 
 #ifdef TOOLS_ENABLED
 class EditorNode;
-#include "editor/editor_scale.h"
 #include "editor/progress_dialog.h"
+#include "editor/themes/editor_scale.h"
 #else
 #define EDSCALE 1.0
 #endif

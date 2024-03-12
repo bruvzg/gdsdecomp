@@ -1,7 +1,8 @@
-#include "bytecode_tester.h"
-#include "bytecode_versions.h"
+#include "bytecode/bytecode_tester.h"
+#include "bytecode/bytecode_versions.h"
 #include "core/io/file_access.h"
-// We are only using this to test 2.1.x and 3.1.x currently.
+#include "utility/gdre_settings.h"
+#include "utility/godotver.h"
 
 /***********2.1 testing ********
  discontintuities in the functions for bytecode 10 starts here (-1 means varargs):
@@ -144,6 +145,155 @@ built-in func divergence for bytecode version 13 (3.1.x only)
 // TODO: add this
 */
 
+uint64_t generic_test(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major_hint, int ver_minor_hint, bool include_dev = false) {
+	ERR_FAIL_COND_V_MSG(p_paths.size() == 0, 0, "No files to test");
+	int detected_bytecode_version;
+	if (p_key.size() > 0) {
+		if (ver_major_hint >= 0 && ver_major_hint < 3) {
+			ERR_FAIL_V_MSG(0, "Encrypted scripts were not supported in Godot 1.x or 2.x.");
+		} else {
+			detected_bytecode_version = GDScriptDecomp::read_bytecode_version_encrypted(p_paths[0], ver_major_hint <= 0 ? 3 : ver_major_hint, p_key);
+			ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, 0, "Failed to detect bytecode version for encrypted script (did you set the correct key?):" + p_paths[0]);
+		}
+	} else {
+		detected_bytecode_version = GDScriptDecomp::read_bytecode_version(p_paths[0]);
+	}
+	ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, 0, "Failed to detect bytecode version for script " + p_paths[0]);
+
+	Vector<Ref<GDScriptDecomp>> decomp_versions = get_decomps_for_bytecode_ver(detected_bytecode_version, include_dev);
+	Vector<int> passed_versions;
+	for (String path : p_paths) {
+		Vector<uint8_t> data;
+		Vector<int> failed_version_idxs;
+		if (p_key.size() > 0) {
+			// We should never have scripts with bytecodes of differing versions in the same project.
+			ERR_FAIL_COND_V_MSG(
+					detected_bytecode_version != GDScriptDecomp::read_bytecode_version_encrypted(path, ver_major_hint <= 0 ? 3 : ver_major_hint, p_key),
+					0, "Detected bytecode version mismatch for script " + path);
+			Error err = GDScriptDecomp::get_buffer_encrypted(path, ver_major_hint <= 0 ? 3 : ver_major_hint, p_key, data);
+			ERR_FAIL_COND_V_MSG(err == ERR_UNAUTHORIZED, 0, "Failed to decrypt file " + path + " (Did you set the correct key?)");
+			ERR_FAIL_COND_V_MSG(err != OK, 0, "Failed to read file " + path);
+		} else {
+			ERR_FAIL_COND_V_MSG(detected_bytecode_version != GDScriptDecomp::read_bytecode_version(path), 0, "Detected bytecode version mismatch for script " + path);
+			data = FileAccess::get_file_as_bytes(path);
+		}
+		if (data.size() == 0) {
+			WARN_PRINT("File is empty: " + path);
+			continue;
+		}
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			auto test_result = decomp_versions[i]->test_bytecode(data);
+			switch (test_result) {
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL: {
+					failed_version_idxs.push_back(i);
+				} break;
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS: {
+					if (passed_versions.has(i)) {
+						break;
+					}
+					passed_versions.push_back(decomp_versions[i]->get_bytecode_rev());
+				} break;
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT: {
+					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for " + vformat("%07x", decomp_versions[i]->get_bytecode_rev()) + ", script " + path);
+					failed_version_idxs.push_back(i);
+				} break;
+				default:
+					break;
+			}
+		}
+		failed_version_idxs.sort();
+		// remove failed versions from the list in reverse order
+		for (int i = failed_version_idxs.size() - 1; i >= 0; i--) {
+			decomp_versions.remove_at(failed_version_idxs[i]);
+		}
+		failed_version_idxs.clear();
+		if (decomp_versions.size() == 0) {
+			break;
+		}
+	}
+	if (decomp_versions.size() == 1) {
+		// easy
+		return decomp_versions[0]->get_bytecode_rev();
+	}
+	if (decomp_versions.size() == 0) {
+		if (!include_dev) {
+			// try again with the dev versions
+			return generic_test(p_paths, p_key, ver_major_hint, ver_minor_hint, true);
+		}
+		// else fail
+		ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", please report this issue on GitHub.");
+	}
+	// otherwise, we have more than 1.
+	if (passed_versions.size() == 1) {
+		// only one version passed, so we'll use that
+		return passed_versions[0];
+	}
+
+	// otherwise...
+	Vector<int> candidates;
+	if (ver_major_hint > 0 && ver_minor_hint <= 0) {
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
+				int rev = decomp_versions[i]->get_bytecode_rev();
+				if (!passed_versions.is_empty()) {
+					if (passed_versions.has(rev)) {
+						candidates.push_back(rev);
+					}
+				} else {
+					candidates.push_back(rev);
+				}
+			}
+		}
+	} else if (ver_major_hint > 0 && ver_minor_hint > 0) {
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
+				bool good = false;
+				if (decomp_versions[i]->get_max_engine_version() != "") {
+					Ref<GodotVer> min_ver = GodotVer::parse(decomp_versions[i]->get_engine_version());
+					Ref<GodotVer> max_ver = GodotVer::parse(decomp_versions[i]->get_max_engine_version());
+					if (max_ver->get_minor() >= ver_minor_hint && min_ver->get_minor() <= ver_minor_hint) {
+						good = true;
+					}
+				} else {
+					Ref<GodotVer> ver = memnew(GodotVer(decomp_versions[i]->get_engine_version()));
+					if (ver->get_minor() == ver_minor_hint) {
+						good = true;
+					}
+				}
+				if (good) {
+					int rev = decomp_versions[i]->get_bytecode_rev();
+					if (!passed_versions.is_empty()) {
+						if (passed_versions.has(rev)) {
+							candidates.push_back(rev);
+						}
+					} else {
+						candidates.push_back(rev);
+					}
+				}
+			}
+		}
+	} else {
+		// no version hint
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			candidates.push_back(decomp_versions[i]->get_bytecode_rev());
+		}
+	}
+	ERR_FAIL_COND_V_MSG(candidates.is_empty(), 0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", please report this issue on GitHub.");
+	if (candidates.size() == 1) {
+		return candidates[0];
+	}
+	// otherwise, we have multiple candidates, fail with an error message that contains the candidates
+	String candidates_str;
+	for (int i = 0; i < candidates.size(); i++) {
+		candidates_str += vformat("%07x", candidates[i]);
+		if (i < candidates.size() - 1) {
+			candidates_str += ", ";
+		}
+	}
+	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + candidates_str + ", please report this issue on GitHub.");
+	// TODO: Smarter handling for this
+}
+
 uint64_t test_files_2_1(const Vector<String> &p_paths) {
 	uint64_t rev = 0;
 	bool ed80f45_failed = false;
@@ -152,26 +302,28 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 	bool _85585c7_passed = false;
 	bool _7124599_failed = false;
 	bool _7124599_passed = false;
-	GDScriptDecomp_ed80f45 *decomp_ed80f45 = memnew(GDScriptDecomp_ed80f45);
-	GDScriptDecomp_85585c7 *decomp_85585c7 = memnew(GDScriptDecomp_85585c7);
-	GDScriptDecomp_7124599 *decomp_7124599 = memnew(GDScriptDecomp_7124599);
+	Ref<GDScriptDecomp_ed80f45> decomp_ed80f45 = memnew(GDScriptDecomp_ed80f45);
+	Ref<GDScriptDecomp_85585c7> decomp_85585c7 = memnew(GDScriptDecomp_85585c7);
+	Ref<GDScriptDecomp_7124599> decomp_7124599 = memnew(GDScriptDecomp_7124599);
+	int func_max = 0;
+	int token_max = 0;
 	for (String path : p_paths) {
 		Vector<uint8_t> data = FileAccess::get_file_as_bytes(path);
 		if (data.size() == 0) {
 			continue;
 		}
 		if (!ed80f45_failed && !ed80f45_passed) {
-			auto test_result = decomp_ed80f45->test_bytecode(data);
+			auto test_result = decomp_ed80f45->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					ed80f45_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					// we don't need to test further, this revision is the highest possible for bytecode version 10
 					ed80f45_passed = true;
 					rev = 0xed80f45;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for ed80f45, script " + path);
 					ed80f45_failed = true;
 					break;
@@ -180,19 +332,19 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 			}
 		}
 		if (!_85585c7_failed && !_85585c7_passed) {
-			auto test_result = decomp_85585c7->test_bytecode(data);
+			auto test_result = decomp_85585c7->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					_85585c7_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					_85585c7_passed = true;
 					if (ed80f45_failed) {
 						// no need to go further
 						rev = 0x85585c7;
 					}
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for 85585c7, script " + path);
 					_85585c7_failed = true;
 					break;
@@ -201,15 +353,15 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 			}
 		}
 		if (!_7124599_failed && !_7124599_passed) {
-			auto test_result = decomp_7124599->test_bytecode(data);
+			auto test_result = decomp_7124599->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					_7124599_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					_7124599_passed = true; // doesn't currently have a pass case
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for 7124599, script " + path);
 					_7124599_failed = true;
 					break;
@@ -237,8 +389,13 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 			// it's quite possible for both 85585c7 and 7124599 to not fail, as 85585c7 is testing ColorN, which came towards the end of the builtin_func list
 			// and our pass cases are pretty limited there.
 			// if the game doesn't use 	"ColorN", "print_stack", or "instance_from_id", neither will fail.
-			// in that case, it doesn't matter which one we pick, so we'll just use 85585c7.
-			if (!_85585c7_failed) {
+			int colorn_idx = decomp_85585c7->get_function_index("ColorN");
+			if (func_max >= colorn_idx && !_7124599_failed && !_85585c7_failed) {
+				// We got incredibly unlucky.
+				// Neither failed but yet it uses functions past the shift
+				// We can't safely decompile this with either bytecode version, so fail.
+				ERR_FAIL_V_MSG(0, "UNLUCKY!! Failed to detect GDScript revision for engine version 2.1.x, please report this issue on GitHub");
+			} else if (!_85585c7_failed) {
 				rev = 0x85585c7;
 				// otherwise, it's probably 7124599
 			} else if (!_7124599_failed) {
@@ -246,12 +403,10 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 			}
 		}
 		if (rev == 0) {
-			ERR_PRINT("Failed to detect GDScript revision for engine version 2.1.x, please report this issue on GitHub");
+			// try it with the dev versions.
+			return generic_test(p_paths, Vector<uint8_t>(), 2, 1, true);
 		}
 	}
-	memdelete(decomp_ed80f45);
-	memdelete(decomp_85585c7);
-	memdelete(decomp_7124599);
 	return rev;
 }
 
@@ -263,9 +418,11 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 	bool _1ca61a3_failed = false;
 	bool _1ca61a3_passed = false;
 
-	GDScriptDecomp_514a3fb *decomp_514a3fb = memnew(GDScriptDecomp_514a3fb);
-	GDScriptDecomp_1a36141 *decomp_1a36141 = memnew(GDScriptDecomp_1a36141);
-	GDScriptDecomp_1ca61a3 *decomp_1ca61a3 = memnew(GDScriptDecomp_1ca61a3);
+	Ref<GDScriptDecomp_514a3fb> decomp_514a3fb = memnew(GDScriptDecomp_514a3fb);
+	Ref<GDScriptDecomp_1a36141> decomp_1a36141 = memnew(GDScriptDecomp_1a36141);
+	Ref<GDScriptDecomp_1ca61a3> decomp_1ca61a3 = memnew(GDScriptDecomp_1ca61a3);
+	int func_max = 0;
+	int token_max = 0;
 
 	for (String path : p_paths) {
 		Vector<uint8_t> data;
@@ -280,16 +437,16 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 			continue;
 		}
 		if (!_514a3fb_failed) {
-			auto test_result = decomp_514a3fb->test_bytecode(data);
+			auto test_result = decomp_514a3fb->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					_514a3fb_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					// we don't need to test further, this revision is the highest possible for bytecode version 13 (3.1)
 					rev = 0x514a3fb;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for 514a3fb, script " + path);
 					_514a3fb_failed = true;
 					break;
@@ -298,12 +455,12 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 			}
 		}
 		if (!_1a36141_failed && !_1a36141_passed) {
-			auto test_result = decomp_1a36141->test_bytecode(data);
+			auto test_result = decomp_1a36141->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					_1a36141_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					_1a36141_passed = true;
 					if (_514a3fb_failed) {
 						// no need to go further
@@ -311,7 +468,7 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 						break;
 					}
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for 1a36141, script " + path);
 					_1a36141_failed = true;
 					break;
@@ -320,12 +477,12 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 			}
 		}
 		if (!_1ca61a3_failed && !_1ca61a3_passed) {
-			auto test_result = decomp_1ca61a3->test_bytecode(data);
+			auto test_result = decomp_1ca61a3->_test_bytecode(data, token_max, func_max);
 			switch (test_result) {
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_FAIL:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL:
 					_1ca61a3_failed = true;
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_PASS:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS:
 					_1ca61a3_passed = true;
 					if (_514a3fb_failed && _1a36141_failed) {
 						// no need to go further
@@ -333,7 +490,7 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 						break;
 					}
 					break;
-				case GDScriptDecomp::BYTECODE_TEST_RESULT::BYTECODE_TEST_CORRUPT:
+				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT:
 					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for 1ca61a3, script " + path);
 					_1ca61a3_failed = true;
 					break;
@@ -357,46 +514,59 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 		} else if ((!_514a3fb_failed || !_1a36141_failed) && _1ca61a3_passed) {
 			rev = 0x1ca61a3;
 		} else if (!_514a3fb_failed && !_1a36141_failed && _1ca61a3_failed) { // there were major token changes in 3.1-beta, 1ca61a3 should have failed if the others didn't
-			// it likely will not matter which revision we use here, as they seem to have not used many built-in functions
-			// just use 3.1.1 (514a3fb), less than a month passed between 3.1.0 and 3.1.1
+			// The smoothstep shift happens pretty early in the function table;
+			// We may have gotten unlucky and not found any discontinuities in the scripts we tested.
+			// Check if we can safely decompile with either.
+			if (func_max >= decomp_514a3fb->get_function_index("smoothstep")) {
+				// Unlucky, we can't safely decompile this with either bytecode version.
+				// We should just fail here.
+				ERR_FAIL_V_MSG(0, "UNLUCKY!!! Failed to detect GDScript revision for engine version 3.1.x, please report this issue on GitHub.");
+			}
+			// Otherwise, we can safely decompile with either.
+			// We'll just use 514a3fb.
 			rev = 0x514a3fb;
-		} else if (_514a3fb_failed && !_1a36141_failed && _1a36141_failed) {
+		} else if (!_514a3fb_failed && _1a36141_failed && _1ca61a3_failed) {
+			rev = 0x514a3fb;
+		} else if (_514a3fb_failed && !_1a36141_failed && _1ca61a3_failed) {
 			rev = 0x1a36141;
 		} else if (_514a3fb_failed && _1a36141_failed && !_1ca61a3_failed) {
 			rev = 0x1ca61a3;
 		} else {
-			// If we made it here, our current way of testing is insufficient, the user should report this.
-			ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for engine version 3.1.x, please report this issue on GitHub.");
+			// Try it with the dev versions.
+			return generic_test(p_paths, p_key, 3, 1, true);
 		}
 	}
 
-	memdelete(decomp_514a3fb);
-	memdelete(decomp_1a36141);
-	memdelete(decomp_1ca61a3);
 	return rev;
 }
 
-uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major, int ver_minor) {
+uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint) {
 	uint64_t rev = 0;
-	if (ver_major == 2 && ver_minor == 1) {
-		return test_files_2_1(p_paths);
-	} else if (ver_major == 3 && ver_minor == 1) {
-		return test_files_3_1(p_paths);
+	ERR_FAIL_COND_V_MSG(p_paths.size() == 0, 0, "No files to test");
+	Vector<uint8_t> key;
+	if (p_paths[0].get_extension().to_lower() == "gde") {
+		key = GDRESettings::get_singleton()->get_encryption_key();
+	}
+
+	if (ver_major_hint == 3 && ver_minor_hint == 1) {
+		rev = test_files_3_1(p_paths, key);
+	} else if (ver_major_hint == 2 && ver_minor_hint == 1) {
+		rev = test_files_2_1(p_paths);
 	} else {
-		return 0;
+		rev = generic_test(p_paths, key, ver_major_hint, ver_minor_hint);
 	}
 	return rev;
 }
 
-uint64_t BytecodeTester::test_files_encrypted(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major, int ver_minor) {
+uint64_t BytecodeTester::test_files_encrypted(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major_hint, int ver_minor_hint) {
 	uint64_t rev = 0;
-	if (ver_major <= 2) {
+	if (ver_major_hint > 0 && ver_major_hint <= 2) {
 		// 1-2 didn't have encrypted scripts....???
 		ERR_FAIL_V_MSG(0, "Encrypted scripts were not supported in Godot 1.x or 2.x.");
-	} else if (ver_major == 3 && ver_minor == 1) {
+	} else if (ver_major_hint == 3 && ver_minor_hint == 1) {
 		return test_files_3_1(p_paths, p_key);
 	} else {
-		return 0;
+		return generic_test(p_paths, p_key, ver_major_hint, ver_minor_hint);
 	}
 	return rev;
 }

@@ -121,7 +121,7 @@ private:
 	Error _load_import_file(const String &p_path, bool should_load_md5);
 	Error load_dir(const String &p_path);
 	Error unload_dir();
-	void fix_patch_number();
+	Error fix_patch_number();
 	bool has_valid_version() const;
 
 protected:

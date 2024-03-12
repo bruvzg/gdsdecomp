@@ -10,6 +10,8 @@
 
 #include "gdre_cmp_dlg.h"
 
+#include "bytecode/bytecode_versions.h"
+
 ScriptCompDialog::ScriptCompDialog() {
 	set_title(RTR("Compile GDScript"));
 	set_flag(Window::Flags::FLAG_RESIZE_DISABLED, false);
@@ -57,6 +59,16 @@ ScriptCompDialog::ScriptCompDialog() {
 	script_vb->add_margin_child(RTR("Script files:"), file_list, true);
 	script_vb->add_child(file_list_hbc);
 
+	//Script version
+	scrver = memnew(OptionButton);
+
+	for (int i = 0; decomp_versions[i].commit != 0; i++) {
+		scrver->add_item(decomp_versions[i].name, decomp_versions[i].commit);
+	}
+
+	script_vb->add_margin_child(RTR("Script bytecode version:"), scrver);
+	scrver->connect("item_selected", callable_mp(this, &ScriptCompDialog::_bytcode_changed));
+
 	//Target directory
 	HBoxContainer *dir_hbc = memnew(HBoxContainer);
 	target_dir = memnew(LineEdit);
@@ -80,6 +92,14 @@ ScriptCompDialog::ScriptCompDialog() {
 	_validate_input();
 
 	add_cancel_button(RTR("Cancel"));
+}
+
+void ScriptCompDialog::_bytcode_changed(int p_id) {
+	_validate_input();
+}
+
+int ScriptCompDialog::get_bytecode_version() const {
+	return scrver->get_selected_id();
 }
 
 ScriptCompDialog::~ScriptCompDialog() {
@@ -139,6 +159,11 @@ void ScriptCompDialog::_validate_input() {
 	}
 	if (file_list->get_item_count() == 0) {
 		error_message += RTR("No files selected") + "\n";
+		script_key_error->add_theme_color_override("font_color", error_color);
+		ok = false;
+	}
+	if (scrver->get_selected_id() == 0xfffffff || scrver->get_selected_id() == 0) {
+		error_message += RTR("No bytecode version selected") + "\n";
 		script_key_error->add_theme_color_override("font_color", error_color);
 		ok = false;
 	}
