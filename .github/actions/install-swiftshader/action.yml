@@ -27,9 +27,9 @@ runs:
       shell: bash
       if: inputs.install_vulkan_sdk == 'true'
       run : |
-        wget "https://sdk.lunarg.com/sdk/download/${{ inputs.vulkan_sdk_version }}/mac/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}.dmg?Human=true" -O vulkansdk.dmg
-        hdiutil attach vulkansdk.dmg
-        sudo /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }} --accept-licenses --default-answer --confirm-command install
+        wget "https://sdk.lunarg.com/sdk/download/${{ inputs.vulkan_sdk_version }}/mac/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}.dmg?Human=true" -O vulkan-sdk.dmg
+        hdiutil attach vulkan-sdk.dmg
+        sudo /Volumes/vulkan-sdk/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }} --accept-licenses --default-answer --confirm-command install
         hdiutil detach /Volumes/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}
         echo "VULKAN_SDK_PATH=$GITHUB_WORKSPACE/vulkansdk-macos-${{ inputs.vulkan_sdk_version }}" >> $GITHUB_ENV
         echo "VULKAN_SDK=$VULKAN_SDK_PATH/macOS" >> $GITHUB_ENV
