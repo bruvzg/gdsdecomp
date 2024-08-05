@@ -43,7 +43,7 @@ const char *GDScriptTokenizerTextCompat::token_names[T::G_TK_MAX] = {
 	"Self",
 	"Built-In Type",
 	"Built-In Func",
-	"In",
+	"in",
 	"'=='",
 	"'!='",
 	"'<'",
@@ -141,6 +141,22 @@ const char *GDScriptTokenizerTextCompat::token_names[T::G_TK_MAX] = {
 	"do",
 	"case",
 	"switch",
+	"Annotation",
+	"Literal",
+	"&&",
+	"||",
+	"!",
+	"**", // STAR_STAR,
+	"**=", // STAR_STAR_EQUAL,
+	"when",
+	"await",
+	"namespace",
+	"super",
+	"trait",
+	"..",
+	"_",
+	"VCS conflict marker", // VCS_CONFLICT_MARKER,
+	"`", // BACKTICK,
 };
 
 struct _bit {
@@ -212,6 +228,13 @@ static const _kws _keyword_list[] = {
 	{ GDScriptDecomp::G_TK_CF_DO, "do" },
 	{ GDScriptDecomp::G_TK_CF_CASE, "case" },
 	{ GDScriptDecomp::G_TK_CF_SWITCH, "switch" },
+
+	// 4.3 keywords
+	{ GDScriptDecomp::G_TK_CF_WHEN, "when" },
+	{ GDScriptDecomp::G_TK_PR_AWAIT, "await" },
+	{ GDScriptDecomp::G_TK_PR_NAMESPACE, "namespace" },
+	{ GDScriptDecomp::G_TK_PR_SUPER, "super" },
+	{ GDScriptDecomp::G_TK_PR_TRAIT, "trait" },
 
 	{ GDScriptDecomp::G_TK_ERROR, nullptr }
 };
@@ -650,7 +673,11 @@ void GDScriptTokenizerTextCompat::_advance() {
 				break;
 			case '&': {
 				if (GETCHAR(1) == '&') {
-					_make_token(T::G_TK_OP_AND);
+					if (compat_gdscript_2_0){
+						_make_token(T::G_TK_AMPERSAND_AMPERSAND);
+					} else	{
+						_make_token(T::G_TK_OP_AND);
+					}
 					INCPOS(1);
 				} else if (GETCHAR(1) == '=') {
 					_make_token(T::G_TK_OP_ASSIGN_BIT_AND);
@@ -661,7 +688,11 @@ void GDScriptTokenizerTextCompat::_advance() {
 			} break;
 			case '|': {
 				if (GETCHAR(1) == '|') {
-					_make_token(T::G_TK_OP_OR);
+					if (compat_gdscript_2_0){
+						_make_token(T::G_TK_PIPE_PIPE);
+					} else	{
+						_make_token(T::G_TK_OP_OR);
+					}
 					INCPOS(1);
 				} else if (GETCHAR(1) == '=') {
 					_make_token(T::G_TK_OP_ASSIGN_BIT_OR);
@@ -959,8 +990,12 @@ void GDScriptTokenizerTextCompat::_advance() {
 				}
 
 				if (GETCHAR(0) == '.') {
-					//parse period
-					_make_token(T::G_TK_PERIOD);
+					if (compat_gdscript_2_0 && GETCHAR(1) == '.') {
+						_make_token(T::G_TK_PERIOD_PERIOD);
+						INCPOS(1);
+					} else {
+						_make_token(T::G_TK_PERIOD);
+					}
 					break;
 				}
 
