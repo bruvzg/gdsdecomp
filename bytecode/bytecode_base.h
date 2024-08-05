@@ -32,8 +32,8 @@ public:
 		G_TK_BUILT_IN_TYPE,
 		G_TK_BUILT_IN_FUNC,
 		G_TK_OP_IN,
-		G_TK_OP_EQUAL,
-		G_TK_OP_NOT_EQUAL,
+		G_TK_OP_EQUAL, // "EQUAL_EQUAL" in 4.2
+		G_TK_OP_NOT_EQUAL, // "BANG_EQUAL" in 4.2
 		G_TK_OP_LESS,
 		G_TK_OP_LESS_EQUAL,
 		G_TK_OP_GREATER,
@@ -46,23 +46,23 @@ public:
 		G_TK_OP_MUL,
 		G_TK_OP_DIV,
 		G_TK_OP_MOD,
-		G_TK_OP_SHIFT_LEFT,
-		G_TK_OP_SHIFT_RIGHT,
-		G_TK_OP_ASSIGN,
-		G_TK_OP_ASSIGN_ADD,
-		G_TK_OP_ASSIGN_SUB,
-		G_TK_OP_ASSIGN_MUL,
-		G_TK_OP_ASSIGN_DIV,
-		G_TK_OP_ASSIGN_MOD,
-		G_TK_OP_ASSIGN_SHIFT_LEFT,
-		G_TK_OP_ASSIGN_SHIFT_RIGHT,
-		G_TK_OP_ASSIGN_BIT_AND,
-		G_TK_OP_ASSIGN_BIT_OR,
-		G_TK_OP_ASSIGN_BIT_XOR,
-		G_TK_OP_BIT_AND,
-		G_TK_OP_BIT_OR,
-		G_TK_OP_BIT_XOR,
-		G_TK_OP_BIT_INVERT,
+		G_TK_OP_SHIFT_LEFT, // "LESS_LESS" in 4.2
+		G_TK_OP_SHIFT_RIGHT, // "GREATER_GREATER" in 4.2
+		G_TK_OP_ASSIGN, // "EQUAL" in 4.2
+		G_TK_OP_ASSIGN_ADD, // "PLUS_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_SUB, // "MINUS_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_MUL, // "STAR_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_DIV, // "SLASH_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_MOD, // "PERCENT_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_SHIFT_LEFT, // "LESS_LESS_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_SHIFT_RIGHT, // "GREATER_GREATER_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_BIT_AND, // "AMPERSAND_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_BIT_OR, // "PIPE_EQUAL" in 4.2
+		G_TK_OP_ASSIGN_BIT_XOR, // "CARET_EQUAL" in 4.2
+		G_TK_OP_BIT_AND, // "AMPERSAND" in 4.2
+		G_TK_OP_BIT_OR, // "PIPE" in 4.2
+		G_TK_OP_BIT_XOR, // "CARET" in 4.2
+		G_TK_OP_BIT_INVERT, // "TILDE" in 4.2
 		G_TK_CF_IF,
 		G_TK_CF_ELIF,
 		G_TK_CF_ELSE,
@@ -127,6 +127,24 @@ public:
 		G_TK_CF_DO, // removed in 3.1
 		G_TK_CF_CASE,
 		G_TK_CF_SWITCH,
+		G_TK_ANNOTATION, // added in 4.3
+		G_TK_LITERAL, // added in 4.3
+		G_TK_AMPERSAND_AMPERSAND, // added in 4.3
+		G_TK_PIPE_PIPE, // added in 4.3
+		G_TK_BANG, // added in 4.3
+		G_TK_STAR_STAR, // added in 4.3
+		G_TK_STAR_STAR_EQUAL, // added in 4.3
+		G_TK_CF_WHEN, // added in 4.3
+		G_TK_PR_AWAIT, // added in 4.3
+		G_TK_PR_NAMESPACE, // added in 4.3
+		G_TK_PR_SUPER, // added in 4.3
+		G_TK_PR_TRAIT, // added in 4.3
+		G_TK_PERIOD_PERIOD, // added in 4.3
+		G_TK_UNDERSCORE, // added in 4.3
+		G_TK_INDENT, // added in 4.3
+		G_TK_DEDENT, // added in 4.3
+		G_TK_VCS_CONFLICT_MARKER, // added in 4.3
+		G_TK_BACKTICK, // added in 4.3
 		G_TK_MAX,
 	};
 	enum BytecodeTestResult {
@@ -182,6 +200,9 @@ public:
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);
 	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> lines);
+	// GDScript version 2.0
+	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> lines);
+
 };
 
 VARIANT_ENUM_CAST(GDScriptDecomp::BytecodeTestResult)

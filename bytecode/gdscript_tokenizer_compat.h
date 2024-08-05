@@ -104,6 +104,7 @@ private:
 	bool compat_bin_consts = false;
 	bool compat_no_mixed_spaces = false;
 	bool compat_underscore_num_consts = false;
+	bool compat_gdscript_2_0 = false;
 
 #ifdef DEBUG_ENABLED
 	Vector<Pair<int, String>> warning_skips;
