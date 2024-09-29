@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import gdre_icon_builder
-from platform_methods import run_in_subprocess
 import shutil
 from subprocess import Popen, PIPE
 
@@ -19,9 +18,7 @@ env_gdsdecomp.Append(CPPPATH=["."])
 env_gdsdecomp.Append(CPPPATH=["#thirdparty/thorsvg/"])
 
 env_gdsdecomp["BUILDERS"]["MakeGDREIconsBuilder"] = Builder(
-    action=env_gdsdecomp.Run(
-        gdre_icon_builder.make_gdre_icons_action, "Generating default project theme icons header."
-    ),
+    action=env_gdsdecomp.Run(gdre_icon_builder.make_gdre_icons_action),
     suffix=".h",
     src_suffix=".svg",
 )

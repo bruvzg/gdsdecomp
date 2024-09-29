@@ -1180,7 +1180,7 @@ void GDRESettings::_bind_methods() {
 #include "platform/linuxbsd/os_linuxbsd.h"
 #endif
 #ifdef MACOS_ENABLED
-#include "platform/macos/os_macos.h"
+#include "drivers/unix/os_unix.h"
 #endif
 #ifdef UWP_ENABLED
 #include "platform/uwp/os_uwp.h"
@@ -1225,7 +1225,7 @@ void GDRESettings::add_logger() {
 #endif
 #ifdef MACOS_ENABLED
 	else if (os_name == "macOS") {
-		GDREOS<OS_MacOS> *_gdre_os = static_cast<GDREOS<OS_MacOS> *>(os_singleton);
+		GDREOS<OS_Unix> *_gdre_os = static_cast<GDREOS<OS_Unix> *>(os_singleton);
 		_gdre_os->_add_logger(logger);
 	}
 #endif

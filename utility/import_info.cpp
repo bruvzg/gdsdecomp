@@ -32,7 +32,7 @@ String ImportInfo::as_text(bool full) {
 			s += "\n\t\t[..." + itos(keys->size() - i) + " others...]";
 			break;
 		}
-		String t = (*keys)[i];
+		String t = (*keys).get(i);
 		s += "\n\t\t" + t + "=" + (String)params[t];
 	}
 	memdelete(keys);
