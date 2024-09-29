@@ -269,6 +269,11 @@ Error FileAccessGDRE::get_error() const {
 	return proxy->get_error();
 }
 
+Error FileAccessGDRE::resize(int64_t p_length) {
+	ERR_FAIL_COND_V_MSG(proxy.is_null(), ERR_FILE_NOT_FOUND, "File must be opened before use.");
+	return proxy->resize(p_length);
+}
+
 void FileAccessGDRE::flush() {
 	ERR_FAIL_COND_MSG(proxy.is_null(), "File must be opened before use.");
 	return proxy->flush();
@@ -681,7 +686,7 @@ String FileAccessGDRE::fix_path(const String &p_path) const {
 	return PathFinder::_fix_path_file_access(p_path.replace("\\", "/"));
 }
 
-String DirAccessGDRE::fix_path(String p_path) const {
+String DirAccessGDRE::fix_path(const String &p_path) const {
 	return PathFinder::_fix_path_file_access(p_path);
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_pack.h"
 
@@ -106,6 +107,7 @@ public:
 
 	virtual Error get_error() const override; ///< get last error
 	virtual String fix_path(const String &p_path) const override; ///< fix a path, i.e. make it absolute and in the OS format
+	virtual Error resize(int64_t p_length) override;
 	virtual void flush() override;
 	virtual void store_8(uint8_t p_dest) override; ///< store a byte
 	virtual void store_buffer(const uint8_t *p_src, uint64_t p_length) override; ///< store an array of bytes
@@ -131,7 +133,7 @@ protected:
 	Ref<DirAccess> _open_filesystem();
 
 public:
-	virtual String fix_path(String p_path) const override;
+	virtual String fix_path(const String &p_path) const override;
 	virtual Error list_dir_begin() override; ///< This starts dir listing
 	virtual String get_next() override;
 	virtual bool current_is_dir() const override;
@@ -193,7 +195,7 @@ class DirAccessProxy : public T {
 	static_assert(std::is_base_of<DirAccess, T>::value, "T must derive from DirAccess");
 
 public:
-	virtual String fix_path(String p_path) const override {
+	virtual String fix_path(const String &p_path) const override {
 		return PathFinder::_fix_path_file_access(p_path);
 	}
 };

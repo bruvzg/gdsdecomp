@@ -2746,7 +2746,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 
 	if (err) {
 		error = err;
-		_printerr();
+		_rlcprinterr();
 		return err;
 	}
 
@@ -2755,7 +2755,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 		// text FORMAT_VERSION
 		if (ver_format_text > 3) {
 			error_text = "Saved with newer format version";
-			_printerr();
+			_rlcprinterr();
 			error = ERR_PARSE_ERROR;
 			return error;
 			// Text format
@@ -2782,7 +2782,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 	} else if (tag.name == "gd_resource") {
 		if (!tag.fields.has("type")) {
 			error_text = "Missing 'type' field in 'gd_resource' tag";
-			_printerr();
+			_rlcprinterr();
 			error = ERR_PARSE_ERROR;
 			return error;
 		}
@@ -2795,7 +2795,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 
 	} else {
 		error_text = "Unrecognized file type: " + tag.name;
-		_printerr();
+		_rlcprinterr();
 		error = ERR_PARSE_ERROR;
 		return error;
 	}
@@ -2817,7 +2817,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 
 		if (err) {
 			error_text = "Unexpected end of file";
-			_printerr();
+			_rlcprinterr();
 			error = ERR_FILE_CORRUPT;
 		}
 	}
@@ -2945,7 +2945,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 				if (packed_scene->get_state()->get_node_count() == 0) {
 					error = ERR_FILE_CORRUPT;
 					error_text = "Instance Placeholder can't be used for inheritance.";
-					_printerr();
+					_rlcprinterr();
 					return Ref<PackedScene>();
 				}
 
@@ -2981,7 +2981,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 
 				if (error) {
 					if (error != ERR_FILE_EOF) {
-						_printerr();
+						_rlcprinterr();
 						return Ref<PackedScene>();
 					} else {
 						error = OK;
@@ -3074,7 +3074,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 
 			if (error) {
 				if (error != ERR_FILE_EOF) {
-					_printerr();
+					_rlcprinterr();
 					return Ref<PackedScene>();
 				} else {
 					error = OK;
@@ -3085,7 +3085,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 			if (!next_tag.fields.has("path")) {
 				error = ERR_FILE_CORRUPT;
 				error_text = "missing 'path' field from editable tag";
-				_printerr();
+				_rlcprinterr();
 				return Ref<PackedScene>();
 			}
 
@@ -3097,7 +3097,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 
 			if (error) {
 				if (error != ERR_FILE_EOF) {
-					_printerr();
+					_rlcprinterr();
 					return Ref<PackedScene>();
 				} else {
 					error = OK;
@@ -3106,7 +3106,7 @@ Ref<PackedScene> ResourceLoaderCompat::_parse_node_tag(VariantParser::ResourcePa
 			}
 		} else {
 			error = ERR_FILE_CORRUPT;
-			_printerr();
+			_rlcprinterr();
 			return Ref<PackedScene>();
 		}
 	}
@@ -3128,21 +3128,21 @@ Error ResourceLoaderCompat::fake_load_text() {
 		if (!next_tag.fields.has("path")) {
 			error = ERR_FILE_CORRUPT;
 			error_text = "Missing 'path' in external resource tag";
-			_printerr();
+			_rlcprinterr();
 			return error;
 		}
 
 		if (!next_tag.fields.has("type")) {
 			error = ERR_FILE_CORRUPT;
 			error_text = "Missing 'type' in external resource tag";
-			_printerr();
+			_rlcprinterr();
 			return error;
 		}
 
 		if (!next_tag.fields.has("id")) {
 			error = ERR_FILE_CORRUPT;
 			error_text = "Missing 'id' in external resource tag";
-			_printerr();
+			_rlcprinterr();
 			return error;
 		}
 		ExtResource er;
@@ -3156,14 +3156,14 @@ Error ResourceLoaderCompat::fake_load_text() {
 		external_resources.push_back(er);
 		error = load_ext_resource(external_resources.size() - 1);
 		if (error) {
-			_printerr();
+			_rlcprinterr();
 			return error;
 		}
 
 		error = VariantParser::parse_tag(&stream, lines, error_text, next_tag, &rp);
 
 		if (error) {
-			_printerr();
+			_rlcprinterr();
 			return error;
 		}
 	}
@@ -3182,14 +3182,14 @@ Error ResourceLoaderCompat::fake_load_text() {
 			if (!next_tag.fields.has("type")) {
 				error = ERR_FILE_CORRUPT;
 				error_text = "Missing 'type' in external resource tag";
-				_printerr();
+				_rlcprinterr();
 				return error;
 			}
 
 			if (!next_tag.fields.has("id")) {
 				error = ERR_FILE_CORRUPT;
 				error_text = "Missing 'id' in external resource tag";
-				_printerr();
+				_rlcprinterr();
 				return error;
 			}
 
@@ -3224,7 +3224,7 @@ Error ResourceLoaderCompat::fake_load_text() {
 					break;
 				}
 
-				_printerr();
+				_rlcprinterr();
 				return error;
 			}
 
@@ -3243,7 +3243,7 @@ Error ResourceLoaderCompat::fake_load_text() {
 			} else {
 				error = ERR_FILE_CORRUPT;
 				error_text = "Premature end of file while parsing [sub_resource]";
-				_printerr();
+				_rlcprinterr();
 				return error;
 			}
 		}
@@ -3256,7 +3256,7 @@ Error ResourceLoaderCompat::fake_load_text() {
 
 		if (!is_scene) {
 			error_text += "found the 'node' tag on a resource file!";
-			_printerr();
+			_rlcprinterr();
 			error = ERR_FILE_CORRUPT;
 			return error;
 		}
@@ -3307,7 +3307,7 @@ String ResourceLoaderCompat::recognize(Ref<FileAccess> p_f) {
 	Error err = VariantParser::parse_tag(&stream, lines, error_text, tag);
 
 	if (err) {
-		_printerr();
+		_rlcprinterr();
 		return "";
 	}
 
@@ -3315,7 +3315,7 @@ String ResourceLoaderCompat::recognize(Ref<FileAccess> p_f) {
 		int fmt = tag.fields["format"];
 		if (fmt > 3) {
 			error_text = "Saved with newer format version";
-			_printerr();
+			_rlcprinterr();
 			return "";
 		}
 	}
@@ -3330,7 +3330,7 @@ String ResourceLoaderCompat::recognize(Ref<FileAccess> p_f) {
 
 	if (!tag.fields.has("type")) {
 		error_text = "Missing 'type' field in 'gd_resource' tag";
-		_printerr();
+		_rlcprinterr();
 		return "";
 	}
 

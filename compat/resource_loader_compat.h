@@ -140,7 +140,7 @@ enum Type {
 	} else                                                 \
 		((void)0)
 
-#define _printerr() ERR_PRINT(String(res_path + ":" + itos(lines) + " - Parse Error: " + error_text).utf8().get_data());
+#define _rlcprinterr() ERR_PRINT(String(res_path + ":" + itos(lines) + " - Parse Error: " + error_text).utf8().get_data());
 
 struct ResourceProperty {
 	String name;
