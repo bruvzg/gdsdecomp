@@ -342,6 +342,38 @@ StringName ResourceLoaderCompat::_get_string() {
 	return string_map[id];
 }
 
+int ver_format_bin_to_text(int p_ver_bin){
+	switch (p_ver_bin) {
+		case 0:
+		case VariantBin::FORMAT_VERSION_CAN_RENAME_DEPS:
+			return TextVersion::TEXT_FORMAT_2_X;
+		case VariantBin::FORMAT_VERSION_64BIT_NUMS:
+		case VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY:
+			return TextVersion::TEXT_FORMAT_VARIANTV3;
+		case VariantBin::FORMAT_VERSION_STRING_ID:
+		case VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER:
+			return TextVersion::TEXT_FORMAT_STRING_ID;
+		case VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY:
+			return TextVersion::TEXT_FORMAT_BASE64_BYTE_ARRAY;
+	}
+	return -1;
+};
+
+int ver_format_text_to_bin(int p_ver_text) {
+	switch (p_ver_text) {
+		case TextVersion::TEXT_FORMAT_2_X:
+			return VariantBin::FORMAT_VERSION_CAN_RENAME_DEPS;
+		case TextVersion::TEXT_FORMAT_VARIANTV3:
+			return VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY;
+		case TextVersion::TEXT_FORMAT_STRING_ID:
+			return VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER;
+		case TextVersion::TEXT_FORMAT_BASE64_BYTE_ARRAY:
+			return VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY;
+	}
+	return -1;
+}
+
+
 Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
 	error = OK;
 
@@ -418,6 +450,8 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 				break;
 		}
 	}
+
+	ver_format_text = ver_format_bin_to_text(ver_format_bin);
 
 	res_type = get_unicode_string();
 
@@ -498,6 +532,10 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 	}
 
 	return OK;
+}
+
+bool ResourceLoaderCompat::should_write_compat() const{
+	return !(ver_format_bin >= VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY || ver_format_text >= TextVersion::TEXT_FORMAT_BASE64_BYTE_ARRAY || using_base64_byte_array);
 }
 
 void ResourceLoaderCompat::debug_print_properties(String res_name, String res_type, List<ResourceProperty> lrp) {
@@ -1185,6 +1223,10 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		packed_scene = resource;
 	}
 
+	if (dest_path.ends_with(".escn")) { // escn is always format version 2
+		ver_format_text = TEXT_FORMAT_VARIANTV3;
+	}
+
 	Error err;
 	Ref<FileAccess> wf = FileAccess::open(dest_path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot save file '" + dest_path + "'.");
@@ -1195,23 +1237,12 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 	}
 	// the actual res_type in case this is a fake resource
 	String main_type = get_internal_resource_type(main_res_path);
-
-	// Version 1 (Godot 2.x)
-	// Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
-	// Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
-	ver_format_text = 1;
-	if (engine_ver_major == 3 || dest_path.ends_with(".escn")) { // escn is always format version 2
-		ver_format_text = 2;
-	} else if (engine_ver_major == 4) {
-		ver_format_text = 3;
-	}
-
 	// save resources
 	{
 		String title = is_scene ? "[gd_scene " : "[gd_resource ";
 		if (!is_scene) {
 			title += "type=\"" + main_type + "\" ";
-			if (!script_class.is_empty() && ver_format_text > 2) { // only present on 4.x and above
+			if (!script_class.is_empty() && ver_format_text >= TEXT_FORMAT_STRING_ID) { // only present on 4.x and above
 				title += "script_class=\"" + script_class + "\" ";
 			}
 		}
@@ -1223,7 +1254,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		title += "format=" + itos(ver_format_text) + "";
 		// if v3 (Godot 4.x), store res_uid
 
-		if (ver_format_text >= 3) {
+		if (ver_format_text >= TEXT_FORMAT_STRING_ID) {
 			if (res_uid == ResourceUID::INVALID_ID) {
 				res_uid = ResourceSaver::get_resource_id_for_path(local_path, true);
 			}
@@ -1239,7 +1270,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		String p = external_resources[i].path;
 		external_resources.ptrw()[i].save_order = i + 1;
 		// Godot 4.x: store res_uid tag
-		if (ver_format_text >= 3) {
+		if (ver_format_text >= TEXT_FORMAT_STRING_ID) {
 			String s = "[ext_resource type=\"" + external_resources[i].type + "\"";
 			ResourceUID::ID er_uid = external_resources[i].uid;
 
@@ -1265,7 +1296,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 	}
 	RBSet<String> used_unique_ids;
 	// // Godot 4.x: Get all the unique ids for lookup
-	// if (ver_format_text >= 3) {
+	// if (ver_format_text >= TEXT_FORMAT_STRING_ID) {
 	// 	for (int i = 0; i < internal_resources.size(); i++) {
 	// 		Ref<Resource> intres = get_internal_resource(internal_resources[i].path);
 	// 		if (i != internal_resources.size() - 1 && (res->get_path() == "" || res->get_path().find("::") != -1)) {
@@ -1299,7 +1330,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 
 			line += "type=\"" + type + "\" ";
 			// Godot 4.x
-			if (ver_format_text >= 3) {
+			if (ver_format_text >= TEXT_FORMAT_STRING_ID) {
 				// // if unique id == "", generate and then store
 				// if (id == "") {
 				// 	String new_id;
@@ -1321,7 +1352,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 				line += "id=" + id + "]";
 			}
 
-			if (ver_format_text == 1) {
+			if (ver_format_text == TEXT_FORMAT_2_X) {
 				// Godot 2.x quirk: newline between subresource and properties
 				line += "\n";
 			}
@@ -1332,7 +1363,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 		for (List<ResourceProperty>::Element *PE = properties.front(); PE; PE = PE->next()) {
 			ResourceProperty pe = PE->get();
 			String vars;
-			VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_rlc_resources, this);
+			VariantWriterCompat::write_to_string(pe.value, vars, engine_ver_major, _write_rlc_resources, this, should_write_compat());
 			wf->store_string(pe.name.property_name_encode() + " = " + vars + "\n");
 		}
 
@@ -1391,19 +1422,19 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 			if (instance_placeholder != String()) {
 				String vars;
 				wf->store_string(" instance_placeholder=");
-				VariantWriterCompat::write_to_string(instance_placeholder, vars, engine_ver_major, _write_rlc_resources, this);
+				VariantWriterCompat::write_to_string(instance_placeholder, vars, engine_ver_major, _write_rlc_resources, this, should_write_compat());
 				wf->store_string(vars);
 			}
 
 			if (instance.is_valid()) {
 				String vars;
 				wf->store_string(" instance=");
-				VariantWriterCompat::write_to_string(instance, vars, engine_ver_major, _write_rlc_resources, this);
+				VariantWriterCompat::write_to_string(instance, vars, engine_ver_major, _write_rlc_resources, this, should_write_compat());
 				wf->store_string(vars);
 			}
 
 			wf->store_line("]");
-			if (ver_format_text == 1 && state->get_node_property_count(i) != 0) {
+			if (ver_format_text == TEXT_FORMAT_2_X && state->get_node_property_count(i) != 0) {
 				// Godot 2.x quirk: newline between header and properties
 				// We're emulating these whitespace quirks to enable easy diffs for regression testing
 				wf->store_line("");
@@ -1411,7 +1442,7 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 
 			for (int j = 0; j < state->get_node_property_count(i); j++) {
 				String vars;
-				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, engine_ver_major, _write_rlc_resources, this);
+				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, engine_ver_major, _write_rlc_resources, this, should_write_compat());
 
 				wf->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
 			}
@@ -1440,12 +1471,12 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 			wf->store_string(connstr);
 			if (binds.size()) {
 				String vars;
-				VariantWriterCompat::write_to_string(binds, vars, engine_ver_major, _write_rlc_resources, this);
+				VariantWriterCompat::write_to_string(binds, vars, engine_ver_major, _write_rlc_resources, this, should_write_compat());
 				wf->store_string(" binds= " + vars);
 			}
 
 			wf->store_line("]");
-			if (ver_format_text == 1) {
+			if (ver_format_text == TEXT_FORMAT_2_X) {
 				// Godot 2.x has this particular quirk, don't know why
 				wf->store_line("");
 			}
@@ -1466,6 +1497,51 @@ Error ResourceLoaderCompat::save_as_text_unloaded(const String &dest_path, uint3
 
 	return OK;
 }
+
+static Error read_reals(real_t *dst, Ref<FileAccess> &f, size_t count) {
+	if (f->real_is_double) {
+		if constexpr (sizeof(real_t) == 8) {
+			// Ideal case with double-precision
+			f->get_buffer((uint8_t *)dst, count * sizeof(double));
+#ifdef BIG_ENDIAN_ENABLED
+			{
+				uint64_t *dst = (uint64_t *)dst;
+				for (size_t i = 0; i < count; i++) {
+					dst[i] = BSWAP64(dst[i]);
+				}
+			}
+#endif
+		} else if constexpr (sizeof(real_t) == 4) {
+			// May be slower, but this is for compatibility. Eventually the data should be converted.
+			for (size_t i = 0; i < count; ++i) {
+				dst[i] = f->get_double();
+			}
+		} else {
+			ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "real_t size is neither 4 nor 8!");
+		}
+	} else {
+		if constexpr (sizeof(real_t) == 4) {
+			// Ideal case with float-precision
+			f->get_buffer((uint8_t *)dst, count * sizeof(float));
+#ifdef BIG_ENDIAN_ENABLED
+			{
+				uint32_t *dst = (uint32_t *)dst;
+				for (size_t i = 0; i < count; i++) {
+					dst[i] = BSWAP32(dst[i]);
+				}
+			}
+#endif
+		} else if constexpr (sizeof(real_t) == 8) {
+			for (size_t i = 0; i < count; ++i) {
+				dst[i] = f->get_float();
+			}
+		} else {
+			ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "real_t size is neither 4 nor 8!");
+		}
+	}
+	return OK;
+}
+
 
 Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 	uint32_t type = f->get_32();
@@ -1924,22 +2000,9 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			Vector<Vector2> array;
 			array.resize(len);
 			Vector2 *w = array.ptrw();
-			if (sizeof(Vector2) == 8) {
-				f->get_buffer((uint8_t *)w, len * sizeof(real_t) * 2);
-#ifdef BIG_ENDIAN_ENABLED
-				{
-					uint32_t *ptr = (uint32_t *)w.ptr();
-					for (int i = 0; i < len * 2; i++) {
-						ptr[i] = BSWAP32(ptr[i]);
-					}
-				}
-
-#endif
-
-			} else {
-				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Vector2 size is NOT 8!");
-			}
-
+			static_assert(sizeof(Vector2) == 2 * sizeof(real_t));
+			const Error err = read_reals(reinterpret_cast<real_t *>(w), f, len * 2);
+			ERR_FAIL_COND_V(err != OK, err);
 			r_v = array;
 
 		} break;
@@ -1949,22 +2012,9 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 			Vector<Vector3> array;
 			array.resize(len);
 			Vector3 *w = array.ptrw();
-			if (sizeof(Vector3) == 12) {
-				f->get_buffer((uint8_t *)w, len * sizeof(real_t) * 3);
-#ifdef BIG_ENDIAN_ENABLED
-				{
-					uint32_t *ptr = (uint32_t *)w.ptr();
-					for (int i = 0; i < len * 3; i++) {
-						ptr[i] = BSWAP32(ptr[i]);
-					}
-				}
-
-#endif
-
-			} else {
-				ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Vector3 size is NOT 12!");
-			}
-
+			static_assert(sizeof(Vector3) == 3 * sizeof(real_t));
+			const Error err = read_reals(reinterpret_cast<real_t *>(w), f, len * 3);
+			ERR_FAIL_COND_V(err != OK, err);
 			r_v = array;
 
 		} break;
@@ -1992,6 +2042,20 @@ Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 
 			r_v = array;
 		} break;
+		case VariantBin::VARIANT_PACKED_VECTOR4_ARRAY: {
+			uint32_t len = f->get_32();
+
+			Vector<Vector4> array;
+			array.resize(len);
+			Vector4 *w = array.ptrw();
+			static_assert(sizeof(Vector4) == 4 * sizeof(real_t));
+			const Error err = read_reals(reinterpret_cast<real_t *>(w), f, len * 4);
+			ERR_FAIL_COND_V(err != OK, err);
+
+			r_v = array;
+
+		} break;
+
 		default: {
 			ERR_FAIL_V(ERR_FILE_CORRUPT);
 		} break;
@@ -2280,7 +2344,7 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 		case Variant::OBJECT: {
 			Ref<Resource> res = p_property;
 			// This will only be triggered on godot 2.x, where the image variant is loaded as an image object vs. a resource
-			if (ver_format_bin == 1 && res->is_class("Image")) {
+			if (ver_format_bin == VariantBin::FORMAT_VERSION_IMAGE_VARIANT && res->is_class("Image")) {
 				fa->store_32(VariantBin::VARIANT_IMAGE);
 				// storing lossless compressed by default
 				ImageParserV2::write_image_v2_to_bin(fa, p_property, true);
@@ -2427,7 +2491,19 @@ Error ResourceLoaderCompat::write_variant_bin(Ref<FileAccess> fa, const Variant 
 				fa->store_real(arr.ptr()[i].b);
 				fa->store_real(arr.ptr()[i].a);
 			}
-
+		} break;
+		case Variant::PACKED_VECTOR4_ARRAY: {
+			fa->store_32(VariantBin::VARIANT_PACKED_VECTOR4_ARRAY);
+			Vector<Vector4> arr = p_property;
+			int len = arr.size();
+			fa->store_32(len);
+			const Vector4 *r = arr.ptr();
+			for (int i = 0; i < len; i++) {
+				fa->store_real(r[i].x);
+				fa->store_real(r[i].y);
+				fa->store_real(r[i].z);
+				fa->store_real(r[i].w);
+			}
 		} break;
 		default: {
 			ERR_FAIL_V_MSG(ERR_CANT_CREATE, "Invalid variant type");
@@ -2551,18 +2627,18 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 	fw->store_32(engine_ver_minor);
 
 	// If we're using_script_class, it's version 5
-	if (using_script_class) {
-		ver_format_bin = 5;
-	} else if (using_named_scene_ids) {
+	if (using_base64_byte_array){
+		ver_format_bin = VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY;
+	} else if (using_script_class) {
+		ver_format_bin = VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER;
+	} else if (using_named_scene_ids || engine_ver_major == 4) {
 		// If we're using named_scene_ids, it's version 4
-		ver_format_bin = 4;
+		ver_format_bin = VariantBin::FORMAT_VERSION_STRING_ID;
 		// else go by engine major version
 	} else if (engine_ver_major == 3) {
-		ver_format_bin = 3;
-	} else if (engine_ver_major == 4) {
-		ver_format_bin = 4;
+		ver_format_bin = VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY;
 	} else {
-		ver_format_bin = 1;
+		ver_format_bin = VariantBin::FORMAT_VERSION_CAN_RENAME_DEPS;
 	}
 
 	fw->store_32(ver_format_bin);
@@ -2642,7 +2718,7 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 			}
 			save_ustring(fw, path);
 		}
-		if (ver_format_bin >= 4) {
+		if (ver_format_bin >= VariantBin::FORMAT_VERSION_STRING_ID) {
 			internal_resources.ptrw()[i].save_order = i;
 		} else {
 			internal_resources.ptrw()[i].save_order = i + 1;
@@ -2753,24 +2829,30 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 	if (tag.fields.has("format")) {
 		ver_format_text = tag.fields["format"];
 		// text FORMAT_VERSION
-		if (ver_format_text > 3) {
+		if (ver_format_text > MAX_TEXT_FORMAT_VERSION) {
 			error_text = "Saved with newer format version";
 			_rlcprinterr();
 			error = ERR_PARSE_ERROR;
 			return error;
 			// Text format
-		} else if (ver_format_text == 3) {
+		} else if (ver_format_text >= TEXT_FORMAT_STRING_ID) {
 			using_named_scene_ids = true;
 			using_uids = true;
 			using_script_class = true;
 			engine_ver_major = engine_ver_major == 0 ? 4 : engine_ver_major;
-			ver_format_bin = 5;
-		} else if (ver_format_text == 2) {
+			if (ver_format_text >= TEXT_FORMAT_BASE64_BYTE_ARRAY) {
+				using_base64_byte_array = true;
+				ver_format_bin = VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY;
+			}
+			else{
+				ver_format_bin = VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER;
+			}
+		} else if (ver_format_text == TEXT_FORMAT_VARIANTV3) {
 			engine_ver_major = engine_ver_major == 0 ? 3 : engine_ver_major;
-			ver_format_bin = 3;
-		} else if (ver_format_text == 1) {
+			ver_format_bin = VariantBin::FORMAT_VERSION_NO_NODEPATH_PROPERTY;
+		} else if (ver_format_text == TEXT_FORMAT_2_X) {
 			engine_ver_major = engine_ver_major == 0 ? 2 : engine_ver_major;
-			ver_format_bin = 1;
+			ver_format_bin = VariantBin::FORMAT_VERSION_CAN_RENAME_DEPS;
 		} else {
 			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "illegal format version!");
 		}
@@ -3313,7 +3395,7 @@ String ResourceLoaderCompat::recognize(Ref<FileAccess> p_f) {
 
 	if (tag.fields.has("format")) {
 		int fmt = tag.fields["format"];
-		if (fmt > 3) {
+		if (fmt > MAX_TEXT_FORMAT_VERSION) {
 			error_text = "Saved with newer format version";
 			_rlcprinterr();
 			return "";
