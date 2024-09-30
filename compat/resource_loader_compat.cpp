@@ -1131,7 +1131,9 @@ Ref<Resource> ResourceLoaderCompat::make_dummy(const String &path, const String 
 	dummy.instantiate();
 	dummy->set_real_path(path);
 	dummy->set_real_type(type);
-	dummy->set_scene_unique_id(id);
+	if (!id.is_empty()) {
+		dummy->set_scene_unique_id(id);
+	}
 	return dummy;
 }
 
@@ -1141,7 +1143,11 @@ Ref<Resource> ResourceLoaderCompat::set_dummy_ext(const uint32_t erindex) {
 	}
 	String id;
 	if (using_uids) {
-		id = ResourceUID::get_singleton()->id_to_text(external_resources[erindex].uid);
+		if (external_resources[erindex].uid == ResourceUID::INVALID_ID) {
+			id = "";
+		} else {
+			id = ResourceUID::get_singleton()->id_to_text(external_resources[erindex].uid).replace_first("uid://", "");
+		}
 	} else if (external_resources[erindex].id != "") {
 		id = external_resources[erindex].id;
 	} else {
