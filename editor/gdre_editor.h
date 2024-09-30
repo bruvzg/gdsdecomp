@@ -81,7 +81,7 @@ private:
 #else
 	Node *editor;
 #endif
-	ProgressDialog *pdialog_singleton;
+	ProgressDialog *pdialog_singleton = nullptr;
 
 	Control *ne_parent;
 	Dictionary icons;
