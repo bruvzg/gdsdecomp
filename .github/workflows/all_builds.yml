@@ -33,7 +33,7 @@ env:
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}
-  cancel-in-progress: true
+  cancel-in-progress: false # TODO: Change this back to true once the cache is fixed
 
 jobs:
   build:
@@ -99,7 +99,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
-            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-13
+          sudo apt-get install libwayland-bin
 
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
