@@ -50,7 +50,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
-            libudev-dev libxi-dev libxrandr-dev yasm clang-format-13
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
           sudo apt-get install libwayland-bin
 
       - name: Setup Godot build cache
