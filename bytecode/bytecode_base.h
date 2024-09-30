@@ -192,17 +192,16 @@ public:
 	Vector<uint8_t> compile_code_string(const String &p_code);
 	virtual String get_engine_version() const = 0;
 	virtual String get_max_engine_version() const = 0;
-
+	Error debug_print(Vector<uint8_t> p_buffer);
 	static int read_bytecode_version(const String &p_path);
 	static int read_bytecode_version_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key);
 	static Error get_buffer_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key, Vector<uint8_t> &r_buffer);
 	String get_script_text();
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);
-	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> lines);
+	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 	// GDScript version 2.0
-	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> lines);
-
+	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 };
 
 VARIANT_ENUM_CAST(GDScriptDecomp::BytecodeTestResult)

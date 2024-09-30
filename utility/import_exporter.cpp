@@ -422,8 +422,12 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 				case 1: // might be added back in 4.1; if so, this will need to be updated
 					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.1 GDScript not yet implemented, failed to decompile");
 					break;
+				case 2:
+				case 3:
+					revision = 0x77af6ca;
+					break;
 				default:
-					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
+					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unsupported version 4." + itos(get_ver_minor()) + "." + itos(get_ver_rev()) + " of Godot detected, failed to decompile");
 					break;
 			}
 			break;
