@@ -1,8 +1,8 @@
 
 #include "core/io/marshalls.h"
 
-namespace gdre{
-bool check_header(const Vector<uint8_t> &p_buffer, const char* p_expected_header, int p_expected_len);
+namespace gdre {
+bool check_header(const Vector<uint8_t> &p_buffer, const char *p_expected_header, int p_expected_len);
 }
 
 // Can only pass in string literals

@@ -673,9 +673,9 @@ void GDScriptTokenizerTextCompat::_advance() {
 				break;
 			case '&': {
 				if (GETCHAR(1) == '&') {
-					if (compat_gdscript_2_0){
+					if (compat_gdscript_2_0) {
 						_make_token(T::G_TK_AMPERSAND_AMPERSAND);
-					} else	{
+					} else {
 						_make_token(T::G_TK_OP_AND);
 					}
 					INCPOS(1);
@@ -688,9 +688,9 @@ void GDScriptTokenizerTextCompat::_advance() {
 			} break;
 			case '|': {
 				if (GETCHAR(1) == '|') {
-					if (compat_gdscript_2_0){
+					if (compat_gdscript_2_0) {
 						_make_token(T::G_TK_PIPE_PIPE);
-					} else	{
+					} else {
 						_make_token(T::G_TK_OP_OR);
 					}
 					INCPOS(1);

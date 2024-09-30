@@ -407,7 +407,7 @@ void FileAccessAPK::flush() {
 void FileAccessAPK::store_8(uint8_t p_dest) {
 	ERR_FAIL();
 }
-void FileAccessAPK::store_buffer(const uint8_t *p_src, uint64_t p_length){
+void FileAccessAPK::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 	ERR_FAIL();
 } ///< store an array of bytes, needs to be overwritten by children.
 
