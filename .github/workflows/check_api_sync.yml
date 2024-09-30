@@ -15,7 +15,8 @@ env:
   GODOT_BASE_BRANCH: master
   GDSDECOMP_BASE_BRANCH: master
   # Temp fix for check_api_sync, `disable_3d=yes` currently causes the build to fail on linux
-  SCONSFLAGS: debug_symbols=no warnings=extra optimize=size use_lto=yes disable_3d=no no_editor_splash=yes module_bmp_enabled=no module_bullet_enabled=no module_camera_enabled=no module_csg_enabled=no module_cvtt_enabled=no module_mbedtls_enabled=no module_tga_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_gdnative_enabled=no module_opensimplex_enabled=no module_pvr_enabled=no module_webm_enabled=no module_websocket_enabled=no module_gridmap_enabled=no module_xatlas_unwrap_enabled=no module_squish_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes
+  SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes debug_symbols=no deprecated=yes
+  SCONSFLAGS_TEMPLATE: no_editor_splash=yes module_camera_enabled=no module_mbedtls_enabled=no module_enet_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_noise_enabled=no module_websocket_enabled=no use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libvorbis=yes builtin_libogg=yes module_csg_enabled=yes module_gridmap_enabled=yes disable_3d=no
 jobs:
   check:
     name: "Test master API Sync"
@@ -49,7 +50,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
-            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-13
+          sudo apt-get install libwayland-bin
 
       - name: Setup Godot build cache
         uses: ./.github/actions/godot-cache
@@ -63,9 +65,8 @@ jobs:
       - name: Compilation
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: ${{ env.SCONSFLAGS }} ${{ matrix.sconsflags }}
+          sconsflags: ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }}
           platform: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tools: ${{ matrix.tools }}
           tests: ${{ matrix.tests }}
           scons-cache-limit: 4096
