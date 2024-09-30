@@ -9,9 +9,12 @@
 #include "compat/variant_writer_compat.h"
 
 #include "core/config/engine.h"
+#include "core/error/error_list.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
+
+#include "utility/common.h"
 
 #include <limits.h>
 
@@ -123,24 +126,37 @@ String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t 
 	}
 	return constString;
 }
+#define GDSCRIPT_2_0_VERSION 100
 
-Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> lines) {
-const uint8_t *buf = p_buffer.ptr();
-	ERR_FAIL_COND_V(p_buffer.size() < 12 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
-
-	int version = decode_uint32(&buf[4]);
-	ERR_FAIL_COND_V_MSG(version > 100, ERR_INVALID_DATA, "Binary GDScript is too recent! Please use a newer engine version.");
-
+int decompress_buf(const Vector<uint8_t> &p_buffer, Vector<uint8_t> &contents) {
+	ERR_FAIL_COND_V(p_buffer.size() < 12, -1);
+	const uint8_t *buf = p_buffer.ptr();
 	int decompressed_size = decode_uint32(&buf[8]);
-
-	Vector<uint8_t> contents;
+	int result = 0;
 	if (decompressed_size == 0) {
 		contents = p_buffer.slice(12);
 	} else {
 		contents.resize(decompressed_size);
-		int result = Compression::decompress(contents.ptrw(), contents.size(), &buf[12], p_buffer.size() - 12, Compression::MODE_ZSTD);
-		ERR_FAIL_COND_V_MSG(result != decompressed_size, ERR_INVALID_DATA, "Error decompressing GDScript tokenizer buffer.");
+		result = Compression::decompress(contents.ptrw(), contents.size(), &buf[12], p_buffer.size() - 12, Compression::MODE_ZSTD);
 	}
+	return result;
+}
+
+#define GDSC_HEADER "GDSC"
+#define CHECK_GDSC_HEADER(p_buffer) _GDRE_CHECK_HEADER(p_buffer, GDSC_HEADER)
+
+Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
+	const uint8_t *buf = p_buffer.ptr();
+	ERR_FAIL_COND_V(p_buffer.size() < 12 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA);
+
+	int version = decode_uint32(&buf[4]);
+	ERR_FAIL_COND_V_MSG(version > GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Binary GDScript is too recent! Please use a newer engine version.");
+	ERR_FAIL_COND_V_MSG(version < GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Don't use this function for older versions of GDScript.");
+
+	int decompressed_size = decode_uint32(&buf[8]);
+
+	Vector<uint8_t> contents;
+	ERR_FAIL_COND_V_MSG(decompress_buf(p_buffer, contents) != decompressed_size, ERR_INVALID_DATA, "Error decompressing GDScript tokenizer buffer.");
 
 	int total_len = contents.size();
 	buf = contents.ptr();
@@ -178,7 +194,7 @@ const uint8_t *buf = p_buffer.ptr();
 	for (uint32_t i = 0; i < constant_count; i++) {
 		Variant v;
 		int len;
-		Error err = decode_variant(v, b, total_len, &len, false);
+		Error err = VariantDecoderCompat::decode_variant_compat(get_variant_ver_major(), v, b, total_len, &len);
 		if (err) {
 			return err;
 		}
@@ -203,7 +219,7 @@ const uint8_t *buf = p_buffer.ptr();
 		uint32_t column = decode_uint32(b);
 		b += 4;
 		total_len -= 8;
-		// token_columns[token_index] = column;
+		columns[token_index] = column;
 	}
 
 	tokens.resize(token_count);
@@ -229,19 +245,19 @@ const uint8_t *buf = p_buffer.ptr();
 	return OK;
 }
 
-Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> lines) {
-	if (bytecode_version >= 100){
-		return get_ids_consts_tokens_v2(p_buffer, bytecode_version, identifiers, constants, tokens, lines);
+Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
+	if (bytecode_version >= GDSCRIPT_2_0_VERSION) {
+		return get_ids_consts_tokens_v2(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
 	}
 	const uint8_t *buf = p_buffer.ptr();
 	int total_len = p_buffer.size();
-	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
+	ERR_FAIL_COND_V(p_buffer.size() < 24 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA);
 
 	int version = decode_uint32(&buf[4]);
 	if (version != bytecode_version) {
 		ERR_FAIL_COND_V(version > bytecode_version, ERR_INVALID_DATA);
 	}
-	const int contents_start = 8 + (version >= 100 ? 4 : 0);
+	const int contents_start = 8 + (version >= GDSCRIPT_2_0_VERSION ? 4 : 0);
 	int identifier_count = decode_uint32(&buf[contents_start]);
 	int constant_count = decode_uint32(&buf[contents_start + 4]);
 	int line_count = decode_uint32(&buf[contents_start + 8]);
@@ -283,7 +299,7 @@ Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int
 		constants.write[i] = v;
 	}
 
-	ERR_FAIL_COND_V(line_count * 8 > total_len, ERR_INVALID_DATA);
+	ERR_FAIL_COND_V(line_count * sizeof(VMap<uint32_t, uint32_t>::Pair) > total_len, ERR_INVALID_DATA);
 
 	for (int i = 0; i < line_count; i++) {
 		uint32_t token = decode_uint32(b);
@@ -374,8 +390,132 @@ static int continuity_tester(const T &p_vector, const T &p_other, String name, i
 	return -1;
 }
 #endif
+// constant array of string literals of the global token enum values
+const char *g_token_str[] = {
+	"TK_EMPTY",
+	"TK_IDENTIFIER",
+	"TK_CONSTANT",
+	"TK_SELF",
+	"TK_BUILT_IN_TYPE",
+	"TK_BUILT_IN_FUNC",
+	"TK_OP_IN",
+	"TK_OP_EQUAL", // "EQUAL_EQUAL" in 4.2
+	"TK_OP_NOT_EQUAL", // "BANG_EQUAL" in 4.2
+	"TK_OP_LESS",
+	"TK_OP_LESS_EQUAL",
+	"TK_OP_GREATER",
+	"TK_OP_GREATER_EQUAL",
+	"TK_OP_AND",
+	"TK_OP_OR",
+	"TK_OP_NOT",
+	"TK_OP_ADD",
+	"TK_OP_SUB",
+	"TK_OP_MUL",
+	"TK_OP_DIV",
+	"TK_OP_MOD",
+	"TK_OP_SHIFT_LEFT", // "LESS_LESS" in 4.2
+	"TK_OP_SHIFT_RIGHT", // "GREATER_GREATER" in 4.2
+	"TK_OP_ASSIGN", // "EQUAL" in 4.2
+	"TK_OP_ASSIGN_ADD", // "PLUS_EQUAL" in 4.2
+	"TK_OP_ASSIGN_SUB", // "MINUS_EQUAL" in 4.2
+	"TK_OP_ASSIGN_MUL", // "STAR_EQUAL" in 4.2
+	"TK_OP_ASSIGN_DIV", // "SLASH_EQUAL" in 4.2
+	"TK_OP_ASSIGN_MOD", // "PERCENT_EQUAL" in 4.2
+	"TK_OP_ASSIGN_SHIFT_LEFT", // "LESS_LESS_EQUAL" in 4.2
+	"TK_OP_ASSIGN_SHIFT_RIGHT", // "GREATER_GREATER_EQUAL" in 4.2
+	"TK_OP_ASSIGN_BIT_AND", // "AMPERSAND_EQUAL" in 4.2
+	"TK_OP_ASSIGN_BIT_OR", // "PIPE_EQUAL" in 4.2
+	"TK_OP_ASSIGN_BIT_XOR", // "CARET_EQUAL" in 4.2
+	"TK_OP_BIT_AND", // "AMPERSAND" in 4.2
+	"TK_OP_BIT_OR", // "PIPE" in 4.2
+	"TK_OP_BIT_XOR", // "CARET" in 4.2
+	"TK_OP_BIT_INVERT", // "TILDE" in 4.2
+	"TK_CF_IF",
+	"TK_CF_ELIF",
+	"TK_CF_ELSE",
+	"TK_CF_FOR",
+	"TK_CF_WHILE",
+	"TK_CF_BREAK",
+	"TK_CF_CONTINUE",
+	"TK_CF_PASS",
+	"TK_CF_RETURN",
+	"TK_CF_MATCH",
+	"TK_PR_FUNCTION",
+	"TK_PR_CLASS",
+	"TK_PR_CLASS_NAME",
+	"TK_PR_EXTENDS",
+	"TK_PR_IS",
+	"TK_PR_ONREADY",
+	"TK_PR_TOOL",
+	"TK_PR_STATIC",
+	"TK_PR_EXPORT",
+	"TK_PR_SETGET",
+	"TK_PR_CONST",
+	"TK_PR_VAR",
+	"TK_PR_AS",
+	"TK_PR_VOID",
+	"TK_PR_ENUM",
+	"TK_PR_PRELOAD",
+	"TK_PR_ASSERT",
+	"TK_PR_YIELD",
+	"TK_PR_SIGNAL",
+	"TK_PR_BREAKPOINT",
+	"TK_PR_REMOTE",
+	"TK_PR_SYNC",
+	"TK_PR_MASTER",
+	"TK_PR_SLAVE",
+	"TK_PR_PUPPET",
+	"TK_PR_REMOTESYNC",
+	"TK_PR_MASTERSYNC",
+	"TK_PR_PUPPETSYNC",
+	"TK_BRACKET_OPEN",
+	"TK_BRACKET_CLOSE",
+	"TK_CURLY_BRACKET_OPEN",
+	"TK_CURLY_BRACKET_CLOSE",
+	"TK_PARENTHESIS_OPEN",
+	"TK_PARENTHESIS_CLOSE",
+	"TK_COMMA",
+	"TK_SEMICOLON",
+	"TK_PERIOD",
+	"TK_QUESTION_MARK",
+	"TK_COLON",
+	"TK_DOLLAR",
+	"TK_FORWARD_ARROW",
+	"TK_NEWLINE",
+	"TK_CONST_PI",
+	"TK_CONST_TAU",
+	"TK_WILDCARD",
+	"TK_CONST_INF",
+	"TK_CONST_NAN",
+	"TK_ERROR",
+	"TK_EOF",
+	"TK_CURSOR",
+	"TK_PR_SLAVESYNC", //renamed to puppet sync in most recent versions
+	"TK_CF_DO", // removed in 3.1
+	"TK_CF_CASE",
+	"TK_CF_SWITCH",
+	"TK_ANNOTATION", // added in 4.3
+	"TK_LITERAL", // added in 4.3
+	"TK_AMPERSAND_AMPERSAND", // added in 4.3
+	"TK_PIPE_PIPE", // added in 4.3
+	"TK_BANG", // added in 4.3
+	"TK_STAR_STAR", // added in 4.3
+	"TK_STAR_STAR_EQUAL", // added in 4.3
+	"TK_CF_WHEN", // added in 4.3
+	"TK_PR_AWAIT", // added in 4.3
+	"TK_PR_NAMESPACE", // added in 4.3
+	"TK_PR_SUPER", // added in 4.3
+	"TK_PR_TRAIT", // added in 4.3
+	"TK_PERIOD_PERIOD", // added in 4.3
+	"TK_UNDERSCORE", // added in 4.3
+	"TK_INDENT", // added in 4.3
+	"TK_DEDENT", // added in 4.3
+	"TK_VCS_CONFLICT_MARKER", // added in 4.3
+	"TK_BACKTICK", // added in 4.3
+	"TK_MAX",
+};
 
-Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
+Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 	//Cleanup
 	script_text = String();
 
@@ -383,6 +523,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	VMap<uint32_t, uint32_t> lines;
+	VMap<uint32_t, uint32_t> columns;
 	Vector<uint32_t> tokens;
 	int bytecode_version = get_bytecode_version();
 	int variant_ver_major = get_variant_ver_major();
@@ -393,16 +534,184 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	int version = decode_uint32(&buf[4]);
 	ERR_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines);
+	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V(err != OK, err);
+
+	//Decompile script
+	String line;
+	print_line("Bytecode version: " + itos(bytecode_version));
+	print_line("Variant version: " + itos(variant_ver_major));
+	print_line("Function count: " + itos(FUNC_MAX));
+	print_line("Identifiers count: " + itos(identifiers.size()));
+	print_line("Constants count: " + itos(constants.size()));
+	print_line("Tokens count: " + itos(tokens.size()));
+	print_line("Lines count: " + itos(lines.size()));
+	print_line("Columns count: " + itos(columns.size()));
+
+	int max_line = 0;
+	int max_column = 0;
+	for (int i = 0; i < tokens.size(); i++) {
+		max_line = MAX(max_line, lines[i]);
+		if (columns.size() > 0) {
+			max_column = MAX(max_column, columns[i]);
+		}
+	}
+	print_line("Max line: " + itos(max_line));
+	print_line("Max column: " + itos(max_column));
+
+	print_line("\nIdentifiers:");
+	for (int i = 0; i < identifiers.size(); i++) {
+		print_line(itos(i) + ": " + String(identifiers[i]));
+	}
+
+	print_line("Constants:");
+	for (int i = 0; i < constants.size(); i++) {
+		print_line(itos(i) + ": " + get_constant_string(constants, i));
+	}
+
+	print_line("Tokens:");
+	for (int i = 0; i < tokens.size(); i++) {
+		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		int curr_line = lines[i];
+		int curr_column = columns.size() > 0 ? columns[i] : 0;
+		String tok_str = g_token_str[curr_token];
+		if (curr_token == G_TK_IDENTIFIER) {
+			tok_str += " (" + String(identifiers[tokens[i] >> TOKEN_BITS]) + ")";
+		} else if (curr_token == G_TK_CONSTANT) {
+			tok_str += " (" + get_constant_string(constants, tokens[i] >> TOKEN_BITS) + ")";
+		}
+		print_line(itos(i) + ": " + tok_str + " line: " + itos(curr_line) + " column: " + itos(curr_column));
+	}
+	return OK;
+}
+
+Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
+#if DEBUG_ENABLED
+	debug_print(p_buffer);
+#endif
+	//Cleanup
+	script_text = String();
+
+	//Load bytecode
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	VMap<uint32_t, uint32_t> lines;
+	VMap<uint32_t, uint32_t> columns;
+	Vector<uint32_t> tokens;
+	int bytecode_version = get_bytecode_version();
+	int variant_ver_major = get_variant_ver_major();
+	int FUNC_MAX = get_function_count();
+
+	const uint8_t *buf = p_buffer.ptr();
+	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
+
+	int version = decode_uint32(&buf[4]);
+	ERR_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
+	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	ERR_FAIL_COND_V(err != OK, err);
+	auto get_line_func([&](int i) {
+		if (lines.has(i)) {
+			return lines[i];
+		}
+		return 0U;
+	});
+	auto get_col_func([&](int i) {
+		if (columns.has(i)) {
+			return columns[i];
+		}
+		return 0U;
+	});
 
 	//Decompile script
 	String line;
 	int indent = 0;
 
 	GlobalToken prev_token = G_TK_NEWLINE;
+	int prev_line = 1;
+	int prev_line_start_column = 1;
+
+	int tab_size = 1;
+	if (columns.size() > 0) {
+		Vector<int> distinct_col_values;
+		for (int i = 0; i < tokens.size(); i++) {
+			auto col_val = get_col_func(i);
+			if (col_val != 0 && distinct_col_values.find(col_val) == -1) {
+				distinct_col_values.push_back(col_val);
+			}
+		}
+		distinct_col_values.sort();
+		tab_size = INT_MAX; // minimum distance between columns = tab size
+		for (int i = 1; i < distinct_col_values.size(); i++) {
+			tab_size = MIN(tab_size, distinct_col_values[i] - distinct_col_values[i - 1]);
+		}
+		if (tab_size == INT_MAX) {
+			if (distinct_col_values.size() == 1) {
+				tab_size = MAX(distinct_col_values[0] - 1, 1);
+			} else {
+				tab_size = 1;
+			}
+		}
+	}
+
+	auto handle_newline = [&](int i, GlobalToken curr_token, int curr_line, int curr_column) {
+		for (int j = 0; j < indent; j++) {
+			script_text += "\t";
+		}
+		script_text += line;
+		if (curr_line <= prev_line) {
+			curr_line = prev_line + 1; // force new line
+		}
+		while (curr_line > prev_line) {
+			script_text += "\n";
+			prev_line++;
+		}
+		line = String();
+		if (curr_token == G_TK_NEWLINE) {
+			indent = tokens[i] >> TOKEN_BITS;
+		} else if (bytecode_version >= GDSCRIPT_2_0_VERSION) {
+			prev_token = G_TK_NEWLINE;
+			int col_diff = curr_column - prev_line_start_column;
+			if (col_diff != 0) {
+				int tabs = col_diff / tab_size;
+				if (tabs == 0) {
+					indent += (col_diff > 0 ? 1 : -1);
+				} else {
+					indent += tabs;
+				}
+			}
+			prev_line_start_column = curr_column;
+		}
+	};
+
+	auto check_new_line = [&](int i) {
+		if (get_line_func(i) != prev_line && get_line_func(i) != 0) {
+			return true;
+		}
+		return false;
+	};
+
+	auto ensure_space_func = [&](bool only_if_not_newline = false) {
+		if (!line.ends_with(" ") && (!only_if_not_newline || (prev_token != G_TK_NEWLINE))) {
+			line += " ";
+		}
+	};
+
+	auto ensure_ending_space_func([&](int idx) {
+		if (
+				!line.ends_with(" ") && idx < tokens.size() - 1 &&
+				(get_global_token(tokens[idx + 1] & TOKEN_MASK) != G_TK_NEWLINE &&
+						!check_new_line(idx + 1))) {
+			line += " ";
+		}
+	});
+
 	for (int i = 0; i < tokens.size(); i++) {
 		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		int curr_line = get_line_func(i);
+		int curr_column = get_col_func(i);
+		if (curr_token != G_TK_NEWLINE && curr_line != prev_line && curr_line != 0) {
+			handle_newline(i, curr_token, curr_line, curr_column);
+		}
 		switch (curr_token) {
 			case G_TK_EMPTY: {
 				//skip
@@ -430,133 +739,132 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += get_function_name(tokens[i] >> TOKEN_BITS);
 			} break;
 			case G_TK_OP_IN: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "in ";
 			} break;
 			case G_TK_OP_EQUAL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "== ";
 			} break;
 			case G_TK_OP_NOT_EQUAL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "!= ";
 			} break;
 			case G_TK_OP_LESS: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "< ";
 			} break;
 			case G_TK_OP_LESS_EQUAL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "<= ";
 			} break;
 			case G_TK_OP_GREATER: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "> ";
 			} break;
 			case G_TK_OP_GREATER_EQUAL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += ">= ";
 			} break;
 			case G_TK_OP_AND: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "and ";
 			} break;
 			case G_TK_OP_OR: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "or ";
 			} break;
 			case G_TK_OP_NOT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "not ";
 			} break;
 			case G_TK_OP_ADD: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "+ ";
 			} break;
 			case G_TK_OP_SUB: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "- ";
 				//TODO: do not add space after unary "-"
 			} break;
 			case G_TK_OP_MUL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "* ";
 			} break;
 			case G_TK_OP_DIV: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "/ ";
 			} break;
 			case G_TK_OP_MOD: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "% ";
 			} break;
 			case G_TK_OP_SHIFT_LEFT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "<< ";
 			} break;
 			case G_TK_OP_SHIFT_RIGHT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += ">> ";
 			} break;
 			case G_TK_OP_ASSIGN: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "= ";
 			} break;
 			case G_TK_OP_ASSIGN_ADD: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "+= ";
 			} break;
 			case G_TK_OP_ASSIGN_SUB: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "-= ";
 			} break;
 			case G_TK_OP_ASSIGN_MUL: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "*= ";
 			} break;
 			case G_TK_OP_ASSIGN_DIV: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "/= ";
 			} break;
 			case G_TK_OP_ASSIGN_MOD: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "%= ";
 			} break;
 			case G_TK_OP_ASSIGN_SHIFT_LEFT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "<<= ";
 			} break;
 			case G_TK_OP_ASSIGN_SHIFT_RIGHT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += ">>= ";
 			} break;
 			case G_TK_OP_ASSIGN_BIT_AND: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "&= ";
 			} break;
 			case G_TK_OP_ASSIGN_BIT_OR: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "|= ";
 			} break;
 			case G_TK_OP_ASSIGN_BIT_XOR: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "^= ";
 			} break;
 			case G_TK_OP_BIT_AND: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "& ";
 			} break;
 			case G_TK_OP_BIT_OR: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "| ";
 			} break;
 			case G_TK_OP_BIT_XOR: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "^ ";
 			} break;
 			case G_TK_OP_BIT_INVERT: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "~ ";
 			} break;
 			//case G_TK_OP_PLUS_PLUS: {
@@ -566,16 +874,14 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			//	line += "--";
 			//} break;
 			case G_TK_CF_IF: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "if ";
 			} break;
 			case G_TK_CF_ELIF: {
 				line += "elif ";
 			} break;
 			case G_TK_CF_ELSE: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "else ";
 			} break;
 			case G_TK_CF_FOR: {
@@ -609,12 +915,11 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "class_name ";
 			} break;
 			case G_TK_PR_EXTENDS: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "extends ";
 			} break;
 			case G_TK_PR_IS: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "is ";
 			} break;
 			case G_TK_PR_ONREADY: {
@@ -641,7 +946,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "var ";
 			} break;
 			case G_TK_PR_AS: {
-				_ensure_space(line);
+				ensure_space_func();
 				line += "as ";
 			} break;
 			case G_TK_PR_VOID: {
@@ -721,6 +1026,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			} break;
 			case G_TK_COLON: {
 				line += ":";
+				ensure_ending_space_func(i);
 			} break;
 			case G_TK_DOLLAR: {
 				line += "$";
@@ -728,13 +1034,10 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			case G_TK_FORWARD_ARROW: {
 				line += "->";
 			} break;
+			case G_TK_INDENT:
+			case G_TK_DEDENT:
 			case G_TK_NEWLINE: {
-				for (int j = 0; j < indent; j++) {
-					script_text += "\t";
-				}
-				script_text += line + "\n";
-				line = String();
-				indent = tokens[i] >> TOKEN_BITS;
+				handle_newline(i, curr_token, curr_line, curr_column);
 			} break;
 			case G_TK_CONST_PI: {
 				line += "PI";
@@ -764,23 +1067,19 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "switch ";
 			} break;
 			case G_TK_AMPERSAND_AMPERSAND: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "&& ";
 			} break;
 			case G_TK_PIPE_PIPE: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "|| ";
 			} break;
 			case G_TK_BANG: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "!";
 			} break;
 			case G_TK_STAR_STAR: {
-				if (prev_token != G_TK_NEWLINE)
-					_ensure_space(line);
+				ensure_space_func(true);
 				line += "** ";
 			} break;
 			case G_TK_STAR_STAR_EQUAL: {
@@ -806,12 +1105,6 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			} break;
 			case G_TK_UNDERSCORE: {
 				line += "_";
-			} break;
-			case G_TK_INDENT: {
-				//skip - invalid
-			} break;
-			case G_TK_DEDENT: {
-				//skip - invalid
 			} break;
 			case G_TK_ERROR: {
 				//skip - invalid
@@ -847,10 +1140,18 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	// Testing recompile of the bytecode
 	// TODO: move this elsewhere
 #if DEBUG_ENABLED
+	// compiling doesn't work for bytecode version 100 yet
+	if (bytecode_version >= GDSCRIPT_2_0_VERSION) {
+		return OK;
+	}
 	Error new_err;
 	Vector<uint8_t> recompiled_bytecode = compile_code_string(script_text);
 	// compare the recompiled bytecode to the original bytecode
-	int discontinuity = continuity_tester<Vector<uint8_t>>(recompiled_bytecode, p_buffer, "Bytecode");
+	int discontinuity = -1;
+	if (bytecode_version < GDSCRIPT_2_0_VERSION) {
+		discontinuity = continuity_tester<Vector<uint8_t>>(p_buffer, recompiled_bytecode, "Bytecode");
+	} else {
+	}
 	if (discontinuity == -1) {
 		return OK;
 	}
@@ -860,8 +1161,10 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	Vector<StringName> newidentifiers;
 	Vector<Variant> newconstants;
 	VMap<uint32_t, uint32_t> newlines;
+	VMap<uint32_t, uint32_t> newcolumns;
+
 	Vector<uint32_t> newtokens;
-	new_err = get_ids_consts_tokens(recompiled_bytecode, bytecode_version, newidentifiers, newconstants, newtokens, newlines);
+	new_err = get_ids_consts_tokens(recompiled_bytecode, bytecode_version, newidentifiers, newconstants, newtokens, newlines, newcolumns);
 	if (new_err != OK) {
 		WARN_PRINT("Recompiled bytecode failed to decompile: " + error_message);
 		return OK;
@@ -957,6 +1260,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	VMap<uint32_t, uint32_t> lines;
+	VMap<uint32_t, uint32_t> columns;
 	Vector<uint32_t> tokens;
 	int bytecode_version = get_bytecode_version();
 	int FUNC_MAX = get_function_count();
@@ -965,8 +1269,10 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', BYTECODE_TEST_CORRUPT);
 
 	int version = decode_uint32(&buf[4]);
-	ERR_FAIL_COND_V(version != bytecode_version, BYTECODE_TEST_CORRUPT);
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines);
+	if (version != bytecode_version) {
+		return BytecodeTestResult::BYTECODE_TEST_FAIL;
+	}
+	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V(err != OK, BYTECODE_TEST_CORRUPT);
 
 	for (int i = 0; i < tokens.size(); i++) {
@@ -1205,10 +1511,15 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	buf.write[2] = 'S';
 	buf.write[3] = 'C';
 	encode_uint32(get_bytecode_version(), &buf.write[4]);
-	encode_uint32(identifier_map.size(), &buf.write[8]);
-	encode_uint32(constant_map.size(), &buf.write[12]);
-	encode_uint32(line_map.size(), &buf.write[16]);
-	encode_uint32(token_array.size(), &buf.write[20]);
+	int content_start = 8;
+	if (get_bytecode_version() >= GDSCRIPT_2_0_VERSION) {
+		encode_uint32(0, &buf.write[8]);
+		content_start = 12;
+	}
+	encode_uint32(identifier_map.size(), &buf.write[content_start]);
+	encode_uint32(constant_map.size(), &buf.write[content_start + 4]);
+	encode_uint32(line_map.size(), &buf.write[content_start + 8]);
+	encode_uint32(token_array.size(), &buf.write[content_start + 12]);
 
 	//save identifiers
 

@@ -83,7 +83,7 @@
             "TK_PR_IS",
             "TK_PR_NAMESPACE",
             "TK_PR_PRELOAD",
-            "TK_PR_SELF",
+            "TK_SELF",
             "TK_PR_SIGNAL",
             "TK_PR_STATIC",
             "TK_PR_SUPER",

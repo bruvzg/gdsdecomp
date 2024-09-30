@@ -626,7 +626,6 @@ def generate_bytecode_version_header(dir: Path, bytecode_classes:list[BytecodeCl
         
         # begins with:
         f.write("\t{ 0xfffffff, \"--- Please select bytecode version ---\", 0, false },\n")
-        f.write("\t{ 0xfffffff, \"4.0 release  (92bee43 / 2023-02-28 / Bytecode version: xx) - GDScript 2.0 (compiled mode not implemented yet)\", 0, false },\n")
         for bytecode_class in bytecode_classes:
             line = "\t{ 0x" + bytecode_class.bytecode_rev + ", \""
             stable = bytecode_class.is_dev == False and ("beta" not in bytecode_class.engine_version)
