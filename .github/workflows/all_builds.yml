@@ -189,7 +189,7 @@ jobs:
         shell: pwsh
         run: |
           cd ${{github.workspace}}/modules/gdsdecomp/standalone
-          Start-Process pwsh -ArgumentList "-File ${{github.workspace}}/modules/gdsdecomp/.scripts/export.ps1 ${{ matrix.export-preset }} -path ${{ matrix.export-name }}" -Wait
+          pwsh -File ${{github.workspace}}/modules/gdsdecomp/.scripts/export.ps1 ${{ matrix.export-preset }} -path ${{ matrix.export-name }}
 
       - uses: actions/upload-artifact@v3
         with:

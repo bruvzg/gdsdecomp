@@ -1,3 +1,4 @@
+echo "Exporting standalone project"
 # check if the args are less than 1
 if ($args.Length -lt 1) {
     $script_name = $MyInvocation.MyCommand.Name
@@ -31,6 +32,14 @@ if ($args.Length -gt 1) {
     }
 }
 
+if ($export_path -ne "") {
+    # check if it is an absolute path; if not, make it absolute
+    if (-not (Test-Path $export_path)) {
+        $curr_dir = Get-Location
+        $export_path = Join-Path $curr_dir $export_path
+    }
+}
+
 # get the current script path
 $scriptPath = $MyInvocation.MyCommand.Path
 $scriptDir = Split-Path $scriptPath
@@ -51,14 +60,13 @@ if ($export_command -eq "") {
 }
 
 cd $standaloneDir
-mkdir -p .export
-# replace only the first 'v' (the long abbreviation may have 'v' in it, and we don't want to replace that)
-# So, instead of using "-replace 'v', ''", we use "-replace 'v', '', 1"
-
+if ($export_path -ne "") {
+    $export_dir = Split-Path $export_path
+    mkdir -p $export_dir
+} else {
+    mkdir -p .export
+}
 $version = $(git describe --tags --abbrev=6) -replace '^v', ''
-
-# $version = "0.6.2"
-# split at the first '-' and take the first part
 $number_only_version = $version -split '-', 2 | Select-Object -First 1
 # if the version is like 0.6.2-42-g17f56f, we want the number in-between the '-' (e.g. 42)
 $build_num = $version -split '-', 3 | Select-Object -Index 1
@@ -68,7 +76,6 @@ if ($build_num -eq $null) {
 $version = $version -replace 'v', ''
 
 
-echo "Exporting standalone project"
 echo "Godot editor binary: $export_command"
 echo "Export preset: $export_preset"
 $echoed_path = $export_path
@@ -89,9 +96,15 @@ $export_presets = $export_presets -replace 'application/product_version=".*"', "
 #output the processed export_presets.cfg
 $export_presets | Set-Content export_presets.cfg
 
+# turn echo on
 
-$export_release_args = "--export-release `"$export_preset`" $export_name"
+$ErrorActionPreference = "Stop"
+Set-PSDebug -Trace 1
+
+echo "running: $export_command --headless -e --quit"
 $proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList '--headless -e --quit'
 Wait-Process -Id $proc.id -Timeout 300
-$proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList "--headless $export_release_args"
+$export_args = "--headless --export-release `"$export_preset`" $export_path"
+echo "running: $export_command $export_args"
+$proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList "$export_args"
 Wait-Process -Id $proc.id -Timeout 300
