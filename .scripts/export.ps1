@@ -34,7 +34,7 @@ if ($args.Length -gt 1) {
 
 if ($export_path -ne "") {
     # check if it is an absolute path; if not, make it absolute
-    if (-not (Test-Path $export_path)) {
+    if (-not ([System.IO.Path]::IsPathRooted($export_path))) {
         $curr_dir = Get-Location
         $export_path = Join-Path $curr_dir $export_path
     }
@@ -62,10 +62,11 @@ if ($export_command -eq "") {
 cd $standaloneDir
 if ($export_path -ne "") {
     $export_dir = Split-Path $export_path
-    mkdir -p $export_dir
 } else {
-    mkdir -p .export
+    $export_dir = ".export"
 }
+mkdir -p $export_dir
+
 $version = $(git describe --tags --abbrev=6) -replace '^v', ''
 $number_only_version = $version -split '-', 2 | Select-Object -First 1
 # if the version is like 0.6.2-42-g17f56f, we want the number in-between the '-' (e.g. 42)
@@ -99,12 +100,20 @@ $export_presets | Set-Content export_presets.cfg
 # turn echo on
 
 $ErrorActionPreference = "Stop"
-Set-PSDebug -Trace 1
 
 echo "running: $export_command --headless -e --quit"
+Set-PSDebug -Trace 1
 $proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList '--headless -e --quit'
 Wait-Process -Id $proc.id -Timeout 300
-$export_args = "--headless --export-release `"$export_preset`" $export_path"
+Set-PSDebug -Trace 0
+$export_args = "--headless --export-release `"$export_preset`" `"$export_path`""
 echo "running: $export_command $export_args"
+Set-PSDebug -Trace 1
 $proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList "$export_args"
 Wait-Process -Id $proc.id -Timeout 300
+Set-PSDebug -Trace 0
+# list the exported files in the $export_dir
+echo "Exported files:"
+Get-ChildItem $export_dir -Recurse | ForEach-Object {
+    echo $_.FullName
+}
