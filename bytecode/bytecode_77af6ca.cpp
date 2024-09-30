@@ -5,10 +5,6 @@
 // clang-format off
 #include "bytecode_77af6ca.h"
 
-static const Pair<String, Pair<int, int>> funcs[] = {
-};
-
-static constexpr int num_funcs = sizeof(funcs) / sizeof(Pair<String, Pair<int, int>>);
 enum Token {
 	TK_EMPTY,
 	TK_ANNOTATION,
@@ -115,33 +111,19 @@ enum Token {
 int GDScriptDecomp_77af6ca::get_token_max() const {
 	return TK_MAX;
 }
-String GDScriptDecomp_77af6ca::get_function_name(int p_func) const {
-	if (p_func < 0 || p_func >= num_funcs) {
-		return "";
-	}
-	return funcs[p_func].first;
-}
 
+String GDScriptDecomp_77af6ca::get_function_name(int p_func) const {
+    return "";
+}
 int GDScriptDecomp_77af6ca::get_function_count() const {
-	return num_funcs;
+    return 0;
 }
 Pair<int, int> GDScriptDecomp_77af6ca::get_function_arg_count(int p_func) const {
-	if (p_func < 0 || p_func >= num_funcs) {
-		return Pair<int, int>(-1, -1);
-	}
-	return funcs[p_func].second;
+    return Pair<int, int>(-1, -1);
 }
-
-
 int GDScriptDecomp_77af6ca::get_function_index(const String &p_func) const {
-	for (int i = 0; i < num_funcs; i++) {
-		if (funcs[i].first == p_func) {
-			return i;
-		}
-	}
-	return -1;
+    return -1;
 }
-
 GDScriptDecomp::GlobalToken GDScriptDecomp_77af6ca::get_global_token(int p_token) const {
 	if (p_token < 0 || p_token >= TK_MAX) {
 		return GDScriptDecomp::GlobalToken::G_TK_MAX;
