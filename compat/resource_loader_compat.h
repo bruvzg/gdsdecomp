@@ -66,6 +66,7 @@ enum Type {
 	VARIANT_VECTOR4 = 50,
 	VARIANT_VECTOR4I = 51,
 	VARIANT_PROJECTION = 52,
+	VARIANT_PACKED_VECTOR4_ARRAY = 53,
 
 	OBJECT_EMPTY = 0,
 	OBJECT_EXTERNAL_RESOURCE = 1,
@@ -104,11 +105,28 @@ enum Type {
 	// Version 3: changed nodepath encoding.
 	// Version 4: new string ID for ext/subresources, breaks forward compat.
 	// Version 5: Ability to store script class in the header, breaks backwards compatibility
-	FORMAT_VERSION = 5,
+	// Version 6: Added PackedVector4Array Variant type.
+	FORMAT_VERSION = 6,
 	FORMAT_VERSION_CAN_RENAME_DEPS = 1,
+	FORMAT_VERSION_IMAGE_VARIANT = 1,
+	FORMAT_VERSION_64BIT_NUMS = 2,
 	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
+	FORMAT_VERSION_STRING_ID = 4,
+	FORMAT_VERSION_SCRIPT_CLASS_HEADER = 5,
+	FORMAT_VERSION_PACKED_VECTOR4_ARRAY = 6,
 };
 }
+
+enum TextVersion{
+	TEXT_FORMAT_2_X = 1,         // Version 1 (Godot 2.x)
+	TEXT_FORMAT_VARIANTV3 = 2,         // Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
+	TEXT_FORMAT_STRING_ID = 3,         // Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
+	TEXT_FORMAT_BASE64_BYTE_ARRAY = 4, // Version 4 (Godot 4.3): PackedByteArray is now stored as base64 encoded
+	MAX_TEXT_FORMAT_VERSION = TEXT_FORMAT_BASE64_BYTE_ARRAY, // Version 4 (Godot 4.3): PackedByteArray stored as base64 (we force compatibility saving as format 3)
+	TEXT_FORMAT_3_X = TEXT_FORMAT_VARIANTV3,
+	TEXT_FORMAT_4_X = TEXT_FORMAT_STRING_ID,
+	TEXT_FORMAT_4_3 = TEXT_FORMAT_BASE64_BYTE_ARRAY,
+};
 // Used to strip debug messages in release mode
 #ifdef DEBUG_ENABLED
 #define DEBUG_STR(m_msg) m_msg
@@ -214,6 +232,7 @@ protected:
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
 	bool using_script_class = false;
+	bool using_base64_byte_array = false;
 	bool using_real_t_double = false;
 
 	bool suspect_version = false;
@@ -314,6 +333,7 @@ protected:
 	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser, List<ResourceProperty> &lrp);
 
 public:
+	bool should_write_compat() const;
 	Error fake_load_text();
 	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types, bool only_paths = false);
 	static Error write_variant_bin(Ref<FileAccess> f, const Variant &p_property, RBMap<String, Ref<Resource>> internal_res_cache, Vector<IntResource> &internal_resources, Vector<ExtResource> &external_resources, Vector<StringName> &string_map, const uint32_t ver_format, const PropertyInfo &p_hint = PropertyInfo());
