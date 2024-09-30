@@ -157,7 +157,9 @@ void addCompatibilityClasses() {
 
 GDRESettings::GDRESettings() {
 #ifdef TOOLS_ENABLED
-	RenderingServer::get_singleton()->set_warn_on_surface_upgrade(false);
+	if (RenderingServer::get_singleton()) {
+		RenderingServer::get_singleton()->set_warn_on_surface_upgrade(false);
+	}
 #endif
 	singleton = this;
 	gdre_packeddata_singleton = memnew(GDREPackedData);
