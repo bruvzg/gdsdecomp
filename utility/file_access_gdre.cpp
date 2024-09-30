@@ -290,7 +290,7 @@ void FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 }
 
 bool FileAccessGDRE::file_exists(const String &p_name) {
-	if (proxy.is_null()){
+	if (proxy.is_null()) {
 		return false;
 	}
 	return proxy->file_exists(p_name);

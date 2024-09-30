@@ -117,10 +117,10 @@ enum Type {
 };
 }
 
-enum TextVersion{
-	TEXT_FORMAT_2_X = 1,         // Version 1 (Godot 2.x)
-	TEXT_FORMAT_VARIANTV3 = 2,         // Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
-	TEXT_FORMAT_STRING_ID = 3,         // Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
+enum TextVersion {
+	TEXT_FORMAT_2_X = 1, // Version 1 (Godot 2.x)
+	TEXT_FORMAT_VARIANTV3 = 2, // Version 2 (Godot 3.x): changed names for Basis, AABB, Vectors, etc.
+	TEXT_FORMAT_STRING_ID = 3, // Version 3 (Godot 4.x): new string ID for ext/subresources, breaks forward compat.
 	TEXT_FORMAT_BASE64_BYTE_ARRAY = 4, // Version 4 (Godot 4.3): PackedByteArray is now stored as base64 encoded
 	MAX_TEXT_FORMAT_VERSION = TEXT_FORMAT_BASE64_BYTE_ARRAY, // Version 4 (Godot 4.3): PackedByteArray stored as base64 (we force compatibility saving as format 3)
 	TEXT_FORMAT_3_X = TEXT_FORMAT_VARIANTV3,

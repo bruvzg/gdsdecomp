@@ -342,7 +342,7 @@ StringName ResourceLoaderCompat::_get_string() {
 	return string_map[id];
 }
 
-int ver_format_bin_to_text(int p_ver_bin){
+int ver_format_bin_to_text(int p_ver_bin) {
 	switch (p_ver_bin) {
 		case 0:
 		case VariantBin::FORMAT_VERSION_CAN_RENAME_DEPS:
@@ -372,7 +372,6 @@ int ver_format_text_to_bin(int p_ver_text) {
 	}
 	return -1;
 }
-
 
 Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, bool p_keep_uuid_paths) {
 	error = OK;
@@ -534,7 +533,7 @@ Error ResourceLoaderCompat::open_bin(Ref<FileAccess> p_f, bool p_no_resources, b
 	return OK;
 }
 
-bool ResourceLoaderCompat::should_write_compat() const{
+bool ResourceLoaderCompat::should_write_compat() const {
 	return !(ver_format_bin >= VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY || ver_format_text >= TextVersion::TEXT_FORMAT_BASE64_BYTE_ARRAY || using_base64_byte_array);
 }
 
@@ -1547,7 +1546,6 @@ static Error read_reals(real_t *dst, Ref<FileAccess> &f, size_t count) {
 	}
 	return OK;
 }
-
 
 Error ResourceLoaderCompat::parse_variant(Variant &r_v) {
 	uint32_t type = f->get_32();
@@ -2633,7 +2631,7 @@ Error ResourceLoaderCompat::save_to_bin(const String &p_path, uint32_t p_flags) 
 	fw->store_32(engine_ver_minor);
 
 	// If we're using_script_class, it's version 5
-	if (using_base64_byte_array){
+	if (using_base64_byte_array) {
 		ver_format_bin = VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY;
 	} else if (using_script_class) {
 		ver_format_bin = VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER;
@@ -2849,8 +2847,7 @@ Error ResourceLoaderCompat::open_text(Ref<FileAccess> p_f, bool p_skip_first_tag
 			if (ver_format_text >= TEXT_FORMAT_BASE64_BYTE_ARRAY) {
 				using_base64_byte_array = true;
 				ver_format_bin = VariantBin::FORMAT_VERSION_PACKED_VECTOR4_ARRAY;
-			}
-			else{
+			} else {
 				ver_format_bin = VariantBin::FORMAT_VERSION_SCRIPT_CLASS_HEADER;
 			}
 		} else if (ver_format_text == TEXT_FORMAT_VARIANTV3) {
