@@ -243,6 +243,24 @@ def remove_comments(line: str) -> str:
 # }
 # ```
 # That's it. We're done.
+
+
+NO_BUILTIN_FUNCTION_BODY = """
+String {0}::get_function_name(int p_func) const {{
+    return "";
+}}
+int {0}::get_function_count() const {{
+    return 0;
+}}
+Pair<int, int> {0}::get_function_arg_count(int p_func) const {{
+    return Pair<int, int>(-1, -1);
+}}
+int {0}::get_function_index(const String &p_func) const {{
+    return -1;
+}}
+"""
+
+
 def generate_class_cpp(dir: Path, bytecode_class: BytecodeClass) -> None:
     file_stem = bytecode_class.file_stem
     class_name = bytecode_class.class_name
@@ -265,29 +283,30 @@ def generate_class_cpp(dir: Path, bytecode_class: BytecodeClass) -> None:
         f.write("\n")
 
         # 2) the builtin function declarations:
-        f.write("static const Pair<String, Pair<int, int>> funcs[] = {\n")
-        for func_name in func_names:
-            if func_name == "var2bytes" or func_name == "bytes2var":
-                if bytecode_rev_num in greater_than_3_1_versions:
-                    f.write('\t{ "' + func_name + '", Pair<int, int>(1, 2) },\n')
+        if len(func_names) != 0:
+            f.write("static const Pair<String, Pair<int, int>> funcs[] = {\n")
+            for func_name in func_names:
+                if func_name == "var2bytes" or func_name == "bytes2var":
+                    if bytecode_rev_num in greater_than_3_1_versions:
+                        f.write('\t{ "' + func_name + '", Pair<int, int>(1, 2) },\n')
+                    else:
+                        f.write('\t{ "' + func_name + '", Pair<int, int>(1, 1) },\n')
                 else:
-                    f.write('\t{ "' + func_name + '", Pair<int, int>(1, 1) },\n')
-            else:
-                for builtin_func_arg_element in builtin_func_arg_elements:
-                    if builtin_func_arg_element[0] == func_name:
-                        f.write(
-                            '\t{ "'
-                            + func_name
-                            + '", Pair<int, int>('
-                            + str(builtin_func_arg_element[1][0])
-                            + ", "
-                            + str(builtin_func_arg_element[1][1])
-                            + ") },\n"
-                        )
-                        break
-        f.write("};\n")
-        f.write("\n")
-        f.write("static constexpr int num_funcs = sizeof(funcs) / sizeof(Pair<String, Pair<int, int>>);\n")
+                    for builtin_func_arg_element in builtin_func_arg_elements:
+                        if builtin_func_arg_element[0] == func_name:
+                            f.write(
+                                '\t{ "'
+                                + func_name
+                                + '", Pair<int, int>('
+                                + str(builtin_func_arg_element[1][0])
+                                + ", "
+                                + str(builtin_func_arg_element[1][1])
+                                + ") },\n"
+                            )
+                            break
+            f.write("};\n")
+            f.write("\n")
+            f.write("static constexpr int num_funcs = sizeof(funcs) / sizeof(Pair<String, Pair<int, int>>);\n")
         # 3) the Token enum declarations:
         f.write("enum Token {\n")
         for tk_name in tk_names:
@@ -300,40 +319,43 @@ def generate_class_cpp(dir: Path, bytecode_class: BytecodeClass) -> None:
         f.write("\treturn TK_MAX;\n")
         f.write("}\n")
 
-        # 4) the `get_function_name` function:
-        f.write("String " + class_name + "::get_function_name(int p_func) const {\n")
-        f.write("\tif (p_func < 0 || p_func >= num_funcs) {\n")
-        f.write('\t\treturn "";\n')
-        f.write("\t}\n")
-        f.write("\treturn funcs[p_func].first;\n")
-        f.write("}\n")
-        f.write("\n")
+        if len(func_names) == 0:
+            f.write(NO_BUILTIN_FUNCTION_BODY.format(class_name))
+        else:
+            # 4) the `get_function_name` function:
+            f.write("String " + class_name + "::get_function_name(int p_func) const {\n")
+            f.write("\tif (p_func < 0 || p_func >= num_funcs) {\n")
+            f.write('\t\treturn "";\n')
+            f.write("\t}\n")
+            f.write("\treturn funcs[p_func].first;\n")
+            f.write("}\n")
+            f.write("\n")
 
-        # 4.5) the `get_function_count` function:
-        f.write("int " + class_name + "::get_function_count() const {\n")
-        f.write("\treturn num_funcs;\n")
-        f.write("}\n")
+            # 4.5) the `get_function_count` function:
+            f.write("int " + class_name + "::get_function_count() const {\n")
+            f.write("\treturn num_funcs;\n")
+            f.write("}\n")
 
-        # 5) the `get_function_arg_count` function:
-        f.write("Pair<int, int> " + class_name + "::get_function_arg_count(int p_func) const {\n")
-        f.write("\tif (p_func < 0 || p_func >= num_funcs) {\n")
-        f.write("\t\treturn Pair<int, int>(-1, -1);\n")
-        f.write("\t}\n")
-        f.write("\treturn funcs[p_func].second;\n")
-        f.write("}\n")
-        f.write("\n")
+            # 5) the `get_function_arg_count` function:
+            f.write("Pair<int, int> " + class_name + "::get_function_arg_count(int p_func) const {\n")
+            f.write("\tif (p_func < 0 || p_func >= num_funcs) {\n")
+            f.write("\t\treturn Pair<int, int>(-1, -1);\n")
+            f.write("\t}\n")
+            f.write("\treturn funcs[p_func].second;\n")
+            f.write("}\n")
+            f.write("\n")
 
-        f.write("\n")
-        # 5.5) the `get_function_index` function:
-        f.write("int " + class_name + "::get_function_index(const String &p_func) const {\n")
-        f.write("\tfor (int i = 0; i < num_funcs; i++) {\n")
-        f.write("\t\tif (funcs[i].first == p_func) {\n")
-        f.write("\t\t\treturn i;\n")
-        f.write("\t\t}\n")
-        f.write("\t}\n")
-        f.write("\treturn -1;\n")
-        f.write("}\n")
-        f.write("\n")
+            f.write("\n")
+            # 5.5) the `get_function_index` function:
+            f.write("int " + class_name + "::get_function_index(const String &p_func) const {\n")
+            f.write("\tfor (int i = 0; i < num_funcs; i++) {\n")
+            f.write("\t\tif (funcs[i].first == p_func) {\n")
+            f.write("\t\t\treturn i;\n")
+            f.write("\t\t}\n")
+            f.write("\t}\n")
+            f.write("\treturn -1;\n")
+            f.write("}\n")
+            f.write("\n")
 
         # 6) the `get_global_token` function:
         f.write("GDScriptDecomp::GlobalToken " + class_name + "::get_global_token(int p_token) const {\n")
