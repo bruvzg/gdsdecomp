@@ -6,7 +6,7 @@
 
 bool inGuiMode() {
 	//check if we are in GUI mode
-	if (GDRESettings::get_singleton() && !GDRESettings::get_singleton()->is_headless()) {
+	if (GDRESettings::get_singleton() && !GDRESettings::get_singleton()->is_headless() && GodotREEditor::get_singleton()) {
 		return true;
 	}
 	return false;
