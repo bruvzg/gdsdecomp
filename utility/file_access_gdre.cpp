@@ -290,7 +290,9 @@ void FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 }
 
 bool FileAccessGDRE::file_exists(const String &p_name) {
-	ERR_FAIL_COND_V_MSG(proxy.is_null(), false, "File must be opened before use.");
+	if (proxy.is_null()){
+		return false;
+	}
 	return proxy->file_exists(p_name);
 }
 
