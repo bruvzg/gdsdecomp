@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Godot RE Tools"
 run/main_scene="res://gdre_main.tscn"
-config/features=PackedStringArray("4.2")
+config/features=PackedStringArray("4.4")
 config/icon="res://gdre_icon.png"
 
 [display]
@@ -28,4 +28,5 @@ export/convert_text_resources_to_binary=false
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 environment/default_clear_color=Color(0.0784314, 0.0901961, 0.121569, 1)

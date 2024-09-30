@@ -189,11 +189,7 @@ jobs:
         shell: pwsh
         run: |
           cd ${{github.workspace}}/modules/gdsdecomp/standalone
-          mkdir .export
-          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless -e --quit'
-          Wait-Process -Id $proc.id -Timeout 300
-          $proc = Start-Process -NoNewWindow -PassThru -FilePath "${{ matrix.command-export }}" -ArgumentList '--headless --export-release "${{ matrix.export-preset }}" ${{ matrix.export-name }}'
-          Wait-Process -Id $proc.id -Timeout 300
+          Start-Process pwsh -ArgumentList "-File ${{github.workspace}}/modules/gdsdecomp/.scripts/export.ps1 ${{ matrix.export-preset }} -path ${{ matrix.export-name }}" -Wait
 
       - uses: actions/upload-artifact@v3
         with:
