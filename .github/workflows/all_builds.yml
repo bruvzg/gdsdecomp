@@ -71,13 +71,13 @@ jobs:
 
     steps:
       - name: checkout-godot
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: godotengine/godot
           ref: ${{env.GODOT_MAIN_SYNC_REF}}
 
       - name: checkout-gdsdecomp
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: modules/gdsdecomp
           fetch-depth: 0
@@ -124,7 +124,7 @@ jobs:
       - name: Prepare artifact
         uses: ./.github/actions/godot-prepare-artifact
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: GDRE_tools-editor-${{ matrix.platform }}
           path: ${{github.workspace}}/bin/*
@@ -191,7 +191,7 @@ jobs:
           cd ${{github.workspace}}/modules/gdsdecomp/standalone
           pwsh -File ${{github.workspace}}/modules/gdsdecomp/.scripts/export.ps1 "${{ matrix.export-preset }}" -path "${{ matrix.export-name }}"
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: GDRE_tools-standalone-${{ matrix.platform }}
           path: ${{github.workspace}}/modules/gdsdecomp/standalone/.export/*
@@ -205,17 +205,17 @@ jobs:
     needs: build
     steps:
       - name: Download Linux artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: GDRE_tools-standalone-linux
           path: artifacts/linux
       - name: Download MacOS artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: GDRE_tools-standalone-macos
           path: artifacts/macos
       - name: Download Windows artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: GDRE_tools-standalone-windows
           path: artifacts/windows
