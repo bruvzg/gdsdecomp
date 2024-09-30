@@ -33,7 +33,7 @@ env:
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}
-  cancel-in-progress: false # TODO: Change this back to true once the cache is fixed
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -65,7 +65,7 @@ jobs:
             platform: macos
             sconsflags: use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
             sconsflags-template: optimize=size use_lto=yes use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
-            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.macos.editor.x86_64
+            command-export: ${env:GITHUB_WORKSPACE}/bin/godot.macos.editor.arm64
             export-preset: "macOS"
             export-name: .export/gdre_tools.universal.zip
 
@@ -89,6 +89,7 @@ jobs:
 
       - name: Restore Godot build cache
         uses: ./.github/actions/godot-cache-restore
+        id: restore-cache
         with:
           cache-name: ${{ matrix.platform }}-editor-and-standalone
         continue-on-error: true
@@ -99,7 +100,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential pkg-config libx11-dev libxcursor-dev \
             libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev \
-            libudev-dev libxi-dev libxrandr-dev yasm clang-format-13
+            libudev-dev libxi-dev libxrandr-dev yasm clang-format-8
           sudo apt-get install libwayland-bin
 
       - name: Setup python and scons
@@ -110,7 +111,8 @@ jobs:
         run: |
           sh misc/scripts/install_vulkan_sdk_macos.sh
 
-      - name: Compilation
+      - name: Compile Editor
+        id: compile-editor
         uses: ./.github/actions/godot-build
         with:
           sconsflags: ${{ env.SCONSFLAGS }} ${{ matrix.sconsflags }}
@@ -118,12 +120,6 @@ jobs:
           target: editor
           tests: false
           scons-cache-limit: 4096
-
-      - name: Save Godot build cache
-        uses: ./.github/actions/godot-cache-save
-        with:
-          cache-name: ${{ matrix.platform }}-editor-and-standalone
-        continue-on-error: true
 
       - name: Prepare artifact
         uses: ./.github/actions/godot-prepare-artifact
@@ -135,6 +131,7 @@ jobs:
           retention-days: 90
 
       - name: Compile godot export template (x86_64)
+        id: compile-template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: arch=x86_64 ${{ env.SCONSFLAGS }} ${{ env.SCONSFLAGS_TEMPLATE }} ${{ matrix.sconsflags-template }}
@@ -154,6 +151,7 @@ jobs:
           scons-cache-limit: 4096
 
       - name: Save Godot build cache
+        if: success() || (steps.restore-cache.outputs.cache-hit == 'false' && steps.compile-editor.outcome != 'skipped' )
         uses: ./.github/actions/godot-cache-save
         with:
           cache-name: ${{ matrix.platform }}-editor-and-standalone
