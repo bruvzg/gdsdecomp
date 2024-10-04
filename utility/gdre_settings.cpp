@@ -437,7 +437,7 @@ Error check_embedded(String &p_path) {
 	return OK;
 }
 
-Error GDRESettings::load_pack(const String &p_path) {
+Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
@@ -453,7 +453,7 @@ Error GDRESettings::load_pack(const String &p_path) {
 					if (list.size() > 1) {
 						WARN_PRINT("Found multiple pck files in bundle, using first one!!!");
 					}
-					path = list[0];
+					return load_pack(list[0]);
 				}
 			}
 		}
@@ -485,7 +485,10 @@ Error GDRESettings::load_pack(const String &p_path) {
 	err = GDREPackedData::get_singleton()->add_pack(path, false, 0);
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
-
+	if (_cmd_line_extract) {
+		// we don't want to load the imports and project config if we're just extracting.
+		return OK;
+	}
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 	if (!has_valid_version()) {
