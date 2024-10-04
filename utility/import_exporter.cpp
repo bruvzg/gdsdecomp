@@ -523,6 +523,16 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 		Ref<ConfigFile> cf;
 		cf.instantiate();
 		cf->load(gdextension_path);
+		if (!cf->has_section(lib_section_name)) {
+			if (cf->has_section("entry")) {
+				lib_section_name = "entry";
+			} else if (cf->has_section("libraries")) {
+				lib_section_name = "libraries";
+			} else {
+				WARN_PRINT("Failed to find library section in " + gdextension_path);
+				return ERR_BUG;
+			}
+		}
 		cf->get_section_keys(lib_section_name, &platforms);
 		auto add_path_func = [&](String path, String platform) mutable {
 			String plugin_pardir = path.get_base_dir();
@@ -550,7 +560,9 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 			add_path_func(cf->get_value(lib_section_name, platform), platform);
 		}
 		platforms.clear();
-		cf->get_section_keys("dependencies", &platforms);
+		if (cf->has_section("dependencies")) {
+			cf->get_section_keys("dependencies", &platforms);
+		}
 		for (String &platform : platforms) {
 			Array keys;
 			if (!is_gdnative) {
