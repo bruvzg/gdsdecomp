@@ -245,6 +245,8 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		is_exe = true;
 	}
 
+	int64_t pck_start_pos = f->get_position() - 4;
+
 	uint32_t version = f->get_32();
 	uint32_t ver_major = f->get_32();
 	uint32_t ver_minor = f->get_32();
@@ -263,6 +265,7 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	}
 
 	bool enc_directory = (pack_flags & PACK_DIR_ENCRYPTED);
+	bool rel_filebase = (pack_flags & PACK_REL_FILEBASE);
 
 	for (int i = 0; i < 16; i++) {
 		//reserved
@@ -270,6 +273,10 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	}
 
 	uint32_t file_count = f->get_32();
+
+	if (rel_filebase) {
+		file_base += pck_start_pos;
+	}
 
 	if (enc_directory) {
 		Ref<FileAccessEncrypted> fae = memnew(FileAccessEncrypted);
