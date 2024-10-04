@@ -1,5 +1,9 @@
 #include "gdre_settings.h"
 #include "bytecode/bytecode_tester.h"
+#include "core/error/error_list.h"
+#include "core/error/error_macros.h"
+#include "core/io/file_access.h"
+#include "core/string/print_string.h"
 #include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
 #include "file_access_apk.h"
@@ -392,10 +396,52 @@ Error GDRESettings::unload_dir() {
 	return OK;
 }
 
+bool is_macho(const String &p_path) {
+	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
+	if (fa.is_null()) {
+		return false;
+	}
+	uint8_t header[4];
+	fa->get_buffer(header, 4);
+	fa->close();
+	if ((header[0] == 0xcf || header[0] == 0xce) && header[1] == 0xfa && header[2] == 0xed && header[3] == 0xfe) {
+		return true;
+	}
+
+	// handle fat binaries
+	// always stored in big-endian format
+	if (header[0] == 0xca && header[1] == 0xfe && header[2] == 0xba && header[3] == 0xbe) {
+		return true;
+	}
+	// handle big-endian mach-o binaries
+	if (header[0] == 0xfe && header[1] == 0xed && header[2] == 0xfa && (header[3] == 0xce || header[3] == 0xcf)) {
+		return true;
+	}
+
+	return false;
+}
+
+Error check_embedded(String &p_path) {
+	String extension = p_path.get_extension().to_lower();
+	if (extension != "pck" && extension != "apk" && extension != "zip") {
+		// check if it's a mach-o executable
+
+		if (GDREPackedSource::is_embeddable_executable(p_path)) {
+			if (!GDREPackedSource::has_embedded_pck(p_path)) {
+				return ERR_FILE_UNRECOGNIZED;
+			}
+		} else if (is_macho(p_path)) {
+			return ERR_FILE_UNRECOGNIZED;
+		}
+	}
+	return OK;
+}
+
 Error GDRESettings::load_pack(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
+	String path = p_path;
 	if (DirAccess::exists(p_path)) {
 		// This may be a ".app" bundle, so we need to check if it's a valid Godot app
 		// and if so, load the pck from inside the bundle
@@ -407,16 +453,36 @@ Error GDRESettings::load_pack(const String &p_path) {
 					if (list.size() > 1) {
 						WARN_PRINT("Found multiple pck files in bundle, using first one!!!");
 					}
-					return load_pack(list[0]);
+					path = list[0];
 				}
 			}
 		}
 		return load_dir(p_path);
 	}
-	print_line("Opening file: " + p_path);
-	Error err;
-
-	err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	print_line("Opening file: " + path);
+	Error err = check_embedded(path);
+	if (err != OK) {
+		String parent_path = path.get_base_dir();
+		if (parent_path.is_empty()) {
+			parent_path = GDRESettings::get_exec_dir();
+		}
+		if (parent_path.get_file().to_lower() == "macos") {
+			// we want to get ../Resources
+			parent_path = parent_path.get_base_dir().path_join("Resources");
+			String pck_path = parent_path.path_join(path.get_file().get_basename() + ".pck");
+			if (FileAccess::exists(pck_path)) {
+				path = pck_path;
+				err = OK;
+			}
+		}
+		if (err != OK) {
+			String pck_path = path.get_basename() + ".pck";
+			ERR_FAIL_COND_V_MSG(!FileAccess::exists(pck_path), err, "Can't find embedded pck file in executable and cannot find pck file in same directory!");
+			path = pck_path;
+		}
+		WARN_PRINT("Could not find embedded pck in EXE, found pck file, loading from: " + path);
+	}
+	err = GDREPackedData::get_singleton()->add_pack(path, false, 0);
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 
