@@ -4,6 +4,15 @@
 #include "file_access_gdre.h"
 #include "gdre_settings.h"
 
+bool seek_after_magic_unix(Ref<FileAccess> f) {
+	f->seek(0);
+	uint32_t magic = f->get_32();
+	if (magic != 0x464c457f) { // 0x7F + "ELF"
+		return false;
+	}
+	return true;
+}
+
 uint64_t get_offset_unix(const String &p_path) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 
@@ -12,11 +21,8 @@ uint64_t get_offset_unix(const String &p_path) {
 	}
 
 	// Read and check ELF magic number.
-	{
-		uint32_t magic = f->get_32();
-		if (magic != 0x464c457f) { // 0x7F + "ELF"
-			return 0;
-		}
+	if (!seek_after_magic_unix(f)) {
+		return 0;
 	}
 
 	// Read program architecture bits from class field.
@@ -89,21 +95,26 @@ uint64_t get_offset_unix(const String &p_path) {
 	return off;
 }
 
+bool seek_after_magic_windows(Ref<FileAccess> f) {
+	f->seek(0x3c);
+	uint32_t pe_pos = f->get_32();
+
+	f->seek(pe_pos);
+	uint32_t magic = f->get_32();
+	if (magic != 0x00004550) {
+		return false;
+	}
+	return true;
+}
+
 uint64_t get_offset_windows(const String &p_path) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	if (f.is_null()) {
 		return 0;
 	}
 	// Process header.
-	{
-		f->seek(0x3c);
-		uint32_t pe_pos = f->get_32();
-
-		f->seek(pe_pos);
-		uint32_t magic = f->get_32();
-		if (magic != 0x00004550) {
-			return 0;
-		}
+	if (!seek_after_magic_windows(f)) {
+		return 0;
 	}
 
 	int num_sections;
@@ -139,15 +150,22 @@ uint64_t get_offset_windows(const String &p_path) {
 	return off;
 }
 
-bool seek_offset_from_exe(Ref<FileAccess> f, const String &p_path, uint64_t p_offset) {
+bool is_executable(const String &p_path) {
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	String extension = p_path.get_extension().to_lower();
+	if (extension.ends_with("exe") || extension.ends_with("dll")) {
+		return seek_after_magic_windows(f);
+	}
+	return seek_after_magic_unix(f);
+}
+
+bool seek_offset_from_exe(Ref<FileAccess> f, const String &p_path) {
 	bool pck_header_found = false;
 	uint32_t magic = 0;
-	// Loading with offset feature not supported for self contained exe files.
-	if (p_offset != 0) {
-		ERR_FAIL_V_MSG(false, "Loading self-contained executable with offset not supported.");
+	if (f.is_null()) {
+		return false;
 	}
-
-	int64_t pck_off = p_path.get_extension() == "exe" ? get_offset_windows(p_path) : get_offset_unix(p_path);
+	int64_t pck_off = p_path.get_extension().to_lower() == "exe" ? get_offset_windows(p_path) : get_offset_unix(p_path);
 	if (pck_off != 0) {
 		// Search for the header, in case PCK start and section have different alignment.
 		for (int i = 0; i < 8; i++) {
@@ -165,11 +183,6 @@ bool seek_offset_from_exe(Ref<FileAccess> f, const String &p_path, uint64_t p_of
 
 	// Search for the header at the end of file - self contained executable.
 	if (!pck_header_found) {
-		// Loading with offset feature not supported for self contained exe files.
-		if (p_offset != 0) {
-			ERR_FAIL_V_MSG(false, "Loading self-contained executable with offset not supported.");
-		}
-
 		f->seek_end();
 		f->seek(f->get_position() - 4);
 		magic = f->get_32();
@@ -190,6 +203,21 @@ bool seek_offset_from_exe(Ref<FileAccess> f, const String &p_path, uint64_t p_of
 	return false;
 }
 
+bool GDREPackedSource::is_embeddable_executable(const String &p_path) {
+	return is_executable(p_path);
+}
+
+bool GDREPackedSource::has_embedded_pck(const String &p_path) {
+	if (!is_executable(p_path)) {
+		return false;
+	}
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	if (f.is_null()) {
+		return false;
+	}
+	return seek_offset_from_exe(f, p_path);
+}
+
 bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
 	if (p_path.get_extension().to_lower() == "apk" || p_path.get_extension().to_lower() == "zip") {
 		return false;
@@ -206,7 +234,12 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 	uint32_t magic = f->get_32();
 
 	if (magic != PACK_HEADER_MAGIC) {
-		if (!seek_offset_from_exe(f, pck_path, p_offset)) {
+		// Loading with offset feature not supported for self contained exe files.
+		if (p_offset != 0) {
+			ERR_FAIL_V_MSG(false, "Loading self-contained executable with offset not supported.");
+		}
+
+		if (!seek_offset_from_exe(f, pck_path)) {
 			return false;
 		}
 		is_exe = true;
