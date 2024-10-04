@@ -128,7 +128,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	Error load_pack(const String &p_path);
+	Error load_pack(const String &p_path, bool cmd_line_extract = false);
 	Error unload_pack();
 	String get_gdre_resource_path() const;
 

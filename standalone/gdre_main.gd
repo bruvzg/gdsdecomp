@@ -192,7 +192,7 @@ func recovery(  input_file:String,
 			print("Error: failed to set key!")
 			return
 	
-	err = GDRESettings.load_pack(input_file)
+	err = GDRESettings.load_pack(input_file, extract_only)
 	if (err != OK):
 		print("Error: failed to open " + input_file)
 		return
