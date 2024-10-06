@@ -454,14 +454,15 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir) {
 			err = decomp->decompile_byte_code(f);
 		}
 		if (err) {
+			String err_string = decomp->get_error_message();
 			memdelete(decomp);
 			report->failed_scripts.push_back(f);
 			// TODO: make it not fail hard on the first script that fails to decompile
 			if (encrypted) {
 				report->had_encryption_error = true;
-				ERR_FAIL_V_MSG(err, "error decompiling encrypted script " + f);
+				ERR_FAIL_V_MSG(err, "error decompiling encrypted script " + f + ": " + err_string);
 			} else {
-				ERR_FAIL_V_MSG(err, "error decompiling " + f);
+				ERR_FAIL_V_MSG(err, "error decompiling " + f + ": " + err_string);
 			}
 		} else {
 			String text = decomp->get_script_text();

@@ -17,6 +17,7 @@
 
 #include "modules/gdscript/gdscript_tokenizer_buffer.h"
 #include "utility/common.h"
+#include "utility/godotver.h"
 
 #include <limits.h>
 
@@ -558,8 +559,10 @@ Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 
 	//Decompile script
 	String line;
+	Ref<GodotVer> gv = get_godot_ver();
 	print_line("Bytecode version: " + itos(bytecode_version));
 	print_line("Variant version: " + itos(variant_ver_major));
+	print_line("Godot version: " + gv->as_text());
 	print_line("Function count: " + itos(FUNC_MAX));
 	print_line("Identifiers count: " + itos(identifiers.size()));
 	print_line("Constants count: " + itos(constants.size()));
@@ -725,7 +728,8 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	});
 
 	for (int i = 0; i < tokens.size(); i++) {
-		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		uint32_t local_token = tokens[i] & TOKEN_MASK;
+		GlobalToken curr_token = get_global_token(local_token);
 		int curr_line = get_line_func(i);
 		int curr_column = get_col_func(i);
 		if (curr_token != G_TK_NEWLINE && curr_line != prev_line && curr_line != 0) {
@@ -1135,10 +1139,11 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 			case G_TK_MAX: {
-				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token");
+				local_token = local_token;
+				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token: TK_MAX (" + itos(local_token) + ")");
 			} break;
 			default: {
-				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token");
+				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token: " + itos(local_token));
 			}
 		}
 		prev_token = curr_token;
@@ -1440,6 +1445,9 @@ bool GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens
 	}
 	return true;
 }
+Ref<GodotVer> GDScriptDecomp::get_godot_ver() const {
+	return GodotVer::parse(get_engine_version());
+}
 
 Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	error_message = RTR("No error");
@@ -1465,7 +1473,7 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	// compat: from 3.0 - 3.1.1, the tokenizer defaulted to storing full objects
 	// e61a074, Mar 28, 2019
 	Ref<GodotVer> NO_FULL_OBJ_VER = GodotVer::create(3, 2, 0, "dev1");
-	Ref<GodotVer> godot_ver = GodotVer::parse(get_engine_version());
+	Ref<GodotVer> godot_ver = get_godot_ver();
 	bool encode_full_objects = godot_ver->lt(NO_FULL_OBJ_VER);
 	GDScriptTokenizerTextCompat tt(this);
 	tt.set_code(p_code);
