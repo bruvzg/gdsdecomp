@@ -14,14 +14,66 @@ func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
 	$log_window.scroll_to_line($log_window.get_line_count() - 1)
 
+var repo_url = "https://github.com/bruvzg/gdsdecomp"
+var latest_release_url = "https://github.com/bruvzg/gdsdecomp/releases/latest"
+
 func _on_version_lbl_pressed():
-	OS.shell_open("https://github.com/bruvzg/gdsdecomp")
+	OS.shell_open(repo_url)
+
+func is_dev_version()-> bool:
+	var version = GDRESettings.get_gdre_version()
+	if "-dev" in version:
+		return true
+	return false
+
+func check_version() -> bool:
+	# check the version
+	var http = HTTPRequest.new()
+	# add it to the tree so it doesn't get deleted
+	add_child(http)
+	http.request_completed.connect(_on_version_check_completed)
+	http.request("https://api.github.com/repos/bruvzg/gdsdecomp/releases/latest")
+	return true
+	
+func is_new_version(new_version: String):
+	var curr_version = GDRESettings.get_gdre_version()
+	if curr_version == new_version:
+		return false
+	var curr_semver = SemVer.parse_semver(curr_version)
+	var new_semver = SemVer.parse_semver(new_version)
+	if curr_semver == null or new_semver == null:
+		return false
+	if new_semver.gt(curr_semver):
+		return true
+	return false
+
+
+func _on_version_check_completed(_result, response_code, _headers, body):
+	if response_code != 200:
+		print("Error: failed to check for latest version")
+		return
+	var json = JSON.parse_string(body.get_string_from_utf8())
+	var checked_version = json["tag_name"].strip_edges()
+	var draft = json["draft"]
+	var prerelease = json["prerelease"]
+	var curr_version = GDRESettings.get_gdre_version()
+	
+	if draft or prerelease or not is_new_version(checked_version):
+		return
+	
+	var update_str = "Update available! Click here! " + curr_version
+	repo_url = latest_release_url
+	$version_lbl.text = update_str
+	print("New version of GDRE available: " + checked_version)
+	print("Get it here: " + repo_url)
 
 func _ready():
 	$version_lbl.text = $re_editor_standalone.get_version()
 	# If CLI arguments were passed in, just quit
 	if handle_cli():
 		get_tree().quit()
+	else:
+		check_version()
 	
 func get_arg_value(arg):
 	var split_args = arg.split("=")
