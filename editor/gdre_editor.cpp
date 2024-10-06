@@ -268,7 +268,7 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 	ostr_file_selection = memnew(FileDialog);
 	ostr_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
 	ostr_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
-	ostr_file_selection->add_filter("*.oggstr;OGG Sample files");
+	ostr_file_selection->add_filter("*.oggstr,*.oggvorbisstr;OGG Sample files");
 	ostr_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_res_ostr_2_ogg_request));
 	ostr_file_selection->set_show_hidden_files(true);
 	p_control->add_child(ostr_file_selection);
