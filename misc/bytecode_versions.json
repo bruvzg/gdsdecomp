@@ -7,7 +7,7 @@
         "max_engine_version": "",
         "engine_ver_major": 4,
         "variant_ver_major": 4,
-        "parent": "f3f05dc",
+        "parent": null,
         "is_dev": false,
         "added_tokens": [],
         "removed_tokens": [],

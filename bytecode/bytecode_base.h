@@ -168,8 +168,11 @@ protected:
 	virtual Vector<String> get_added_functions() const { return {}; }
 	virtual Vector<String> get_removed_functions() const { return {}; }
 	virtual Vector<String> get_function_arg_count_changed() const { return {}; }
+	bool check_compile_errors(const Vector<uint8_t> &p_buffer);
 
 public:
+	static Vector<String> get_bytecode_versions();
+
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer);
 	virtual BytecodeTestResult _test_bytecode(Vector<uint8_t> p_buffer, int &p_token_max, int &p_func_max);
 	BytecodeTestResult test_bytecode(Vector<uint8_t> p_buffer);
@@ -186,14 +189,15 @@ public:
 	virtual int get_engine_ver_major() const = 0;
 	virtual int get_variant_ver_major() const = 0;
 	virtual int get_parent() const = 0;
+	virtual String get_engine_version() const = 0;
+	virtual String get_max_engine_version() const = 0;
+	Ref<GodotVer> get_godot_ver() const;
 
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);
 	static Ref<GDScriptDecomp> create_decomp_for_commit(uint64_t p_commit_hash);
+	static Ref<GDScriptDecomp> create_decomp_for_version(String ver);
 	Vector<uint8_t> compile_code_string(const String &p_code);
-	virtual String get_engine_version() const = 0;
-	virtual String get_max_engine_version() const = 0;
-	Ref<GodotVer> get_godot_ver() const;
 	Error debug_print(Vector<uint8_t> p_buffer);
 	static int read_bytecode_version(const String &p_path);
 	static int read_bytecode_version_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key);
@@ -201,6 +205,7 @@ public:
 	String get_script_text();
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);
+	Vector<String> get_compile_errors(const Vector<uint8_t> &p_buffer);
 	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 	// GDScript version 2.0
 	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);

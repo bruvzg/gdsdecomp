@@ -15,6 +15,7 @@
 #include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
 
+#include "core/object/class_db.h"
 #include "modules/gdscript/gdscript_tokenizer_buffer.h"
 #include "utility/common.h"
 #include "utility/godotver.h"
@@ -59,12 +60,17 @@ void GDScriptDecomp::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_function_name", "func_idx"), &GDScriptDecomp::get_function_name);
 	ClassDB::bind_method(D_METHOD("get_function_index", "func_name"), &GDScriptDecomp::get_function_index);
 	ClassDB::bind_method(D_METHOD("get_token_max"), &GDScriptDecomp::get_token_max);
-	// ClassDB::bind_method(D_METHOD("get_global_token", "token_val"), &GDScriptDecomp::get_global_token);
-	// ClassDB::bind_method(D_METHOD("get_local_token_val", "global_token"), &GDScriptDecomp::get_local_token_val);
+
+	ClassDB::bind_method(D_METHOD("get_engine_version"), &GDScriptDecomp::get_engine_version);
+	ClassDB::bind_method(D_METHOD("get_max_engine_version"), &GDScriptDecomp::get_max_engine_version);
+	ClassDB::bind_method(D_METHOD("get_godot_ver"), &GDScriptDecomp::get_godot_ver);
+	ClassDB::bind_method(D_METHOD("get_parent"), &GDScriptDecomp::get_parent);
 
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("create_decomp_for_commit", "commit_hash"), &GDScriptDecomp::create_decomp_for_commit);
+	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("create_decomp_for_version", "ver"), &GDScriptDecomp::create_decomp_for_version);
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("read_bytecode_version", "path"), &GDScriptDecomp::read_bytecode_version);
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("read_bytecode_version_encrypted", "path", "engine_ver_major", "key"), &GDScriptDecomp::read_bytecode_version_encrypted);
+	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("get_bytecode_versions"), &GDScriptDecomp::get_bytecode_versions);
 }
 
 void GDScriptDecomp::_ensure_space(String &p_code) {
@@ -140,6 +146,7 @@ String GDScriptDecomp::get_error_message() {
 
 String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
 	String constString;
+	GDSDECOMP_FAIL_COND_V_MSG(constId >= constants.size(), "", "Invalid constant ID.");
 	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, get_variant_ver_major());
 	GDSDECOMP_FAIL_COND_V_MSG(err, "", "Error when trying to encode Variant.");
 	if (constants[constId].get_type() == Variant::Type::STRING) {
@@ -534,6 +541,7 @@ const char *g_token_str[] = {
 	"TK_BACKTICK", // added in 4.3
 	"TK_MAX",
 };
+static_assert(sizeof(g_token_str) / sizeof(g_token_str[0]) == GDScriptDecomp::GlobalToken::G_TK_MAX + 1, "g_token_str size mismatch");
 
 Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 	//Cleanup
@@ -1139,7 +1147,6 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 			case G_TK_MAX: {
-				local_token = local_token;
 				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token: TK_MAX (" + itos(local_token) + ")");
 			} break;
 			default: {
@@ -1414,7 +1421,7 @@ bool GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens
 	}
 	// count the commas
 	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
-	// this is not the case for GDScript 2.0 (4.x), due to lambdas, but that doesn't have a compiled version yet
+	// This test is not applicable to GDScript 2.0 versions, as there are no bytecode-specific built-in functions.
 	for (; pos < tokens.size(); pos++, t = get_global_token(tokens[pos] & TOKEN_MASK)) {
 		switch (t) {
 			case G_TK_BRACKET_OPEN:
@@ -1449,6 +1456,68 @@ Ref<GodotVer> GDScriptDecomp::get_godot_ver() const {
 	return GodotVer::parse(get_engine_version());
 }
 
+Vector<String> GDScriptDecomp::get_compile_errors(const Vector<uint8_t> &p_buffer) {
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	VMap<uint32_t, uint32_t> lines;
+	VMap<uint32_t, uint32_t> columns;
+	Vector<uint32_t> tokens;
+	int bytecode_version = get_bytecode_version();
+	const uint8_t *buf = p_buffer.ptr();
+	ERR_FAIL_COND_V_MSG(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', Vector<String>(), "Corrupt bytecode");
+
+	int version = decode_uint32(&buf[4]);
+	ERR_FAIL_COND_V_MSG(version != bytecode_version, Vector<String>(), "Bytecode version mismatch");
+	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	ERR_FAIL_COND_V_MSG(err != OK, Vector<String>(), "Error parsing bytecode");
+	Vector<String> errors;
+	int prev_line = 1;
+	auto push_error([&](const String &p_error) {
+		errors.push_back(vformat("Line %d: %s", prev_line, p_error));
+	});
+
+	for (int i = 0; i < tokens.size(); i++) {
+		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		if (lines.has(i)) {
+			if (lines[i] != prev_line && lines[i] != 0) {
+				prev_line = lines[i];
+			}
+		}
+		switch (curr_token) {
+			case G_TK_ERROR: {
+				String error = get_constant_string(constants, tokens[i] >> TOKEN_BITS);
+				push_error(error);
+			} break;
+			case G_TK_CURSOR: {
+				push_error("Cursor token found");
+			} break;
+			case G_TK_MAX: {
+				push_error("Max token found");
+			} break;
+			case G_TK_EOF: {
+				push_error("EOF token found");
+			} break;
+			default:
+				break;
+		}
+	}
+	return errors;
+}
+
+bool GDScriptDecomp::check_compile_errors(const Vector<uint8_t> &p_buffer) {
+	Vector<String> errors = get_compile_errors(p_buffer);
+	if (errors.size() > 0) {
+		error_message = "Compile errors:\n";
+		for (int i = 0; i < errors.size(); i++) {
+			error_message += errors[i];
+			if (i < errors.size() - 1) {
+				error_message += "\n";
+			}
+		}
+	}
+	return errors.size() > 0 || (!error_message.is_empty() && error_message != RTR("No error"));
+}
+
 Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	error_message = RTR("No error");
 	if (get_bytecode_version() >= GDSCRIPT_2_0_VERSION) {
@@ -1459,8 +1528,11 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 		if (this_ver > LATEST_GDSCRIPT_VERSION) {
 			GDSDECOMP_FAIL_COND_V_MSG(false, Vector<uint8_t>(), "ERROR: GDScriptTokenizer version is newer than the latest supported version! Please report this!");
 		}
-		buf = GDScriptTokenizerBuffer::parse_code_string(p_code, GDScriptTokenizerBuffer::CompressMode::COMPRESS_NONE);
+		buf = GDScriptTokenizerBuffer::parse_code_string(p_code, GDScriptTokenizerBuffer::CompressMode::COMPRESS_ZSTD);
 		GDSDECOMP_FAIL_COND_V_MSG(buf.size() == 0, Vector<uint8_t>(), "Error parsing code");
+		if (check_compile_errors(buf)) {
+			return Vector<uint8_t>();
+		}
 		return buf;
 	}
 	Vector<uint8_t> buf;
@@ -1474,7 +1546,7 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	// e61a074, Mar 28, 2019
 	Ref<GodotVer> NO_FULL_OBJ_VER = GodotVer::create(3, 2, 0, "dev1");
 	Ref<GodotVer> godot_ver = get_godot_ver();
-	bool encode_full_objects = godot_ver->lt(NO_FULL_OBJ_VER);
+	bool encode_full_objects = godot_ver->lt(NO_FULL_OBJ_VER) && NO_FULL_OBJ_VER->get_major() == godot_ver->get_major();
 	GDScriptTokenizerTextCompat tt(this);
 	tt.set_code(p_code);
 	int line = -1;
@@ -1516,7 +1588,8 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 				local_token |= tt.get_token_line_indent() << TOKEN_BITS;
 			} break;
 			case G_TK_ERROR: {
-				ERR_FAIL_V(Vector<uint8_t>());
+				String err = tt.get_token_error();
+				GDSDECOMP_FAIL_V_MSG(Vector<uint8_t>(), vformat("Compile error, line %d: %s", tt.get_token_line(), err));
 			} break;
 			default: {
 			}
@@ -1620,4 +1693,63 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	}
 
 	return buf;
+}
+
+Vector<String> GDScriptDecomp::get_bytecode_versions() {
+	auto vers = get_decomp_versions();
+	Vector<String> ret;
+	for (auto &v : vers) {
+		ret.push_back(v.name);
+	}
+	return ret;
+}
+
+// static Ref<GDScriptDecomp> create_decomp_for_version(String ver);
+Ref<GDScriptDecomp> GDScriptDecomp::create_decomp_for_version(String str_ver) {
+	bool include_dev = false;
+	Ref<GodotVer> ver = GodotVer::parse(str_ver);
+	ERR_FAIL_COND_V_MSG(ver.is_null() || ver->get_major() == 0, Ref<GDScriptDecomp>(), "Invalid version: " + str_ver);
+	if (ver->get_prerelease().contains("dev")) {
+		include_dev = true;
+	}
+	auto versions = get_decomp_versions(include_dev, ver->get_major());
+	versions.reverse();
+	// Exact match for dev versions
+	if (include_dev) {
+		str_ver = ver->as_tag();
+		for (auto &v : versions) {
+			bool has_max = !v.max_version.is_empty();
+			if (v.min_version == str_ver || (has_max && v.max_version == str_ver)) {
+				return Ref<GDScriptDecomp>(create_decomp_for_commit(v.commit));
+			}
+		}
+		ERR_FAIL_COND_V_MSG(include_dev, Ref<GDScriptDecomp>(), "No version found for: " + str_ver);
+	}
+	Ref<GodotVer> prev_ver = nullptr;
+	int prev_ver_commit = 0;
+	for (auto &curr_version : versions) {
+		Ref<GodotVer> min_ver = curr_version.get_min_version();
+		if (ver->eq(min_ver)) {
+			return Ref<GDScriptDecomp>(create_decomp_for_commit(curr_version.commit));
+		}
+
+		if (ver->gt(min_ver) && !curr_version.max_version.is_empty()) {
+			Ref<GodotVer> max_ver = curr_version.get_max_version();
+			if (ver->lte(max_ver)) {
+				return Ref<GDScriptDecomp>(create_decomp_for_commit(curr_version.commit));
+			}
+		}
+		if (prev_ver_commit > 0 && ver->lt(min_ver) && ver->gte(prev_ver)) {
+			// 3.4 -> 3.2
+			if (ver->get_major() == prev_ver->get_major()) {
+				return Ref<GDScriptDecomp>(create_decomp_for_commit(prev_ver_commit));
+			}
+		}
+		prev_ver = min_ver;
+		prev_ver_commit = curr_version.commit;
+	}
+	if (ver->get_major() == prev_ver->get_major() && ver->gte(prev_ver)) {
+		return Ref<GDScriptDecomp>(create_decomp_for_commit(prev_ver_commit));
+	}
+	ERR_FAIL_V_MSG(Ref<GDScriptDecomp>(), "No version found for: " + str_ver);
 }
