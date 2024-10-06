@@ -58,7 +58,6 @@ PackDialog::PackDialog() {
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 	root->set_checked(0, true);
 	root->set_editable(0, true);
-	root->set_icon(0, get_theme_icon("folder", "FileDialog"));
 	root->set_text(0, "res://");
 	root->set_metadata(0, String());
 
@@ -327,6 +326,9 @@ void PackDialog::set_info(const String &p_info) {
 }
 
 void PackDialog::_notification(int p_notification) {
+	if (p_notification == NOTIFICATION_POSTINITIALIZE || p_notification == NOTIFICATION_THEME_CHANGED) {
+		root->set_icon(0, get_theme_icon("folder", "FileDialog"));
+	}
 	//NOP
 }
 
