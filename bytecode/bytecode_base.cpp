@@ -10,14 +10,33 @@
 
 #include "core/config/engine.h"
 #include "core/error/error_list.h"
+#include "core/error/error_macros.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
 
+#include "modules/gdscript/gdscript_tokenizer_buffer.h"
 #include "utility/common.h"
 
 #include <limits.h>
 
+#define GDSCRIPT_2_0_VERSION 100
+#define LATEST_GDSCRIPT_VERSION 100
+
+#define GDSDECOMP_FAIL_V_MSG(m_retval, m_msg) \
+	error_message = RTR(m_msg);               \
+	ERR_FAIL_V_MSG(m_retval, m_msg);
+
+#define GDSDECOMP_FAIL_COND_V_MSG(m_cond, m_retval, m_msg) \
+	if (unlikely(m_cond)) {                                \
+		error_message = RTR(m_msg);                        \
+		ERR_FAIL_V_MSG(m_retval, m_msg);                   \
+	}
+#define GDSDECOMP_FAIL_COND_V(m_cond, m_retval)                                                    \
+	if (unlikely(m_cond)) {                                                                        \
+		error_message = RTR("Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval)); \
+		ERR_FAIL_COND_V(m_cond, m_retval);                                                         \
+	}
 void GDScriptDecomp::_bind_methods() {
 	BIND_ENUM_CONSTANT(BYTECODE_TEST_CORRUPT);
 	BIND_ENUM_CONSTANT(BYTECODE_TEST_FAIL);
@@ -120,13 +139,12 @@ String GDScriptDecomp::get_error_message() {
 String GDScriptDecomp::get_constant_string(Vector<Variant> &constants, uint32_t constId) {
 	String constString;
 	Error err = VariantWriterCompat::write_to_string(constants[constId], constString, get_variant_ver_major());
-	ERR_FAIL_COND_V(err, "");
+	GDSDECOMP_FAIL_COND_V_MSG(err, "", "Error when trying to encode Variant.");
 	if (constants[constId].get_type() == Variant::Type::STRING) {
 		constString = constString.replace("\n", "\\n");
 	}
 	return constString;
 }
-#define GDSCRIPT_2_0_VERSION 100
 
 int decompress_buf(const Vector<uint8_t> &p_buffer, Vector<uint8_t> &contents) {
 	ERR_FAIL_COND_V(p_buffer.size() < 12, -1);
@@ -147,16 +165,16 @@ int decompress_buf(const Vector<uint8_t> &p_buffer, Vector<uint8_t> &contents) {
 
 Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
 	const uint8_t *buf = p_buffer.ptr();
-	ERR_FAIL_COND_V(p_buffer.size() < 12 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V_MSG(p_buffer.size() < 12 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA, "Invalid GDScript tokenizer buffer.");
 
 	int version = decode_uint32(&buf[4]);
-	ERR_FAIL_COND_V_MSG(version > GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Binary GDScript is too recent! Please use a newer engine version.");
-	ERR_FAIL_COND_V_MSG(version < GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Don't use this function for older versions of GDScript.");
+	GDSDECOMP_FAIL_COND_V_MSG(version > GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Binary GDScript is too recent! Please use a newer engine version.");
+	GDSDECOMP_FAIL_COND_V_MSG(version < GDSCRIPT_2_0_VERSION, ERR_INVALID_DATA, "Don't use this function for older versions of GDScript.");
 
 	int decompressed_size = decode_uint32(&buf[8]);
 
 	Vector<uint8_t> contents;
-	ERR_FAIL_COND_V_MSG(decompress_buf(p_buffer, contents) != decompressed_size, ERR_INVALID_DATA, "Error decompressing GDScript tokenizer buffer.");
+	GDSDECOMP_FAIL_COND_V_MSG(decompress_buf(p_buffer, contents) != decompressed_size, ERR_INVALID_DATA, "Error decompressing GDScript tokenizer buffer.");
 
 	int total_len = contents.size();
 	buf = contents.ptr();
@@ -172,7 +190,7 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 	for (uint32_t i = 0; i < identifier_count; i++) {
 		uint32_t len = decode_uint32(b);
 		total_len -= 4;
-		ERR_FAIL_COND_V((len * 4u) > (uint32_t)total_len, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG((len * 4u) > (uint32_t)total_len, ERR_INVALID_DATA, "Invalid identifier length.");
 		b += 4;
 		Vector<uint32_t> cs;
 		cs.resize(len);
@@ -204,7 +222,7 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 	}
 
 	for (uint32_t i = 0; i < token_line_count; i++) {
-		ERR_FAIL_COND_V(total_len < 8, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG(total_len < 8, ERR_INVALID_DATA, "Invalid token line count.");
 		uint32_t token_index = decode_uint32(b);
 		b += 4;
 		uint32_t line = decode_uint32(b);
@@ -213,7 +231,7 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 		lines[token_index] = line;
 	}
 	for (uint32_t i = 0; i < token_line_count; i++) {
-		ERR_FAIL_COND_V(total_len < 8, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG(total_len < 8, ERR_INVALID_DATA, "Invalid token column count.");
 		uint32_t token_index = decode_uint32(b);
 		b += 4;
 		uint32_t column = decode_uint32(b);
@@ -228,7 +246,7 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 		if ((*b) & 0x80) { //BYTECODE_MASK, little endian always
 			token_len = 8;
 		}
-		ERR_FAIL_COND_V(total_len < token_len, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG(total_len < token_len, ERR_INVALID_DATA, "Invalid token length.");
 
 		if (token_len == 8) {
 			tokens.write[i] = decode_uint32(b) & ~0x80;
@@ -240,7 +258,7 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 		total_len -= token_len;
 	}
 
-	ERR_FAIL_COND_V(total_len > 0, ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V_MSG(total_len > 0, ERR_INVALID_DATA, "Invalid token length.");
 
 	return OK;
 }
@@ -251,11 +269,11 @@ Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int
 	}
 	const uint8_t *buf = p_buffer.ptr();
 	int total_len = p_buffer.size();
-	ERR_FAIL_COND_V(p_buffer.size() < 24 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V_MSG(p_buffer.size() < 24 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA, "Invalid GDScript token buffer.");
 
 	int version = decode_uint32(&buf[4]);
 	if (version != bytecode_version) {
-		ERR_FAIL_COND_V(version > bytecode_version, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V(version > bytecode_version, ERR_INVALID_DATA);
 	}
 	const int contents_start = 8 + (version >= GDSCRIPT_2_0_VERSION ? 4 : 0);
 	int identifier_count = decode_uint32(&buf[contents_start]);
@@ -269,7 +287,7 @@ Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int
 	identifiers.resize(identifier_count);
 	for (int i = 0; i < identifier_count; i++) {
 		int len = decode_uint32(b);
-		ERR_FAIL_COND_V(len > total_len, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG(len > total_len, ERR_INVALID_DATA, "Invalid identifier length.");
 		b += 4;
 		Vector<uint8_t> cs;
 		cs.resize(len);
@@ -299,7 +317,7 @@ Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int
 		constants.write[i] = v;
 	}
 
-	ERR_FAIL_COND_V(line_count * sizeof(VMap<uint32_t, uint32_t>::Pair) > total_len, ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V_MSG(line_count * sizeof(VMap<uint32_t, uint32_t>::Pair) > total_len, ERR_INVALID_DATA, "Invalid line count.");
 
 	for (int i = 0; i < line_count; i++) {
 		uint32_t token = decode_uint32(b);
@@ -312,10 +330,10 @@ Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int
 	}
 	tokens.resize(token_count);
 	for (int i = 0; i < token_count; i++) {
-		ERR_FAIL_COND_V(total_len < 1, ERR_INVALID_DATA);
+		GDSDECOMP_FAIL_COND_V_MSG(total_len < 1, ERR_INVALID_DATA, "Invalid token length.");
 
 		if ((*b) & 0x80) { //BYTECODE_MASK, little endian always
-			ERR_FAIL_COND_V(total_len < 4, ERR_INVALID_DATA);
+			GDSDECOMP_FAIL_COND_V_MSG(total_len < 4, ERR_INVALID_DATA, "Invalid token length.");
 
 			tokens.write[i] = decode_uint32(b) & ~0x80;
 			b += 4;
@@ -586,7 +604,7 @@ Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 }
 
 Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
-#if DEBUG_ENABLED
+#if 0
 	debug_print(p_buffer);
 #endif
 	//Cleanup
@@ -603,10 +621,10 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	int FUNC_MAX = get_function_count();
 
 	const uint8_t *buf = p_buffer.ptr();
-	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
 
 	int version = decode_uint32(&buf[4]);
-	ERR_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
+	GDSDECOMP_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
 	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V(err != OK, err);
 	auto get_line_func([&](int i) {
@@ -719,13 +737,13 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			case G_TK_ANNOTATION: // fallthrough
 			case G_TK_IDENTIFIER: {
 				uint32_t identifier = tokens[i] >> TOKEN_BITS;
-				ERR_FAIL_COND_V(identifier >= (uint32_t)identifiers.size(), ERR_INVALID_DATA);
+				GDSDECOMP_FAIL_COND_V(identifier >= (uint32_t)identifiers.size(), ERR_INVALID_DATA);
 				line += String(identifiers[identifier]);
 			} break;
 			case G_TK_LITERAL: // fallthrough
 			case G_TK_CONSTANT: {
 				uint32_t constant = tokens[i] >> TOKEN_BITS;
-				ERR_FAIL_COND_V(constant >= (uint32_t)constants.size(), ERR_INVALID_DATA);
+				GDSDECOMP_FAIL_COND_V(constant >= (uint32_t)constants.size(), ERR_INVALID_DATA);
 				line += get_constant_string(constants, constant);
 			} break;
 			case G_TK_SELF: {
@@ -735,7 +753,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += VariantDecoderCompat::get_variant_type_name(tokens[i] >> TOKEN_BITS, variant_ver_major);
 			} break;
 			case G_TK_BUILT_IN_FUNC: {
-				ERR_FAIL_COND_V(tokens[i] >> TOKEN_BITS >= FUNC_MAX, ERR_INVALID_DATA);
+				GDSDECOMP_FAIL_COND_V(tokens[i] >> TOKEN_BITS >= FUNC_MAX, ERR_INVALID_DATA);
 				line += get_function_name(tokens[i] >> TOKEN_BITS);
 			} break;
 			case G_TK_OP_IN: {
@@ -1116,10 +1134,10 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				//skip - invalid
 			} break;
 			case G_TK_MAX: {
-				ERR_FAIL_COND_V_MSG(curr_token == G_TK_MAX, ERR_INVALID_DATA, "Invalid token");
+				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token");
 			} break;
 			default: {
-				ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token");
+				GDSDECOMP_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid token");
 			}
 		}
 		prev_token = curr_token;
@@ -1139,7 +1157,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	// Testing recompile of the bytecode
 	// TODO: move this elsewhere
-#if DEBUG_ENABLED
+#if 0
 	// compiling doesn't work for bytecode version 100 yet
 	if (bytecode_version >= GDSCRIPT_2_0_VERSION) {
 		return OK;
@@ -1420,6 +1438,19 @@ bool GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens
 }
 
 Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
+	error_message = RTR("No error");
+	if (get_bytecode_version() >= GDSCRIPT_2_0_VERSION) {
+		GDScriptTokenizerBuffer tbf;
+		//test with an empty string to check the version
+		auto buf = GDScriptTokenizerBuffer::parse_code_string("", GDScriptTokenizerBuffer::CompressMode::COMPRESS_NONE);
+		int this_ver = decode_uint32(&buf[4]);
+		if (this_ver > LATEST_GDSCRIPT_VERSION) {
+			GDSDECOMP_FAIL_COND_V_MSG(false, Vector<uint8_t>(), "ERROR: GDScriptTokenizer version is newer than the latest supported version! Please report this!");
+		}
+		buf = GDScriptTokenizerBuffer::parse_code_string(p_code, GDScriptTokenizerBuffer::CompressMode::COMPRESS_NONE);
+		GDSDECOMP_FAIL_COND_V_MSG(buf.size() == 0, Vector<uint8_t>(), "Error parsing code");
+		return buf;
+	}
 	Vector<uint8_t> buf;
 
 	RBMap<StringName, int> identifier_map;
@@ -1547,7 +1578,7 @@ Vector<uint8_t> GDScriptDecomp::compile_code_string(const String &p_code) {
 	for (RBMap<int, Variant>::Element *E = rev_constant_map.front(); E; E = E->next()) {
 		int len;
 		Error err = VariantDecoderCompat::encode_variant_compat(get_variant_ver_major(), E->get(), nullptr, len, encode_full_objects);
-		ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Error when trying to encode Variant.");
+		GDSDECOMP_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Error when trying to encode Variant.");
 		int pos = buf.size();
 		buf.resize(pos + len);
 		VariantDecoderCompat::encode_variant_compat(get_variant_ver_major(), E->get(), &buf.write[pos], len, encode_full_objects);
