@@ -2,7 +2,7 @@ extends Control
 
 var ver_major = 0
 var ver_minor = 0
-
+var scripts_only = false
 
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -89,7 +89,18 @@ func test_decomp(fname):
 
 func export_imports(output_dir:String, files: PackedStringArray):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.export_imports(output_dir, files)
+	var new_files:PackedStringArray = []
+	if scripts_only:
+		if len(files) == 0:
+			files = GDRESettings.get_file_list()
+		print("Exporting scripts only")
+		for i in range(files.size()):
+			var f = files[i]
+			if f.get_extension().to_lower() == "gdc":
+				new_files.append(f)
+	else:
+		new_files = files
+	importer.export_imports(output_dir, new_files)
 	importer.reset()
 				
 	
@@ -271,6 +282,8 @@ func handle_cli() -> bool:
 			txt_to_bin = normalize_path(get_arg_value(arg))	
 		elif arg.begins_with("--output-dir"):
 			output_dir = normalize_path(get_arg_value(arg))
+		elif arg.begins_with("--scripts-only"):
+			scripts_only = true
 		elif arg.begins_with("--key"):
 			enc_key = get_arg_value(arg)
 		elif arg.begins_with("--ignore-checksum-errors"):
