@@ -33,7 +33,18 @@ class Glob : public Object {
 	GDCLASS(Glob, Object);
 
 protected:
+	friend void init_ver_regex();
+	friend void free_ver_regex();
 	static void _bind_methods();
+	static Ref<RegEx> magic_check;
+	static constexpr const char *magic_pattern = "([*?[])";
+	static Ref<RegEx> escapere;
+	static constexpr const char *escape_pattern = R"([&~|])";
+
+	static String translate(const String &pattern);
+	static bool has_magic(const String &pathname);
+	static Vector<String> _glob(const String &inpath, bool recursive = false,
+			bool dironly = false, bool include_hidden = false);
 
 public:
 	/// \param pathname string containing a path specification
