@@ -31,11 +31,15 @@ static GDRESettings *gdre_singleton = nullptr;
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
 	GodotVer::non_strict_regex = RegEx::create_from_string(GodotVer::non_strict_regex_str);
+	Glob::magic_check = RegEx::create_from_string(Glob::magic_pattern);
+	Glob::escapere = RegEx::create_from_string(Glob::escape_pattern);
 }
 
 void free_ver_regex() {
 	SemVer::strict_regex = Ref<RegEx>();
 	GodotVer::non_strict_regex = Ref<RegEx>();
+	Glob::magic_check = Ref<RegEx>();
+	Glob::escapere = Ref<RegEx>();
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
@@ -44,6 +48,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	}
 	ClassDB::register_class<SemVer>();
 	ClassDB::register_class<GodotVer>();
+	ClassDB::register_class<Glob>();
 	init_ver_regex();
 
 	ClassDB::register_abstract_class<GDScriptDecomp>();
@@ -61,7 +66,6 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<OggStreamLoaderCompat>();
 	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRESettings>();
-	ClassDB::register_class<Glob>();
 
 	ClassDB::register_class<PackedFileInfo>();
 
