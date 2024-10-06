@@ -489,6 +489,12 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 		// we don't want to load the imports and project config if we're just extracting.
 		return OK;
 	}
+	if (!pack_has_project_config()) {
+		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
+	} else if (has_valid_version()) {
+		err = load_project_config();
+		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
+	}
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 	if (!has_valid_version()) {
@@ -498,12 +504,9 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 			unload_pack();
 			ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project pack!");
 		}
-	}
-	if (!pack_has_project_config()) {
-		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
-	} else {
-		err = load_project_config();
-		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
+		if (pack_has_project_config()) {
+			ERR_FAIL_COND_V_MSG(load_project_config(), err, "FATAL ERROR: Can't open project config!");
+		}
 	}
 	err = fix_patch_number();
 	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue

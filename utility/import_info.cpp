@@ -1,7 +1,7 @@
 #include "import_info.h"
 #include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
-
+#include "utility/glob.h"
 String ImportInfo::to_string() {
 	return as_text(false);
 }
@@ -324,7 +324,6 @@ void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
 				cf->set_value("remap", "path." + ext, p_dest_files[i]);
 			}
 		} else {
-			WARN_PRINT("we don't have imported_formats in the remap metadata?? Setting anyway...");
 			cf->set_value("remap", "path", p_dest_files[0]);
 		}
 	} else {
@@ -420,6 +419,26 @@ Error ImportInfoModern::_load(const String &p_path) {
 				}
 			}
 			cf->set_value("deps", "dest_files", dest_files);
+			// No path values at all; may be a translation file
+			if (dest_files.is_empty()) {
+				String importer = cf->get_value("remap", "importer", "");
+				if (importer == "csv_translation") {
+					// They recently started removing the path from the [remap] section for these types
+					// We need to recreate it
+					String source_file = import_md_path.get_basename();
+					String prefix = source_file.get_basename();
+					preferred_import_path = prefix + ".*.translation";
+					if (GDRESettings::get_singleton()->is_project_config_loaded()) {
+						//internationalization/locale/translations
+						dest_files = GDRESettings::get_singleton()->get_project_setting("internationalization/locale/translations");
+					}
+					if (dest_files.size() == 0) {
+						dest_files = Glob::glob(preferred_import_path);
+					}
+					set_source_file(source_file);
+					set_dest_files(dest_files);
+				}
+			}
 		}
 	} else {
 		dest_files = get_dest_files();
