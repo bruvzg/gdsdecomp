@@ -298,20 +298,20 @@ func handle_cli() -> bool:
 			print_version()
 			print_usage()
 			get_tree().quit()
-		if arg.begins_with("--version"):
+		elif arg.begins_with("--version"):
 			print_version()
 			get_tree().quit()
-		if arg.begins_with("--extract"):
-			input_extract_file = normalize_path(get_arg_value(arg))
+		elif arg.begins_with("--extract"):
+			input_extract_file = get_arg_value(arg).simplify_path()
 			main_args_cnt += 1
-		if arg.begins_with("--recover"):
-			input_file = normalize_path(get_arg_value(arg))
+		elif arg.begins_with("--recover"):
+			input_file = get_arg_value(arg).simplify_path()
 			main_args_cnt += 1
-		if arg.begins_with("--txt-to-bin"):
-			txt_to_bin = normalize_path(get_arg_value(arg))	
+		elif arg.begins_with("--txt-to-bin"):
+			txt_to_bin = get_arg_value(arg).simplify_path()	
 			main_args_cnt += 1
 		elif arg.begins_with("--output-dir"):
-			output_dir = normalize_path(get_arg_value(arg))
+			output_dir = get_arg_value(arg).simplify_path()
 		elif arg.begins_with("--scripts-only"):
 			scripts_only = true
 		elif arg.begins_with("--key"):
