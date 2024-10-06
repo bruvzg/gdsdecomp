@@ -689,7 +689,10 @@ void GodotREEditor::_compile_process() {
 			String txt;
 			txt.parse_utf8((const char *)file.ptr(), file.size());
 			file = dce->compile_code_string(txt);
-
+			if (file.is_empty()) {
+				failed_files += files[i] + " (" + dce->get_error_message() + ")\n";
+				continue;
+			}
 			Ref<FileAccess> fa = FileAccess::open(target_name, FileAccess::WRITE);
 			if (fa.is_valid()) {
 				if (key.size() == 32) {
