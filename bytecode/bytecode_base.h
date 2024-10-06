@@ -10,6 +10,7 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/rb_map.h"
 #include "core/templates/vmap.h"
+#include "utility/godotver.h"
 
 class GDScriptDecomp : public RefCounted {
 	GDCLASS(GDScriptDecomp, RefCounted);
@@ -192,6 +193,7 @@ public:
 	Vector<uint8_t> compile_code_string(const String &p_code);
 	virtual String get_engine_version() const = 0;
 	virtual String get_max_engine_version() const = 0;
+	Ref<GodotVer> get_godot_ver() const;
 	Error debug_print(Vector<uint8_t> p_buffer);
 	static int read_bytecode_version(const String &p_path);
 	static int read_bytecode_version_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key);
