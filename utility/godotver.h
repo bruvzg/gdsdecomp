@@ -51,6 +51,8 @@ class SemVer : public RefCounted {
 	GDCLASS(SemVer, RefCounted);
 
 protected:
+	friend void init_ver_regex();
+	friend void free_ver_regex();
 	int major = 0;
 	int minor = 0;
 	int patch = 0;
@@ -67,6 +69,11 @@ protected:
 	virtual _TYPE get_type() const { return STRICT; }
 	static bool parse_digit_only_field(const String &p_field, uint64_t &r_result);
 	static void _bind_methods();
+
+	// this will match: "1.2.3" "1.1.3-pre.1" "4.2.0-rc.1+sha.md5.f9300dc53"
+	// we strip "v" in front of the string in case it's there
+	static constexpr const char *strict_regex_str = "^[vV]?(?P<major>0|[1-9]\\d*)\\.(?P<minor>0|[1-9]\\d*)\\.(?P<patch>0|[1-9]\\d*)(?:-(?P<prerelease>(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$";
+	static Ref<RegEx> strict_regex;
 
 public:
 	virtual String as_text() const;
@@ -194,8 +201,16 @@ class GodotVer : public SemVer {
 	GDCLASS(GodotVer, SemVer);
 
 protected:
+	friend void init_ver_regex();
+	friend void free_ver_regex();
 	virtual int cmp(const Ref<SemVer> &p_b) const override;
 	static void _bind_methods();
+
+	// this will match: "v1" "2" "1.1" "2.4.stable" "1.4.5.6" "3.4.0.stable" "3.4.5.stable.official.f9ac000d5"
+	// if this is not a Windows-type version number ("1.4.5.6"), then everything after the patch number will be build metadata as we can't use it for precedence.
+	static constexpr const char *non_strict_regex_str = R"(^[vV]?(?P<major>0|[1-9]\d*)(?:\.(?P<minor>0|[1-9]\d*))?(?:\.(?P<patch>0|[1-9]\d*))?(?:[\.-](?P<prerelease>(?:dev|alpha|beta|rc)\d*))?(?:[\.+-](?P<buildmetadata>(?:[\w\-_\+\.]*)))?$)";
+
+	static Ref<RegEx> non_strict_regex;
 
 public:
 	virtual String as_text() const override;
