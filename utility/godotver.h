@@ -80,7 +80,7 @@ public:
 	virtual int cmp(const Ref<SemVer> &p_b) const;
 	// strict comparison; if the build data is different, the versions are considered different
 	bool eq(const Ref<SemVer> &b) const {
-		return b.is_valid() && as_text() == b->as_text();
+		return cmp(b) == 0;
 	}
 
 	bool neq(const Ref<SemVer> &b) const {
@@ -103,12 +103,12 @@ public:
 		return cmp(b) >= 0;
 	}
 
-	bool is_equivalent(const Ref<SemVer> &b) const {
-		return cmp(b) == 0;
+	bool is_exact_match(const Ref<SemVer> &b) const {
+		return b.is_valid() && as_text() == b->as_text();
 	}
 
-	bool is_not_equivalent(const Ref<SemVer> &b) const {
-		return cmp(b) != 0;
+	bool is_not_exact_match(const Ref<SemVer> &b) const {
+		return !is_exact_match(b);
 	}
 
 	bool operator==(const Ref<SemVer> &b) const {
