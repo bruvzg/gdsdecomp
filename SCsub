@@ -29,25 +29,59 @@ env_gdsdecomp.Alias(
     [env_gdsdecomp.MakeGDREIconsBuilder("editor/gdre_icons.gen.h", icon_sources)],
 )
 
-git = shutil.which("git")
-version_info = "unknown"
-if git == None:
-    print("GDRE WARNING: cannot find git on path, unknown version will be saved in gdre_version.gen.h")
-else:
-    # git describe --abbrev=6
-    process = Popen([git, "describe", "--tags", "--abbrev=6"], stdout=PIPE)
+
+def doproc(cmd):
+    # ensure that it doesn't print stderr to the terminal if print_err is False
+    process = Popen(cmd, stdout=PIPE, stderr=PIPE)
     (output, err) = process.communicate()
     if not err:
-        version_info = output.decode("utf-8").strip()
+        return output.decode("utf-8").strip()
     else:
-        print("GDRE WARNING: git failed to run, unknown version will be saved in gdre_version.gen.h")
+        return None
 
-f = open("editor/gdre_version.gen.h", "w")
-# define GDRE_VERSION "dev-poc (for Godot 4.0)"
-f.write('#define GDRE_VERSION "')
-f.write(version_info)
-f.write('"\n')
-f.close()
+
+def write_version_header():
+    git = shutil.which("git")
+    version_info = "unknown"
+    is_tag = False
+    if git == None:
+        print("GDRE WARNING: cannot find git on path, unknown version will be saved in gdre_version.gen.h")
+    else:
+        # git describe --abbrev=6
+        version_info = doproc([git, "describe", "--tags", "--abbrev=6"])
+        if version_info is None:
+            print("GDRE WARNING: git failed to run, unknown version will be saved in gdre_version.gen.h")
+            version_info = "unknown"
+        else:
+            # git describe --exact-match --tags HEAD
+            res = doproc([git, "describe", "--exact-match", "--tags", "HEAD"])
+            if not res:
+                is_tag = False
+                splits = version_info.split("-")
+                build_info = splits[-1]
+                build_num = splits[-2]
+                # everything but the last two elements
+                new_version_info = "-".join(splits[:-2])
+                splits = new_version_info.split(".")
+                splits[2] = str(int(splits[2]) + 1)
+                new_version_info = ".".join(splits)
+                new_version_info += "-dev." if "-" not in new_version_info else "+dev."
+                version_info = new_version_info + build_num + "+" + build_info
+            else:
+                is_tag = True
+                version_info = res
+
+    f = open("editor/gdre_version.gen.h", "w")
+    # check if we're not on a tag
+    process = Popen([git, "status", "--porcelain"], stdout=PIPE)
+    # define GDRE_VERSION "dev-poc (for Godot 4.0)"
+    f.write('#define GDRE_VERSION "')
+    f.write(version_info)
+    f.write('"\n')
+    f.close()
+
+
+write_version_header()
 
 
 if env["builtin_libogg"]:
