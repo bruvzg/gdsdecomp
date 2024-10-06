@@ -45,6 +45,7 @@ void GDScriptDecomp::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("decompile_byte_code", "path"), &GDScriptDecomp::decompile_byte_code);
 	ClassDB::bind_method(D_METHOD("decompile_byte_code_encrypted", "path", "key"), &GDScriptDecomp::decompile_byte_code_encrypted);
 	ClassDB::bind_method(D_METHOD("test_bytecode", "buffer"), &GDScriptDecomp::test_bytecode);
+	ClassDB::bind_method(D_METHOD("compile_code_string", "code"), &GDScriptDecomp::compile_code_string);
 
 	ClassDB::bind_method(D_METHOD("get_script_text"), &GDScriptDecomp::get_script_text);
 	ClassDB::bind_method(D_METHOD("get_error_message"), &GDScriptDecomp::get_error_message);
