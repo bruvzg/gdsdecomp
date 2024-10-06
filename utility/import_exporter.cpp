@@ -884,18 +884,24 @@ Error _export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	iinfo->set_export_dest(new_path);
 	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
 	err = ImportExporter::ensure_dir(out_path.get_base_dir());
-	List<String> deps;
-	Ref<GLTFDocument> doc;
-	doc.instantiate();
-	Ref<GLTFState> state;
-	state.instantiate();
-	int32_t flags = 0;
-	flags |= 16; // EditorSceneFormatImporter::IMPORT_USE_NAMED_SKIN_BINDS;
-	Node *root = scene->instantiate();
-	err = doc->append_from_scene(root, state, flags);
-	ERR_FAIL_COND_V_MSG(err, err, "Failed to append scene " + iinfo->get_path() + " to glTF document");
-	err = doc->write_to_filesystem(state, out_path);
-	root->queue_free();
+	Node *root;
+	{
+		List<String> deps;
+		Ref<GLTFDocument> doc;
+		doc.instantiate();
+		Ref<GLTFState> state;
+		state.instantiate();
+		int32_t flags = 0;
+		flags |= 16; // EditorSceneFormatImporter::IMPORT_USE_NAMED_SKIN_BINDS;
+		root = scene->instantiate();
+		err = doc->append_from_scene(root, state, flags);
+		if (err) {
+			memdelete(root);
+			ERR_FAIL_COND_V_MSG(err, err, "Failed to append scene " + iinfo->get_path() + " to glTF document");
+		}
+		err = doc->write_to_filesystem(state, out_path);
+	}
+	memdelete(root);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to write glTF document to " + out_path);
 	return OK;
 }
