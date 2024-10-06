@@ -4,6 +4,7 @@
 
 #include "register_types.h"
 #include "core/object/class_db.h"
+#include "modules/regex/regex.h"
 #ifdef TOOLS_ENABLED
 #include "editor/editor_node.h"
 #endif
@@ -27,10 +28,23 @@ void gdsdecomp_init_callback() {
 #endif
 static GDRESettings *gdre_singleton = nullptr;
 
+void init_ver_regex() {
+	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
+	GodotVer::non_strict_regex = RegEx::create_from_string(GodotVer::non_strict_regex_str);
+}
+
+void free_ver_regex() {
+	SemVer::strict_regex = Ref<RegEx>();
+	GodotVer::non_strict_regex = Ref<RegEx>();
+}
+
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
+	ClassDB::register_class<SemVer>();
+	ClassDB::register_class<GodotVer>();
+	init_ver_regex();
 
 	ClassDB::register_abstract_class<GDScriptDecomp>();
 	register_decomp_versions();
@@ -48,8 +62,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRESettings>();
 	ClassDB::register_class<Glob>();
-	ClassDB::register_class<SemVer>();
-	ClassDB::register_class<GodotVer>();
+
 	ClassDB::register_class<PackedFileInfo>();
 
 	ClassDB::register_class<PackDialog>();
@@ -70,4 +83,5 @@ void uninitialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 		memdelete(gdre_singleton);
 		gdre_singleton = nullptr;
 	}
+	free_ver_regex();
 }
