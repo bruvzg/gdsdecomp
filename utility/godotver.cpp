@@ -394,7 +394,6 @@ bool GodotVer::parse_valid(const String &p_ver_text, Ref<GodotVer> &r_semver) {
 		// Godot version specific hacks
 		String prerelease = match->get_string("prerelease");
 		String build = match->get_string("buildmetadata");
-		// if prerelease begins with "stable" or it does NOT begin with "beta", "rc", or "alpha", then it's actually build metadata
 		r_semver = GodotVer::create(
 				match->get_string("major").to_int(),
 				!match->get_string("minor").is_empty() ? match->get_string("minor").to_int() : 0,
