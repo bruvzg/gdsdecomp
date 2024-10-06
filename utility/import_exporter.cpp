@@ -7,6 +7,7 @@
 #include "compat/resource_loader_compat.h"
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
+#include "core/error/error_list.h"
 #include "core/string/print_string.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
@@ -103,7 +104,20 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		// This only works if we decompile the scripts first
 		recreate_plugin_configs(output_dir);
 	}
-	files.sort_custom<IInfoComparator>();
+	if (get_ver_major() >= 4) {
+		// we need to re-save all the iinfo files to the output directory if they are dirty
+		for (int i = 0; i < files.size(); i++) {
+			Ref<ImportInfo> iinfo = files[i];
+			if (iinfo->is_dirty()) {
+				String dest = output_dir.path_join(iinfo->get_import_md_path().get_basename());
+				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+				if (err && err != ERR_UNAVAILABLE) {
+					print_line("Failed to save import info " + iinfo->get_path());
+				}
+			}
+		}
+	}
+	// files.sort_custom<IInfoComparator>();
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
