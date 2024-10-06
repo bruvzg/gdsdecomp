@@ -7,6 +7,7 @@
 #include "compat/resource_loader_compat.h"
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
+#include "core/string/print_string.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
 #include "util_functions.h"
@@ -52,6 +53,18 @@ Ref<ImportExporterReport> ImportExporter::get_report() {
 	return report;
 }
 
+/**
+Sort the scenes so that they are exported last
+ */
+struct IInfoComparator {
+	int is_glb_scene(const Ref<ImportInfo> &a) const {
+		return a->get_importer() == "scene" && !a->is_auto_converted() ? 1 : 0;
+	}
+	bool operator()(const Ref<ImportInfo> &a, const Ref<ImportInfo> &b) const {
+		return is_glb_scene(a) < is_glb_scene(b);
+	}
+};
+
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 
@@ -90,6 +103,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		// This only works if we decompile the scripts first
 		recreate_plugin_configs(output_dir);
 	}
+	files.sort_custom<IInfoComparator>();
+
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
 		String path = iinfo->get_path();
@@ -916,15 +931,32 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 		List<String> get_deps;
 		// We need to preload any Texture resources that are used by the scene with our own loader
 		ResourceLoader::get_dependencies(iinfo->get_path(), &get_deps, true);
+		HashMap<String, Vector<String>> get_deps_map;
+		for (auto &i : get_deps) {
+			auto splits = i.split("::");
+			if (splits.size() < 3) {
+				continue;
+			}
+			get_deps_map.insert(splits[2], splits);
+		}
+		// Check if the deps have any bad resources that we can't load
+		for (auto &failed_info : report->failed) {
+			if (get_deps_map.has(failed_info->get_source_file())) {
+				print_line(vformat("Scene %s has known bad dependencies (%s), refusing to export.", iinfo->get_path(), failed_info->get_path()));
+				return ERR_FILE_MISSING_DEPENDENCIES;
+			}
+		}
+
 		TextureLoaderCompat tlc;
 		tlc.glft_export = true; // overides `get_image()` for glTF export
 		Vector<Ref<Texture>> textures;
-		for (String dep : get_deps) {
-			auto splits = dep.split("::");
+		for (auto &E : get_deps_map) {
+			String dep = E.key;
+			auto &splits = E.value;
 			if (splits[1].contains("Texture")) {
-				Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(splits[2]);
+				Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(dep);
 				if (tex_iinfo.is_null()) {
-					WARN_PRINT("Failed to find import info for texture " + splits[2] + " for scene " + iinfo->get_path());
+					WARN_PRINT("Failed to find import info for texture " + dep + " for scene " + iinfo->get_path());
 					continue;
 				}
 				Ref<Texture> texture = tlc.load_texture(tex_iinfo->get_path(), &err);
@@ -935,7 +967,7 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 #ifdef TOOLS_ENABLED
 				texture->set_import_path(tex_iinfo->get_path());
 #endif
-				texture->set_path(splits[2]);
+				texture->set_path(dep);
 				if (!splits[0].is_empty()) {
 					auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);
 					if (id != ResourceUID::INVALID_ID) {
@@ -1139,14 +1171,23 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	if (img->is_compressed()) {
-		err = img->decompress();
+		int req_w, req_h;
+		int w = img->get_width();
+		int h = img->get_height();
 		String fmt_name = Image::get_format_name(img->get_format());
-		if (err == ERR_UNAVAILABLE) {
-			WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
-			report_unsupported_resource("Texture", fmt_name, p_path);
-			return err;
+		Image::get_format_min_pixel_size(img->get_format(), req_w, req_h);
+		if (w < req_w || h < req_h) {
+			print_line("Image %s (format: %s) is too small to decompress safely (%dx%d), not saving.", p_path.get_file(), fmt_name, img->get_width(), img->get_height());
+			return ERR_FILE_CORRUPT;
+		} else {
+			err = img->decompress();
+			if (err == ERR_UNAVAILABLE) {
+				WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
+				report_unsupported_resource("Texture", fmt_name, p_path);
+				return err;
+			}
+			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
 		}
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
 	}
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
