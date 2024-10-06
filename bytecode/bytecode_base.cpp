@@ -1152,6 +1152,9 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	}
 
 	if (script_text == String()) {
+		if (identifiers.size() == 0 && constants.size() == 0 && tokens.size() == 0) {
+			return OK;
+		}
 		error_message = RTR("Invalid token");
 		return ERR_INVALID_DATA;
 	}
