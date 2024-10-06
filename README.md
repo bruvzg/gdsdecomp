@@ -57,12 +57,16 @@ gdre_tools --headless --recover=game.pck
 
 - `--recover=<pck/exe/apk>` : Perform full project recovery on the specified PCK/EXE/APK.
 - `--extract=<pck/exe/apk>` : Perform extraction only (no resource conversion) on the specified PCK/EXE/APK
+- `--compile=<GD_FILE>` : Compile GDScript files to bytecode. Can be repeated and use globs (e.g. `scripts/**/*.gd`). Requires `--bytecode`.
+- `--list-bytecode-versions`: List all available bytecode versions
 
 #### Optional arguments:
 
 - `--output-dir=<out_dir>` : Output directory, defaults to `<NAME>_extracted`, or the project directory if one is specified
 - `--key=<key>` : The Key to use if PAK/EXE/APK is encrypted (64 character hex string)
 - `--ignore-checksum-errors` : Ignore MD5 errors during PCK checking and perform recovery/extraction anyway
+- `--scripts-only` : Only extract/recover scripts
+- `--bytecode=<COMMIT_OR_VERSION>`: Required when using `--compile`. Takes in either the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')
 
 Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
@@ -70,14 +74,16 @@ Use the same Godot tools version that the original game was compiled in to edit 
 
 Support has yet to be implemented for converting the following resources:
 
+- 3.x and 2.x models (`dae`, `fbx`, `glb`, etc.)
+- OBJ meshes
 - Bitmap and image fonts (recovering 4.x TTF/OTF fontfiles is supported)
-- Models (`obj`, `dae`, `fbx`, `glb`, etc.)
+- GDNative or GDExtension scripts (e.g. GDMono and CSharp)
 
 Support for converting certain resources is limited:
 
 - Recovered .csv translation files will likely have missing keys; this is due to `.translation` files only storing the hashes of the keys. It is recommended to just politely ask the developer if you want to add additional translations.
 
-In addition, it does not support decompiling any GDNative/GDExtension or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
+There is no support for decompiling any GDNative/GDExtension or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
 
 ## Compiling from source
 
