@@ -62,78 +62,86 @@
 #include "bytecode/bytecode_8c1731b.h"
 #include "bytecode/bytecode_0b806ee.h"
 
+
 void register_decomp_versions();
 GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash);
 Vector<Ref<GDScriptDecomp>> get_decomps_for_bytecode_ver(int bytecode_version, bool include_dev = false);
-
-
 struct GDScriptDecompVersion {
 	uint64_t commit;
 	String name;
 	int bytecode_version;
 	bool is_dev;
+	String min_version;
+	String max_version;
+	int parent;
+
+	Ref<GodotVer> get_min_version() const {
+		return GodotVer::parse(min_version);
+	}
+	Ref<GodotVer> get_max_version() const {
+		return GodotVer::parse(max_version);
+	}
 };
+Vector<GDScriptDecompVersion> get_decomp_versions(bool include_dev = true, int ver_major = 0);
 
 static const GDScriptDecompVersion decomp_versions[] = {
 	{ 0xfffffff, "--- Please select bytecode version ---", 0, false },
-	{ 0x77af6ca, "4.3.0 release (77af6ca / 2024-02-09 / Bytecode version: 100) - initial version", 100, false },
-	{ 0xf3f05dc, "     4.0-dev2 (f3f05dc / 2020-02-13 / Bytecode version: 13) - Removed `SYNC`, `SLAVE` tokens.", 13, true },
-	{ 0x506df14, "     4.0-dev1 (506df14 / 2020-02-12 / Bytecode version: 13) - Removed `decimals` function.", 13, true },
-	{ 0xa7aad78, "3.5.0 release (a7aad78 / 2020-10-07 / Bytecode version: 13) - Added `deep_equal` function.", 13, false },
-	{ 0x5565f55, "3.2.0 - 3.4.5 release (5565f55 / 2019-08-26 / Bytecode version: 13) - Added `ord` function.", 13, false },
-	{ 0x6694c11, "     3.2-dev5 (6694c11 / 2019-07-20 / Bytecode version: 13) - Added `lerp_angle` function.", 13, true },
-	{ 0xa60f242, "     3.2-dev4 (a60f242 / 2019-07-19 / Bytecode version: 13) - Added `posmod` function.", 13, true },
-	{ 0xc00427a, "     3.2-dev3 (c00427a / 2019-06-01 / Bytecode version: 13) - Added `move_toward` function.", 13, true },
-	{ 0x620ec47, "     3.2-dev2 (620ec47 / 2019-05-01 / Bytecode version: 13) - Added `step_decimals` function.", 13, true },
-	{ 0x7f7d97f, "     3.2-dev1 (7f7d97f / 2019-04-29 / Bytecode version: 13) - Added `is_equal_approx`, `is_zero_approx` functions.", 13, true },
-	{ 0x514a3fb, "3.1.1 - 3.1.2 release (514a3fb / 2019-03-19 / Bytecode version: 13) - Added `smoothstep` function, changed argument count for `var2bytes`, `bytes2var` functions.", 13, false },
-	{ 0x1a36141, "3.1.0 release (1a36141 / 2019-02-20 / Bytecode version: 13) - Removed `DO`, `CASE`, `SWITCH` tokens.", 13, false },
-	{ 0x1ca61a3, "     3.1-beta1 - 3.1-beta5 (1ca61a3 / 2018-10-31 / Bytecode version: 13) - Added `push_error`, `push_warning` functions.", 13, false },
-	{ 0xd6b31da, "     3.1-dev7 (d6b31da / 2018-09-15 / Bytecode version: 13) - Added `PUPPET` token, renamed token `SLAVESYNC` to `PUPPETSYNC`.", 13, true },
-	{ 0x8aab9a0, "     3.1-dev6 (8aab9a0 / 2018-07-20 / Bytecode version: 13) - Added `AS`, `VOID`, `FORWARD_ARROW` tokens.", 13, true },
-	{ 0xa3f1ee5, "     3.1-dev5 (a3f1ee5 / 2018-07-15 / Bytecode version: 13) - Added `CLASS_NAME` token.", 13, true },
-	{ 0x8e35d93, "     3.1-dev4 (8e35d93 / 2018-05-29 / Bytecode version: 12) - Added `REMOTESYNC`, `MASTERSYNC`, `SLAVESYNC` tokens.", 12, true },
-	{ 0x3ea6d9f, "     3.1-dev3 (3ea6d9f / 2018-05-28 / Bytecode version: 12) - Added `print_debug` function.", 12, true },
-	{ 0xa56d6ff, "     3.1-dev2 (a56d6ff / 2018-05-17 / Bytecode version: 12) - Added `get_stack` function.", 12, true },
-	{ 0xff1e7cf, "     3.1-dev1 (ff1e7cf / 2018-05-07 / Bytecode version: 12) - Added `is_instance_valid` function.", 12, true },
-	{ 0x054a2ac, "3.0.0 - 3.0.6 release (054a2ac / 2017-11-20 / Bytecode version: 12) - Added `polar2cartesian`, `cartesian2polar` functions.", 12, false },
-	{ 0x91ca725, "     3.0-dev14 (91ca725 / 2017-11-12 / Bytecode version: 12) - Added `CONST_TAU` token.", 12, true },
-	{ 0x216a8aa, "     3.0-dev13 (216a8aa / 2017-10-13 / Bytecode version: 12) - Added `wrapi`, `wrapf` functions.", 12, true },
-	{ 0xd28da86, "     3.0-dev12 (d28da86 / 2017-08-18 / Bytecode version: 12) - Added `inverse_lerp`, `range_lerp` functions.", 12, true },
-	{ 0xc6120e7, "     3.0-dev11 (c6120e7 / 2017-08-07 / Bytecode version: 12) - Added `len` function.", 12, true },
-	{ 0x015d36d, "     3.0-dev10 (015d36d / 2017-05-27 / Bytecode version: 12) - Added `IS` token.", 12, true },
-	{ 0x5e938f0, "     3.0-dev9 (5e938f0 / 2017-02-28 / Bytecode version: 12) - Added `CONST_INF`, `CONST_NAN` tokens.", 12, true },
-	{ 0xc24c739, "     3.0-dev8 (c24c739 / 2017-01-20 / Bytecode version: 12) - Added `WILDCARD` token.", 12, true },
-	{ 0xf8a7c46, "     3.0-dev7 (f8a7c46 / 2017-01-11 / Bytecode version: 12) - Added `MATCH` token.", 12, true },
-	{ 0x62273e5, "     3.0-dev6 (62273e5 / 2017-01-08 / Bytecode version: 12) - Added `validate_json`, `parse_json`, `to_json` functions.", 12, true },
-	{ 0x8b912d1, "     3.0-dev5 (8b912d1 / 2017-01-08 / Bytecode version: 11) - Added `DOLLAR` token.", 11, true },
-	{ 0x23381a5, "     3.0-dev4 (23381a5 / 2016-12-17 / Bytecode version: 11) - Added `ColorN` function.", 11, true },
-	{ 0x513c026, "     3.0-dev3 (513c026 / 2016-10-03 / Bytecode version: 11) - Added `char` function.", 11, true },
-	{ 0x4ee82a2, "     3.0-dev2 (4ee82a2 / 2016-08-27 / Bytecode version: 11) - Added `ENUM` token.", 11, true },
-	{ 0x1add52b, "     3.0-dev1 (1add52b / 2016-08-19 / Bytecode version: 11) - Added `REMOTE`, `SYNC`, `MASTER`, `SLAVE` tokens.", 11, true },
-	{ 0xed80f45, "2.1.3 - 2.1.6 release (ed80f45 / 2017-04-06 / Bytecode version: 10) - Added `ENUM` token.", 10, false },
-	{ 0x85585c7, "2.1.2 release (85585c7 / 2017-01-12 / Bytecode version: 10) - Added `ColorN` function.", 10, false },
-	{ 0x7124599, "2.1.0 - 2.1.1 release (7124599 / 2016-06-18 / Bytecode version: 10) - Added `type_exists` function.", 10, false },
-	{ 0x23441ec, "2.0.0 - 2.0.4 release (23441ec / 2016-01-02 / Bytecode version: 10) - Added `var2bytes`, `bytes2var` functions.", 10, false },
-	{ 0x6174585, "     2.0-dev5 (6174585 / 2016-01-02 / Bytecode version: 9) - Added `CONST_PI` token.", 9, true },
-	{ 0x64872ca, "     2.0-dev4 (64872ca / 2015-12-31 / Bytecode version: 8) - Added `Color8` function.", 8, true },
-	{ 0x7d2d144, "     2.0-dev3 (7d2d144 / 2015-12-29 / Bytecode version: 7) - Added `BREAKPOINT` token.", 7, true },
-	{ 0x30c1229, "     2.0-dev2 (30c1229 / 2015-12-28 / Bytecode version: 6) - Added `ONREADY` token.", 6, true },
-	{ 0x48f1d02, "     2.0-dev1 (48f1d02 / 2015-06-24 / Bytecode version: 5) - Added `SIGNAL` token.", 5, true },
-	{ 0x65d48d6, "1.1.0 release (65d48d6 / 2015-05-09 / Bytecode version: 4) - Added `prints` function.", 4, false },
-	{ 0xbe46be7, "     1.1-dev3 (be46be7 / 2015-04-18 / Bytecode version: 3) - Renamed function get_inst to instance_from_id.", 3, true },
-	{ 0x97f34a1, "     1.1-dev2 (97f34a1 / 2015-03-25 / Bytecode version: 3) - Added `seed`, `get_inst` functions.", 3, true },
-	{ 0x2185c01, "     1.1-dev1 (2185c01 / 2015-02-15 / Bytecode version: 3) - Added `var2str`, `str2var` functions.", 3, true },
-	{ 0xe82dc40, "1.0.0 release (e82dc40 / 2014-10-27 / Bytecode version: 3) - Added `SETGET` token.", 3, false },
-	{ 0x8cab401, "     1.0-dev5 (8cab401 / 2014-09-15 / Bytecode version: 2) - Added `YIELD` token.", 2, true },
-	{ 0x703004f, "     1.0-dev4 (703004f / 2014-06-16 / Bytecode version: 2) - Added `hash` function.", 2, true },
-	{ 0x31ce3c5, "     1.0-dev3 (31ce3c5 / 2014-03-13 / Bytecode version: 2) - Added `funcref` function.", 2, true },
-	{ 0x8c1731b, "     1.0-dev2 (8c1731b / 2014-02-15 / Bytecode version: 2) - Added `load` function.", 2, true },
-	{ 0x0b806ee, "     1.0-dev1 (0b806ee / 2014-02-09 / Bytecode version: 1) - initial version", 1, true },
+	{ 0x77af6ca, "4.3.0-stable (77af6ca / 2024-02-09 / Bytecode version: 100) - initial version", 100, false, "4.3.0-stable", "", 0xf3f05dc },
+	{ 0xf3f05dc, "	4.0-dev2 (f3f05dc / 2020-02-13 / Bytecode version: 13) - Removed `SYNC`, `SLAVE` tokens.", 13, true, "4.0-dev2", "", 0x506df14 },
+	{ 0x506df14, "	4.0-dev1 (506df14 / 2020-02-12 / Bytecode version: 13) - Removed `decimals` function.", 13, true, "4.0-dev1", "", 0x5565f55 },
+	{ 0xa7aad78, "3.5.0-stable (a7aad78 / 2020-10-07 / Bytecode version: 13) - Added `deep_equal` function.", 13, false, "3.5.0-stable", "", 0x5565f55 },
+	{ 0x5565f55, "3.2.0-stable (5565f55 / 2019-08-26 / Bytecode version: 13) - Added `ord` function.", 13, false, "3.2.0-stable", "3.4.5-stable", 0x6694c11 },
+	{ 0x6694c11, "	3.2-dev5 (6694c11 / 2019-07-20 / Bytecode version: 13) - Added `lerp_angle` function.", 13, true, "3.2-dev5", "", 0xa60f242 },
+	{ 0xa60f242, "	3.2-dev4 (a60f242 / 2019-07-19 / Bytecode version: 13) - Added `posmod` function.", 13, true, "3.2-dev4", "", 0xc00427a },
+	{ 0xc00427a, "	3.2-dev3 (c00427a / 2019-06-01 / Bytecode version: 13) - Added `move_toward` function.", 13, true, "3.2-dev3", "", 0x620ec47 },
+	{ 0x620ec47, "	3.2-dev2 (620ec47 / 2019-05-01 / Bytecode version: 13) - Added `step_decimals` function.", 13, true, "3.2-dev2", "", 0x7f7d97f },
+	{ 0x7f7d97f, "	3.2-dev1 (7f7d97f / 2019-04-29 / Bytecode version: 13) - Added `is_equal_approx`, `is_zero_approx` functions.", 13, true, "3.2-dev1", "", 0x514a3fb },
+	{ 0x514a3fb, "3.1.1-stable (514a3fb / 2019-03-19 / Bytecode version: 13) - Added `smoothstep` function, changed argument count for `var2bytes`, `bytes2var` functions.", 13, false, "3.1.1-stable", "3.1.2-stable", 0x1a36141 },
+	{ 0x1a36141, "3.1.0-stable (1a36141 / 2019-02-20 / Bytecode version: 13) - Removed `DO`, `CASE`, `SWITCH` tokens.", 13, false, "3.1.0-stable", "", 0x1ca61a3 },
+	{ 0x1ca61a3, "3.1-beta1 (1ca61a3 / 2018-10-31 / Bytecode version: 13) - Added `push_error`, `push_warning` functions.", 13, false, "3.1-beta1", "3.1-beta5", 0xd6b31da },
+	{ 0xd6b31da, "	3.1-dev7 (d6b31da / 2018-09-15 / Bytecode version: 13) - Added `PUPPET` token, renamed token `SLAVESYNC` to `PUPPETSYNC`.", 13, true, "3.1-dev7", "", 0x8aab9a0 },
+	{ 0x8aab9a0, "	3.1-dev6 (8aab9a0 / 2018-07-20 / Bytecode version: 13) - Added `AS`, `VOID`, `FORWARD_ARROW` tokens.", 13, true, "3.1-dev6", "", 0xa3f1ee5 },
+	{ 0xa3f1ee5, "	3.1-dev5 (a3f1ee5 / 2018-07-15 / Bytecode version: 13) - Added `CLASS_NAME` token.", 13, true, "3.1-dev5", "", 0x8e35d93 },
+	{ 0x8e35d93, "	3.1-dev4 (8e35d93 / 2018-05-29 / Bytecode version: 12) - Added `REMOTESYNC`, `MASTERSYNC`, `SLAVESYNC` tokens.", 12, true, "3.1-dev4", "", 0x3ea6d9f },
+	{ 0x3ea6d9f, "	3.1-dev3 (3ea6d9f / 2018-05-28 / Bytecode version: 12) - Added `print_debug` function.", 12, true, "3.1-dev3", "", 0xa56d6ff },
+	{ 0xa56d6ff, "	3.1-dev2 (a56d6ff / 2018-05-17 / Bytecode version: 12) - Added `get_stack` function.", 12, true, "3.1-dev2", "", 0xff1e7cf },
+	{ 0xff1e7cf, "	3.1-dev1 (ff1e7cf / 2018-05-07 / Bytecode version: 12) - Added `is_instance_valid` function.", 12, true, "3.1-dev1", "", 0x054a2ac },
+	{ 0x054a2ac, "3.0.0-stable (054a2ac / 2017-11-20 / Bytecode version: 12) - Added `polar2cartesian`, `cartesian2polar` functions.", 12, false, "3.0.0-stable", "3.0.6-stable", 0x91ca725 },
+	{ 0x91ca725, "	3.0-dev14 (91ca725 / 2017-11-12 / Bytecode version: 12) - Added `CONST_TAU` token.", 12, true, "3.0-dev14", "", 0x216a8aa },
+	{ 0x216a8aa, "	3.0-dev13 (216a8aa / 2017-10-13 / Bytecode version: 12) - Added `wrapi`, `wrapf` functions.", 12, true, "3.0-dev13", "", 0xd28da86 },
+	{ 0xd28da86, "	3.0-dev12 (d28da86 / 2017-08-18 / Bytecode version: 12) - Added `inverse_lerp`, `range_lerp` functions.", 12, true, "3.0-dev12", "", 0xc6120e7 },
+	{ 0xc6120e7, "	3.0-dev11 (c6120e7 / 2017-08-07 / Bytecode version: 12) - Added `len` function.", 12, true, "3.0-dev11", "", 0x015d36d },
+	{ 0x015d36d, "	3.0-dev10 (015d36d / 2017-05-27 / Bytecode version: 12) - Added `IS` token.", 12, true, "3.0-dev10", "", 0x5e938f0 },
+	{ 0x5e938f0, "	3.0-dev9 (5e938f0 / 2017-02-28 / Bytecode version: 12) - Added `CONST_INF`, `CONST_NAN` tokens.", 12, true, "3.0-dev9", "", 0xc24c739 },
+	{ 0xc24c739, "	3.0-dev8 (c24c739 / 2017-01-20 / Bytecode version: 12) - Added `WILDCARD` token.", 12, true, "3.0-dev8", "", 0xf8a7c46 },
+	{ 0xf8a7c46, "	3.0-dev7 (f8a7c46 / 2017-01-11 / Bytecode version: 12) - Added `MATCH` token.", 12, true, "3.0-dev7", "", 0x62273e5 },
+	{ 0x62273e5, "	3.0-dev6 (62273e5 / 2017-01-08 / Bytecode version: 12) - Added `validate_json`, `parse_json`, `to_json` functions.", 12, true, "3.0-dev6", "", 0x8b912d1 },
+	{ 0x8b912d1, "	3.0-dev5 (8b912d1 / 2017-01-08 / Bytecode version: 11) - Added `DOLLAR` token.", 11, true, "3.0-dev5", "", 0x23381a5 },
+	{ 0x23381a5, "	3.0-dev4 (23381a5 / 2016-12-17 / Bytecode version: 11) - Added `ColorN` function.", 11, true, "3.0-dev4", "", 0x513c026 },
+	{ 0x513c026, "	3.0-dev3 (513c026 / 2016-10-03 / Bytecode version: 11) - Added `char` function.", 11, true, "3.0-dev3", "", 0x4ee82a2 },
+	{ 0x4ee82a2, "	3.0-dev2 (4ee82a2 / 2016-08-27 / Bytecode version: 11) - Added `ENUM` token.", 11, true, "3.0-dev2", "", 0x1add52b },
+	{ 0x1add52b, "	3.0-dev1 (1add52b / 2016-08-19 / Bytecode version: 11) - Added `REMOTE`, `SYNC`, `MASTER`, `SLAVE` tokens.", 11, true, "3.0-dev1", "", 0x7124599 },
+	{ 0xed80f45, "2.1.3-stable (ed80f45 / 2017-04-06 / Bytecode version: 10) - Added `ENUM` token.", 10, false, "2.1.3-stable", "2.1.6-stable", 0x85585c7 },
+	{ 0x85585c7, "2.1.2-stable (85585c7 / 2017-01-12 / Bytecode version: 10) - Added `ColorN` function.", 10, false, "2.1.2-stable", "", 0x7124599 },
+	{ 0x7124599, "2.1.0-stable (7124599 / 2016-06-18 / Bytecode version: 10) - Added `type_exists` function.", 10, false, "2.1.0-stable", "2.1.1-stable", 0x23441ec },
+	{ 0x23441ec, "2.0.0-stable (23441ec / 2016-01-02 / Bytecode version: 10) - Added `var2bytes`, `bytes2var` functions.", 10, false, "2.0.0-stable", "2.0.4-stable", 0x6174585 },
+	{ 0x6174585, "	2.0-dev5 (6174585 / 2016-01-02 / Bytecode version: 9) - Added `CONST_PI` token.", 9, true, "2.0-dev5", "", 0x64872ca },
+	{ 0x64872ca, "	2.0-dev4 (64872ca / 2015-12-31 / Bytecode version: 8) - Added `Color8` function.", 8, true, "2.0-dev4", "", 0x7d2d144 },
+	{ 0x7d2d144, "	2.0-dev3 (7d2d144 / 2015-12-29 / Bytecode version: 7) - Added `BREAKPOINT` token.", 7, true, "2.0-dev3", "", 0x30c1229 },
+	{ 0x30c1229, "	2.0-dev2 (30c1229 / 2015-12-28 / Bytecode version: 6) - Added `ONREADY` token.", 6, true, "2.0-dev2", "", 0x48f1d02 },
+	{ 0x48f1d02, "	2.0-dev1 (48f1d02 / 2015-06-24 / Bytecode version: 5) - Added `SIGNAL` token.", 5, true, "2.0-dev1", "", 0x65d48d6 },
+	{ 0x65d48d6, "1.1.0-stable (65d48d6 / 2015-05-09 / Bytecode version: 4) - Added `prints` function.", 4, false, "1.1.0-stable", "", 0xbe46be7 },
+	{ 0xbe46be7, "	1.1-dev3 (be46be7 / 2015-04-18 / Bytecode version: 3) - Renamed function get_inst to instance_from_id.", 3, true, "1.1-dev3", "", 0x97f34a1 },
+	{ 0x97f34a1, "	1.1-dev2 (97f34a1 / 2015-03-25 / Bytecode version: 3) - Added `seed`, `get_inst` functions.", 3, true, "1.1-dev2", "", 0x2185c01 },
+	{ 0x2185c01, "	1.1-dev1 (2185c01 / 2015-02-15 / Bytecode version: 3) - Added `var2str`, `str2var` functions.", 3, true, "1.1-dev1", "", 0xe82dc40 },
+	{ 0xe82dc40, "1.0.0-stable (e82dc40 / 2014-10-27 / Bytecode version: 3) - Added `SETGET` token.", 3, false, "1.0.0-stable", "", 0x8cab401 },
+	{ 0x8cab401, "	1.0-dev5 (8cab401 / 2014-09-15 / Bytecode version: 2) - Added `YIELD` token.", 2, true, "1.0-dev5", "", 0x703004f },
+	{ 0x703004f, "	1.0-dev4 (703004f / 2014-06-16 / Bytecode version: 2) - Added `hash` function.", 2, true, "1.0-dev4", "", 0x31ce3c5 },
+	{ 0x31ce3c5, "	1.0-dev3 (31ce3c5 / 2014-03-13 / Bytecode version: 2) - Added `funcref` function.", 2, true, "1.0-dev3", "", 0x8c1731b },
+	{ 0x8c1731b, "	1.0-dev2 (8c1731b / 2014-02-15 / Bytecode version: 2) - Added `load` function.", 2, true, "1.0-dev2", "", 0x0b806ee },
+	{ 0x0b806ee, "	1.0-dev1 (0b806ee / 2014-02-09 / Bytecode version: 1) - initial version", 1, true, "1.0-dev1", "", 0x0 },
 	{ 0x0000000, "-NULL-", 0, false },
+
 };
 
-
 static const int num_decomp_versions = sizeof(decomp_versions) / sizeof(GDScriptDecompVersion);
-
-

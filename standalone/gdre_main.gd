@@ -28,44 +28,15 @@ func get_arg_value(arg):
 	if split_args.size() < 2:
 		print("Error: args have to be in the format of --key=value (with equals sign)")
 		get_tree().quit()
+	arg = split_args[1]
+	if arg.begins_with("\"") and arg.ends_with("\""):
+		return arg.substr(1, arg.length() - 2)
+	if arg.begins_with("'") and arg.ends_with("'"):
+		return arg.substr(1, arg.length() - 2)
 	return split_args[1]
 
 func normalize_path(path: String):
 	return path.replace("\\","/")
-# func print_import_info_from_pak(pak_file: String):
-# 	var pckdump = PckDumper.new()
-# 	pckdump.load_pck(pak_file)
-# 	var importer:ImportExporter = ImportExporter.new()
-# 	importer.load_import_files()
-# 	var arr = importer.get_import_files()
-# 	print("size is " + str(arr.size()))
-# 	for ifo in arr:
-# 		var s:String = ifo.get_source_file() + " is "
-# 		if ifo.get_import_loss_type() == 0:
-# 			print(s + "lossless")
-# 		elif ifo.get_import_loss_type() == -1:
-# 			print(s + "unknown")
-# 		else:
-# 			print(s + "lossy")
-# 		print((ifo as ImportInfo).to_string())
-# 	pckdump.clear_data()
-# 	importer.reset()
-	
-# func print_import_info(output_dir: String):
-# 	var importer:ImportExporter = ImportExporter.new()
-# 	importer.load_import_files()
-# 	var arr = importer.get_import_files()
-# 	print("size is " + str(arr.size()))
-# 	for ifo in arr:
-# 		var s:String = ifo.get_source_file() + " is "
-# 		if ifo.get_import_loss_type() == 0:
-# 			print(s + "lossless")
-# 		elif ifo.get_import_loss_type() == -1:
-# 			print(s + "unknown")
-# 		else:
-# 			print(s + "lossy")
-# 		print((ifo as ImportInfo).to_string())
-# 	importer.reset()
 
 func test_decomp(fname):
 	var decomp = GDScriptDecomp_ed80f45.new()
@@ -89,18 +60,7 @@ func test_decomp(fname):
 
 func export_imports(output_dir:String, files: PackedStringArray):
 	var importer:ImportExporter = ImportExporter.new()
-	var new_files:PackedStringArray = []
-	if scripts_only:
-		if len(files) == 0:
-			files = GDRESettings.get_file_list()
-		print("Exporting scripts only")
-		for i in range(files.size()):
-			var f = files[i]
-			if f.get_extension().to_lower() == "gdc":
-				new_files.append(f)
-	else:
-		new_files = files
-	importer.export_imports(output_dir, new_files)
+	importer.export_imports(output_dir, files)
 	importer.reset()
 				
 	
@@ -123,6 +83,8 @@ func dump_files(output_dir:String, files: PackedStringArray, ignore_checksum_err
 		print("ERROR: failed to load exe")
 	return err;
 
+var MAIN_COMMANDS = ["--recover", "--extract", "--compile", "--list-bytecode-versions"]
+
 func print_usage():
 	print("Godot Reverse Engineering Tools")
 	print("")
@@ -130,20 +92,25 @@ func print_usage():
 	print("\nGeneral options:")
 	print("  -h, --help: Display this help message")
 	print("\nFull Project Recovery options:")
-	print("Usage: GDRE_Tools.exe --headless --recover=<PCK_OR_EXE_OR_EXTRACTED_ASSETS_DIR> [options]")
-	print("")
+	print("Usage: GDRE_Tools.exe --headless <main_command> [options]")
+	print("\nMain commands:")
 	print("--recover=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, EXE, or extracted project directory to perform full project recovery on")
 	print("--extract=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, or EXE to extract")
+	print("--compile=<GD_FILE>\t\tCompile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)")
+	print("--list-bytecode-versions\t\tList all available bytecode versions")
 
 	print("\nOptions:\n")
 	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
 	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
 	print("--ignore-checksum-errors\t\tIgnore MD5 checksum errors when extracting/recovering")
-	print("--translation-only\t\tOnly extract translation files")
+	print("--translation-only\t\tOnly extract/recover translation files")
+	print("--scripts-only\t\tOnly extract/recover scripts")
+	print("--bytecode=<COMMIT_OR_VERSION>\t\tEither the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')")
+
 
 # TODO: remove this hack
 var translation_only = false
-
+var SCRIPTS_EXT = ["gd", "gdc", "gde"]
 func copy_dir(src:String, dst:String) -> int:
 	var da:DirAccess = DirAccess.open(src)
 	if !da.dir_exists(src):
@@ -157,7 +124,7 @@ func get_cli_abs_path(path:String) -> String:
 	if path.is_absolute_path():
 		return path
 	var exec_path = GDRESettings.get_exec_dir()
-	var abs_path = exec_path.path_join(path)
+	var abs_path = exec_path.path_join(path).simplify_path()
 	return abs_path
 
 func recovery(  input_file:String,
@@ -214,15 +181,26 @@ func recovery(  input_file:String,
 	var version:String = GDRESettings.get_version_string()
 	print("Version: " + version)
 	var files: PackedStringArray = []
+	if translation_only and scripts_only:
+		print("Error: cannot specify both --translation-only and --scripts-only")
+		return
 	if (translation_only):
-		files = GDRESettings.get_file_list()
 		var new_files:PackedStringArray = []
 		# remove all the non ".translation" files
-		for i in range(files.size()-1, -1, -1):
-			if (files[i].get_extension() == "translation"):
-				new_files.append(files[i])
-		files = new_files
+		for file in GDRESettings.get_file_list():
+			if (file.get_extension().to_lower() == "translation"):
+				new_files.append(file)
+		files.append_array(new_files)
 		print("Translation only mode, only extracting translation files")
+	if scripts_only:
+		files = GDRESettings.get_file_list()
+		var new_files:PackedStringArray = []
+		# remove all the non ".gd" files
+		for file in GDRESettings.get_file_list():
+			if (file.get_extension().to_lower() in SCRIPTS_EXT):
+				new_files.append(file)
+		files.append_array(new_files)
+		print("Scripts only mode, only extracting scripts")
 
 	if output_dir != input_file and not is_dir: 
 		if (da.file_exists(output_dir)):
@@ -255,14 +233,63 @@ func close_log():
 	print("Log file written to: " + path)
 	print("Please include this file when reporting issues!")
 
+func ensure_dir_exists(dir: String):
+	var da:DirAccess = DirAccess.open(GDRESettings.get_exec_dir())
+	if !da.dir_exists(dir):
+		da.make_dir_recursive(dir)
+
+func compile(files: PackedStringArray, bytecode_version: String, output_dir: String):
+	if bytecode_version == "":
+		print("Error: --bytecode is required for --compile")
+		return
+	if output_dir == "":
+		output_dir = get_cli_abs_path(".") # default to current directory
+	var decomp: GDScriptDecomp = null
+	if '.' in bytecode_version:
+		decomp = GDScriptDecomp.create_decomp_for_version(bytecode_version)
+	else:
+		decomp = GDScriptDecomp.create_decomp_for_commit(bytecode_version.hex_to_int())
+	if decomp == null:
+		print("Error: failed to create decompiler for commit " + bytecode_version + "!\n(run --list-bytecode-versions to see available versions)")
+		return
+	print("Compiling to bytecode version %x (%s)" % [decomp.get_bytecode_rev(), decomp.get_engine_version()])
+
+	var new_files = Glob.rglob_list(files)
+	if new_files.size() == 0:
+		print("Error: no files found to compile")
+		return
+	ensure_dir_exists(output_dir)
+	for file in new_files:
+		print("Compiling " + file)
+		if file.get_extension() != "gd":
+			print("Error: " + file + " is not a GDScript file")
+			continue
+		var f = FileAccess.open(file, FileAccess.READ)
+		var code = f.get_as_text()
+		var bytecode: PackedByteArray = decomp.compile_code_string(code)
+		if bytecode.is_empty():
+			print("Error: failed to compile " + file)
+			print(decomp.get_error_message())
+			continue
+		var out_file = output_dir.path_join(file.get_file().replace(".gd", ".gdc"))
+		var out_f = FileAccess.open(out_file, FileAccess.WRITE)
+		out_f.store_buffer(bytecode)
+		out_f.close()
+		print("Compiled " + file + " to " + out_file)		
+	print("Compilation complete")
+
 func handle_cli() -> bool:
 	var args = OS.get_cmdline_args()
 	var input_extract_file:String = ""
-	var input_file:String = ""
+	var input_file: String = ""
 	var output_dir: String = ""
 	var enc_key: String = ""
 	var txt_to_bin: String = ""
 	var ignore_md5: bool = false
+	var compile_files = PackedStringArray()
+	var bytecode_version: String = ""
+	var main_args_cnt = 0
+	var compile_cnt = 0
 	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
 		return false
 	for i in range(args.size()):
@@ -276,10 +303,13 @@ func handle_cli() -> bool:
 			get_tree().quit()
 		if arg.begins_with("--extract"):
 			input_extract_file = normalize_path(get_arg_value(arg))
+			main_args_cnt += 1
 		if arg.begins_with("--recover"):
 			input_file = normalize_path(get_arg_value(arg))
+			main_args_cnt += 1
 		if arg.begins_with("--txt-to-bin"):
 			txt_to_bin = normalize_path(get_arg_value(arg))	
+			main_args_cnt += 1
 		elif arg.begins_with("--output-dir"):
 			output_dir = normalize_path(get_arg_value(arg))
 		elif arg.begins_with("--scripts-only"):
@@ -290,25 +320,41 @@ func handle_cli() -> bool:
 			ignore_md5 = true
 		elif arg.begins_with("--translation-only"):
 			translation_only = true
-
-	if input_file != "":
+		elif arg.begins_with("--list-bytecode-versions"):
+			var versions = GDScriptDecomp.get_bytecode_versions()
+			print("\n--- Available bytecode versions:")
+			for version in versions:
+				print(version)
+			return true
+		elif arg.begins_with("--bytecode"):
+			bytecode_version = get_arg_value(arg)
+		elif arg.begins_with("--compile"):
+			if compile_files.size() == 0:
+				main_args_cnt += 1
+			compile_files.append(get_arg_value(arg))
+		else:
+			print("ERROR: invalid option '" + arg + "'")
+			print_usage()
+			return true
+	if main_args_cnt > 1:
+		print("ERROR: invalid option! Must specify only one of " + ", ".join(MAIN_COMMANDS))
+		print_usage()
+		return true
+	if compile_files.size() > 0:
+		compile(compile_files, bytecode_version, output_dir)
+	elif input_file != "":
 		recovery(input_file, output_dir, enc_key, false, ignore_md5)
 		GDRESettings.unload_pack()
 		close_log()
-		get_tree().quit()
 	elif input_extract_file != "":
 		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5)
 		GDRESettings.unload_pack()
 		close_log()
-		get_tree().quit()
 	elif txt_to_bin != "":
 		txt_to_bin = get_cli_abs_path(txt_to_bin)
 		output_dir = get_cli_abs_path(output_dir)
 		test_text_to_bin(txt_to_bin, output_dir)
-		get_tree().quit()
 	else:
-		print("ERROR: invalid option")
-
+		print("ERROR: invalid option! Must specify one of " + ", ".join(MAIN_COMMANDS))
 		print_usage()
-		get_tree().quit()
 	return true

@@ -3,7 +3,9 @@
 // Instead, edit `bytecode_generator.py` and run it to generate this file.
 
 // clang-format off
-#include "bytecode_versions.h"
+
+#include "bytecode/bytecode_versions.h"
+#include "utility/godotver.h"
 
 void register_decomp_versions() {
 	ClassDB::register_class<GDScriptDecomp_77af6ca>();
@@ -60,10 +62,11 @@ void register_decomp_versions() {
 	ClassDB::register_class<GDScriptDecomp_31ce3c5>();
 	ClassDB::register_class<GDScriptDecomp_8c1731b>();
 	ClassDB::register_class<GDScriptDecomp_0b806ee>();
+
 }
 
 GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash) {
-	switch(p_commit_hash) {
+	switch (p_commit_hash) {
 		case 0x77af6ca: return memnew(GDScriptDecomp_77af6ca);
 		case 0xf3f05dc: return memnew(GDScriptDecomp_f3f05dc);
 		case 0x506df14: return memnew(GDScriptDecomp_506df14);
@@ -118,7 +121,9 @@ GDScriptDecomp *create_decomp_for_commit(uint64_t p_commit_hash) {
 		case 0x31ce3c5: return memnew(GDScriptDecomp_31ce3c5);
 		case 0x8c1731b: return memnew(GDScriptDecomp_8c1731b);
 		case 0x0b806ee: return memnew(GDScriptDecomp_0b806ee);
-		default: return nullptr;
+
+		default:
+			return nullptr;
 	}
 }
 
@@ -130,4 +135,22 @@ Vector<Ref<GDScriptDecomp>> get_decomps_for_bytecode_ver(int bytecode_version, b
 		}
 	}
 	return decomps;
+}
+
+Vector<GDScriptDecompVersion> get_decomp_versions(bool include_dev, int ver_major) {
+	Vector<GDScriptDecompVersion> versions;
+	String ver_major_str = itos(ver_major);
+	for (int i = 0; i < num_decomp_versions; i++) {
+		if (decomp_versions[i].commit == 0xfffffff || decomp_versions[i].commit == 0x0000000) {
+			continue;
+		}
+		if (!include_dev && decomp_versions[i].is_dev) {
+			continue;
+		}
+		if (ver_major > 0 && decomp_versions[i].min_version[0] != ver_major_str[0]) {
+			continue;
+		}
+		versions.push_back(GDScriptDecompVersion(decomp_versions[i]));
+	}
+	return versions;
 }
