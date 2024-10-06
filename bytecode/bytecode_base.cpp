@@ -692,6 +692,9 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			curr_line = prev_line + 1; // force new line
 		}
 		while (curr_line > prev_line) {
+			if (curr_token != G_TK_NEWLINE && bytecode_version < GDSCRIPT_2_0_VERSION) {
+				script_text += "\\"; // line continuation
+			}
 			script_text += "\n";
 			prev_line++;
 		}
