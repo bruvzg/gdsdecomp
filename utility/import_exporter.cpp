@@ -131,7 +131,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			auto dest_files = iinfo->get_dest_files();
 			bool has_path = false;
 			for (auto dest : dest_files) {
-				if (files_to_export.has(path)) {
+				if (files_to_export.has(dest)) {
 					has_path = true;
 					break;
 				}
