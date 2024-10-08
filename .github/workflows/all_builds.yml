@@ -163,6 +163,7 @@ jobs:
       - name: Make macOS template
         if: matrix.platform == 'macos'
         run: |
+          cp -R "misc/dist/macos_template.app" "bin/"
           mkdir -p "bin/macos_template.app/Contents/MacOS"
           lipo -create bin/godot.macos.template_release.x86_64 bin/godot.macos.template_release.arm64 -output bin/godot.macos.template_release.universal
           cp "bin/godot.macos.template_release.universal" "bin/macos_template.app/Contents/MacOS/godot_macos_debug.universal"
