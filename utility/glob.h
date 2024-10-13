@@ -71,4 +71,17 @@ public:
 
 	/// Returns true if the input path matche the glob pattern
 	static bool fnmatch(const String &name, const String &pattern);
+
+	/// Returns a list of names that match any of the patterns
+	static Vector<String> fnmatch_list(const Vector<String> &names, const Vector<String> &patterns);
+
+	/// Returns a list of patterns in which any of the names match
+	static Vector<String> pattern_match_list(const Vector<String> &names, const Vector<String> &patterns);
+
+	/// Returns a list of names that are in any of the directories
+	static Vector<String> names_in_dirs(const Vector<String> &names, const Vector<String> &dirs);
+
+	/// Returns a list of directories that are in any of the names
+	static Vector<String> dirs_in_names(const Vector<String> &names, const Vector<String> &dirs);
+
 }; // namespace glob
