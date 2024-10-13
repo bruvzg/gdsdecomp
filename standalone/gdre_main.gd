@@ -208,18 +208,16 @@ func get_cli_abs_path(path:String) -> String:
 	var abs_path = exec_path.path_join(path).simplify_path()
 	return abs_path
 
-func normalize_clude_glob(gl_string: String) -> String:
-	var new_string = gl_string.replace("\\", "/")
-	if not "**" in new_string and "*" in new_string and not "/" in new_string:
-		new_string = "res://**/" + new_string
-	return new_string
-
 func normalize_cludes(cludes: PackedStringArray, dir = "res://") -> PackedStringArray:
 	var new_cludes: PackedStringArray = []
 	if dir != dir.get_base_dir() and dir.ends_with("/"):
 		dir = dir.substr(0, dir.length() - 1)
 	for clude in cludes:
-		clude = normalize_clude_glob(clude)
+		clude = clude.replace("\\", "/")
+		if not "**" in clude and "*" in clude and not "/" in clude:
+			new_cludes.append("res://**/" + clude)
+			# new_cludes.append("user://**/" + clude)
+			continue
 		if clude.begins_with("/") and dir == "res://":
 			clude = clude.substr(1, clude.length() - 1)
 		if not clude.is_absolute_path():
