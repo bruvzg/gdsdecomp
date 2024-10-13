@@ -792,6 +792,9 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		}
 		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, file->is_malformed(), file->is_encrypted());
 	}
+	String user_desktop = OS::get_singleton()->get_system_dir(OS::SYSTEM_DIR_DESKTOP);
+	String proj_name = p_path.get_file().get_basename();
+	pck_dialog->set_target_dir(user_desktop.path_join(proj_name));
 	pck_dialog->popup_centered(Size2(600, 400));
 }
 
@@ -1763,8 +1766,13 @@ void GodotREEditor::_bind_methods() {
 
 void GodotREEditorStandalone::_notification(int p_notification) {
 	if (p_notification == MainLoop::NOTIFICATION_WM_ABOUT) {
-		if (editor_ctx)
+		if (editor_ctx) {
 			editor_ctx->show_about_dialog();
+		}
+	} else if (p_notification == NOTIFICATION_READY) {
+		// if (editor_ctx) {
+		// 	editor_ctx->show_about_dialog();
+		// }
 	}
 }
 
@@ -1776,10 +1784,16 @@ String GodotREEditorStandalone::get_version() {
 	return String(GDRE_VERSION);
 }
 
+void GodotREEditorStandalone::pck_select_request(const String &p_path) {
+	if (editor_ctx) {
+		editor_ctx->_pck_select_request(p_path);
+	}
+}
+
 void GodotREEditorStandalone::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_write_log_message"), &GodotREEditorStandalone::_write_log_message);
+	ClassDB::bind_method(D_METHOD("pck_select_request", "path"), &GodotREEditorStandalone::pck_select_request);
 	ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));
-
 	ClassDB::bind_method(D_METHOD("get_version"), &GodotREEditorStandalone::get_version);
 }
 

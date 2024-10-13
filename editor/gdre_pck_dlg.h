@@ -66,6 +66,7 @@ protected:
 
 public:
 	void clear();
+	void set_target_dir(const String &p_dir);
 	void add_file(const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_malformed_name, bool p_enc);
 	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_enc);
 	void set_version(const String &p_version);

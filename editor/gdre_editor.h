@@ -72,10 +72,12 @@ public:
 	~OverwriteDialog();
 };
 
+class GodotREEditorStandalone;
 class GodotREEditor : public Node {
 	GDCLASS(GodotREEditor, Node)
 
 private:
+	friend class GodotREEditorStandalone;
 #ifdef TOOLS_ENABLED
 	EditorNode *editor = nullptr;
 #else
@@ -211,6 +213,7 @@ protected:
 	static void _bind_methods();
 
 public:
+	void pck_select_request(const String &p_path);
 	void _write_log_message(String p_message);
 	String get_version();
 

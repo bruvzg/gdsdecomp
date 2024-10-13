@@ -10,9 +10,24 @@ func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	importer.convert_res_txt_2_bin(output_dir, txt_to_bin, dst_file)
 	importer.convert_res_bin_2_txt(output_dir, output_dir.path_join(dst_file), dst_file.replace(".scn", ".tscn").replace(".res", ".tres"))
 
+func _on_re_editor_standalone_dropped_files(files: PackedStringArray):
+	if files.size() == 0:
+		return
+	$re_editor_standalone.pck_select_request(files[0])
+
 func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
 	$log_window.scroll_to_line($log_window.get_line_count() - 1)
+
+func register_dropped_files():
+	pass
+	var window = get_viewport()
+	var err = window.files_dropped.connect(_on_re_editor_standalone_dropped_files)
+	if err != OK:
+		print("Error: failed to connect window to files_dropped signal")
+		print("Type: " + self.get_class())
+		print("name: " + str(self.get_name()))
+
 
 var repo_url = "https://github.com/bruvzg/gdsdecomp"
 var latest_release_url = "https://github.com/bruvzg/gdsdecomp/releases/latest"
@@ -73,6 +88,7 @@ func _ready():
 	if handle_cli():
 		get_tree().quit()
 	else:
+		register_dropped_files()
 		check_version()
 	
 func get_arg_value(arg):
@@ -144,20 +160,20 @@ var MAIN_CMD_NOTES = """Main commands:
 """
 
 var GLOB_NOTES = """Notes on Include/Exclude globs:
-    - Recursive patterns can be specified with '**'
-        - Example: 'res://**/*.gdc' matches 'res://main.gdc', 'res://scripts/script.gdc', etc.)
-    - Globs should be rooted to 'res://' or 'user://'
-        - Example: 'res://*.gdc' will match all .gdc files in the root of the project, but not any of the subdirectories.
-    - If not rooted, globs will be rooted to 'res://'
-        - Example: 'addons/plugin/main.gdc' is equivalent to 'res://addons/plugin/main.gdc'
-    - As a special case, if the glob has a wildcard and does contain a directory, it will be assumed to be a recursive pattern.
-        - Example: '*.gdc' would be equivalent to 'res://**/*.gdc'
-    - Include/Exclude globs will only match files that are actually in the project PCK/dir, not any non-present resource source files.
-        Example: 
-            - A project contains the file "res://main.gdc". 'res://main.gd' is the source file of 'res://main.gdc',
-              but is not included in the project PCK.
-            - Performing project recovery with the include glob 'res://main.gd' would not recover 'main.gd'.
-            - Performing project recovery with the include glob 'res://main.gdc' would recover 'res://main.gd'
+	- Recursive patterns can be specified with '**'
+		- Example: 'res://**/*.gdc' matches 'res://main.gdc', 'res://scripts/script.gdc', etc.)
+	- Globs should be rooted to 'res://' or 'user://'
+		- Example: 'res://*.gdc' will match all .gdc files in the root of the project, but not any of the subdirectories.
+	- If not rooted, globs will be rooted to 'res://'
+		- Example: 'addons/plugin/main.gdc' is equivalent to 'res://addons/plugin/main.gdc'
+	- As a special case, if the glob has a wildcard and does contain a directory, it will be assumed to be a recursive pattern.
+		- Example: '*.gdc' would be equivalent to 'res://**/*.gdc'
+	- Include/Exclude globs will only match files that are actually in the project PCK/dir, not any non-present resource source files.
+		Example: 
+			- A project contains the file "res://main.gdc". 'res://main.gd' is the source file of 'res://main.gdc',
+			  but is not included in the project PCK.
+			- Performing project recovery with the include glob 'res://main.gd' would not recover 'main.gd'.
+			- Performing project recovery with the include glob 'res://main.gdc' would recover 'res://main.gd'
 """
 
 var RECOVER_OPTS_NOTES = """Recover/Extract Options:
