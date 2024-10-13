@@ -3,6 +3,9 @@ extends Control
 var ver_major = 0
 var ver_minor = 0
 var scripts_only = false
+var config: ConfigFile = null
+var last_error = ""
+var CONFIG_PATH = "user://gdre_settings.cfg"
 
 func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	var importer:ImportExporter = ImportExporter.new()
@@ -82,20 +85,79 @@ func _on_version_check_completed(_result, response_code, _headers, body):
 	print("New version of GDRE available: " + checked_version)
 	print("Get it here: " + repo_url)
 
+func _make_new_config():
+	config = ConfigFile.new()
+	set_showed_disclaimer(false)
+	save_config()
+
+func _load_config():
+	config = ConfigFile.new()
+	if config.load(CONFIG_PATH) != OK:
+		_make_new_config()
+	return true
+
+func should_show_disclaimer():
+	var curr_version = GDRESettings.get_gdre_version()
+	var last_showed = config.get_value("General", "last_showed_disclaimer", "<NONE>")
+	if last_showed == "<NONE>":
+		return true
+	if last_showed == curr_version:
+		return false
+	var curr_semver = SemVer.parse_semver(curr_version)
+	var last_semver = SemVer.parse_semver(last_showed)
+	if curr_semver == null or last_semver == null:
+		return true
+	return curr_semver.major == last_semver.major and curr_semver.minor == last_semver.minor
+
+func set_showed_disclaimer(setting: bool):
+	var version = "<NONE>"
+	if setting:
+		version = GDRESettings.get_gdre_version()
+	config.set_value("General", "last_showed_disclaimer", version)
+
+func save_config():
+	if config == null:
+		return ERR_DOES_NOT_EXIST
+	if GDRESettings.is_pack_loaded():
+		return ERR_FILE_CANT_WRITE
+	return config.save(CONFIG_PATH)
+
+func handle_quit(save_cfg = true):
+	if GDRESettings.is_pack_loaded():
+		GDRESettings.unload_pack()
+	if save_cfg:
+		var ret = save_config()
+		if ret != OK and ret != ERR_DOES_NOT_EXIST:
+			print("Couldn't save config file!")
+	print("Goodbye!")
+
 func _ready():
-	$version_lbl.text = $re_editor_standalone.get_version()
+	$version_lbl.text = GDRESettings.get_gdre_version()
 	# If CLI arguments were passed in, just quit
 	if handle_cli():
 		get_tree().quit()
 	else:
+		_load_config()
+		var show_disclaimer = should_show_disclaimer()
+		if show_disclaimer:
+			set_showed_disclaimer(true)
+			save_config()
 		register_dropped_files()
 		check_version()
+		if show_disclaimer:
+			$re_editor_standalone.show_about_dialog()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE:
+		handle_quit()
+	elif what == NOTIFICATION_WM_ABOUT:
+		$re_editor_standalone.show_about_dialog()
 	
 func get_arg_value(arg):
 	var split_args = arg.split("=")
 	if split_args.size() < 2:
-		print("Error: args have to be in the format of --key=value (with equals sign)")
-		get_tree().quit()
+		last_error = "Error: args have to be in the format of --key=value (with equals sign)"
+		return ""
 	arg = split_args[1]
 	if arg.begins_with("\"") and arg.ends_with("\""):
 		return arg.substr(1, arg.length() - 2)
@@ -455,10 +517,10 @@ func handle_cli() -> bool:
 		if arg == "--help":
 			print_version()
 			print_usage()
-			get_tree().quit()
+			return true
 		elif arg.begins_with("--version"):
 			print_version()
-			get_tree().quit()
+			return true
 		elif arg.begins_with("--extract"):
 			input_extract_file = get_arg_value(arg).simplify_path()
 			main_args_cnt += 1
@@ -495,12 +557,16 @@ func handle_cli() -> bool:
 		elif arg.begins_with("--include"):
 			includes.append(get_arg_value(arg))
 		else:
-			print("ERROR: invalid option '" + arg + "'")
 			print_usage()
+			print("ERROR: invalid option '" + arg + "'")
+			return true
+		if last_error != "":
+			print_usage()
+			print(last_error)
 			return true
 	if main_args_cnt > 1:
-		print("ERROR: invalid option! Must specify only one of " + ", ".join(MAIN_COMMANDS))
 		print_usage()
+		print("ERROR: invalid option! Must specify only one of " + ", ".join(MAIN_COMMANDS))
 		return true
 	if compile_files.size() > 0:
 		compile(compile_files, bytecode_version, output_dir)
@@ -517,6 +583,6 @@ func handle_cli() -> bool:
 		output_dir = get_cli_abs_path(output_dir)
 		test_text_to_bin(txt_to_bin, output_dir)
 	else:
-		print("ERROR: invalid option! Must specify one of " + ", ".join(MAIN_COMMANDS))
 		print_usage()
+		print("ERROR: invalid option! Must specify one of " + ", ".join(MAIN_COMMANDS))
 	return true

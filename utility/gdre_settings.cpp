@@ -1211,6 +1211,22 @@ String GDRESettings::get_gdre_version() const {
 	return GDRE_VERSION;
 }
 
+String GDRESettings::get_disclaimer_text() const {
+	return String("Godot RE Tools, ") + String(GDRE_VERSION) + String(" \n\n") +
+			get_disclaimer_body();
+}
+
+String GDRESettings::get_disclaimer_body() {
+	return RTR(String("Resources, binary code and source code might be protected by copyright and trademark ") +
+			"laws. Before using this software make sure that decompilation is not prohibited by the " +
+			"applicable license agreement, permitted under applicable law or you obtained explicit " +
+			"permission from the copyright owner.\n\n" +
+			"The authors and copyright holders of this software do neither encourage nor condone " +
+			"the use of this software, and disclaim any liability for use of the software in violation of " +
+			"applicable laws.\n\n" +
+			"This software in an alpha stage. Please report any bugs to the GitHub repository\n");
+}
+
 void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_pack", "p_path"), &GDRESettings::load_pack);
 	ClassDB::bind_method(D_METHOD("unload_pack"), &GDRESettings::unload_pack);
@@ -1269,6 +1285,7 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("save_project_config", "p_out_dir"), &GDRESettings::save_project_config);
 	ClassDB::bind_method(D_METHOD("pack_has_project_config"), &GDRESettings::pack_has_project_config);
 	ClassDB::bind_method(D_METHOD("get_gdre_version"), &GDRESettings::get_gdre_version);
+	ClassDB::bind_method(D_METHOD("get_disclaimer_text"), &GDRESettings::get_disclaimer_text);
 	// ClassDB::bind_method(D_METHOD("get_auto_display_scale"), &GDRESettings::get_auto_display_scale);
 	// TODO: route this through GDRE Settings rather than GDRE Editor
 	//ADD_SIGNAL(MethodInfo("write_log_message", PropertyInfo(Variant::STRING, "message")));

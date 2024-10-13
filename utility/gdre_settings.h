@@ -191,6 +191,8 @@ public:
 	bool pack_has_project_config();
 	float get_auto_display_scale() const;
 	String get_gdre_version() const;
+	String get_disclaimer_text() const;
+	static String get_disclaimer_body();
 	static GDRESettings *get_singleton();
 	GDRESettings();
 	~GDRESettings();
