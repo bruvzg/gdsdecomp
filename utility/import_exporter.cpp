@@ -1241,23 +1241,14 @@ Error ImportExporter::_convert_tex(const String &output_dir, const String &p_pat
 	err = ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	if (img->is_compressed()) {
-		int req_w, req_h;
-		int w = img->get_width();
-		int h = img->get_height();
 		String fmt_name = Image::get_format_name(img->get_format());
-		Image::get_format_min_pixel_size(img->get_format(), req_w, req_h);
-		if (w < req_w || h < req_h) {
-			print_line("Image %s (format: %s) is too small to decompress safely (%dx%d), not saving.", p_path.get_file(), fmt_name, img->get_width(), img->get_height());
-			return ERR_FILE_CORRUPT;
-		} else {
-			err = img->decompress();
-			if (err == ERR_UNAVAILABLE) {
-				WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
-				report_unsupported_resource("Texture", fmt_name, p_path);
-				return err;
-			}
-			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
+		err = img->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
+			report_unsupported_resource("Texture", fmt_name, p_path);
+			return err;
 		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
 	}
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
