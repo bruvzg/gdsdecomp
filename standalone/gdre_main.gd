@@ -134,11 +134,13 @@ func handle_quit(save_cfg = true):
 func _ready():
 	$version_lbl.text = GDRESettings.get_gdre_version()
 	# If CLI arguments were passed in, just quit
-	if handle_cli():
+	var args = get_sanitized_args()
+	if handle_cli(args):
 		get_tree().quit()
 	else:
 		_load_config()
 		var show_disclaimer = should_show_disclaimer()
+		show_disclaimer = show_disclaimer and len(args) == 0
 		if show_disclaimer:
 			set_showed_disclaimer(true)
 			save_config()
@@ -146,6 +148,9 @@ func _ready():
 		check_version()
 		if show_disclaimer:
 			$re_editor_standalone.show_about_dialog()
+		if len(args) > 0:
+			var window = get_viewport()
+			window.emit_signal("files_dropped", args)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_EXIT_TREE:
@@ -240,8 +245,8 @@ var GLOB_NOTES = """Notes on Include/Exclude globs:
 
 var RECOVER_OPTS_NOTES = """Recover/Extract Options:
 
---key=<KEY>                 The Key to use if project is encrypted as a 64-character hex string:
-							  e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
+--key=<KEY>                 The Key to use if project is encrypted as a 64-character hex string,
+                            e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
 --output-dir=<DIR>          Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
 --scripts-only              Only extract/recover scripts
 --include=<GLOB>            Include files matching the glob pattern (can be repeated)
@@ -250,8 +255,11 @@ var RECOVER_OPTS_NOTES = """Recover/Extract Options:
 """
 var COMPILE_OPTS_NOTES = """Compile Options:
 
---bytecode=<COMMIT_OR_VERSION>          Either the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')
---output-dir=<DIR>                      Directory where compiled files will be output to. If not specified, compiled files will be output to the same location (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
+--bytecode=<COMMIT_OR_VERSION>          Either the commit hash of the bytecode revision (e.g. 'f3f05dc'),
+                                           or the version of the engine (e.g. '4.3.0')
+--output-dir=<DIR>                      Directory where compiled files will be output to. 
+                                          - If not specified, compiled files will be output to the same location 
+                                          (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
 """
 func print_usage():
 	print("Godot Reverse Engineering Tools")
@@ -496,8 +504,15 @@ func compile(files: PackedStringArray, bytecode_version: String, output_dir: Str
 		print("Compiled " + file + " to " + out_file)		
 	print("Compilation complete")
 
-func handle_cli() -> bool:
+func get_sanitized_args():
 	var args = OS.get_cmdline_args()
+	#var scene_path = get_tree().root.scene_file_path
+	var scene_path = "res://gdre_main.tscn"
+	if args[0] == scene_path:
+		return args.slice(1)
+	return args
+
+func handle_cli(args: PackedStringArray) -> bool:
 	var input_extract_file:String = ""
 	var input_file: String = ""
 	var output_dir: String = ""
@@ -510,8 +525,21 @@ func handle_cli() -> bool:
 	var compile_cnt = 0
 	var excludes: PackedStringArray = []
 	var includes: PackedStringArray = []
-	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
+	if (args.size() == 0):
 		return false
+	var any_commands = false
+	for i in range(args.size()):
+		var arg:String = args[i]
+		if arg.begins_with("--"):
+			any_commands = true
+			break
+	if any_commands == false:
+		if not GDRESettings.is_headless():
+			# not cli mode, drag-and-drop
+			return false
+		print_usage()
+		print("ERROR: no command specified")
+		return true
 	for i in range(args.size()):
 		var arg:String = args[i]
 		if arg == "--help":
