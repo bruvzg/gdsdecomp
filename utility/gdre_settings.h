@@ -165,6 +165,7 @@ public:
 	String get_log_file_path();
 	bool is_fs_path(const String &p_path) const;
 	Error close_log_file();
+	Dictionary get_remaps(bool include_imports = true) const;
 	bool has_any_remaps() const;
 	bool has_remap(const String &src, const String &dst) const;
 	Error add_remap(const String &src, const String &dst);
