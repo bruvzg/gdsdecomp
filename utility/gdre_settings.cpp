@@ -3,6 +3,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/file_access.h"
+#include "core/object/class_db.h"
 #include "core/string/print_string.h"
 #include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
@@ -871,6 +872,31 @@ bool GDRESettings::has_any_remaps() const {
 	return false;
 }
 
+Dictionary GDRESettings::get_remaps(bool include_imports) const {
+	Dictionary ret;
+	if (is_pack_loaded()) {
+		if (get_ver_major() >= 3) {
+			for (auto E : remap_iinfo) {
+				ret[E.key] = E.value->get_path();
+			}
+		} else {
+			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+				PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+				for (int i = 0; i < v2remaps.size(); i += 2) {
+					ret[v2remaps[i]] = v2remaps[i + 1];
+				}
+			}
+		}
+		if (include_imports) {
+			for (int i = 0; i < import_files.size(); i++) {
+				Ref<ImportInfo> iinfo = import_files[i];
+				ret[iinfo->get_source_file()] = iinfo->get_path();
+			}
+		}
+	}
+	return ret;
+}
+
 //only works on 2.x right now
 bool GDRESettings::has_remap(const String &src, const String &dst) const {
 	if (is_pack_loaded()) {
@@ -1216,6 +1242,7 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_log_file_path"), &GDRESettings::get_log_file_path);
 	ClassDB::bind_method(D_METHOD("is_fs_path", "p_path"), &GDRESettings::is_fs_path);
 	ClassDB::bind_method(D_METHOD("close_log_file"), &GDRESettings::close_log_file);
+	ClassDB::bind_method(D_METHOD("get_remaps", "include_imports"), &GDRESettings::get_remaps, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("has_any_remaps"), &GDRESettings::has_any_remaps);
 	ClassDB::bind_method(D_METHOD("has_remap", "src", "dst"), &GDRESettings::has_remap);
 	ClassDB::bind_method(D_METHOD("add_remap", "src", "dst"), &GDRESettings::add_remap);
