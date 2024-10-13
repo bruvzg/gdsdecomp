@@ -455,6 +455,8 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 						WARN_PRINT("Found multiple pck files in bundle, using first one!!!");
 					}
 					return load_pack(list[0]);
+				} else {
+					ERR_FAIL_V_MSG(ERR_FILE_NOT_FOUND, "Can't find pck file in .app bundle!");
 				}
 			}
 		}
