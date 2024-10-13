@@ -136,7 +136,45 @@ func dump_files(output_dir:String, files: PackedStringArray, ignore_checksum_err
 	return err;
 
 var MAIN_COMMANDS = ["--recover", "--extract", "--compile", "--list-bytecode-versions"]
+var MAIN_CMD_NOTES = """Main commands:
+--recover=<GAME_PCK/EXE/APK/DIR>   Perform full project recovery on the specified PCK, APK, EXE, or extracted project directory.
+--extract=<GAME_PCK/EXE/APK>       Extract the specified PCK, APK, or EXE.
+--compile=<GD_FILE>                Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
+--list-bytecode-versions           List all available bytecode versions
+"""
 
+var GLOB_NOTES = """Notes on Include/Exclude globs:
+    - Recursive patterns can be specified with '**'
+        - Example: 'res://**/*.gdc' matches 'res://main.gdc', 'res://scripts/script.gdc', etc.)
+    - Globs should be rooted to 'res://' or 'user://'
+        - Example: 'res://*.gdc' will match all .gdc files in the root of the project, but not any of the subdirectories.
+    - If not rooted, globs will be rooted to 'res://'
+        - Example: 'addons/plugin/main.gdc' is equivalent to 'res://addons/plugin/main.gdc'
+    - As a special case, if the glob has a wildcard and does contain a directory, it will be assumed to be a recursive pattern.
+        - Example: '*.gdc' would be equivalent to 'res://**/*.gdc'
+    - Include/Exclude globs will only match files that are actually in the project PCK/dir, not any non-present resource source files.
+        Example: 
+            - A project contains the file "res://main.gdc". 'res://main.gd' is the source file of 'res://main.gdc',
+              but is not included in the project PCK.
+            - Performing project recovery with the include glob 'res://main.gd' would not recover 'main.gd'.
+            - Performing project recovery with the include glob 'res://main.gdc' would recover 'res://main.gd'
+"""
+
+var RECOVER_OPTS_NOTES = """Recover/Extract Options:
+
+--key=<KEY>                 The Key to use if project is encrypted as a 64-character hex string:
+							  e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
+--output-dir=<DIR>          Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
+--scripts-only              Only extract/recover scripts
+--include=<GLOB>            Include files matching the glob pattern (can be repeated)
+--exclude=<GLOB>            Exclude files matching the glob pattern (can be repeated)
+--ignore-checksum-errors    Ignore MD5 checksum errors when extracting/recovering
+"""
+var COMPILE_OPTS_NOTES = """Compile Options:
+
+--bytecode=<COMMIT_OR_VERSION>          Either the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')
+--output-dir=<DIR>                      Directory where compiled files will be output to. If not specified, compiled files will be output to the same location (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
+"""
 func print_usage():
 	print("Godot Reverse Engineering Tools")
 	print("")
@@ -145,41 +183,10 @@ func print_usage():
 	print("  -h, --help: Display this help message")
 	print("\nFull Project Recovery options:")
 	print("Usage: GDRE_Tools.exe --headless <main_command> [options]")
-	print("\nMain commands:")
-	print("--recover=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, EXE, or extracted project directory to perform full project recovery on")
-	print("--extract=<GAME_PCK/EXE/APK_OR_EXTRACTED_ASSETS_DIR>\t\tThe PCK, APK, or EXE to extract")
-	print("--compile=<GD_FILE>\t\tCompile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)")
-	print("--list-bytecode-versions\t\tList all available bytecode versions")
-
-	print("\nOptions:\n")
-	print("--key=<KEY>\t\tThe Key to use if project is encrypted (hex string)")
-	print("--output-dir=<DIR>\t\tOutput directory, defaults to <NAME_extracted>, or the project directory if one of specified")
-	print("--ignore-checksum-errors\t\tIgnore MD5 checksum errors when extracting/recovering")
-	print("--translation-only\t\tOnly extract/recover translation files")
-	print("--scripts-only\t\tOnly extract/recover scripts")
-	print("--bytecode=<COMMIT_OR_VERSION>\t\tEither the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')")
-	print("--include=<GLOB>\t\tInclude files matching the glob pattern (can be repeated)")
-	print("--exclude=<GLOB>\t\tExclude files matching the glob pattern (can be repeated)")
-	var glob_notes = """\tNotes on Include/Excude globs:
-	- Recursive patterns can be specified with '**' 
-    	- Example: 'res://**/*.gdc' would find all .gdc files in the project
-	- If rooted, globs should be rooted to 'res://'
-    	- Example: 'res://*.gdc' will find all .gdc files in the root of the project,
-		            but not any of the subdirectories.
-	- If not rooted, globs will be rooted to 'res://'
-		- Example: 'addons/plugin/main.gdc' would be equivalent to 'res://addons/plugin/main.gdc'
-	- As a special case, if the glob has a wildcard and does contain a directory, 
-	  it will be assumed to be a recursive pattern in the project directory
-		- Example: '*.gdc' would be equivalent to 'res://**/*.gdc'
-	- Include/Exclude globs will only match files that are actually in the project PCK/dir,
-	  not any non-present resource source files.
-		Example: 
-        	- A project contains the file "res://main.gdc". 'res://main.gd' is the source file of 'res://main.gdc',
-			  but is not included in the project PCK.
-        	- Performing project recovery with the include glob 'res://main.gd' would not recover 'main.gd'.
-			- Performing project recovery with the include glob 'res://main.gdc' would recover 'res://main.gd'
-"""
-	print(glob_notes)
+	print(MAIN_CMD_NOTES)
+	print(RECOVER_OPTS_NOTES)
+	print(GLOB_NOTES)
+	print(COMPILE_OPTS_NOTES)
 
 
 # TODO: remove this hack
@@ -247,6 +254,7 @@ func recovery(  input_file:String,
 
 	# check if da works
 	if da == null:
+		print_usage()
 		print("Error: failed to locate parent dir for " + input_file)
 		return
 	#directory
@@ -254,6 +262,7 @@ func recovery(  input_file:String,
 		if input_file.get_extension().to_lower() == "app":
 			is_dir = false
 		elif !da.dir_exists(input_file.path_join(".import")) && !da.dir_exists(input_file.path_join(".godot")):
+			print_usage()
 			print("Error: " + input_file + " does not appear to be a project directory")
 			return
 		else:
@@ -261,6 +270,7 @@ func recovery(  input_file:String,
 			is_dir = true
 	#PCK/APK
 	elif not da.file_exists(input_file):
+		print_usage()
 		print("Error: failed to locate " + input_file)
 		return
 
@@ -268,11 +278,13 @@ func recovery(  input_file:String,
 	if (enc_key != ""):
 		err = GDRESettings.set_encryption_key_string(enc_key)
 		if (err != OK):
+			print_usage()
 			print("Error: failed to set key!")
 			return
 	
 	err = GDRESettings.load_pack(input_file, extract_only)
 	if (err != OK):
+		print_usage()
 		print("Error: failed to open " + input_file)
 		return
 
@@ -312,6 +324,7 @@ func recovery(  input_file:String,
 			if len(files) == 0:
 				print("Error: no files found that match includes")
 				print("Includes: " + str(includes))
+				print(GLOB_NOTES)
 				return
 		else:
 			files = GDRESettings.get_file_list()
@@ -327,6 +340,7 @@ func recovery(  input_file:String,
 				print("Includes: " + str(includes))
 			if len(excludes) > 0:
 				print("Excludes: " + str(excludes))
+			print(GLOB_NOTES)
 			return
 
 	if output_dir != input_file and not is_dir: 
@@ -367,7 +381,8 @@ func ensure_dir_exists(dir: String):
 
 func compile(files: PackedStringArray, bytecode_version: String, output_dir: String):
 	if bytecode_version == "":
-		print("Error: --bytecode is required for --compile")
+		print("Error: --bytecode is required for --compile (use --list-bytecode-versions to see available versions)")
+		print(COMPILE_OPTS_NOTES)
 		return
 	if output_dir == "":
 		output_dir = get_cli_abs_path(".") # default to current directory
