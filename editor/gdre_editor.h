@@ -209,10 +209,10 @@ class GodotREEditorStandalone : public Control {
 	HBoxContainer *menu_hb;
 
 protected:
-	void _notification(int p_notification);
 	static void _bind_methods();
 
 public:
+	void show_about_dialog();
 	void pck_select_request(const String &p_path);
 	void _write_log_message(String p_message);
 	String get_version();
