@@ -395,6 +395,70 @@ bool Glob::fnmatch(const String &name, const String &pattern) {
 	return RegEx::create_from_string(translate(pattern))->search(name).is_valid();
 }
 
+Vector<String> Glob::fnmatch_list(const Vector<String> &names, const Vector<String> &patterns) {
+	Vector<String> result;
+	if (patterns.is_empty() || names.is_empty()) {
+		return result;
+	}
+	Vector<Ref<RegEx>> regexes;
+	for (auto &pattern : patterns) {
+		auto re = RegEx::create_from_string(translate(pattern));
+		regexes.push_back(re);
+	}
+	for (auto &n : names) {
+		for (auto &re : regexes) {
+			if (re->search(n).is_valid()) {
+				result.push_back(n);
+				break;
+			}
+		}
+	}
+	return result;
+}
+
+Vector<String> Glob::pattern_match_list(const Vector<String> &names, const Vector<String> &patterns) {
+	Vector<String> result;
+	if (patterns.is_empty() || names.is_empty()) {
+		return result;
+	}
+	Vector<Ref<RegEx>> regexes;
+	for (auto &pattern : patterns) {
+		auto re = RegEx::create_from_string(translate(pattern));
+		regexes.push_back(re);
+	}
+	for (int i = 0; i < regexes.size(); i++) {
+		auto &re = regexes[i];
+		for (auto &n : names) {
+			if (re->search(n).is_valid()) {
+				result.push_back(patterns[i]);
+				break;
+			}
+		}
+	}
+	return result;
+}
+
+Vector<String> Glob::names_in_dirs(const Vector<String> &names, const Vector<String> &dirs) {
+	Vector<String> patterns;
+	for (auto &dir : dirs) {
+		patterns.push_back(dir.path_join("*"));
+	}
+	return fnmatch_list(names, patterns);
+}
+
+Vector<String> Glob::dirs_in_names(const Vector<String> &names, const Vector<String> &dirs) {
+	Vector<String> patterns;
+	Vector<String> ret;
+	for (auto &dir : dirs) {
+		patterns.push_back(dir.path_join("*"));
+	}
+	patterns = pattern_match_list(names, patterns);
+	for (int i = 0; i < patterns.size(); i++) {
+		patterns.write[i] = patterns[i].get_base_dir();
+	}
+	return patterns;
+}
+
 Vector<String> Glob::glob(const String &pathname, bool hidden) {
 	return _glob(pathname, false, false, hidden);
 }
@@ -429,4 +493,8 @@ void Glob::_bind_methods() {
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("glob_list", "pathnames", "hidden"), &Glob::glob_list, DEFVAL(false));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("rglob_list", "pathnames", "hidden"), &Glob::rglob_list, DEFVAL(false));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("fnmatch", "name", "pattern"), &Glob::fnmatch);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("fnmatch_list", "names", "patterns"), &Glob::fnmatch_list);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("pattern_match_list", "names", "patterns"), &Glob::pattern_match_list);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("names_in_dirs", "names", "dirs"), &Glob::names_in_dirs);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("dirs_in_names", "names", "dirs"), &Glob::dirs_in_names);
 }

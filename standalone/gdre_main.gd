@@ -158,6 +158,8 @@ func print_usage():
 	print("--translation-only\t\tOnly extract/recover translation files")
 	print("--scripts-only\t\tOnly extract/recover scripts")
 	print("--bytecode=<COMMIT_OR_VERSION>\t\tEither the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')")
+	print("--include=<GLOB>\t\tInclude files matching the glob pattern (e.g. '*.gdc',' res://**/*.translation'; can be repeated)")
+	print("--exclude=<GLOB>\t\tExclude files matching the glob pattern (can be repeated)")
 
 
 # TODO: remove this hack
@@ -179,14 +181,40 @@ func get_cli_abs_path(path:String) -> String:
 	var abs_path = exec_path.path_join(path).simplify_path()
 	return abs_path
 
+func normalize_clude_glob(gl_string: String) -> String:
+	var new_string = gl_string.replace("\\", "/")
+	if not "**" in new_string and "*" in new_string and not "/" in new_string:
+		new_string = "res://**/" + new_string
+	return new_string
+
+func normalize_cludes(cludes: PackedStringArray, dir = "res://") -> PackedStringArray:
+	var new_cludes: PackedStringArray = []
+	if dir != dir.get_base_dir() and dir.ends_with("/"):
+		dir = dir.substr(0, dir.length() - 1)
+	for clude in cludes:
+		clude = normalize_clude_glob(clude)
+		if clude.begins_with("/"):
+			clude = clude.substr(1, clude.length() - 1)
+		if not clude.is_absolute_path():
+			clude = dir.path_join(clude)
+		elif dir != "res://":
+			clude = clude.replace("res:/", dir)
+		elif clude.begins_with("/"):
+			clude = dir + clude.substr(1, clude.length() - 1)
+		new_cludes.append(clude.simplify_path())
+	return new_cludes
+
 func recovery(  input_file:String,
 				output_dir:String,
 				enc_key:String,
 				extract_only: bool,
-				ignore_checksum_errors: bool = false):
+				ignore_checksum_errors: bool = false,
+				excludes: PackedStringArray = [],
+				includes: PackedStringArray = []):
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
+	var parent_dir = "res://"
 	input_file = get_cli_abs_path(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
@@ -209,6 +237,7 @@ func recovery(  input_file:String,
 			print("Error: " + input_file + " does not appear to be a project directory")
 			return
 		else:
+			parent_dir = input_file
 			is_dir = true
 	#PCK/APK
 	elif not da.file_exists(input_file):
@@ -236,6 +265,9 @@ func recovery(  input_file:String,
 	if translation_only and scripts_only:
 		print("Error: cannot specify both --translation-only and --scripts-only")
 		return
+	elif (translation_only or scripts_only and (includes.size() > 0 or excludes.size() > 0)):
+		print("Error: cannot specify both --translation-only or --scripts-only and --include or --exclude")
+		return
 	if (translation_only):
 		var new_files:PackedStringArray = []
 		# remove all the non ".translation" files
@@ -244,7 +276,7 @@ func recovery(  input_file:String,
 				new_files.append(file)
 		files.append_array(new_files)
 		print("Translation only mode, only extracting translation files")
-	if scripts_only:
+	elif scripts_only:
 		files = GDRESettings.get_file_list()
 		var new_files:PackedStringArray = []
 		# remove all the non ".gd" files
@@ -253,6 +285,29 @@ func recovery(  input_file:String,
 				new_files.append(file)
 		files.append_array(new_files)
 		print("Scripts only mode, only extracting scripts")
+	else:
+		if includes.size() > 0:
+			includes = normalize_cludes(includes, parent_dir)
+			files = Glob.rglob_list(includes)
+			if len(files) == 0:
+				print("Error: no files found that match includes")
+				print("Includes: " + str(includes))
+				return
+		else:
+			files = GDRESettings.get_file_list()
+		if excludes.size() > 0:
+			excludes = normalize_cludes(excludes, parent_dir)
+			var result = Glob.fnmatch_list(files, excludes)
+			for file in result:
+				files.remove_at(files.rfind(file))
+
+		if (includes.size() > 0 or excludes.size() > 0) and files.size() == 0:
+			print("Error: no files to extract after filtering")
+			if len(includes) > 0:
+				print("Includes: " + str(includes))
+			if len(excludes) > 0:
+				print("Excludes: " + str(excludes))
+			return
 
 	if output_dir != input_file and not is_dir: 
 		if (da.file_exists(output_dir)):
@@ -342,6 +397,8 @@ func handle_cli() -> bool:
 	var bytecode_version: String = ""
 	var main_args_cnt = 0
 	var compile_cnt = 0
+	var excludes: PackedStringArray = []
+	var includes: PackedStringArray = []
 	if (args.size() == 0 or (args.size() == 1 and args[0] == "res://gdre_main.tscn")):
 		return false
 	for i in range(args.size()):
@@ -384,6 +441,10 @@ func handle_cli() -> bool:
 			if compile_files.size() == 0:
 				main_args_cnt += 1
 			compile_files.append(get_arg_value(arg))
+		elif arg.begins_with("--exclude"):
+			excludes.append(get_arg_value(arg))
+		elif arg.begins_with("--include"):
+			includes.append(get_arg_value(arg))
 		else:
 			print("ERROR: invalid option '" + arg + "'")
 			print_usage()
@@ -395,11 +456,11 @@ func handle_cli() -> bool:
 	if compile_files.size() > 0:
 		compile(compile_files, bytecode_version, output_dir)
 	elif input_file != "":
-		recovery(input_file, output_dir, enc_key, false, ignore_md5)
+		recovery(input_file, output_dir, enc_key, false, ignore_md5, excludes, includes)
 		GDRESettings.unload_pack()
 		close_log()
 	elif input_extract_file != "":
-		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5)
+		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5, excludes, includes)
 		GDRESettings.unload_pack()
 		close_log()
 	elif txt_to_bin != "":

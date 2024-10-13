@@ -127,7 +127,7 @@ public:
 	String get_session_notes_string();
 	String get_detected_unsupported_resource_string();
 	Error recreate_plugin_config(const String &output_dir, const String &plugin_dir);
-	Error recreate_plugin_configs(const String &output_dir);
+	Error recreate_plugin_configs(const String &output_dir, const Vector<String> &plugin_dirs = {});
 	Error remap_resource(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error convert_res_txt_2_bin(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst);
@@ -135,7 +135,7 @@ public:
 	Error convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
-	Error decompile_scripts(const String &output_dir);
+	Error decompile_scripts(const String &output_dir, const Vector<String> &files = {});
 
 	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
 	Error export_imports(const String &output_dir = "", const Vector<String> &files_to_export = {});

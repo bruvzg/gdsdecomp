@@ -29,6 +29,7 @@
 #include "scene/resources/audio_stream_wav.h"
 #include "scene/resources/font.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
+#include "utility/glob.h"
 
 GDRESettings *get_settings() {
 	return GDRESettings::get_singleton();
@@ -66,6 +67,22 @@ struct IInfoComparator {
 	}
 };
 
+HashSet<String> vector_to_hashset(const Vector<String> &vec) {
+	HashSet<String> ret;
+	for (int i = 0; i < vec.size(); i++) {
+		ret.insert(vec[i]);
+	}
+	return ret;
+}
+
+Vector<String> hashset_to_vector(const HashSet<String> &hs) {
+	Vector<String> ret;
+	for (auto &s : hs) {
+		ret.push_back(s);
+	}
+	return ret;
+}
+
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 
@@ -100,9 +117,40 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	bool partial_export = files_to_export.size() > 0;
 	report->session_files_total = partial_export ? files_to_export.size() : files.size();
 	if (opt_decompile) {
-		decompile_scripts(output_dir);
-		// This only works if we decompile the scripts first
-		recreate_plugin_configs(output_dir);
+		Vector<String> code_files = get_settings()->get_code_files();
+		Vector<String> to_decompile;
+		if (files_to_export.size() > 0) {
+			for (int i = 0; i < code_files.size(); i++) {
+				if (files_to_export.has(code_files[i])) {
+					to_decompile.append(code_files[i]);
+				}
+			}
+		} else {
+			to_decompile = code_files;
+		}
+
+		// check if res://addons exists
+		Ref<DirAccess> res_da = DirAccess::open("res://");
+		Vector<String> addon_first_level_dirs = Glob::glob("res://addons/*", true);
+		if (res_da->dir_exists("res://addons")) {
+			// Only recreate plugin configs if we are exporting files within the addons directory
+			if (files_to_export.size() != 0) {
+				Vector<String> addon_code_files = Glob::rglob_list({ "res://addons/**/*.gdc", "res://addons/**/*.gde", "res://addons/**/*.gd" });
+				addon_first_level_dirs = Glob::dirs_in_names(files_to_export, addon_first_level_dirs);
+				auto new_code_files = Glob::names_in_dirs(addon_code_files, addon_first_level_dirs);
+				for (auto &code_file : new_code_files) {
+					if (!to_decompile.has(code_file)) {
+						to_decompile.push_back(code_file);
+					}
+				}
+			}
+			// we need to copy the addons to the output directory
+		}
+		if (to_decompile.size() > 0) {
+			decompile_scripts(output_dir, to_decompile);
+			// This only works if we decompile the scripts first
+			recreate_plugin_configs(output_dir, addon_first_level_dirs);
+		}
 	}
 	if (get_ver_major() >= 4) {
 		// we need to re-save all the iinfo files to the output directory if they are dirty
@@ -358,11 +406,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	return OK;
 }
 
-Error ImportExporter::decompile_scripts(const String &p_out_dir) {
+Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<String> &to_decompile) {
 	GDScriptDecomp *decomp;
 	// we have to remove remaps if they exist
 	bool has_remaps = get_settings()->has_any_remaps();
-	Vector<String> code_files = get_settings()->get_code_files();
+	Vector<String> code_files = to_decompile;
+	if (code_files.is_empty()) {
+		code_files = get_settings()->get_code_files();
+	}
 	if (code_files.is_empty()) {
 		return OK;
 	}
@@ -699,34 +750,39 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 }
 
 // Recreates the "plugin.cfg" files for each plugin to avoid loading errors.
-Error ImportExporter::recreate_plugin_configs(const String &output_dir) {
+Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Vector<String> &plugin_dirs) {
 	Error err;
 	if (!DirAccess::exists(output_dir.path_join("addons"))) {
 		return OK;
 	}
 	Vector<String> dirs;
-	Ref<DirAccess> da = DirAccess::open(output_dir.path_join("addons"), &err);
-	da->list_dir_begin();
-	String f = da->get_next();
-	while (!f.is_empty()) {
-		if (f != "." && f != ".." && da->current_is_dir()) {
-			dirs.append(f);
+	if (plugin_dirs.is_empty()) {
+		dirs = Glob::glob("res://addons/*", true);
+	} else {
+		dirs = plugin_dirs;
+		for (int i = 0; i < dirs.size(); i++) {
+			if (!dirs[i].is_absolute_path()) {
+				dirs.write[i] = String("res://addons/").path_join(dirs[i]);
+			}
 		}
-		f = da->get_next();
 	}
-	da->list_dir_end();
 	for (int i = 0; i < dirs.size(); i++) {
-		if (dirs[i].contains("godotsteam")) {
+		String path = dirs[i];
+		if (!DirAccess::dir_exists_absolute(path)) {
+			continue;
+		}
+		String dir = dirs[i].get_file();
+		if (dir.contains("godotsteam")) {
 			report->godotsteam_detected = true;
 		}
-		err = recreate_plugin_config(output_dir, dirs[i]);
+		err = recreate_plugin_config(output_dir, dir);
 		if (err == ERR_PRINTER_ON_FIRE) {
 			// we successfully copied the dlls, but failed to find one for our platform
-			WARN_PRINT("Failed to find library for this platform for plugin " + dirs[i]);
-			report->failed_gdnative_copy.push_back(dirs[i]);
+			WARN_PRINT("Failed to find library for this platform for plugin " + dir);
+			report->failed_gdnative_copy.push_back(dir);
 		} else if (err) {
-			WARN_PRINT("Failed to recreate plugin.cfg for " + dirs[i]);
-			report->failed_plugin_cfg_create.push_back(dirs[i]);
+			WARN_PRINT("Failed to recreate plugin.cfg for " + dir);
+			report->failed_plugin_cfg_create.push_back(dir);
 		}
 	}
 	return OK;
@@ -1315,7 +1371,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 }
 
 void ImportExporter::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("decompile_scripts"), &ImportExporter::decompile_scripts);
+	ClassDB::bind_method(D_METHOD("decompile_scripts", "output_dir", "files_to_decompile"), &ImportExporter::decompile_scripts, DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports, DEFVAL(""), DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("convert_res_txt_2_bin"), &ImportExporter::convert_res_txt_2_bin);
 	ClassDB::bind_method(D_METHOD("convert_res_bin_2_txt"), &ImportExporter::convert_res_bin_2_txt);
