@@ -158,8 +158,28 @@ func print_usage():
 	print("--translation-only\t\tOnly extract/recover translation files")
 	print("--scripts-only\t\tOnly extract/recover scripts")
 	print("--bytecode=<COMMIT_OR_VERSION>\t\tEither the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')")
-	print("--include=<GLOB>\t\tInclude files matching the glob pattern (e.g. '*.gdc',' res://**/*.translation'; can be repeated)")
+	print("--include=<GLOB>\t\tInclude files matching the glob pattern (can be repeated)")
 	print("--exclude=<GLOB>\t\tExclude files matching the glob pattern (can be repeated)")
+	var glob_notes = """\tNotes on Include/Excude globs:
+	- Recursive patterns can be specified with '**' 
+    	- Example: 'res://**/*.gdc' would find all .gdc files in the project
+	- If rooted, globs should be rooted to 'res://'
+    	- Example: 'res://*.gdc' will find all .gdc files in the root of the project,
+		            but not any of the subdirectories.
+	- If not rooted, globs will be rooted to 'res://'
+		- Example: 'addons/plugin/main.gdc' would be equivalent to 'res://addons/plugin/main.gdc'
+	- As a special case, if the glob has a wildcard and does contain a directory, 
+	  it will be assumed to be a recursive pattern in the project directory
+		- Example: '*.gdc' would be equivalent to 'res://**/*.gdc'
+	- Include/Exclude globs will only match files that are actually in the project PCK/dir,
+	  not any non-present resource source files.
+		Example: 
+        	- A project contains the file "res://main.gdc". 'res://main.gd' is the source file of 'res://main.gdc',
+			  but is not included in the project PCK.
+        	- Performing project recovery with the include glob 'res://main.gd' would not recover 'main.gd'.
+			- Performing project recovery with the include glob 'res://main.gdc' would recover 'res://main.gd'
+"""
+	print(glob_notes)
 
 
 # TODO: remove this hack
@@ -193,7 +213,7 @@ func normalize_cludes(cludes: PackedStringArray, dir = "res://") -> PackedString
 		dir = dir.substr(0, dir.length() - 1)
 	for clude in cludes:
 		clude = normalize_clude_glob(clude)
-		if clude.begins_with("/"):
+		if clude.begins_with("/") and dir == "res://":
 			clude = clude.substr(1, clude.length() - 1)
 		if not clude.is_absolute_path():
 			clude = dir.path_join(clude)
