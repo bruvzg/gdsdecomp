@@ -203,8 +203,13 @@ void PackDialog::_dir_select_pressed() {
 	target_folder_selection->popup_centered(Size2(600, 400));
 }
 
+void PackDialog::set_target_dir(const String &p_dir) {
+	target_dir->set_text(p_dir);
+	_validate_selection();
+}
+
 void PackDialog::_dir_select_request(const String &p_path) {
-	target_dir->set_text(p_path);
+	set_target_dir(p_path);
 	_validate_selection();
 }
 
