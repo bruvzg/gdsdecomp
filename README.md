@@ -32,41 +32,34 @@ Grab the latest release version from here: https://github.com/bruvzg/gdsdecomp/r
 
 - To perform full project recovery from the GUI, select "Recover project..." from the "RE Tools" menu:
   ![Menu screenshot](images/recovery_gui.png)
-- If the project is encrypted, select the "Set encryption key..." menu option first first and enter the key.
-- In the file dialog, select the apk, pck, or embedded exe you want to recover:
-
-![File dialog](images/file_dialog.png)
-
-- In the PCK explorer dialog, select "Full Recovery" or "Extract Only", then select the directory you want to recover the project to, then click "Extract...":
-
-![Recovery dialog screenshot](images/recovery_dialog.png)
-
-- After it finishes, it will pop up a recovery box telling you the location of the log file, what editor version you should use when editing the recovered project, report any non-recovered assets:
-
-![Recovery log](images/recovery_log.png)
+- Or, just drag and drop the PCK/EXE onto the application window.
 
 ### Command Line
 
-#### Example:
+#### Usage:
 
 ```bash
-gdre_tools --headless --recover=game.pck
+gdre_tools --headless <main_command> [options]
 ```
 
-#### Main arguments:
+#### Main commands:
+- `--recover=<GAME_PCK/EXE/APK/DIR>` : Perform full project recovery on the specified PCK, APK, EXE, or extracted project directory.
+- `--extract=<GAME_PCK/EXE/APK>`     : Extract the specified PCK, APK, or EXE.
+- `--compile=<GD_FILE>`              : Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
+- `--list-bytecode-versions`         : List all available bytecode versions
 
-- `--recover=<pck/exe/apk>` : Perform full project recovery on the specified PCK/EXE/APK.
-- `--extract=<pck/exe/apk>` : Perform extraction only (no resource conversion) on the specified PCK/EXE/APK
-- `--compile=<GD_FILE>` : Compile GDScript files to bytecode. Can be repeated and use globs (e.g. `scripts/**/*.gd`). Requires `--bytecode`.
-- `--list-bytecode-versions`: List all available bytecode versions
+#### Recover/Extract Options:
 
-#### Optional arguments:
+- `--key=<KEY>`              : The Key to use if project is encrypted as a 64-character hex string, e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
+- `--output-dir=<DIR>`       : Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
+- `--scripts-only`           : Only extract/recover scripts
+- `--include=<GLOB>`         : Include files matching the glob pattern (can be repeated)
+- `--exclude=<GLOB>`         : Exclude files matching the glob pattern (can be repeated)
+- `--ignore-checksum-errors` : Ignore MD5 checksum errors when extracting/recovering
 
-- `--output-dir=<out_dir>` : Output directory, defaults to `<NAME>_extracted`, or the project directory if one is specified
-- `--key=<key>` : The Key to use if PAK/EXE/APK is encrypted (64 character hex string)
-- `--ignore-checksum-errors` : Ignore MD5 errors during PCK checking and perform recovery/extraction anyway
-- `--scripts-only` : Only extract/recover scripts
-- `--bytecode=<COMMIT_OR_VERSION>`: Required when using `--compile`. Takes in either the commit hash of the bytecode revision (e.g. 'f3f05dc') or the version of the engine (e.g. '4.3.0')
+#### Compile Options:
+- `--bytecode=<COMMIT_OR_VERSION>` : Either the commit hash of the bytecode revision (e.g. 'f3f05dc'), or the version of the engine (e.g. '4.3.0')
+- `--output-dir=<DIR>`             : Directory where compiled files will be output to. If not specified, compiled files will be output to the same location (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
 
 Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
