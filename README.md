@@ -43,23 +43,41 @@ gdre_tools --headless <main_command> [options]
 ```
 
 #### Main commands:
+
 - `--recover=<GAME_PCK/EXE/APK/DIR>` : Perform full project recovery on the specified PCK, APK, EXE, or extracted project directory.
-- `--extract=<GAME_PCK/EXE/APK>`     : Extract the specified PCK, APK, or EXE.
-- `--compile=<GD_FILE>`              : Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
-- `--list-bytecode-versions`         : List all available bytecode versions
+- `--extract=<GAME_PCK/EXE/APK>` : Extract the specified PCK, APK, or EXE.
+- `--compile=<GD_FILE>` : Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
+- `--list-bytecode-versions` : List all available bytecode versions
 
 #### Recover/Extract Options:
 
-- `--key=<KEY>`              : The Key to use if project is encrypted as a 64-character hex string, e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
-- `--output-dir=<DIR>`       : Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
-- `--scripts-only`           : Only extract/recover scripts
-- `--include=<GLOB>`         : Include files matching the glob pattern (can be repeated)
-- `--exclude=<GLOB>`         : Exclude files matching the glob pattern (can be repeated)
+- `--key=<KEY>` : The Key to use if project is encrypted as a 64-character hex string, e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
+- `--output-dir=<DIR>` : Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
+- `--scripts-only` : Only extract/recover scripts
+- `--include=<GLOB>` : Include files matching the glob pattern (can be repeated)
+- `--exclude=<GLOB>` : Exclude files matching the glob pattern (can be repeated)
 - `--ignore-checksum-errors` : Ignore MD5 checksum errors when extracting/recovering
 
 #### Compile Options:
+
 - `--bytecode=<COMMIT_OR_VERSION>` : Either the commit hash of the bytecode revision (e.g. 'f3f05dc'), or the version of the engine (e.g. '4.3.0')
-- `--output-dir=<DIR>`             : Directory where compiled files will be output to. If not specified, compiled files will be output to the same location (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
+- `--output-dir=<DIR>` : Directory where compiled files will be output to. If not specified, compiled files will be output to the same location (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
+
+#### Notes on Include/Exclude globs:
+
+- Recursive patterns can be specified with `**`
+  - Example: `res://**/*.gdc` matches `res://main.gdc`, `res://scripts/script.gdc`, etc.
+- Globs should be rooted to `res://` or `user://`
+  - Example: `res://*.gdc` will match all .gdc files in the root of the project, but not any of the subdirectories.
+- If not rooted, globs will be rooted to `res://`
+  - Example: `addons/plugin/main.gdc` is equivalent to `res://addons/plugin/main.gdc`
+- As a special case, if the glob has a wildcard and does contain a directory, it will be assumed to be a recursive pattern.
+  - Example: `*.gdc` would be equivalent to `res://**/*.gdc`
+- Include/Exclude globs will only match files that are actually in the project PCK/dir, not any non-present resource source files.
+  - Example:
+    - A project contains the file `res://main.gdc`. `res://main.gd` is the source file of `res://main.gdc`, but is not included in the project PCK.
+      - Performing project recovery with the include glob `res://main.gd` would not recover `res://main.gd`.
+      - Performing project recovery with the include glob `res://main.gdc` would recover `res://main.gd`
 
 Use the same Godot tools version that the original game was compiled in to edit the project; the recovery log will state what version was detected.
 
