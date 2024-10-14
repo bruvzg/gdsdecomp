@@ -129,7 +129,7 @@ func handle_quit(save_cfg = true):
 		var ret = save_config()
 		if ret != OK and ret != ERR_DOES_NOT_EXIST:
 			print("Couldn't save config file!")
-	print("Goodbye!")
+
 
 func _ready():
 	$version_lbl.text = GDRESettings.get_gdre_version()
