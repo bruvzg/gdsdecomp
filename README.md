@@ -71,7 +71,7 @@ gdre_tools --headless <main_command> [options]
   - Example: `res://*.gdc` will match all .gdc files in the root of the project, but not any of the subdirectories.
 - If not rooted, globs will be rooted to `res://`
   - Example: `addons/plugin/main.gdc` is equivalent to `res://addons/plugin/main.gdc`
-- As a special case, if the glob has a wildcard and does contain a directory, it will be assumed to be a recursive pattern.
+- As a special case, if the glob has a wildcard and does not contain a directory, it will be assumed to be a recursive pattern.
   - Example: `*.gdc` would be equivalent to `res://**/*.gdc`
 - Include/Exclude globs will only match files that are actually in the project PCK/dir, not any non-present resource source files.
   - Example:
