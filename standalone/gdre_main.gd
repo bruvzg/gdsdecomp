@@ -224,6 +224,8 @@ var MAIN_CMD_NOTES = """Main commands:
 --extract=<GAME_PCK/EXE/APK>       Extract the specified PCK, APK, or EXE.
 --compile=<GD_FILE>                Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
 --list-bytecode-versions           List all available bytecode versions
+--txt-to-bin=<FILE>                Convert text-based scene or resource files to binary format (can be repeated)
+--bin-to-txt=<FILE>                Convert binary scene or resource files to text-based format (can be repeated)
 """
 
 var GLOB_NOTES = """Notes on Include/Exclude globs:
@@ -512,12 +514,27 @@ func get_sanitized_args():
 		return args.slice(1)
 	return args
 
+func text_to_bin(files: PackedStringArray, output_dir: String):
+	var importer:ImportExporter = ImportExporter.new()
+	for file in files:
+		file = get_cli_abs_path(file)
+		var dst_file = file.get_file().replace(".tscn", ".scn").replace(".tres", ".res")
+		importer.convert_res_txt_2_bin(output_dir, file, dst_file)
+
+func bin_to_text(files: PackedStringArray, output_dir: String):
+	var importer:ImportExporter = ImportExporter.new()
+	for file in files:
+		file = get_cli_abs_path(file)
+		var dst_file = file.get_file().replace(".scn", ".tscn").replace(".res", ".tres")
+		importer.convert_res_bin_2_txt(output_dir, file, dst_file)
+
 func handle_cli(args: PackedStringArray) -> bool:
 	var input_extract_file:String = ""
 	var input_file: String = ""
 	var output_dir: String = ""
 	var enc_key: String = ""
-	var txt_to_bin: String = ""
+	var txt_to_bin = PackedStringArray()
+	var bin_to_txt = PackedStringArray()
 	var ignore_md5: bool = false
 	var compile_files = PackedStringArray()
 	var bytecode_version: String = ""
@@ -556,8 +573,9 @@ func handle_cli(args: PackedStringArray) -> bool:
 			input_file = get_arg_value(arg).simplify_path()
 			main_args_cnt += 1
 		elif arg.begins_with("--txt-to-bin"):
-			txt_to_bin = get_arg_value(arg).simplify_path()	
-			main_args_cnt += 1
+			txt_to_bin.append(get_arg_value(arg).simplify_path())
+		elif arg.begins_with("--bin-to-txt"):
+			bin_to_txt.append(get_arg_value(arg).simplify_path())
 		elif arg.begins_with("--output-dir"):
 			output_dir = get_arg_value(arg).simplify_path()
 		elif arg.begins_with("--scripts-only"):
@@ -606,10 +624,10 @@ func handle_cli(args: PackedStringArray) -> bool:
 		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5, excludes, includes)
 		GDRESettings.unload_pack()
 		close_log()
-	elif txt_to_bin != "":
-		txt_to_bin = get_cli_abs_path(txt_to_bin)
-		output_dir = get_cli_abs_path(output_dir)
-		test_text_to_bin(txt_to_bin, output_dir)
+	elif txt_to_bin.is_empty() == false:
+		text_to_bin(txt_to_bin, output_dir)
+	elif bin_to_txt.is_empty() == false:
+		bin_to_text(bin_to_txt, output_dir)
 	else:
 		print_usage()
 		print("ERROR: invalid option! Must specify one of " + ", ".join(MAIN_COMMANDS))
