@@ -15,9 +15,15 @@ bool ResourceCompatLoader::doing_gltf_load = false;
 	}
 
 Ref<Resource> ResourceCompatLoader::fake_load(const String &p_path, const String &p_type_hint, Error *r_error) {
-	auto loader = get_loader_for_path(p_path, p_type_hint);
-	FAIL_LOADER_NOT_FOUND(loader);
-	return loader->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_error);
+	Ref<CompatFormatLoader> loadr;
+	for (int i = 0; i < loader_count; i++) {
+		if (loader[i]->recognize_path(p_path, p_type_hint) && loader[i]->handles_fake_load()) {
+			loadr = loader[i];
+		}
+	}
+
+	FAIL_LOADER_NOT_FOUND(loadr);
+	return loadr->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_error);
 }
 
 Ref<Resource> ResourceCompatLoader::non_global_load(const String &p_path, const String &p_type_hint, Error *r_error) {

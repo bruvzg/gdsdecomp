@@ -34,6 +34,7 @@ class CompatFormatLoader : public ResourceFormatLoader {
 public:
 	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) = 0;
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const = 0;
+	virtual bool handles_fake_load() const { return false; }
 	static Ref<Resource> create_missing_external_resource(const String &path, const String &type, const ResourceUID::ID uid, const String &scene_id = "") {
 		Ref<MissingResource> res{ memnew(MissingResource) };
 		res->set_original_class(type);
