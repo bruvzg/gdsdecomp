@@ -510,7 +510,7 @@ func get_sanitized_args():
 	var args = OS.get_cmdline_args()
 	#var scene_path = get_tree().root.scene_file_path
 	var scene_path = "res://gdre_main.tscn"
-	if args[0] == scene_path:
+	if args.size() > 0 and args[0] == scene_path:
 		return args.slice(1)
 	return args
 
