@@ -1,4 +1,5 @@
 #include "resource_loader_compat2.h"
+#include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 
 Ref<CompatFormatLoader> ResourceCompatLoader::loader[ResourceCompatLoader::MAX_LOADERS];

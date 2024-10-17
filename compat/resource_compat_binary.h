@@ -83,6 +83,7 @@ class ResourceLoaderCompatBinary {
 	bool stored_big_endian = false;
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
+	bool is_compressed = false;
 	String script_class;
 	bool use_sub_threads = false;
 	float *progress = nullptr;
@@ -151,6 +152,8 @@ public:
 	virtual ResourceUID::ID get_resource_uid(const String &p_path) const override;
 	virtual void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types = false) override;
 	virtual Error rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) override;
+
+	static Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 };
 
 class ResourceFormatSaverCompatBinaryInstance {
