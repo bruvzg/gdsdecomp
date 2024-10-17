@@ -187,6 +187,8 @@ public:
 
 	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) override;
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;
+	virtual bool handles_fake_load() const override { return true; }
+
 	ResourceFormatCompatLoaderText() { singleton = this; }
 };
 
