@@ -11,6 +11,15 @@ void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	}
 }
 
+void _add_padding(Ref<FileAccess> f, uint32_t p_len) {
+	uint32_t extra = 4 - (p_len % 4);
+	if (extra < 4) {
+		for (uint32_t i = 0; i < extra; i++) {
+			f->store_8(0); // pad to 32
+		}
+	}
+}
+
 Ref<Image> ImageParserV2::convert_indexed_image(const Vector<uint8_t> &p_imgdata, int p_width, int p_height, int p_mipmaps, V2Image::Format p_format, Error *r_error) {
 	Vector<uint8_t> r_imgdata;
 	Image::Format r_format;
@@ -128,7 +137,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		int dlen = val->get_data().size();
 		f->store_32(dlen);
 		f->store_buffer(val->get_data().ptr(), dlen);
-		_advance_padding(f, dlen);
+		_add_padding(f, dlen);
 	} else {
 		Vector<uint8_t> data;
 
@@ -140,7 +149,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		f->store_32(ds);
 		if (ds > 0) {
 			f->store_buffer(data.ptr(), ds);
-			_advance_padding(f, ds);
+			_add_padding(f, ds);
 		}
 	}
 	return OK;
