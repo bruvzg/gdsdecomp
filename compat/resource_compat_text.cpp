@@ -2059,13 +2059,13 @@ String ResourceFormatSaverCompatTextInstance::_write_resource(const Ref<Resource
 String ResourceFormatSaverCompatTextInstance::get_id_for_ext_resource(Ref<Resource> res, int ext_resources_size) {
 	Dictionary dict = res->get_meta(META_COMPAT, Dictionary());
 	String id = dict.get("cached_id", String());
-	// if (id.is_empty()) {
-	if (format_version >= 3) {
-		id = itos(ext_resources_size + 1) + "_" + Resource::generate_scene_unique_id();
-	} else {
-		id = itos(ext_resources_size + 1);
+	if (id.is_empty() || dict.get("resource_format", "binary") != "text") {
+		if (format_version >= 3) {
+			id = itos(ext_resources_size + 1); // + "_" + Resource::generate_scene_unique_id();
+		} else {
+			id = itos(ext_resources_size + 1);
+		}
 	}
-	// }
 	return id;
 }
 
@@ -2317,8 +2317,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 		f->store_string(title);
 		f->store_line("]\n"); // One empty line.
 	}
-
-#ifdef TOOLS_ENABLED
+#if 0
 	// Keep order from cached ids.
 	HashSet<String> cached_ids_found;
 	// clang-format off
@@ -2376,7 +2375,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 #if 0
 		E.value = itos(counter++);
 #endif
-		E.value = get_id_for_ext_resource(E.key, counter);
+		E.value = get_id_for_ext_resource(E.key, counter++);
 	}
 
 #endif
