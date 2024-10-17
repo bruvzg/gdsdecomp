@@ -35,6 +35,7 @@
 #include "compat/resource_loader_compat2.h"
 
 #include "core/io/file_access.h"
+#include "core/io/resource.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "scene/resources/packed_scene.h"
@@ -65,6 +66,7 @@ class ResourceLoaderCompatBinary {
 		String type;
 		ResourceUID::ID uid = ResourceUID::INVALID_ID;
 		Ref<ResourceLoader::LoadToken> load_token;
+		Ref<Resource> fallback;
 	};
 
 	Ref<ResourceImportMetadatav2> imd;
@@ -114,7 +116,7 @@ class ResourceLoaderCompatBinary {
 	uint64_t get_metadata_size();
 	Error load_import_metadata(bool p_return_to_pos = false);
 	bool is_real_load() const { return load_type == ResourceCompatLoader::REAL_LOAD; }
-	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id);
+	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx);
 	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
 public:

@@ -66,6 +66,7 @@ private:
 		String path;
 		String type;
 		ResourceUID::ID uid;
+		Ref<Resource> fallback;
 	};
 
 	uint32_t ver_major = 0;

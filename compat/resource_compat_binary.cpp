@@ -31,6 +31,8 @@
 #include "resource_compat_binary.h"
 
 #include "core/config/project_settings.h"
+#include "core/error/error_list.h"
+#include "core/error/error_macros.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access_compressed.h"
 #include "core/io/image.h"
@@ -756,17 +758,8 @@ Error ResourceLoaderCompatBinary::load() {
 		}
 
 		external_resources.write[i].path = path; //remap happens here, not on load because on load it can actually be used for filesystem dock resource remap
-		if (load_type != ResourceCompatLoader::REAL_LOAD) {
-			Ref<ResourceLoader::LoadToken> token{ memnew(ResourceLoader::LoadToken) };
-			token->local_path = path;
-			token->user_path = path;
-			token->user_rc = i;
-			// token->res_if_unregistered = CompatFormatLoader::create_missing_external_resource(path, external_resources[i].type, external_resources[i].uid, itos(i));
-			external_resources.write[i].load_token = token;
-			continue;
-		} // Else, if real load....
-		external_resources.write[i].load_token = ResourceLoader::_load_start(path, external_resources[i].type, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, cache_mode_for_external);
-		if (!external_resources[i].load_token.is_valid()) {
+		external_resources.write[i].load_token = start_ext_load(path, external_resources[i].type, external_resources[i].uid, i);
+		if (!external_resources[i].load_token.is_valid() && is_real_load()) {
 			if (!ResourceLoader::get_abort_on_missing_resources()) {
 				ResourceLoader::notify_dependency_error(local_path, path, external_resources[i].type);
 			} else {
@@ -2963,20 +2956,22 @@ Error ResourceLoaderCompatBinary::load_import_metadata(bool p_return_to_pos) {
 	return OK;
 }
 
-Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id) {
+Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx) {
 	Ref<ResourceLoader::LoadToken> load_token;
 	if (!is_real_load()) {
-		Error err;
+		Error err = OK;
 		load_token = Ref<ResourceLoader::LoadToken>(memnew(ResourceLoader::LoadToken));
-		load_token->local_path = p_path;
-		load_token->user_path = p_path;
+		// load_token->local_path = p_path;
+		// load_token->user_path = p_path;
+		// load_token->user_rc = er_idx;
+		ERR_FAIL_COND_V_MSG(er_idx < 0 || er_idx >= external_resources.size(), Ref<ResourceLoader::LoadToken>(), "Invalid external resource index.");
 		if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-			// load_token->res_if_unregistered = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
-			// if (err != OK || load_token->res_if_unregistered.is_null()) {
-			// 	load_token = Ref<ResourceLoader::LoadToken>();
-			// }
+			external_resources.write[er_idx].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
 		} else {
-			// load_token->res_if_unregistered = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
+			external_resources.write[er_idx].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, itos(er_idx));
+		}
+		if (err != OK || external_resources[er_idx].fallback.is_null()) {
+			load_token = Ref<ResourceLoader::LoadToken>();
 		}
 	} else { // real load
 		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, ResourceFormatLoader::CACHE_MODE_REUSE);
@@ -2989,12 +2984,18 @@ Ref<Resource> ResourceLoaderCompatBinary::finish_ext_load(Ref<ResourceLoader::Lo
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
 	}
 	String path;
-	int i = load_token->user_rc;
-	if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-		// TODO: if implemented multi-threaded GLTF load, do something
-		return ResourceCompatLoader::gltf_load(external_resources[i].path, external_resources[i].type, r_err);
-	} // Fake_load, non-global load
-	return CompatFormatLoader::create_missing_external_resource(external_resources[i].path, external_resources[i].type, external_resources[i].uid, itos(i));
+	for (int i = 0; i < external_resources.size(); i++) {
+		if (external_resources[i].load_token == load_token) {
+			if (r_err) {
+				*r_err = OK;
+			}
+			return external_resources[i].fallback;
+		}
+	}
+	if (r_err) {
+		*r_err = ERR_FILE_NOT_FOUND;
+	}
+	ERR_FAIL_V_MSG(Ref<Resource>(), "Invalid load token.");
 }
 
 void ResourceLoaderCompatBinary::set_compat_meta(Ref<Resource> &r_res) {
