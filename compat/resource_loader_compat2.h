@@ -13,6 +13,13 @@
 class CompatFormatLoader;
 class CompatFormatSaver;
 class ResourceCompatLoader {
+	enum {
+		MAX_LOADERS = 64
+	};
+	static Ref<CompatFormatLoader> loader[MAX_LOADERS];
+	static int loader_count;
+	static bool doing_gltf_load;
+
 public:
 	static Ref<Resource> fake_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 	static Ref<Resource> non_global_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
@@ -20,6 +27,7 @@ public:
 	static Ref<Resource> real_load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, Error *r_error = nullptr);
 	static void add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front = false);
 	static void remove_resource_format_loader(Ref<CompatFormatLoader> p_format_loader);
+	static Ref<CompatFormatLoader> get_loader_for_path(const String &p_path, const String &p_type_hint);
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {
