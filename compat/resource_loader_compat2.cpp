@@ -4,6 +4,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "utility/gdre_settings.h"
+#include "utility/resource_info.h"
 
 Ref<CompatFormatLoader> ResourceCompatLoader::loader[ResourceCompatLoader::MAX_LOADERS];
 int ResourceCompatLoader::loader_count = 0;
@@ -117,4 +118,17 @@ Error ResourceCompatLoader::to_binary(const String &p_path, const String &p_dst,
 	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
 	ResourceFormatSaverCompatBinaryInstance saver;
 	return saver.save(p_dst, res, p_flags);
+}
+
+// static ResourceInfo get_resource_info(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
+ResourceInfo ResourceCompatLoader::get_resource_info(const String &p_path, const String &p_type_hint, Error *r_error) {
+	auto loader = get_loader_for_path(p_path, p_type_hint);
+	if (loader.is_null()) {
+		if (r_error) {
+			*r_error = ERR_FILE_NOT_FOUND;
+		}
+		ERR_PRINT("Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+		return ResourceInfo();
+	}
+	return loader->get_resource_info(p_path, r_error);
 }
