@@ -1,5 +1,6 @@
 #include "import_info.h"
-#include "compat/resource_loader_compat.h"
+#include "compat/resource_compat_binary.h"
+#include "compat/resource_loader_compat2.h"
 #include "gdre_settings.h"
 #include "utility/glob.h"
 String ImportInfo::to_string() {
@@ -202,9 +203,8 @@ ImportInfoRemap::ImportInfoRemap() :
 }
 
 Error ImportInfo::get_resource_info(const String &p_path, ResourceInfo &res_info) {
-	ResourceFormatLoaderCompat rlc;
-	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->has_res_path(p_path), ERR_FILE_NOT_FOUND, "Could not load " + p_path);
-	Error err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
+	Error err;
+	res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource info from " + p_path);
 	return OK;
 }
@@ -212,12 +212,11 @@ Error ImportInfo::get_resource_info(const String &p_path, ResourceInfo &res_info
 Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, int ver_minor) {
 	Ref<ImportInfo> iinfo;
 	Error err = OK;
-	ResourceInfo res_info;
 	if (p_path.get_extension() == "import") {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfoModern));
 		err = iinfo->_load(p_path);
 		if (ver_major == 0) {
-			err = get_resource_info(iinfo->get_path(), res_info);
+			ResourceInfo res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
 			if (err) {
 				WARN_PRINT("ImportInfo: Version major not specified and could not load binary resource file!");
 				err = OK;
@@ -466,8 +465,8 @@ Error ImportInfoModern::_load(const String &p_path) {
 }
 
 Error ImportInfoDummy::_load(const String &p_path) {
-	ResourceInfo res_info;
-	Error err = get_resource_info(p_path, res_info);
+	Error err;
+	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource " + p_path);
 	preferred_import_path = p_path;
 	source_file = "";
@@ -496,8 +495,7 @@ Error ImportInfoRemap::_load(const String &p_path) {
 		ERR_FAIL_V_MSG(ERR_BUG, "Failed to load import data from " + path);
 	}
 	preferred_import_path = cf->get_value("remap", "path", "");
-	ResourceInfo res_info;
-	err = get_resource_info(preferred_import_path, res_info);
+	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
 	if (err) {
 		cf = Ref<ConfigFile>();
 	}
@@ -514,13 +512,11 @@ Error ImportInfoRemap::_load(const String &p_path) {
 
 Error ImportInfov2::_load(const String &p_path) {
 	Error err;
-	ResourceFormatLoaderCompat rlc;
-	ResourceInfo res_info;
-	preferred_import_path = p_path;
-	err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
+	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
 	if (err) {
 		ERR_FAIL_V_MSG(err, "Could not load resource info from " + p_path);
 	}
+	preferred_import_path = p_path;
 	String dest;
 	String source_file;
 	String importer;
@@ -537,7 +533,7 @@ Error ImportInfov2::_load(const String &p_path) {
 	Vector<String> spl = p_path.get_file().split(".");
 	// Otherwise, we dont have any meta data, and we have to guess what it is
 	// If this is a "converted" file, then it won't have import metadata, and we expect that
-	if (p_path.find(".converted.") != -1) {
+	if (!p_path.contains(".converted.")) {
 		// The file loaded, but there was no metadata and it was not a ".converted." file
 		//WARN_PRINT("Could not load metadata from " + p_path);
 		String new_ext;
@@ -715,8 +711,7 @@ Error ImportInfoModern::save_to(const String &new_import_file) {
 
 Error ImportInfov2::save_to(const String &new_import_file) {
 	Error err;
-	ResourceFormatLoaderCompat rlc;
-	err = rlc.rewrite_v2_import_metadata(import_md_path, new_import_file, v2metadata);
+	err = ResourceFormatLoaderCompatBinary::rewrite_v2_import_metadata(import_md_path, new_import_file, v2metadata);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
 	return err;
 }
