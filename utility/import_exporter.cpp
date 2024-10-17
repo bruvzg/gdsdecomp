@@ -1181,13 +1181,24 @@ Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const Stri
 	print_verbose("Converted " + p_path + " to " + p_dst);
 	return err;
 }
+#include "compat/resource_compat_binary.h"
+#include "compat/resource_compat_text.h"
 
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
-	ResourceFormatLoaderCompat rlc;
-	Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
+	ResourceFormatLoaderCompatBinary rlc;
+	Error err;
+	auto res = rlc.custom_load(p_path, ResourceCompatLoader::LoadType::FAKE_LOAD, &err);
+	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
+	ResourceFormatSaverCompatText rlc_text;
+	err = rlc_text.save(res, output_dir.path_join(p_dst));
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save " + p_dst);
 	print_verbose("Converted " + p_path + " to " + p_dst);
 	return err;
+	// ResourceFormatLoaderCompat rlc;
+	// Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
+	// ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
+	// print_verbose("Converted " + p_path + " to " + p_dst);
+	// return err;
 }
 Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
 	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
