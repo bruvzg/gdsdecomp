@@ -823,7 +823,7 @@ Error ResourceLoaderCompatText::load() {
 			if (!assign.is_empty()) {
 				bool set_valid = true;
 
-				if (value.get_type() == Variant::OBJECT && missing_resource != nullptr) {
+				if (value.get_type() == Variant::OBJECT && missing_resource == nullptr && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
 					// If the property being set is a missing resource (and the parent is not),
 					// then setting it will most likely not work.
 					// Instead, save it as metadata.
@@ -1188,6 +1188,10 @@ void ResourceLoaderCompatText::open(Ref<FileAccess> p_f, bool p_skip_first_tag) 
 
 	switch (format_version) {
 		// no engine version info in text, so we infer from the format version
+		case 4:
+			ver_major = 4;
+			ver_minor = 3;
+			break;
 		case 3:
 			ver_major = 4;
 			ver_minor = 0;
@@ -2182,7 +2186,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 	if (p_path.ends_with(".tscn") || p_path.ends_with(".escn")) {
 		// If this is a MissingResource holder for a PackedScene, we need to instance it for reals
-		if (p_resource->get_class() == "MissingResource" && p_resource->get_save_class() == "PackedScene") {
+		if (p_resource->get_class() == "MissingResource" && _resource_get_class(p_resource) == "PackedScene") {
 			Dictionary bundle = p_resource->get("_bundled");
 			packed_scene = Ref<PackedScene>(memnew(PackedScene));
 			packed_scene->set("_bundled", bundle);
@@ -2198,7 +2202,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 	local_path = GDRESettings::get_singleton()->localize_path(p_path);
 
-	format_version = compat.get("format_version", 0);
+	format_version = compat.get("ver_format", 0);
 	ver_major = compat.get("ver_major", 0);
 	ver_minor = compat.get("ver_minor", 0);
 	ResourceUID::ID res_uid = compat.get("uid", ResourceUID::INVALID_ID);
@@ -2375,8 +2379,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 	for (int i = 0; i < sorted_er.size(); i++) {
 		String p = sorted_er[i].resource->get_path();
-
-		String s = "[ext_resource type=\"" + sorted_er[i].resource->get_save_class() + "\"";
+		String s = "[ext_resource type=\"" + _resource_get_class(sorted_er[i].resource) + "\"";
 		Dictionary compat = sorted_er[i].resource->get_meta("compat", Dictionary());
 		ResourceUID::ID uid = compat.get("uid", ResourceUID::INVALID_ID);
 		if (format_version >= 3 && uid != ResourceUID::INVALID_ID) {
@@ -2782,11 +2785,13 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const St
 Ref<Resource> ResourceLoaderCompatText::finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err) {
 	if (load_type == ResourceCompatLoader::REAL_LOAD) {
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
-	} else if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-		// TODO: if implemented multi-threaded GLTF load, do something; for right now it's already loaded
 	} // Fake_load, non-global load
 	for (auto &E : ext_resources) {
 		if (E.value.path == load_token->local_path) {
+			if (load_type == ResourceCompatLoader::GLTF_LOAD) {
+				Error err;
+				return ResourceCompatLoader::gltf_load(E.value.path, E.value.type, r_err);
+			}
 			return CompatFormatLoader::create_missing_external_resource(E.value.path, E.value.type, E.value.uid, E.key);
 		}
 	}
@@ -2800,8 +2805,8 @@ Dictionary ResourceLoaderCompatText::get_resource_info() {
 	info["main_resource"] = true;
 	info["ver_major"] = ver_major;
 	info["ver_minor"] = ver_minor;
-	info["format_version"] = format_version;
-	info["resource_format"] = "binary";
+	info["ver_format"] = format_version;
+	info["resource_format"] = "text";
 	info["load_type"] = load_type;
 	info["using_script_class"] = !script_class.is_empty();
 	// info["using_real_t_double"] = using_real_t_double;
