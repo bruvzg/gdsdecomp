@@ -2499,10 +2499,10 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 
 	List<ResourceData> resources;
 
-	Dictionary missing_resource_properties = p_resource->get_meta(META_MISSING_RESOURCES, Dictionary());
-
 	{
 		for (const Ref<Resource> &E : saved_resources) {
+			Dictionary missing_resource_properties = E->get_meta(META_MISSING_RESOURCES, Dictionary());
+
 			ResourceData &rd = resources.push_back(ResourceData())->get();
 			rd.type = _resource_get_class(E);
 
@@ -2520,7 +2520,7 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 					continue;
 				}
 
-				if ((F.usage & PROPERTY_USAGE_STORAGE)) {
+				if ((F.usage & PROPERTY_USAGE_STORAGE) || missing_resource_properties.has(F.name)) {
 					Property p;
 					p.name_idx = get_string_index(F.name);
 
@@ -2535,7 +2535,7 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 						p.value = E->get(F.name);
 					}
 
-					if (p.pi.type == Variant::OBJECT && missing_resource_properties.has(F.name)) {
+					if (F.type == Variant::OBJECT && missing_resource_properties.has(F.name)) {
 						// Was this missing resource overridden? If so do not save the old value.
 						Ref<Resource> res = p.value;
 						if (res.is_null()) {
