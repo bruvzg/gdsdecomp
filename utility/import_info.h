@@ -9,7 +9,7 @@
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
 #include "core/templates/rb_map.h"
-
+#include "utility/resource_info.h"
 namespace V2ImportEnums {
 enum TextureFormat {
 	IMAGE_FORMAT_UNCOMPRESSED,
@@ -67,15 +67,6 @@ enum CompressMode {
 	COMPRESS_UNCOMPRESSED
 };
 } //namespace V3TexCompressMode
-struct _ResourceInfo {
-	int ver_major = 0; //2, 3, 4
-	int ver_minor = 0;
-	String type;
-	Ref<ResourceImportMetadatav2> v2metadata = nullptr;
-	bool auto_converted_export = false;
-	bool is_text = false;
-	bool suspect = false;
-};
 
 class ImportInfo : public RefCounted {
 	GDCLASS(ImportInfo, RefCounted)
@@ -177,7 +168,7 @@ public:
 	virtual int get_import_loss_type() const;
 
 	virtual Error save_to(const String &p_path) = 0;
-	static Error get_resource_info(const String &p_path, _ResourceInfo &i_info);
+	static Error get_resource_info(const String &p_path, ResourceInfo &i_info);
 	static Ref<ImportInfo> copy(const Ref<ImportInfo> &p_iinfo);
 	static Ref<ImportInfo> load_from_file(const String &p_path, int ver_major = 0, int ver_minor = 0);
 	ImportInfo();

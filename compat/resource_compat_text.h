@@ -33,6 +33,7 @@
 
 #include "compat/resource_import_metadatav2.h"
 #include "compat/resource_loader_compat2.h"
+#include "utility/resource_info.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
@@ -72,7 +73,7 @@ private:
 	uint32_t ver_major = 0;
 	uint32_t ver_minor = 0;
 
-	ResourceCompatLoader::LoadType load_type = ResourceCompatLoader::REAL_LOAD;
+	ResourceInfo::LoadType load_type = ResourceInfo::REAL_LOAD;
 
 	int packed_scene_version = 2; // 2 is the lowest packed scene version that text resources supported
 	bool is_scene = false;
@@ -142,13 +143,13 @@ private:
 
 	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser);
 
-	bool is_real_load() const { return load_type == ResourceCompatLoader::REAL_LOAD; }
+	bool is_real_load() const { return load_type == ResourceInfo::REAL_LOAD; }
 
 	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id);
 	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
 public:
-	Dictionary get_resource_info();
+	ResourceInfo get_resource_info();
 	Ref<Resource> get_resource();
 	Error load();
 	Error set_uid(Ref<FileAccess> p_f, ResourceUID::ID p_uid);
@@ -184,8 +185,8 @@ public:
 	virtual void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types = false) override;
 	virtual Error rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) override;
 
-	virtual Ref<Resource> custom_load(const String &p_path, ResourceCompatLoader::LoadType p_type, Error *r_error = nullptr) override;
-
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) override;
+	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;
 	ResourceFormatCompatLoaderText() { singleton = this; }
 };
 

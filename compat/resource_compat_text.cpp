@@ -2189,11 +2189,12 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 		packed_scene = p_resource;
 	}
 #endif
-	Dictionary compat = p_resource->get_meta("compat");
-	if (compat.is_empty()) {
+	Dictionary compat_dict = p_resource->get_meta("compat");
+	if (compat_dict.is_empty()) {
 		WARN_PRINT("Resource does not have compat metadata set?!?!?!?!");
 		ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Resource does not have compat metadata set?!?!?!?!");
 	}
+	ResourceInfo compat = ResourceInfo::from_dict(compat_dict);
 
 	if (p_path.ends_with(".tscn") || p_path.ends_with(".escn")) {
 		// If this is a MissingResource holder for a PackedScene, we need to instance it for reals
@@ -2213,16 +2214,16 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 	local_path = GDRESettings::get_singleton()->localize_path(p_path);
 
-	format_version = compat.get("ver_format", 0);
-	ver_major = compat.get("ver_major", 0);
-	ver_minor = compat.get("ver_minor", 0);
-	ResourceUID::ID res_uid = compat.get("uid", ResourceUID::INVALID_ID);
-	String format = compat.get("resource_format", "binary");
-	bool using_script_class = compat.get("using_script_class", false);
-	String script_class = compat.get("script_class", String());
-	bool using_uids = compat.get("using_uids", false);
-	bool using_named_scene_ids = compat.get("using_named_scene_ids", false);
-	Ref<ResourceImportMetadatav2> imd = compat.get("import_metadata", Ref<ResourceImportMetadatav2>());
+	format_version = compat.ver_format;
+	ver_major = compat.ver_major;
+	ver_minor = compat.ver_minor;
+	ResourceUID::ID res_uid = compat.uid;
+	String format = compat.resource_format;
+	bool using_script_class = compat.using_script_class();
+	String script_class = compat.script_class;
+	bool using_uids = compat.using_uids;
+	bool using_named_scene_ids = compat.using_named_scene_ids;
+	Ref<ResourceImportMetadatav2> imd = compat.v2metadata;
 	if (format != "text") {
 		if (format == "binary" && (format_version == 6 || (ver_major == 4 && ver_minor >= 3))) {
 			format_version = 4;
@@ -2768,12 +2769,12 @@ ResourceFormatSaverCompatText::ResourceFormatSaverCompatText() {
 }
 
 void ResourceLoaderCompatText::set_compat_meta(Ref<Resource> &r_res) {
-	Dictionary compat = get_resource_info();
-	compat["main_resource"] = true;
+	ResourceInfo compat = get_resource_info();
+	compat.topology_type = ResourceInfo::MAIN_RESOURCE;
 	if (is_scene) {
-		compat["packed_scene_version"] = packed_scene_version;
+		compat.packed_scene_version = packed_scene_version;
 	}
-	r_res->set_meta(META_COMPAT, compat);
+	r_res->set_meta(META_COMPAT, compat.to_dict());
 }
 
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id) {
@@ -2782,7 +2783,7 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const St
 		ERR_FAIL_COND_V_MSG(!ext_resources.has(id), load_token, "External resources doesn't have id: " + id);
 		Error err = OK;
 		load_token = Ref<ResourceLoader::LoadToken>(memnew(ResourceLoader::LoadToken));
-		if (load_type == ResourceCompatLoader::GLTF_LOAD) {
+		if (load_type == ResourceInfo::GLTF_LOAD) {
 			ext_resources[id].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
 		} else {
 			ext_resources[id].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
@@ -2814,28 +2815,27 @@ Ref<Resource> ResourceLoaderCompatText::finish_ext_load(Ref<ResourceLoader::Load
 	ERR_FAIL_V_MSG(Ref<Resource>(), "Invalid load token.");
 }
 
-Dictionary ResourceLoaderCompatText::get_resource_info() {
-	Dictionary info;
-	info["uid"] = res_uid;
-	info["type"] = res_type;
-	info["main_resource"] = true;
-	info["ver_major"] = ver_major;
-	info["ver_minor"] = ver_minor;
-	info["ver_format"] = format_version;
-	info["resource_format"] = "text";
-	info["load_type"] = load_type;
-	info["using_script_class"] = !script_class.is_empty();
-	// info["using_real_t_double"] = using_real_t_double;
-	// info["stored_use_real64"] = stored_use_real64;
-	// info["stored_big_endian"] = stored_big_endian;
-	info["using_named_scene_ids"] = format_version >= 3;
-	info["using_uids"] = format_version >= 3;
-	info["script_class"] = script_class;
-	// info["import_metadata"] = imd;
+ResourceInfo ResourceLoaderCompatText::get_resource_info() {
+	ResourceInfo info;
+	info.uid = res_uid;
+	info.type = res_type;
+	info.topology_type = ResourceInfo::MAIN_RESOURCE;
+	info.ver_major = ver_major;
+	info.ver_minor = ver_minor;
+	info.ver_format = format_version;
+	info.resource_format = "text";
+	info.load_type = load_type;
+	// info.using_real_t_double = using_real_t_double;
+	// info.stored_use_real64 = stored_use_real64;
+	// info.stored_big_endian = stored_big_endian;
+	info.using_named_scene_ids = format_version >= 3;
+	info.using_uids = format_version >= 3;
+	info.script_class = script_class;
+	// info.import_metadata = imd;
 	return info;
 }
 
-Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, ResourceCompatLoader::LoadType p_load_type, Error *r_error) {
+Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, ResourceInfo::LoadType p_load_type, Error *r_error) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
@@ -2851,16 +2851,16 @@ Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, 
 	loader.load_type = p_load_type;
 	switch (p_load_type) {
 		// TODO: Figure out if we can do caching at all
-		case ResourceCompatLoader::FAKE_LOAD:
-		case ResourceCompatLoader::NON_GLOBAL_LOAD:
+		case ResourceInfo::FAKE_LOAD:
+		case ResourceInfo::NON_GLOBAL_LOAD:
 			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
 			loader.use_sub_threads = false;
 			break;
-		case ResourceCompatLoader::GLTF_LOAD:
+		case ResourceInfo::GLTF_LOAD:
 			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
 			loader.use_sub_threads = true;
 			break;
-		case ResourceCompatLoader::REAL_LOAD:
+		case ResourceInfo::REAL_LOAD:
 		default:
 			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
 			loader.use_sub_threads = true;
@@ -2879,4 +2879,33 @@ Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, 
 	} else {
 		return Ref<Resource>();
 	}
+}
+
+#define _SET_R_ERR(err, r_error) \
+	if (r_error) {               \
+		*r_error = err;          \
+	}
+
+ResourceInfo ResourceFormatCompatLoaderText::get_resource_info(const String &p_path, Error *r_error) const {
+	_SET_R_ERR(ERR_CANT_OPEN, r_error);
+
+	Error err;
+
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+
+	ERR_FAIL_COND_V_MSG(err, ResourceInfo(), "Cannot open file '" + p_path + "'.");
+
+	ResourceLoaderCompatText loader;
+	String path = p_path;
+	loader.load_type = ResourceInfo::FAKE_LOAD;
+	loader.cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
+	loader.use_sub_threads = false;
+	loader.local_path = GDRESettings::get_singleton()->localize_path(path);
+	loader.progress = nullptr;
+	loader.res_path = loader.local_path;
+	loader.open(f);
+	err = loader.load();
+	_SET_R_ERR(err, r_error);
+	ERR_FAIL_COND_V_MSG(err, ResourceInfo(), "Cannot load file '" + p_path + "'.");
+	return loader.get_resource_info();
 }

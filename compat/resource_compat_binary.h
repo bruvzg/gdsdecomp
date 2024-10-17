@@ -39,6 +39,7 @@
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "scene/resources/packed_scene.h"
+#include "utility/resource_info.h"
 
 class ResourceLoaderCompatBinary {
 	bool translation_remapped = false;
@@ -87,7 +88,7 @@ class ResourceLoaderCompatBinary {
 	float *progress = nullptr;
 	Vector<ExtResource> external_resources;
 
-	ResourceCompatLoader::LoadType load_type = ResourceCompatLoader::FAKE_LOAD;
+	ResourceInfo::LoadType load_type = ResourceInfo::FAKE_LOAD;
 
 	struct IntResource {
 		String path;
@@ -112,10 +113,10 @@ class ResourceLoaderCompatBinary {
 
 	HashMap<String, Ref<Resource>> dependency_cache;
 	void set_compat_meta(Ref<Resource> &r_res);
-	Dictionary get_resource_info();
+	ResourceInfo get_resource_info();
 	uint64_t get_metadata_size();
 	Error load_import_metadata(bool p_return_to_pos = false);
-	bool is_real_load() const { return load_type == ResourceCompatLoader::REAL_LOAD; }
+	bool is_real_load() const { return load_type == ResourceInfo::REAL_LOAD; }
 	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx);
 	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
@@ -136,7 +137,9 @@ public:
 
 class ResourceFormatLoaderCompatBinary : public CompatFormatLoader {
 public:
-	virtual Ref<Resource> custom_load(const String &p_path, ResourceCompatLoader::LoadType p_type, Error *r_error = nullptr) override;
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) override;
+	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;
+
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
