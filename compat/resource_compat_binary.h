@@ -28,14 +28,18 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef RESOURCE_FORMAT_BINARY_H
-#define RESOURCE_FORMAT_BINARY_H
+#ifndef RESOURCE_COMPAT_BINARY_H
+#define RESOURCE_COMPAT_BINARY_H
+
+#include "compat/resource_import_metadatav2.h"
+#include "compat/resource_loader_compat2.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
+#include "scene/resources/packed_scene.h"
 
-class ResourceLoaderBinary {
+class ResourceLoaderCompatBinary {
 	bool translation_remapped = false;
 	String local_path;
 	String res_path;
@@ -63,12 +67,25 @@ class ResourceLoaderBinary {
 		Ref<ResourceLoader::LoadToken> load_token;
 	};
 
+	Ref<ResourceImportMetadatav2> imd;
+
+	uint32_t ver_major;
+	uint32_t ver_minor;
+	int packed_scene_version = -1;
+	bool suspect_version = false;
+
+	bool using_script_class = false;
+	bool using_real_t_double = false;
+	bool stored_use_real64 = false;
+	bool stored_big_endian = false;
 	bool using_named_scene_ids = false;
 	bool using_uids = false;
 	String script_class;
 	bool use_sub_threads = false;
 	float *progress = nullptr;
 	Vector<ExtResource> external_resources;
+
+	ResourceCompatLoader::LoadType load_type = ResourceCompatLoader::FAKE_LOAD;
 
 	struct IntResource {
 		String path;
@@ -87,11 +104,18 @@ class ResourceLoaderBinary {
 	ResourceFormatLoader::CacheMode cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
 	ResourceFormatLoader::CacheMode cache_mode_for_external = ResourceFormatLoader::CACHE_MODE_REUSE;
 
-	friend class ResourceFormatLoaderBinary;
+	friend class ResourceFormatLoaderCompatBinary;
 
 	Error parse_variant(Variant &r_v);
 
 	HashMap<String, Ref<Resource>> dependency_cache;
+	void set_compat_meta(Ref<Resource> &r_res);
+	Dictionary get_resource_info();
+	uint64_t get_metadata_size();
+	Error load_import_metadata(bool p_return_to_pos = false);
+	bool is_real_load() const { return load_type == ResourceCompatLoader::REAL_LOAD; }
+	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id);
+	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
 public:
 	Ref<Resource> get_resource();
@@ -105,11 +129,12 @@ public:
 	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types);
 	void get_classes_used(Ref<FileAccess> p_f, HashSet<StringName> *p_classes);
 
-	ResourceLoaderBinary() {}
+	ResourceLoaderCompatBinary() {}
 };
 
-class ResourceFormatLoaderBinary : public ResourceFormatLoader {
+class ResourceFormatLoaderCompatBinary : public CompatFormatLoader {
 public:
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceCompatLoader::LoadType p_type, Error *r_error = nullptr) override;
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
@@ -122,17 +147,30 @@ public:
 	virtual Error rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) override;
 };
 
-class ResourceFormatSaverBinaryInstance {
+class ResourceFormatSaverCompatBinaryInstance {
 	String local_path;
 	String path;
 
-	bool relative_paths;
-	bool bundle_resources;
-	bool skip_editor;
-	bool big_endian;
-	bool takeover_paths;
+	bool relative_paths = false;
+	bool bundle_resources = false;
+	bool skip_editor = false;
+	bool big_endian = false;
+	bool takeover_paths = false;
 	String magic;
 	HashSet<Ref<Resource>> resource_set;
+
+	String output_dir;
+
+	uint32_t ver_format;
+	uint32_t ver_major;
+	uint32_t ver_minor;
+	bool using_uids = false;
+	bool using_named_scene_ids = false;
+	bool using_script_class = false;
+	bool using_real_t_double = false;
+	bool stored_use_real64 = false;
+	bool stored_big_endian = false;
+	String script_class;
 
 	struct NonPersistentKey { //for resource properties generated on the fly
 		Ref<Resource> base;
@@ -162,6 +200,7 @@ class ResourceFormatSaverBinaryInstance {
 	void _find_resources(const Variant &p_variant, bool p_main = false);
 	static void save_unicode_string(Ref<FileAccess> f, const String &p_string, bool p_bit_on_len = false);
 	int get_string_index(const String &p_string);
+	Dictionary fix_scene_bundle(const Ref<PackedScene> &p_scene, int original_version);
 
 public:
 	enum {
@@ -175,18 +214,18 @@ public:
 	};
 	Error save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
 	Error set_uid(const String &p_path, ResourceUID::ID p_uid);
-	static void write_variant(Ref<FileAccess> f, const Variant &p_property, HashMap<Ref<Resource>, int> &resource_map, HashMap<Ref<Resource>, int> &external_resources, HashMap<StringName, int> &string_map, const PropertyInfo &p_hint = PropertyInfo());
+	void write_variant(Ref<FileAccess> f, const Variant &p_property, HashMap<Ref<Resource>, int> &resource_map, HashMap<Ref<Resource>, int> &external_resources, HashMap<StringName, int> &string_map, const PropertyInfo &p_hint = PropertyInfo());
 };
 
-class ResourceFormatSaverBinary : public ResourceFormatSaver {
+class ResourceFormatSaverCompatBinary : public ResourceFormatSaver {
 public:
-	static ResourceFormatSaverBinary *singleton;
+	static ResourceFormatSaverCompatBinary *singleton;
 	virtual Error save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags = 0) override;
 	virtual Error set_uid(const String &p_path, ResourceUID::ID p_uid) override;
 	virtual bool recognize(const Ref<Resource> &p_resource) const override;
 	virtual void get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const override;
 
-	ResourceFormatSaverBinary();
+	ResourceFormatSaverCompatBinary();
 };
 
-#endif // RESOURCE_FORMAT_BINARY_H
+#endif // RESOURCE_COMPAT_BINARY_H
