@@ -1,3 +1,4 @@
+#pragma once
 #include "core/io/file_access.h"
 #include "core/io/missing_resource.h"
 #include "core/io/resource_loader.h"
