@@ -28,8 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef RESOURCE_FORMAT_TEXT_H
-#define RESOURCE_FORMAT_TEXT_H
+#ifndef RESOURCE_COMPAT_TEXT_H
+#define RESOURCE_COMPAT_TEXT_H
+
+#include "compat/resource_import_metadatav2.h"
+#include "compat/resource_loader_compat2.h"
 
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
@@ -37,7 +40,7 @@
 #include "core/variant/variant_parser.h"
 #include "scene/resources/packed_scene.h"
 
-class ResourceLoaderText {
+class ResourceLoaderCompatText {
 public:
 	enum {
 		// Version 2: Changed names for Basis, AABB, Vectors, etc.
@@ -62,8 +65,15 @@ private:
 		Ref<ResourceLoader::LoadToken> load_token;
 		String path;
 		String type;
+		ResourceUID::ID uid;
 	};
 
+	uint32_t ver_major = 0;
+	uint32_t ver_minor = 0;
+
+	ResourceCompatLoader::LoadType load_type = ResourceCompatLoader::REAL_LOAD;
+
+	int packed_scene_version = 2; // 2 is the lowest packed scene version that text resources supported
 	bool is_scene = false;
 	int format_version;
 	String res_type;
@@ -92,11 +102,18 @@ private:
 
 	HashMap<String, String> remaps;
 
-	static Error _parse_sub_resources(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str) { return reinterpret_cast<ResourceLoaderText *>(p_self)->_parse_sub_resource(p_stream, r_res, line, r_err_str); }
-	static Error _parse_ext_resources(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str) { return reinterpret_cast<ResourceLoaderText *>(p_self)->_parse_ext_resource(p_stream, r_res, line, r_err_str); }
+	static Error _parse_sub_resources(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str) { return reinterpret_cast<ResourceLoaderCompatText *>(p_self)->_parse_sub_resource(p_stream, r_res, line, r_err_str); }
+	static Error _parse_ext_resources(void *p_self, VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str) { return reinterpret_cast<ResourceLoaderCompatText *>(p_self)->_parse_ext_resource(p_stream, r_res, line, r_err_str); }
 
 	Error _parse_sub_resource(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
 	Error _parse_ext_resource(VariantParser::Stream *p_stream, Ref<Resource> &r_res, int &line, String &r_err_str);
+
+	void set_compat_meta(Ref<Resource> &r_res);
+
+	// for converter
+	class DummyResource : public Resource {
+	public:
+	};
 
 	struct DummyReadData {
 		bool no_placeholders = false;
@@ -115,8 +132,8 @@ private:
 
 	VariantParser::ResourceParser rp;
 
-	friend class ResourceFormatLoaderText;
-	friend class ResourceFormatSaverText;
+	friend class ResourceFormatCompatLoaderText;
+	friend class ResourceFormatSaverCompatText;
 
 	Error error = OK;
 
@@ -124,7 +141,13 @@ private:
 
 	Ref<PackedScene> _parse_node_tag(VariantParser::ResourceParser &parser);
 
+	bool is_real_load() const { return load_type == ResourceCompatLoader::REAL_LOAD; }
+
+	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id);
+	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
+
 public:
+	Dictionary get_resource_info();
 	Ref<Resource> get_resource();
 	Error load();
 	Error set_uid(Ref<FileAccess> p_f, ResourceUID::ID p_uid);
@@ -140,12 +163,14 @@ public:
 	Error rename_dependencies(Ref<FileAccess> p_f, const String &p_path, const HashMap<String, String> &p_map);
 	Error get_classes_used(HashSet<StringName> *r_classes);
 
-	ResourceLoaderText();
+	Error save_as_binary(const String &p_path);
+	ResourceLoaderCompatText();
 };
 
-class ResourceFormatLoaderText : public ResourceFormatLoader {
+class ResourceFormatCompatLoaderText : public CompatFormatLoader {
+private:
 public:
-	static ResourceFormatLoaderText *singleton;
+	static ResourceFormatCompatLoaderText *singleton;
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
@@ -158,10 +183,12 @@ public:
 	virtual void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types = false) override;
 	virtual Error rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) override;
 
-	ResourceFormatLoaderText() { singleton = this; }
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceCompatLoader::LoadType p_type, Error *r_error = nullptr) override;
+
+	ResourceFormatCompatLoaderText() { singleton = this; }
 };
 
-class ResourceFormatSaverTextInstance {
+class ResourceFormatSaverCompatTextInstance {
 	String local_path;
 
 	Ref<PackedScene> packed_scene;
@@ -170,6 +197,10 @@ class ResourceFormatSaverTextInstance {
 	bool relative_paths = false;
 	bool bundle_resources = false;
 	bool skip_editor = false;
+
+	int format_version;
+	uint32_t ver_major;
+	uint32_t ver_minor;
 
 	struct NonPersistentKey { //for resource properties generated on the fly
 		Ref<Resource> base;
@@ -197,20 +228,21 @@ class ResourceFormatSaverTextInstance {
 
 	static String _write_resources(void *ud, const Ref<Resource> &p_resource);
 	String _write_resource(const Ref<Resource> &res);
+	String get_id_for_ext_resource(Ref<Resource> res, int ext_resources_size);
 
 public:
 	Error save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
 };
 
-class ResourceFormatSaverText : public ResourceFormatSaver {
+class ResourceFormatSaverCompatText : public ResourceFormatSaver {
 public:
-	static ResourceFormatSaverText *singleton;
+	static ResourceFormatSaverCompatText *singleton;
 	virtual Error save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags = 0) override;
 	virtual Error set_uid(const String &p_path, ResourceUID::ID p_uid) override;
 	virtual bool recognize(const Ref<Resource> &p_resource) const override;
 	virtual void get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const override;
 
-	ResourceFormatSaverText();
+	ResourceFormatSaverCompatText();
 };
 
-#endif // RESOURCE_FORMAT_TEXT_H
+#endif // RESOURCE_COMPAT_TEXT_H
