@@ -31,6 +31,7 @@
 #include "resource_compat_text.h"
 
 #include "core/config/project_settings.h"
+#include "core/error/error_macros.h"
 #include "core/io/dir_access.h"
 #include "core/io/missing_resource.h"
 #include "core/object/script_language.h"
@@ -42,11 +43,21 @@
 #include "core/io/dir_access.h"
 #include "core/version.h"
 
+#include "fake_scene_state.h"
+
 void ResourceLoaderCompatText::_printerr() {
 	ERR_PRINT(String(res_path + ":" + itos(lines) + " - Parse Error: " + error_text).utf8().get_data());
 }
 
 ///
+
+String get_id_string(String p_id, int format_version) {
+	if (format_version >= 3) {
+		return "\"" + p_id + "\"";
+	} else {
+		return p_id;
+	}
+}
 
 Ref<Resource> ResourceLoaderCompatText::get_resource() {
 	return resource;
@@ -1114,7 +1125,7 @@ Error ResourceLoaderCompatText::rename_dependencies(Ref<FileAccess> p_f, const S
 			}
 			}
 			// clang-format on
-			s += " path=\"" + path + "\" id=\"" + id + "\"]";
+			s += " path=\"" + path + "\" id=" + get_id_string(id, format_version) + "]";
 			fw->store_line(s); // Bundled.
 
 			tag_end = f->get_position();
@@ -2048,13 +2059,13 @@ String ResourceFormatSaverCompatTextInstance::_write_resource(const Ref<Resource
 String ResourceFormatSaverCompatTextInstance::get_id_for_ext_resource(Ref<Resource> res, int ext_resources_size) {
 	Dictionary dict = res->get_meta(META_COMPAT, Dictionary());
 	String id = dict.get("cached_id", String());
-	if (id.is_empty()) {
-		if (format_version >= 3) {
-			id = itos(ext_resources_size + 1) + "_" + Resource::generate_scene_unique_id();
-		} else {
-			id = itos(ext_resources_size);
-		}
+	// if (id.is_empty()) {
+	if (format_version >= 3) {
+		id = itos(ext_resources_size + 1) + "_" + Resource::generate_scene_unique_id();
+	} else {
+		id = itos(ext_resources_size + 1);
 	}
+	// }
 	return id;
 }
 
@@ -2213,7 +2224,9 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 	bool using_named_scene_ids = compat.get("using_named_scene_ids", false);
 	Ref<ResourceImportMetadatav2> imd = compat.get("import_metadata", Ref<ResourceImportMetadatav2>());
 	if (format != "text") {
-		if (using_uids || using_named_scene_ids || using_script_class) {
+		if (format == "binary" && (format_version == 6 || (ver_major == 4 && ver_minor >= 3))) {
+			format_version = 4;
+		} else if (using_uids || using_named_scene_ids || using_script_class) {
 			format_version = 3;
 		} else {
 			switch (ver_major) {
@@ -2223,9 +2236,13 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 				case 3:
 					format_version = 2;
 					break;
-				case 4:
-					format_version = 3;
-					break;
+				case 4: {
+					if (ver_minor < 3) {
+						format_version = 3;
+					} else {
+						format_version = 4;
+					}
+				} break;
 				default:
 					ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Invalid version major: " + itos(ver_major));
 					break;
@@ -2245,15 +2262,17 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 	// Save resources.
 	use_compat = true; // _find_resources() changes this.
 	_find_resources(p_resource, true);
-
+	if (!use_compat && format_version >= 3) {
+		format_version = 4;
+	}
 	if (packed_scene.is_valid()) {
 		// Add instances to external resources if saving a packed scene.
 		for (int i = 0; i < packed_scene->get_state()->get_node_count(); i++) {
 			if (packed_scene->get_state()->is_node_instance_placeholder(i)) {
 				continue;
 			}
-
-			Ref<PackedScene> instance = packed_scene->get_state()->get_node_instance(i);
+			Ref<SceneState> state = packed_scene->get_state();
+			Ref<Resource> instance = SceneStateInstanceGetter::get_fake_instance(state.ptr(), i);
 			if (instance.is_valid() && !external_resources.has(instance)) {
 #if 0
 				int index = external_resources.size() + 1;
@@ -2352,18 +2371,14 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 	// Make sure to start from one, as it makes format more readable.
 	int counter = 1;
 	// Actually, no, don't do that you idiot, it breaks everything
-	counter = format_version >= 3 ? 1 : 0;
+	counter = 0;
 	for (KeyValue<Ref<Resource>, String> &E : external_resources) {
-		Dictionary compat = E.key->get_meta("compat", Dictionary());
-		String sc_id = compat.get("cached_id", String());
-		if (!sc_id.is_empty()) {
-			E.value = sc_id;
-			counter++;
-			continue;
-		}
-
+#if 0
 		E.value = itos(counter++);
+#endif
+		E.value = get_id_for_ext_resource(E.key, counter);
 	}
+
 #endif
 
 	Vector<ResourceSort> sorted_er;
@@ -2386,12 +2401,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 			s += " uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\"";
 		}
 		s += " path=\"" + p + "\" id=";
-		// IDs are strings in format 3
-		if (format_version >= 3) {
-			s += "\"" + sorted_er[i].id + "\"]\n";
-		} else {
-			s += sorted_er[i].id + "]\n";
-		}
+		s += get_id_string(sorted_er[i].id, format_version) + "]\n";
 
 #if 0
 		ResourceUID::ID uid = ResourceSaver::get_resource_id_for_path(p, false);
@@ -2450,8 +2460,8 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 			}
 
 			String id = res->get_scene_unique_id();
-			line += "type=\"" + _resource_get_class(res) + "\" id=\"" + id;
-			f->store_line(line + "\"]");
+			line += "type=\"" + _resource_get_class(res) + "\" id=" + get_id_string(id, format_version);
+			f->store_line(line + "]");
 			if (takeover_paths) {
 				res->set_path(p_path + "::" + id, true);
 			}
@@ -2538,7 +2548,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 			int index = state->get_node_index(i);
 			NodePath path = state->get_node_path(i, true);
 			NodePath owner = state->get_node_owner_path(i);
-			Ref<PackedScene> instance = state->get_node_instance(i);
+			Ref<Resource> instance = SceneStateInstanceGetter::get_fake_instance(state.ptr(), i);
 			String instance_placeholder = state->get_node_instance_placeholder(i);
 			Vector<StringName> groups = state->get_node_groups(i);
 			Vector<String> deferred_node_paths = state->get_node_deferred_nodepath_properties(i);
@@ -2602,6 +2612,8 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 			for (int j = 0; j < state->get_node_property_count(i); j++) {
 				String vars;
+				// Variant value = state->get_node_property_value(i, j);
+				// String name = String(state->get_node_property_name(i, j)).property_name_encode();
 				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, ver_major, _write_resources, this);
 
 				f->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
@@ -2699,10 +2711,6 @@ Error ResourceLoaderCompatText::set_uid(Ref<FileAccess> p_f, ResourceUID::ID p_u
 
 /* this is really only appropriate for saving fake-loaded resources right now; don't use it to save anything else*/
 Error ResourceFormatSaverCompatText::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
-	if (p_path.ends_with(".tscn") && !Ref<PackedScene>(p_resource).is_valid()) {
-		return ERR_FILE_UNRECOGNIZED;
-	}
-
 	ResourceFormatSaverCompatTextInstance saver;
 	return saver.save(p_path, p_resource, p_flags);
 }
@@ -2765,37 +2773,39 @@ void ResourceLoaderCompatText::set_compat_meta(Ref<Resource> &r_res) {
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id) {
 	Ref<ResourceLoader::LoadToken> load_token;
 	if (!is_real_load()) {
-		Error err;
+		ERR_FAIL_COND_V_MSG(!ext_resources.has(id), load_token, "External resources doesn't have id: " + id);
+		Error err = OK;
 		load_token = Ref<ResourceLoader::LoadToken>(memnew(ResourceLoader::LoadToken));
-		load_token->local_path = p_path;
-		load_token->user_path = p_path;
-		// if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-		// 	load_token->res_if_unregistered = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
-		// 	if (err != OK || load_token->res_if_unregistered.is_null()) {
-		// 		load_token = Ref<ResourceLoader::LoadToken>();
-		// 	}
-		// } else {
-		// 	load_token->res_if_unregistered = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
-		// }
+		if (load_type == ResourceCompatLoader::GLTF_LOAD) {
+			ext_resources[id].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
+		} else {
+			ext_resources[id].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
+		}
+		if (err != OK || ext_resources[id].fallback.is_null()) {
+			load_token = Ref<ResourceLoader::LoadToken>();
+		}
 	} else { // real load
 		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, ResourceFormatLoader::CACHE_MODE_REUSE);
 	}
 	return load_token;
 }
 Ref<Resource> ResourceLoaderCompatText::finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err) {
-	if (load_type == ResourceCompatLoader::REAL_LOAD) {
+	if (is_real_load()) {
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
 	} // Fake_load, non-global load
-	for (auto &E : ext_resources) {
-		if (E.value.path == load_token->local_path) {
-			if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-				Error err;
-				return ResourceCompatLoader::gltf_load(E.value.path, E.value.type, r_err);
+	for (const auto &E : ext_resources) {
+		if (E.value.load_token == load_token) {
+			if (r_err) {
+				*r_err = OK;
 			}
-			return CompatFormatLoader::create_missing_external_resource(E.value.path, E.value.type, E.value.uid, E.key);
+
+			return E.value.fallback;
 		}
 	}
-	return nullptr;
+	if (r_err) {
+		*r_err = ERR_FILE_NOT_FOUND;
+	}
+	ERR_FAIL_V_MSG(Ref<Resource>(), "Invalid load token.");
 }
 
 Dictionary ResourceLoaderCompatText::get_resource_info() {
