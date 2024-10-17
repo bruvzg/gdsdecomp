@@ -28,6 +28,7 @@ public:
 	static void add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front = false);
 	static void remove_resource_format_loader(Ref<CompatFormatLoader> p_format_loader);
 	static Ref<CompatFormatLoader> get_loader_for_path(const String &p_path, const String &p_type_hint);
+	static ResourceInfo get_resource_info(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 
 	static Error to_text(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
 	static Error to_binary(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
