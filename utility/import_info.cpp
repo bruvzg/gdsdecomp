@@ -201,7 +201,7 @@ ImportInfoRemap::ImportInfoRemap() :
 	iitype = IInfoType::REMAP;
 }
 
-Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_info) {
+Error ImportInfo::get_resource_info(const String &p_path, ResourceInfo &res_info) {
 	ResourceFormatLoaderCompat rlc;
 	ERR_FAIL_COND_V_MSG(!GDRESettings::get_singleton()->has_res_path(p_path), ERR_FILE_NOT_FOUND, "Could not load " + p_path);
 	Error err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
@@ -212,7 +212,7 @@ Error ImportInfo::get_resource_info(const String &p_path, _ResourceInfo &res_inf
 Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, int ver_minor) {
 	Ref<ImportInfo> iinfo;
 	Error err = OK;
-	_ResourceInfo res_info;
+	ResourceInfo res_info;
 	if (p_path.get_extension() == "import") {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfoModern));
 		err = iinfo->_load(p_path);
@@ -227,7 +227,7 @@ Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, 
 				if (res_info.type != iinfo->get_type()) {
 					WARN_PRINT(p_path + ": binary resource type " + res_info.type + " does not equal import type " + iinfo->get_type() + "???");
 				}
-				if (res_info.is_text) {
+				if (res_info.resource_format == "text") {
 					WARN_PRINT_ONCE("ImportInfo: Attempted to load a text resource file, cannot determine minor version!");
 				}
 			}
@@ -466,7 +466,7 @@ Error ImportInfoModern::_load(const String &p_path) {
 }
 
 Error ImportInfoDummy::_load(const String &p_path) {
-	_ResourceInfo res_info;
+	ResourceInfo res_info;
 	Error err = get_resource_info(p_path, res_info);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load resource " + p_path);
 	preferred_import_path = p_path;
@@ -496,7 +496,7 @@ Error ImportInfoRemap::_load(const String &p_path) {
 		ERR_FAIL_V_MSG(ERR_BUG, "Failed to load import data from " + path);
 	}
 	preferred_import_path = cf->get_value("remap", "path", "");
-	_ResourceInfo res_info;
+	ResourceInfo res_info;
 	err = get_resource_info(preferred_import_path, res_info);
 	if (err) {
 		cf = Ref<ConfigFile>();
@@ -515,7 +515,7 @@ Error ImportInfoRemap::_load(const String &p_path) {
 Error ImportInfov2::_load(const String &p_path) {
 	Error err;
 	ResourceFormatLoaderCompat rlc;
-	_ResourceInfo res_info;
+	ResourceInfo res_info;
 	preferred_import_path = p_path;
 	err = rlc.get_import_info(p_path, GDRESettings::get_singleton()->get_project_path(), res_info);
 	if (err) {
@@ -537,7 +537,7 @@ Error ImportInfov2::_load(const String &p_path) {
 	Vector<String> spl = p_path.get_file().split(".");
 	// Otherwise, we dont have any meta data, and we have to guess what it is
 	// If this is a "converted" file, then it won't have import metadata, and we expect that
-	if (!res_info.auto_converted_export) {
+	if (p_path.find(".converted.") != -1) {
 		// The file loaded, but there was no metadata and it was not a ".converted." file
 		//WARN_PRINT("Could not load metadata from " + p_path);
 		String new_ext;

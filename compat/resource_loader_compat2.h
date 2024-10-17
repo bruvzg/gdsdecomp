@@ -1,8 +1,11 @@
 #pragma once
+#include "compat/resource_import_metadatav2.h"
 #include "core/io/file_access.h"
 #include "core/io/missing_resource.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
+
+#include "utility/resource_info.h"
 
 #define META_PROPERTY_COMPAT_DATA "metadata/compat"
 #define META_COMPAT "compat"
@@ -11,12 +14,6 @@ class CompatFormatLoader;
 class CompatFormatSaver;
 class ResourceCompatLoader {
 public:
-	enum LoadType {
-		FAKE_LOAD,
-		NON_GLOBAL_LOAD,
-		GLTF_LOAD,
-		REAL_LOAD
-	};
 	static Ref<Resource> fake_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 	static Ref<Resource> non_global_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 	static Ref<Resource> gltf_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
@@ -27,17 +24,18 @@ public:
 
 class CompatFormatLoader : public ResourceFormatLoader {
 public:
-	virtual Ref<Resource> custom_load(const String &p_path, ResourceCompatLoader::LoadType p_type, Error *r_error = nullptr) = 0;
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) = 0;
+	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const = 0;
 	static Ref<Resource> create_missing_external_resource(const String &path, const String &type, const ResourceUID::ID uid, const String &scene_id = "") {
 		Ref<MissingResource> res{ memnew(MissingResource) };
 		res->set_original_class(type);
 		res->set_path_cache(path);
-		Dictionary compat;
-		compat["uid"] = uid;
-		compat["type"] = type;
-		compat["cached_id"] = scene_id;
-		compat["unloaded_external_resource"] = true;
-		res->set_meta("compat", compat);
+		ResourceInfo compat;
+		compat.uid = uid;
+		compat.type = type;
+		compat.cached_id = scene_id;
+		compat.topology_type = ResourceInfo::UNLOADED_EXTERNAL_RESOURCE;
+		res->set_meta("compat", compat.to_dict());
 		res->set_recording_properties(true);
 		return res;
 	}
@@ -46,11 +44,11 @@ public:
 		MissingResource *res{ memnew(MissingResource) };
 		res->set_original_class(type);
 		res->set_path_cache(path);
-		Dictionary compat;
-		compat["uid"] = uid;
-		compat["type"] = type;
-		compat["main_resource"] = true;
-		res->set_meta("compat", compat);
+		ResourceInfo compat;
+		compat.uid = uid;
+		compat.type = type;
+		compat.topology_type = ResourceInfo::MAIN_RESOURCE;
+		res->set_meta("compat", compat.to_dict());
 
 		res->set_recording_properties(true);
 		return res;
@@ -61,11 +59,11 @@ public:
 		res->set_original_class(type);
 		// res->set_path_cache(path);
 		res->set_scene_unique_id(scene_id);
-		Dictionary compat;
-		compat["uid"] = ResourceUID::INVALID_ID;
-		compat["type"] = type;
-		compat["internal_resource"] = true;
-		res->set_meta("compat", compat);
+		ResourceInfo compat;
+		compat.uid = ResourceUID::INVALID_ID;
+		compat.type = type;
+		compat.topology_type = ResourceInfo::INTERNAL_RESOURCE;
+		res->set_meta("compat", compat.to_dict());
 		res->set_recording_properties(true);
 		return res;
 	}

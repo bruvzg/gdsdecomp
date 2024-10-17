@@ -1187,7 +1187,7 @@ Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const Stri
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
 	ResourceFormatLoaderCompatBinary rlc;
 	Error err;
-	auto res = rlc.custom_load(p_path, ResourceCompatLoader::LoadType::FAKE_LOAD, &err);
+	auto res = rlc.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
 	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
 	ResourceFormatSaverCompatText rlc_text;
 	err = rlc_text.save(res, output_dir.path_join(p_dst));

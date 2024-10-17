@@ -131,21 +131,23 @@ Error ResourceFormatLoaderCompat::rewrite_v2_import_metadata(const String &p_pat
 	return error;
 }
 
-Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, _ResourceInfo &i_info) {
+Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const String &base_dir, ResourceInfo &i_info) {
 	Error error = OK;
 	ResourceLoaderCompat *loader;
 	ResourceFormatLoaderCompat::FormatType ftype = recognize(p_path, base_dir);
 	if (ftype == ResourceFormatLoaderCompat::FormatType::BINARY) {
 		loader = _open_bin(p_path, base_dir, true, &error, nullptr);
+		i_info.resource_format = "binary";
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXT) {
 		loader = _open_text(p_path, base_dir, true, &error, nullptr);
-		i_info.is_text = true;
+		i_info.resource_format = "text";
 	} else if (ftype == ResourceFormatLoaderCompat::FormatType::TEXTURE) {
+		i_info.resource_format = "texture";
 		auto textype = TextureLoaderCompat::recognize(p_path, &error);
 		i_info.type = TextureLoaderCompat::get_type_name_from_textype(textype);
 		i_info.ver_major = TextureLoaderCompat::get_ver_major_from_textype(textype);
 		i_info.ver_minor = 0;
-		i_info.suspect = false;
+		i_info.suspect_version = false;
 		return OK;
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_CANT_OPEN, "Could not recognize resource '" + p_path + "'.");
@@ -154,8 +156,8 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 	i_info.type = loader->res_type;
 	i_info.ver_major = loader->engine_ver_major;
 	i_info.ver_minor = loader->engine_ver_minor;
-	i_info.suspect = loader->suspect_version;
-	if (loader->engine_ver_major == 2 && !i_info.is_text) {
+	i_info.suspect_version = loader->suspect_version;
+	if (loader->engine_ver_major == 2 && i_info.resource_format != "text") {
 		error = loader->load_import_metadata();
 		ERR_RFLBC_COND_V_MSG_CLEANUP(error == ERR_CANT_ACQUIRE_RESOURCE, error, "Cannot load resource '" + p_path + "'.", loader);
 		// If this is a 2.x resource with no imports, it will have no import metadata
@@ -164,7 +166,6 @@ Error ResourceFormatLoaderCompat::get_import_info(const String &p_path, const St
 			// if this is an auto converted resource, it's expected that it won't have any import metadata
 			Vector<String> spl = p_path.get_file().split(".");
 			if (spl.size() == 4 && loader->local_path.find(".converted.") != -1) {
-				i_info.auto_converted_export = true;
 				return OK;
 			}
 			// otherwise return an error to indicate that this is a non-autoconverted 2.x resource with no import metadata
