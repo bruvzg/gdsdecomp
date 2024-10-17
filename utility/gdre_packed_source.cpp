@@ -334,8 +334,8 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 
 		String path;
 		path.parse_utf8(cs.ptr());
-
-		ERR_FAIL_COND_V_MSG(path.get_file().find("gdre_") != -1, false, "Don't try to extract the GDRE pack files, just download the source from github.");
+		String p_file = path.get_file();
+		ERR_FAIL_COND_V_MSG(p_file.begins_with("gdre_") && p_file != "gdre_export.log", false, "Don't try to extract the GDRE pack files, just download the source from github.");
 
 		uint64_t ofs = file_base + f->get_64();
 		uint64_t size = f->get_64();
