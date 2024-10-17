@@ -107,6 +107,15 @@ enum {
 	FORMAT_VERSION_NO_NODEPATH_PROPERTY = 3,
 };
 
+static String _resource_get_class(Ref<Resource> p_resource) {
+	Ref<MissingResource> missing_resource = p_resource;
+	if (missing_resource.is_valid()) {
+		return missing_resource->get_original_class();
+	} else {
+		return p_resource->get_class();
+	}
+}
+
 void ResourceLoaderCompatBinary::_advance_padding(uint32_t p_len) {
 	uint32_t extra = 4 - (p_len % 4);
 	if (extra < 4) {
@@ -999,7 +1008,7 @@ Error ResourceLoaderCompatBinary::load() {
 			// skip translation remapping for fake and non-global loads
 			if (!is_real_load()) {
 				// One final step; we have to check to see if this is a PackedScene, and if so, set a metadata field for the packedscene version number in the `_bundled` property
-				if (res->get_save_class() == "PackedScene") {
+				if (_resource_get_class(res) == "PackedScene") {
 					Dictionary _bundled = res->get("_bundled");
 					packed_scene_version = _bundled.get("version", -1);
 				}
@@ -1153,6 +1162,7 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 				break;
 			case 4:
 			case 5:
+			case 6:
 				suspect_version = true;
 				ver_major = 4;
 				break;
@@ -2345,15 +2355,6 @@ Dictionary ResourceFormatSaverCompatBinaryInstance::fix_scene_bundle(const Ref<P
 	return ret;
 }
 
-static String _resource_get_class(Ref<Resource> p_resource) {
-	Ref<MissingResource> missing_resource = p_resource;
-	if (missing_resource.is_valid()) {
-		return missing_resource->get_original_class();
-	} else {
-		return p_resource->get_class();
-	}
-}
-
 /* this is really only appropriate for saving fake-loaded resources right now; don't use it to save anything else*/
 Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
 	// Resource::seed_scene_unique_id(p_path.hash());
@@ -2381,8 +2382,8 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	ver_major = compat.get("ver_major", 0);
 	ver_minor = compat.get("ver_minor", 0);
 	String format = compat.get("resource_format", "binary");
-	using_script_class = compat.get("using_script_class", false);
 	script_class = compat.get("script_class", String());
+	using_script_class = compat.get("using_script_class", false) || !script_class.is_empty();
 	big_endian = compat.get("stored_big_endian", false);
 	using_uids = compat.get("using_uids", false);
 	using_named_scene_ids = compat.get("using_named_scene_ids", false);
@@ -2391,8 +2392,9 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	Ref<ResourceImportMetadatav2> imd = compat.get("import_metadata", Ref<ResourceImportMetadatav2>());
 	ResourceUID::ID uid = compat.get("uid", ResourceUID::INVALID_ID);
 	if (format != "binary") { // text
-		if (!script_class.is_empty()) {
-			using_script_class = true;
+		if (ver_major > 4 || (ver_major == 4 && ver_minor >= 3)) {
+			ver_format = 6;
+		} else if (using_script_class) {
 			ver_format = 5;
 		} else if (using_named_scene_ids || ver_major == 4) {
 			// If we're using named_scene_ids, it's version 4
@@ -2582,7 +2584,7 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	}
 
 	for (int i = 0; i < save_order.size(); i++) {
-		save_unicode_string(f, save_order[i]->get_save_class());
+		save_unicode_string(f, _resource_get_class(save_order[i]));
 		String res_path = save_order[i]->get_path();
 		res_path = relative_paths ? local_path.path_to_file(res_path) : res_path;
 		save_unicode_string(f, res_path);
@@ -2985,11 +2987,13 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const 
 Ref<Resource> ResourceLoaderCompatBinary::finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err) {
 	if (load_type == ResourceCompatLoader::REAL_LOAD) {
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
-	} else if (load_type == ResourceCompatLoader::GLTF_LOAD) {
-		// TODO: if implemented multi-threaded GLTF load, do something; for right now it's already loaded
-	} // Fake_load, non-global load
+	}
 	String path;
 	int i = load_token->user_rc;
+	if (load_type == ResourceCompatLoader::GLTF_LOAD) {
+		// TODO: if implemented multi-threaded GLTF load, do something
+		return ResourceCompatLoader::gltf_load(external_resources[i].path, external_resources[i].type, r_err);
+	} // Fake_load, non-global load
 	return CompatFormatLoader::create_missing_external_resource(external_resources[i].path, external_resources[i].type, external_resources[i].uid, itos(i));
 }
 
