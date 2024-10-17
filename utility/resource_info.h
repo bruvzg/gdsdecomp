@@ -35,6 +35,7 @@ struct ResourceInfo {
 	bool stored_use_real64 = false;
 	bool using_uids = false;
 	bool stored_big_endian = false;
+	bool is_compressed = false;
 	bool using_script_class() {
 		return !script_class.is_empty();
 	}
@@ -57,6 +58,7 @@ struct ResourceInfo {
 		ri.stored_use_real64 = dict.get("stored_use_real64", false);
 		ri.stored_big_endian = dict.get("stored_big_endian", false);
 		ri.using_uids = dict.get("using_uids", false);
+		ri.is_compressed = dict.get("is_compressed", false);
 		return ri;
 	}
 
@@ -79,6 +81,7 @@ struct ResourceInfo {
 		dict["stored_use_real64"] = stored_use_real64;
 		dict["stored_big_endian"] = stored_big_endian;
 		dict["using_uids"] = using_uids;
+		dict["is_compressed"] = is_compressed;
 		return dict;
 	}
 };

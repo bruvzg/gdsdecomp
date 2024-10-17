@@ -1117,7 +1117,7 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 			ERR_FAIL_MSG("Failed to open binary resource file: " + local_path + ".");
 		}
 		f = fac;
-
+		is_compressed = true;
 	} else if (header[0] != 'R' || header[1] != 'S' || header[2] != 'R' || header[3] != 'C') {
 		// Not normal.
 		error = ERR_FILE_UNRECOGNIZED;
@@ -2349,12 +2349,41 @@ Dictionary ResourceFormatSaverCompatBinaryInstance::fix_scene_bundle(const Ref<P
 	return ret;
 }
 
+// Error ResourceFormatSaverCompatBinaryInstance::write_v2_import_metadata(Ref<FileAccess> f, Ref<ResourceImportMetadatav2> imd, uint64_t &r_imd_offset) {
+// 	uint64_t md_pos = f->get_position();
+// 	save_unicode_string(f, imd->get_editor());
+// 	f->store_32(imd->get_source_count());
+// 	for (int i = 0; i < imd->get_source_count(); i++) {
+// 		save_unicode_string(f, imd->get_source_path(i));
+// 		save_unicode_string(f, imd->get_source_md5(i));
+// 	}
+// 	List<String> options;
+// 	imd->get_options(&options);
+// 	f->store_32(options.size());
+// 	for (List<String>::Element *E = options.front(); E; E = E->next()) {
+// 		save_unicode_string(f, E->get());
+// 		write_variant(f, imd->get_option(E->get()), resource_map, external_resources, string_map);
+// 	}
+
+// 	f->seek(md_at);
+// 	f->store_64(md_pos);
+// 	f->seek_end();
+// }
+
 /* this is really only appropriate for saving fake-loaded resources right now; don't use it to save anything else*/
 Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
 	// Resource::seed_scene_unique_id(p_path.hash());
+	// get metadata from the resource
+	Dictionary compat_dict = p_resource->get_meta(META_COMPAT, Dictionary());
+	if (compat_dict.is_empty()) {
+		WARN_PRINT("Resource does not have compat metadata set?!?!?!?!");
+		ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Resource does not have compat metadata set?!?!?!?!");
+	}
+	ResourceInfo compat = ResourceInfo::from_dict(compat_dict);
+
 	Error err;
 	Ref<FileAccess> f;
-	if (p_flags & ResourceSaver::FLAG_COMPRESS) {
+	if (p_flags & ResourceSaver::FLAG_COMPRESS || compat.is_compressed) {
 		Ref<FileAccessCompressed> fac;
 		fac.instantiate();
 		fac->configure("RSCC");
@@ -2366,13 +2395,6 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot create file '" + p_path + "'.");
 
-	// get metadata from the resource
-	Dictionary compat_dict = p_resource->get_meta(META_COMPAT, Dictionary());
-	if (compat_dict.is_empty()) {
-		WARN_PRINT("Resource does not have compat metadata set?!?!?!?!");
-		ERR_FAIL_V_MSG(ERR_INVALID_DATA, "Resource does not have compat metadata set?!?!?!?!");
-	}
-	ResourceInfo compat = ResourceInfo::from_dict(compat_dict);
 	ver_format = compat.ver_format;
 	ver_major = compat.ver_major;
 	ver_minor = compat.ver_minor;
@@ -3028,6 +3050,7 @@ ResourceInfo ResourceLoaderCompatBinary::get_resource_info() {
 	d.using_uids = using_uids;
 	d.script_class = script_class;
 	d.v2metadata = imd;
+	d.is_compressed = is_compressed;
 	return d;
 }
 // virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;
@@ -3070,4 +3093,45 @@ ResourceInfo ResourceFormatLoaderCompatBinary::get_resource_info(const String &p
 		*r_error = OK;
 	}
 	return res_info;
+}
+
+//	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd) const;
+
+Error ResourceFormatLoaderCompatBinary::rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd) {
+	Error err;
+
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot open file '" + p_path + "'.");
+	String dest = p_dst + ".tmp";
+	Ref<FileAccess> fw = FileAccess::open(dest, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_CREATE, "Cannot create file '" + p_dst + "'.");
+	{
+		ResourceLoaderCompatBinary loader;
+		String path = p_path;
+		loader.load_type = ResourceInfo::FAKE_LOAD;
+		loader.cache_mode = ResourceFormatLoader::CACHE_MODE_IGNORE;
+		loader.use_sub_threads = false;
+		loader.local_path = GDRESettings::get_singleton()->localize_path(path);
+		loader.res_path = loader.local_path;
+		loader.open(f);
+		ERR_FAIL_COND_V_MSG(loader.error != OK, loader.error, "Cannot load resource.");
+		ERR_FAIL_COND_V_MSG(loader.ver_format > 2, ERR_UNAVAILABLE, "Resource is not version 2.");
+		loader.load();
+		auto res = loader.get_resource();
+		Dictionary compat_dict = res->get_meta(META_COMPAT, Dictionary());
+		compat_dict["v2metadata"] = imd;
+		res->set_meta(META_COMPAT, compat_dict);
+		// TODO: Refactor ResourceFormatSaverCompatBinaryInstance so we don't have to rewrite the whole file
+		ResourceFormatSaverCompatBinaryInstance saver;
+		int flags = 0;
+		err = saver.save(dest, res, flags);
+		ERR_FAIL_COND_V_MSG(err, err, "Cannot save resource.");
+	}
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	// if it exists, remove it
+	if (da->file_exists(p_dst)) {
+		da->remove(p_dst);
+	}
+	da->rename(dest, p_dst);
+	return OK;
 }
