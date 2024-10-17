@@ -311,6 +311,9 @@ public:
 		// otherwise, call the parent
 		return image;
 	}
+	virtual String get_save_class() const override {
+		return "CompressedTexture2D";
+	}
 };
 class faketex2D : Texture2D {
 	GDCLASS(faketex2D, Texture2D);
@@ -635,6 +638,9 @@ public:
 	virtual Vector<Ref<Image>> get_data() const override {
 		return data;
 	}
+	virtual String get_save_class() const override {
+		return "CompressedTexture3D";
+	}
 };
 class faketex3D : Texture3D {
 	GDCLASS(faketex3D, Texture3D);
@@ -695,6 +701,9 @@ public:
 	Vector<Ref<Image>> layer_data;
 	virtual Ref<Image> get_layer_data(int layer) const override {
 		return layer_data[layer];
+	}
+	virtual String get_save_class() const override {
+		return T::get_save_class();
 	}
 };
 class faketexlayered : TextureLayered {
