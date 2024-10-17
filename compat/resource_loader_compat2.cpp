@@ -1,6 +1,9 @@
 #include "resource_loader_compat2.h"
+#include "compat/resource_compat_binary.h"
+#include "compat/resource_compat_text.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
+#include "utility/gdre_settings.h"
 
 Ref<CompatFormatLoader> ResourceCompatLoader::loader[ResourceCompatLoader::MAX_LOADERS];
 int ResourceCompatLoader::loader_count = 0;
@@ -92,4 +95,26 @@ Ref<CompatFormatLoader> ResourceCompatLoader::get_loader_for_path(const String &
 		}
 	}
 	return Ref<CompatFormatLoader>();
+}
+
+Error ResourceCompatLoader::to_text(const String &p_path, const String &p_dst, uint32_t p_flags) {
+	auto loader = get_loader_for_path(p_path, "");
+	ERR_FAIL_COND_V_MSG(loader.is_null(), ERR_FILE_NOT_FOUND, "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+	Error err;
+
+	auto res = loader->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
+	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
+	ResourceFormatSaverCompatTextInstance saver;
+	return saver.save(p_dst, res, p_flags);
+}
+
+Error ResourceCompatLoader::to_binary(const String &p_path, const String &p_dst, uint32_t p_flags) {
+	auto loader = get_loader_for_path(p_path, "");
+	ERR_FAIL_COND_V_MSG(loader.is_null(), ERR_FILE_NOT_FOUND, "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+	Error err;
+
+	auto res = loader->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
+	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
+	ResourceFormatSaverCompatBinaryInstance saver;
+	return saver.save(p_dst, res, p_flags);
 }
