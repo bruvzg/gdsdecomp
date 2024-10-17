@@ -39,12 +39,6 @@
 #include "compat/variant_writer_compat.h"
 #include "utility/gdre_settings.h"
 
-// Version 2: changed names for Basis, AABB, Vectors, etc.
-// Version 3: new string ID for ext/subresources, breaks forward compat.
-#define FORMAT_VERSION 3
-
-#define BINARY_FORMAT_VERSION 4
-
 #include "core/io/dir_access.h"
 #include "core/version.h"
 
@@ -1058,7 +1052,7 @@ Error ResourceLoaderCompatText::rename_dependencies(Ref<FileAccess> p_f, const S
 			if (fw.is_null()) {
 				fw = FileAccess::open(p_path + ".depren", FileAccess::WRITE);
 
-				if (res_uid == ResourceUID::INVALID_ID) {
+				if (res_uid == ResourceUID::INVALID_ID && format_version >= 3) {
 					res_uid = ResourceSaver::get_resource_id_for_path(p_path);
 				}
 
@@ -1190,21 +1184,22 @@ void ResourceLoaderCompatText::open(Ref<FileAccess> p_f, bool p_skip_first_tag) 
 		}
 	} else {
 		format_version = FORMAT_VERSION;
-		switch (format_version) {
-			// no engine version info in text, so we infer from the format version
-			case 3:
-				ver_major = 4;
-				ver_minor = 0;
-				break;
-			case 2:
-				ver_major = 3;
-				ver_minor = 0;
-				break;
-			case 1:
-				ver_major = 2;
-				ver_minor = 0;
-				break;
-		}
+	}
+
+	switch (format_version) {
+		// no engine version info in text, so we infer from the format version
+		case 3:
+			ver_major = 4;
+			ver_minor = 0;
+			break;
+		case 2:
+			ver_major = 3;
+			ver_minor = 0;
+			break;
+		case 1:
+			ver_major = 2;
+			ver_minor = 0;
+			break;
 	}
 
 	if (tag.name == "gd_scene") {
