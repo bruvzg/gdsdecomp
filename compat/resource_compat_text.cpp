@@ -2394,14 +2394,21 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 	for (int i = 0; i < sorted_er.size(); i++) {
 		String p = sorted_er[i].resource->get_path();
-		String s = "[ext_resource type=\"" + _resource_get_class(sorted_er[i].resource) + "\"";
+		String s = "[ext_resource";
+		String type_string = " type=\"" + _resource_get_class(sorted_er[i].resource) + "\"";
+		String path_string = " path=\"" + p + "\"";
 		Dictionary compat = sorted_er[i].resource->get_meta("compat", Dictionary());
 		ResourceUID::ID uid = compat.get("uid", ResourceUID::INVALID_ID);
-		if (format_version >= 3 && uid != ResourceUID::INVALID_ID) {
-			s += " uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\"";
+		if (format_version >= 3) {
+			s += type_string;
+			if (uid != ResourceUID::INVALID_ID) {
+				s += " uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\"";
+			}
+			s += path_string;
+		} else {
+			s += path_string + type_string;
 		}
-		s += " path=\"" + p + "\" id=";
-		s += get_id_string(sorted_er[i].id, format_version) + "]\n";
+		s += " id=" + get_id_string(sorted_er[i].id, format_version) + "]\n";
 
 #if 0
 		ResourceUID::ID uid = ResourceSaver::get_resource_id_for_path(p, false);
