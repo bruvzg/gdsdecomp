@@ -399,7 +399,7 @@ public:
 		FILE_ERROR
 	};
 	FormatType recognize(const String &p_path, const String &base_dir = "");
-	Error get_import_info(const String &p_path, const String &base_dir, _ResourceInfo &i_info);
+	Error get_import_info(const String &p_path, const String &base_dir, ResourceInfo &i_info);
 	Error rewrite_v2_import_metadata(const String &p_path, const String &p_dst, Ref<ResourceImportMetadatav2> imd);
 	Error convert_txt_to_bin(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);
 	Error convert_bin_to_txt(const String &p_path, const String &dst, const String &output_dir = "", float *r_progress = nullptr);

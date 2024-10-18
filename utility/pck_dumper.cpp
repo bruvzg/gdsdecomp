@@ -1,5 +1,4 @@
 #include "pck_dumper.h"
-#include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
 
 #include "core/crypto/crypto_core.h"

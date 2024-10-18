@@ -13,7 +13,7 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
-#include "compat/resource_loader_compat.h"
+#include "compat/resource_loader_compat2.h"
 #include "compat/texture_loader_compat.h"
 #include "utility/gdre_settings.h"
 #include "utility/import_exporter.h"
@@ -1116,9 +1116,7 @@ void GodotREEditor::_res_bin_2_txt_process() {
 }
 
 Error GodotREEditor::convert_file_to_text(const String &p_src_path, const String &p_dst_path) {
-	ResourceFormatLoaderCompat rl;
-	Error err = rl.convert_bin_to_txt(p_src_path, p_dst_path);
-	return err;
+	return ResourceCompatLoader::to_text(p_src_path, p_dst_path);
 }
 
 void GodotREEditor::_res_txt_2_bin_request(const Vector<String> &p_files) {
@@ -1185,9 +1183,7 @@ void GodotREEditor::_res_txt_2_bin_process() {
 }
 
 Error GodotREEditor::convert_file_to_binary(const String &p_src_path, const String &p_dst_path) {
-	ResourceFormatLoaderCompat rl;
-	Error err = rl.convert_txt_to_bin(p_src_path, p_dst_path);
-	return err;
+	return ResourceCompatLoader::to_binary(p_src_path, p_dst_path);
 }
 
 /*************************************************************************/

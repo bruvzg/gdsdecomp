@@ -1,6 +1,5 @@
 #include "sample_loader_compat.h"
-#include "resource_loader_compat.h"
-#include "utility/gdre_settings.h"
+#include "compat/resource_compat_binary.h"
 
 #include "core/io/file_access.h"
 
@@ -117,88 +116,69 @@ Ref<AudioStreamWAV> SampleLoaderCompat::convert_adpcm_to_16bit(const Ref<AudioSt
 Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_err) {
 	Error err;
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (r_err) {
-		*r_err = err;
+	if (!r_err) {
+		r_err = &err;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<AudioStreamWAV>(), "Cannot open file '" + p_path + "'.");
 
-	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
-	loader->fake_load = true;
-	loader->local_path = p_path;
-	loader->res_path = p_path;
-	err = loader->open_bin(f);
-	if (r_err) {
-		r_err = &err;
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.", loader);
-	// version 3 is compatible with version 4
-	if (loader->engine_ver_major >= 3) {
+	ResourceFormatLoaderCompatBinary rlcb;
+	ResourceInfo i_info = rlcb.get_resource_info(p_path, r_err);
+	ERR_FAIL_COND_V_MSG(*r_err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.");
+	if (i_info.ver_major == 4) {
 		Ref<AudioStreamWAV> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.", loader);
-		memdelete(loader);
+		ERR_FAIL_COND_V_MSG(*r_err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.");
 		return sample;
 	}
 
 	// otherwise, we have a version 2.x sample
-	err = loader->load();
-	if (r_err) {
-		r_err = &err;
-	}
+	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_err);
 
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<AudioStreamWAV>(), "Cannot load resource '" + p_path + "'.", loader);
+	ERR_FAIL_COND_V_MSG(*r_err, Ref<AudioStreamWAV>(), "Cannot load resource '" + p_path + "'.");
+	String name = res->get("resource/name");
+	AudioStreamWAV::LoopMode loop_mode = (AudioStreamWAV::LoopMode) int(res->get("loop_format"));
+	// int loop_begin, loop_end, mix_rate, data_bytes = 0;
+	int loop_begin = res->get("loop_begin");
+	int loop_end = res->get("loop_end");
+	bool stereo = res->get("stereo");
+
+	int mix_rate = res->get("mix_rate");
+	if (!mix_rate) {
+		mix_rate = 44100;
+	}
 	Vector<uint8_t> data;
-	String name;
 	AudioStreamWAV::Format format;
-	AudioStreamWAV::LoopMode loop_mode;
-	bool stereo = false;
-	int loop_begin, loop_end, mix_rate, data_bytes = 0;
-	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceProperty pe = PE->get();
-		if (pe.name == "resource/name") {
-			name = pe.value;
-		} else if (pe.name == "data") {
-			// this is a dictionary that contains the format and the data
-			Dictionary dat = pe.value;
-			String fmt = dat["format"];
-			if (fmt == "ima_adpcm") {
-				format = AudioStreamWAV::FORMAT_IMA_ADPCM;
-			} else if (fmt == "pcm16") {
-				format = AudioStreamWAV::FORMAT_16_BITS;
-			} else if (fmt == "pcm8") {
-				format = AudioStreamWAV::FORMAT_8_BITS;
-			} else {
-				ERR_PRINT("Unknown WAV format: " + fmt);
-				format = AudioStreamWAV::FORMAT_16_BITS;
-			}
-			data = dat["data"];
-			if (dat.has("stereo")) {
-				stereo = dat["stereo"];
-			}
-			if (dat.has("length")) {
-				data_bytes = dat["length"];
-			}
-		} else if (pe.name == "loop_format") {
-			loop_mode = (AudioStreamWAV::LoopMode)(int)pe.value;
-		} else if (pe.name == "stereo") {
-			stereo = pe.value;
-		} else if (pe.name == "loop_begin") {
-			loop_begin = pe.value;
-		} else if (pe.name == "loop_end") {
-			loop_end = pe.value;
-		} else if (pe.name == "mix_rate") {
-			mix_rate = pe.value;
+	int data_bytes = 0;
+	Dictionary dat = res->get("data");
+	if (dat.is_empty()) {
+		data = res->get("data");
+		format = (AudioStreamWAV::Format) int(res->get("format"));
+	} else {
+		String fmt = dat.get("format", "");
+		if (fmt == "ima_adpcm") {
+			format = AudioStreamWAV::FORMAT_IMA_ADPCM;
+		} else if (fmt == "pcm16") {
+			format = AudioStreamWAV::FORMAT_16_BITS;
+		} else if (fmt == "pcm8") {
+			format = AudioStreamWAV::FORMAT_8_BITS;
+		} else {
+			format = (AudioStreamWAV::Format)(int)res->get("format");
+			// if it doesn't exist on the root res, then it'll return the default of FORMAT_8_BITS anyway.
+		}
+		data = dat.get("data", Vector<uint8_t>());
+		if (dat.has("stereo")) {
+			stereo = dat["stereo"];
+		}
+		if (dat.has("length")) {
+			data_bytes = dat["length"];
 		}
 	}
 	if (data_bytes == 0) {
 		data_bytes = data.size();
-	} else if (data_bytes != data.size()) {
-		// TODO: something?
-		// WARN_PRINT("Data size mismatch: " + itos(data_bytes) + " vs " + itos(data.size()));
 	}
+	// else if (data_bytes != data.size()) {
+	// 	 TODO: something?
+	// 	 WARN_PRINT("Data size mismatch: " + itos(data_bytes) + " vs " + itos(data.size()));
+	// }
 	// create a new sample
 	Ref<AudioStreamWAV> sample = memnew(AudioStreamWAV);
 	sample->set_name(name);
@@ -209,7 +189,6 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 	sample->set_loop_begin(loop_begin);
 	sample->set_loop_end(loop_end);
 	sample->set_mix_rate(mix_rate);
-	memdelete(loader);
 	return sample;
 }
 void SampleLoaderCompat::_bind_methods() {}

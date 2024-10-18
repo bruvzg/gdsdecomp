@@ -1228,7 +1228,7 @@ String GDRESettings::get_disclaimer_body() {
 }
 
 void GDRESettings::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("load_pack", "p_path"), &GDRESettings::load_pack);
+	ClassDB::bind_method(D_METHOD("load_pack", "p_path", "cmd_line_extract"), &GDRESettings::load_pack, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("unload_pack"), &GDRESettings::unload_pack);
 	ClassDB::bind_method(D_METHOD("get_gdre_resource_path"), &GDRESettings::get_gdre_resource_path);
 	ClassDB::bind_method(D_METHOD("get_encryption_key"), &GDRESettings::get_encryption_key);
