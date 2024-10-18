@@ -38,13 +38,9 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 	int page_cursor = 0;
 	bool reached_eos = false;
 	r_data.resize_zeroed(total_estimated_size);
-	while (page_cursor < page_sizes.size() && !reached_eos) {
-		if (!playback->next_ogg_packet(&pkt)) {
-			WARN_PRINT("next_ogg_packet returned false, breaking...");
-			break;
-		}
-		int page_size = 4096;
-		page_size = page_sizes[page_cursor];
+	while (playback->next_ogg_packet(&pkt) && !reached_eos) {
+		page_cursor = playback->get_page_number();
+		int page_size = page_sizes[page_cursor];
 		if (pkt->e_o_s) {
 			reached_eos = true;
 		}
@@ -65,12 +61,14 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 			}
 			memcpy(r_data.ptrw() + cur_pos, og.header, og.header_len);
 			memcpy(r_data.ptrw() + cur_pos + og.header_len, og.body, og.body_len);
-			page_cursor++;
 		}
 	}
+	page_cursor = playback->get_page_number();
 	if (total_actual_body_size != total_pagedata_body_size) {
 		WARN_PRINT("Actual body size" + itos(total_actual_body_size) + " does not equal the pagedata body size " + itos(total_pagedata_body_size) + ".");
 	}
+	// resize to the actual size
+	r_data.resize(total_acc_size);
 
 	ogg_stream_clear(&os_en);
 	ERR_FAIL_COND_V_MSG(!reached_eos, ERR_FILE_CORRUPT, "All packets consumed before EOS.");
@@ -78,9 +76,6 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 	ERR_FAIL_COND_V_MSG(r_data.size() < 4, ERR_FILE_CORRUPT, "Data is too small to be an Ogg stream.");
 	ERR_FAIL_COND_V_MSG(r_data[0] != 'O' || r_data[1] != 'g' || r_data[2] != 'g' || r_data[3] != 'S', ERR_FILE_CORRUPT, "Header is missing in ogg data.");
 
-	// resize to the actual size
-	r_data.resize(total_acc_size);
-	// check if r_data begins with "OggS"
 	return OK;
 }
 
