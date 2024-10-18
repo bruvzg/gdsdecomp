@@ -11,6 +11,9 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
+#include "compat/resource_compat_binary.h"
+#include "compat/resource_compat_text.h"
+#include "compat/resource_loader_compat2.h"
 #include "compat/texture_loader_compat.h"
 #include "editor/gdre_editor.h"
 #include "utility/gdre_settings.h"
@@ -19,7 +22,6 @@
 #include "utility/import_exporter.h"
 #include "utility/packed_file_info.h"
 #include "utility/pck_dumper.h"
-
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
 	EditorNode *editor = EditorNode::get_singleton();
@@ -27,6 +29,9 @@ void gdsdecomp_init_callback() {
 };
 #endif
 static GDRESettings *gdre_singleton = nullptr;
+// TODO: move this to its own thing
+static Ref<ResourceFormatCompatLoaderText> text_loader = nullptr;
+static Ref<ResourceFormatLoaderCompatBinary> binary_loader = nullptr;
 
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
@@ -40,6 +45,24 @@ void free_ver_regex() {
 	GodotVer::non_strict_regex = Ref<RegEx>();
 	Glob::magic_check = Ref<RegEx>();
 	Glob::escapere = Ref<RegEx>();
+}
+
+void init_loaders() {
+	text_loader = memnew(ResourceFormatCompatLoaderText);
+	binary_loader = memnew(ResourceFormatLoaderCompatBinary);
+	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
+	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
+}
+
+void deinit_loaders() {
+	if (text_loader.is_valid()) {
+		ResourceCompatLoader::remove_resource_format_loader(text_loader);
+	}
+	if (binary_loader.is_valid()) {
+		ResourceCompatLoader::remove_resource_format_loader(binary_loader);
+	}
+	text_loader = nullptr;
+	binary_loader = nullptr;
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
@@ -79,10 +102,11 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 #ifdef TOOLS_ENABLED
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);
 #endif
+	init_loaders();
 }
 
 void uninitialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
-	//NOP
+	deinit_loaders();
 	if (gdre_singleton) {
 		memdelete(gdre_singleton);
 		gdre_singleton = nullptr;
