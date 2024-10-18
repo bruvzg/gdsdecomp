@@ -938,7 +938,11 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 		Vector<String> line_values;
 		line_values.push_back(keys[i]);
 		for (auto messages : translation_messages) {
-			line_values.push_back(messages[i]);
+			if (i >= messages.size()) {
+				line_values.push_back("");
+			} else {
+				line_values.push_back(messages[i]);
+			}
 		}
 		f->store_csv_line(line_values, ",");
 	}
