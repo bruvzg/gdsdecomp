@@ -766,7 +766,7 @@ Error ResourceLoaderCompatText::load() {
 				// TODO!!!!!!!!!!!!!!!
 				// TODO!!!!!!!!!!!!!!!
 				// TODO: non-global loads and real loads should check if there is a loader for this resource
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
+				// ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
 			}
 
 			if (!resource.is_valid()) {
