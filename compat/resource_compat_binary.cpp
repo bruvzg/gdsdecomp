@@ -41,11 +41,11 @@
 #include "core/io/resource.h"
 #include "core/object/script_language.h"
 #include "core/version.h"
+#include "scene/resources/packed_scene.h"
 
 #include "core/io/resource_format_binary.h"
 
 #include "compat/image_parser_v2.h"
-#include "scene/resources/packed_scene.h"
 #include "utility/gdre_settings.h"
 #include "utility/resource_info.h"
 
@@ -842,7 +842,7 @@ Error ResourceLoaderCompatBinary::load() {
 				// TODO!!!!!!!!!!!!!!!
 				// TODO!!!!!!!!!!!!!!!
 				// TODO: non-global loads and real loads should check if there is a loader for this resource
-				ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
+				// ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
 			}
 
 			if (res.is_null()) {
@@ -913,7 +913,7 @@ Error ResourceLoaderCompatBinary::load() {
 			bool set_valid = true;
 
 			// The below won't happen on a fake load
-			if (value.get_type() == Variant::OBJECT && missing_resource == nullptr && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
+			if (value.get_type() == Variant::OBJECT && (name == "script" || missing_resource == nullptr) && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
 				// If the property being set is a missing resource (and the parent is not),
 				// then setting it will most likely not work.
 				// Instead, save it as metadata.

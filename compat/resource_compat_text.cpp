@@ -2536,7 +2536,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 				}
 
 				String vars;
-				VariantWriterCompat::write_to_string(value, vars, ver_major, _write_resources, this);
+				VariantWriterCompat::write_to_string(value, vars, ver_major, _write_resources, this, use_compat);
 				f->store_string(name.property_name_encode() + " = " + vars + "\n");
 			}
 		}
@@ -2604,14 +2604,14 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 			if (!instance_placeholder.is_empty()) {
 				String vars;
 				f->store_string(" instance_placeholder=");
-				VariantWriterCompat::write_to_string(instance_placeholder, vars, ver_major, _write_resources, this);
+				VariantWriterCompat::write_to_string(instance_placeholder, vars, ver_major, _write_resources, this, use_compat);
 				f->store_string(vars);
 			}
 
 			if (instance.is_valid()) {
 				String vars;
 				f->store_string(" instance=");
-				VariantWriterCompat::write_to_string(instance, vars, ver_major, _write_resources, this);
+				VariantWriterCompat::write_to_string(instance, vars, ver_major, _write_resources, this, use_compat);
 				f->store_string(vars);
 			}
 
@@ -2621,7 +2621,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 				String vars;
 				// Variant value = state->get_node_property_value(i, j);
 				// String name = String(state->get_node_property_name(i, j)).property_name_encode();
-				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, ver_major, _write_resources, this);
+				VariantWriterCompat::write_to_string(state->get_node_property_value(i, j), vars, ver_major, _write_resources, this, use_compat);
 
 				f->store_string(String(state->get_node_property_name(i, j)).property_name_encode() + " = " + vars + "\n");
 			}
@@ -2655,7 +2655,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 			f->store_string(connstr);
 			if (binds.size()) {
 				String vars;
-				VariantWriterCompat::write_to_string(binds, vars, ver_major, _write_resources, this);
+				VariantWriterCompat::write_to_string(binds, vars, ver_major, _write_resources, this, use_compat);
 				f->store_string(" binds= " + vars);
 			}
 

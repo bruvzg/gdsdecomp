@@ -4,13 +4,14 @@
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
 #include "compat/optimized_translation_extractor.h"
-#include "compat/resource_loader_compat.h"
+#include "compat/resource_loader_compat2.h"
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/string/print_string.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
+#include "scene/resources/packed_scene.h"
 #include "util_functions.h"
 
 #include "core/crypto/crypto_core.h"
@@ -843,7 +844,6 @@ String guess_key_from_tr(String s, Ref<Translation> default_translation) {
 
 Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	Error err;
-	ResourceFormatLoaderCompat rlc;
 	// translation files are usually imported from one CSV and converted to multiple "<LOCALE>.translation" files
 	String default_locale = get_settings()->pack_has_project_config() && get_settings()->has_project_setting("locale/fallback")
 			? get_settings()->get_project_setting("locale/fallback")
@@ -856,7 +856,7 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	Vector<StringName> keys;
 
 	for (String path : iinfo->get_dest_files()) {
-		Ref<Translation> tr = rlc.load(path, "", &err);
+		Ref<Translation> tr = ResourceCompatLoader::real_load(path, "");
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load translation file " + iinfo->get_path());
 		ERR_FAIL_COND_V_MSG(!tr.is_valid(), err, "Translation file " + iinfo->get_path() + " was not valid");
 		String locale = tr->get_locale();
@@ -1175,31 +1175,15 @@ Error ImportExporter::ensure_dir(const String &dst_dir) {
 }
 
 Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const String &p_path, const String &p_dst) {
-	ResourceFormatLoaderCompat rlc;
-	Error err = rlc.convert_txt_to_bin(p_path, p_dst, output_dir);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	print_verbose("Converted " + p_path + " to " + p_dst);
-	return err;
+	String dest = output_dir.path_join(p_dst.replace("res://", ""));
+	return ResourceCompatLoader::to_binary(p_path, dest);
 }
-#include "compat/resource_compat_binary.h"
-#include "compat/resource_compat_text.h"
 
 Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const String &p_path, const String &p_dst) {
-	ResourceFormatLoaderCompatBinary rlc;
-	Error err;
-	auto res = rlc.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
-	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
-	ResourceFormatSaverCompatText rlc_text;
-	err = rlc_text.save(res, output_dir.path_join(p_dst.replace("res://", "")));
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save " + p_dst);
-	print_verbose("Converted " + p_path + " to " + p_dst);
-	return err;
-	// ResourceFormatLoaderCompat rlc;
-	// Error err = rlc.convert_bin_to_txt(p_path, p_dst, output_dir);
-	// ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert " + p_path + " to " + p_dst);
-	// print_verbose("Converted " + p_path + " to " + p_dst);
-	// return err;
+	String dest = output_dir.path_join(p_dst.replace("res://", ""));
+	return ResourceCompatLoader::to_text(p_path, dest);
 }
+
 Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
 	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
 	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));

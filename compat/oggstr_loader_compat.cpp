@@ -1,9 +1,7 @@
 #include "oggstr_loader_compat.h"
+#include "compat/resource_compat_binary.h"
 #include "core/io/file_access.h"
 #include "ogg/ogg.h"
-#include "resource_loader_compat.h"
-#include "utility/gdre_settings.h"
-#include "vorbis/codec.h"
 
 Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence, Vector<uint8_t> &r_data) {
 	auto page_data = packet_sequence->get_packet_data();
@@ -87,58 +85,32 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 }
 
 Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path, Error *r_err) const {
-	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (r_err) {
-		*r_err = err;
+	Error _err;
+	if (!r_err) {
+		r_err = &_err;
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Cannot open file '" + p_path + "'.");
-
-	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
-	loader->fake_load = true;
-	loader->local_path = p_path;
-	loader->res_path = p_path;
-	err = loader->open_bin(f);
-	if (r_err) {
-		r_err = &err;
-	}
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, r_err);
+	ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open file '" + p_path + "'.");
 	Vector<uint8_t> data;
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.", loader);
-	if (loader->engine_ver_major == 4) {
-		memdelete(loader);
-		Ref<AudioStreamOggVorbis> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
+	ResourceFormatLoaderCompatBinary rlcb;
+	ResourceInfo i_info = rlcb.get_resource_info(p_path, r_err);
+	ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
+	if (i_info.ver_major == 4) {
+		Ref<AudioStreamOggVorbis> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, r_err);
+		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
 		auto packet_sequence = sample->get_packet_sequence();
-		Error err = packet_sequence_to_raw_data(packet_sequence, data);
-		ERR_FAIL_COND_V_MSG(err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
+		*r_err = packet_sequence_to_raw_data(packet_sequence, data);
+		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
 		return data;
 	}
-	err = loader->load();
-	if (r_err) {
-		r_err = &err;
-	}
+	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_err);
 
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Vector<uint8_t>(), "Cannot load resource '" + p_path + "'.", loader);
+	ERR_FAIL_COND_V_MSG(*r_err, Vector<uint8_t>(), "Cannot load resource '" + p_path + "'.");
 	String name;
 	// bool loop;
 	// float loop_offset;
-	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceProperty pe = PE->get();
-		if (pe.name == "resource/name") {
-			name = pe.value;
-		} else if (pe.name == "data") {
-			data = pe.value;
-			// } else if (pe.name == "loop") {
-			// 	loop = pe.value;
-			// } else if (pe.name == "loop_offset") {
-			// 	loop_offset = pe.value;
-		}
-	}
-	memdelete(loader);
+	name = res->get("resource/name");
+	data = res->get("data");
 	return data;
 }
 void OggStreamLoaderCompat::_bind_methods() {}

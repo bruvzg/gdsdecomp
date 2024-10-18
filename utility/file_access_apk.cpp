@@ -32,7 +32,6 @@
 
 #include "file_access_apk.h"
 #include "axml_parser.h"
-#include "compat/resource_loader_compat.h"
 #include "core/io/file_access.h"
 #include "file_access_gdre.h"
 #include "gdre_settings.h"
