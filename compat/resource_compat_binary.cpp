@@ -38,6 +38,7 @@
 #include "core/io/image.h"
 #include "core/io/marshalls.h"
 #include "core/io/missing_resource.h"
+#include "core/io/resource.h"
 #include "core/object/script_language.h"
 #include "core/version.h"
 
@@ -799,8 +800,8 @@ Error ResourceLoaderCompatBinary::load() {
 				}
 			}
 		} else {
-			// Shouldn't happen on a fake or non-global load.
-			if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && !ResourceCache::has(res_path)) {
+			if (!(load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD) ||
+					(cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && !ResourceCache::has(res_path))) {
 				path = res_path;
 			}
 		}
@@ -816,7 +817,7 @@ Error ResourceLoaderCompatBinary::load() {
 
 		MissingResource *missing_resource = nullptr;
 
-		if (main) {
+		if (main && (load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD)) {
 			res = ResourceLoader::get_resource_ref_override(local_path);
 			r = res.ptr();
 		}
@@ -999,19 +1000,15 @@ Error ResourceLoaderCompatBinary::load() {
 			}
 			f.unref();
 			resource = res;
+			if (_resource_get_class(res) == "PackedScene") {
+				Dictionary _bundled = res->get("_bundled");
+				packed_scene_version = _bundled.get("version", -1);
+			}
 			// skip translation remapping for fake and non-global loads
-			if (!is_real_load()) {
-				// One final step; we have to check to see if this is a PackedScene, and if so, set a metadata field for the packedscene version number in the `_bundled` property
-				if (_resource_get_class(res) == "PackedScene") {
-					Dictionary _bundled = res->get("_bundled");
-					packed_scene_version = _bundled.get("version", -1);
-				}
-				set_compat_meta(res);
-				error = OK;
-				return OK;
+			if (load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD) {
+				resource->set_as_translation_remapped(translation_remapped);
 			}
 			set_compat_meta(res);
-			resource->set_as_translation_remapped(translation_remapped);
 			error = OK;
 			return OK;
 		}
@@ -1430,6 +1427,9 @@ void ResourceFormatLoaderCompatBinary::get_recognized_extensions_for_type(const 
 void ResourceFormatLoaderCompatBinary::get_recognized_extensions(List<String> *p_extensions) const {
 	List<String> extensions;
 	ClassDB::get_resource_base_extensions(&extensions);
+	// TODO: put this somewhere
+	extensions.push_back("fnt");
+	extensions.push_back("smp");
 	extensions.sort();
 
 	for (const String &E : extensions) {
@@ -2186,8 +2186,7 @@ void ResourceFormatSaverCompatBinaryInstance::_find_resources(const Variant &p_v
 	switch (p_variant.get_type()) {
 		case Variant::OBJECT: {
 			Ref<Resource> res = p_variant;
-
-			if (res.is_null() || external_resources.has(res) || res->get_meta(SNAME("_skip_save_"), false)) {
+			if (!CompatFormatLoader::resource_is_resource(res, ver_major) || res.is_null() || external_resources.has(res) || res->get_meta(SNAME("_skip_save_"), false)) {
 				return;
 			}
 
@@ -2382,22 +2381,13 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	ResourceInfo compat = ResourceInfo::from_dict(compat_dict);
 
 	Error err;
-	Ref<FileAccess> f;
-	if (p_flags & ResourceSaver::FLAG_COMPRESS || compat.is_compressed) {
-		Ref<FileAccessCompressed> fac;
-		fac.instantiate();
-		fac->configure("RSCC");
-		f = fac;
-		err = fac->open_internal(p_path, FileAccess::WRITE);
-	} else {
-		f = FileAccess::open(p_path, FileAccess::WRITE, &err);
-	}
-
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot create file '" + p_path + "'.");
 
 	ver_format = compat.ver_format;
 	ver_major = compat.ver_major;
 	ver_minor = compat.ver_minor;
+	if (ver_major == 0) {
+		WARN_PRINT("Resource has a major version of 0, this is not supported.");
+	}
 	String format = compat.resource_format;
 	script_class = compat.script_class;
 	using_script_class = compat.using_script_class();
@@ -2424,6 +2414,24 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 		}
 	}
 
+	Ref<FileAccess> f;
+	bool using_compression = p_flags & ResourceSaver::FLAG_COMPRESS || compat.is_compressed;
+	if (using_compression) {
+		Ref<FileAccessCompressed> fac;
+		fac.instantiate();
+		Compression::Mode mode = Compression::MODE_ZSTD;
+		if (ver_format < 3 || (ver_major < 3)) {
+			mode = Compression::MODE_FASTLZ;
+		}
+		fac->configure("RSCC", mode);
+		f = fac;
+		err = fac->open_internal(p_path, FileAccess::WRITE);
+	} else {
+		f = FileAccess::open(p_path, FileAccess::WRITE, &err);
+	}
+
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot create file '" + p_path + "'.");
+
 	if (using_real_t_double) {
 		f->real_is_double = true;
 	}
@@ -2445,7 +2453,7 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 
 	_find_resources(p_resource, true);
 
-	if (!(p_flags & ResourceSaver::FLAG_COMPRESS)) {
+	if (!(using_compression)) {
 		//save header compressed
 		static const uint8_t header[4] = { 'R', 'S', 'R', 'C' };
 		f->store_buffer(header, 4);
@@ -3103,8 +3111,6 @@ Error ResourceFormatLoaderCompatBinary::rewrite_v2_import_metadata(const String 
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_OPEN, "Cannot open file '" + p_path + "'.");
 	String dest = p_dst + ".tmp";
-	Ref<FileAccess> fw = FileAccess::open(dest, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V_MSG(err != OK, ERR_CANT_CREATE, "Cannot create file '" + p_dst + "'.");
 	{
 		ResourceLoaderCompatBinary loader;
 		String path = p_path;
