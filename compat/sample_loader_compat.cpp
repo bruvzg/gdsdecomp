@@ -135,39 +135,50 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 
 	ERR_FAIL_COND_V_MSG(*r_err, Ref<AudioStreamWAV>(), "Cannot load resource '" + p_path + "'.");
 	String name = res->get("resource/name");
-	Dictionary dat = res->get("data");
 	AudioStreamWAV::LoopMode loop_mode = (AudioStreamWAV::LoopMode) int(res->get("loop_format"));
 	// int loop_begin, loop_end, mix_rate, data_bytes = 0;
 	int loop_begin = res->get("loop_begin");
 	int loop_end = res->get("loop_end");
-	int mix_rate = res->get("mix_rate");
 	bool stereo = res->get("stereo");
-	String fmt = dat.get("format", AudioStreamWAV::FORMAT_16_BITS);
+
+	int mix_rate = res->get("mix_rate");
+	if (!mix_rate) {
+		mix_rate = 44100;
+	}
+	Vector<uint8_t> data;
 	AudioStreamWAV::Format format;
-	if (fmt == "ima_adpcm") {
-		format = AudioStreamWAV::FORMAT_IMA_ADPCM;
-	} else if (fmt == "pcm16") {
-		format = AudioStreamWAV::FORMAT_16_BITS;
-	} else if (fmt == "pcm8") {
-		format = AudioStreamWAV::FORMAT_8_BITS;
-	} else {
-		ERR_PRINT("Unknown WAV format: " + fmt);
-		format = AudioStreamWAV::FORMAT_16_BITS;
-	}
-	Vector<uint8_t> data = dat.get("data", Vector<uint8_t>());
 	int data_bytes = 0;
-	if (dat.has("stereo")) {
-		stereo = dat["stereo"];
-	}
-	if (dat.has("length")) {
-		data_bytes = dat["length"];
+	Dictionary dat = res->get("data");
+	if (dat.is_empty()) {
+		data = res->get("data");
+		format = (AudioStreamWAV::Format) int(res->get("format"));
+	} else {
+		String fmt = dat.get("format", "");
+		if (fmt == "ima_adpcm") {
+			format = AudioStreamWAV::FORMAT_IMA_ADPCM;
+		} else if (fmt == "pcm16") {
+			format = AudioStreamWAV::FORMAT_16_BITS;
+		} else if (fmt == "pcm8") {
+			format = AudioStreamWAV::FORMAT_8_BITS;
+		} else {
+			format = (AudioStreamWAV::Format)(int)res->get("format");
+			// if it doesn't exist on the root res, then it'll return the default of FORMAT_8_BITS anyway.
+		}
+		data = dat.get("data", Vector<uint8_t>());
+		if (dat.has("stereo")) {
+			stereo = dat["stereo"];
+		}
+		if (dat.has("length")) {
+			data_bytes = dat["length"];
+		}
 	}
 	if (data_bytes == 0) {
 		data_bytes = data.size();
-	} else if (data_bytes != data.size()) {
-		// TODO: something?
-		// WARN_PRINT("Data size mismatch: " + itos(data_bytes) + " vs " + itos(data.size()));
 	}
+	// else if (data_bytes != data.size()) {
+	// 	 TODO: something?
+	// 	 WARN_PRINT("Data size mismatch: " + itos(data_bytes) + " vs " + itos(data.size()));
+	// }
 	// create a new sample
 	Ref<AudioStreamWAV> sample = memnew(AudioStreamWAV);
 	sample->set_name(name);
