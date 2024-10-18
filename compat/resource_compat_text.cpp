@@ -205,7 +205,10 @@ Error ResourceLoaderCompatText::_parse_ext_resource(VariantParser::Stream *p_str
 }
 
 Ref<PackedScene> ResourceLoaderCompatText::_parse_node_tag(VariantParser::ResourceParser &parser) {
-	Ref<PackedScene> packed_scene;// = ResourceLoader::get_resource_ref_override(local_path);
+	Ref<PackedScene> packed_scene;
+	if (is_real_load()) {
+		packed_scene = ResourceLoader::get_resource_ref_override(local_path);
+	}
 	if (packed_scene.is_null()) {
 		packed_scene.instantiate();
 	}
@@ -743,8 +746,9 @@ Error ResourceLoaderCompatText::load() {
 		}
 
 		MissingResource *missing_resource = nullptr;
-
-		resource = ResourceLoader::get_resource_ref_override(local_path);
+		if (is_real_load()) {
+			resource = ResourceLoader::get_resource_ref_override(local_path);
+		}
 		if (resource.is_null()) {
 			// clang-format off
 			if (is_real_load()) {
