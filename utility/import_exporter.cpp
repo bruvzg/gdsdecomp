@@ -962,7 +962,7 @@ Error _export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	// All 3.x scenes that were imported from scenes/models SHOULD be compatible with 4.x
 	// The "escn" format basically force Godot to have compatibility with 3.x scenes
 	// This will also pull in any dependencies that were created by the importer (like textures and materials, which should also be similarly compatible)
-	Ref<PackedScene> scene = ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	Ref<PackedScene> scene = ResourceCompatLoader::real_load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to load scene " + iinfo->get_path());
 	// GLTF export can result in inaccurate models
 	// save it under .assets, which won't be picked up for import by the godot editor
@@ -1023,38 +1023,41 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 
 		TextureLoaderCompat tlc;
 		tlc.glft_export = true; // overides `get_image()` for glTF export
-		Vector<Ref<Texture>> textures;
+		Vector<Ref<Resource>> textures;
 		for (auto &E : get_deps_map) {
 			String dep = E.key;
 			auto &splits = E.value;
-			if (splits[1].contains("Texture")) {
-				Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(dep);
-				if (tex_iinfo.is_null()) {
-					WARN_PRINT("Failed to find import info for texture " + dep + " for scene " + iinfo->get_path());
-					continue;
-				}
-				Ref<Texture> texture = tlc.load_texture(tex_iinfo->get_path(), &err);
-				if (err || texture.is_null()) {
-					WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
-					continue;
-				}
-#ifdef TOOLS_ENABLED
-				texture->set_import_path(tex_iinfo->get_path());
-#endif
-				texture->set_path(dep);
-				if (!splits[0].is_empty()) {
-					auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);
-					if (id != ResourceUID::INVALID_ID) {
-						if (!ResourceUID::get_singleton()->has_id(id)) {
-							ResourceUID::get_singleton()->add_id(id, splits[2]);
-						} else {
-							ResourceUID::get_singleton()->set_id(id, splits[2]);
-						}
-						texture_uids.push_back(id);
-					}
-				}
-				textures.push_back(texture);
+			Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(dep);
+			if (tex_iinfo.is_null()) {
+				WARN_PRINT("Failed to find import info for texture " + dep + " for scene " + iinfo->get_path());
+				continue;
 			}
+			Ref<Resource> texture;
+			if (splits[1].contains("Texture")) {
+				texture = tlc.load_texture(tex_iinfo->get_path(), &err);
+			} else {
+				texture = ResourceCompatLoader::real_load(tex_iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+			}
+			if (err || texture.is_null()) {
+				WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
+				continue;
+			}
+#ifdef TOOLS_ENABLED
+			texture->set_import_path(tex_iinfo->get_path());
+#endif
+			texture->set_path(dep);
+			if (!splits[0].is_empty()) {
+				auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);
+				if (id != ResourceUID::INVALID_ID) {
+					if (!ResourceUID::get_singleton()->has_id(id)) {
+						ResourceUID::get_singleton()->add_id(id, splits[2]);
+					} else {
+						ResourceUID::get_singleton()->set_id(id, splits[2]);
+					}
+					texture_uids.push_back(id);
+				}
+			}
+			textures.push_back(texture);
 		}
 		err = _export_scene(output_dir, iinfo);
 	}
