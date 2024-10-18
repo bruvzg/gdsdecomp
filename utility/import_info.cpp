@@ -495,7 +495,7 @@ Error ImportInfoRemap::_load(const String &p_path) {
 		ERR_FAIL_V_MSG(ERR_BUG, "Failed to load import data from " + path);
 	}
 	preferred_import_path = cf->get_value("remap", "path", "");
-	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(p_path, "", &err);
+	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(preferred_import_path, "", &err);
 	if (err) {
 		cf = Ref<ConfigFile>();
 	}

@@ -66,6 +66,7 @@ void deinit_loaders() {
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
+	ResourceLoader::set_create_missing_resources_if_class_unavailable(true);
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}

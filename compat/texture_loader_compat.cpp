@@ -1,6 +1,7 @@
 #include "texture_loader_compat.h"
+#include "compat/resource_compat_binary.h"
+#include "core/error/error_macros.h"
 #include "image_enum_compat.h"
-#include "resource_loader_compat.h"
 #include "webp_compat.h"
 
 #include "utility/gdre_settings.h"
@@ -53,8 +54,8 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 	} else if ((header[0] == 'R' && header[1] == 'S' && header[2] == 'R' && header[3] == 'C') ||
 			(header[0] == 'R' && header[1] == 'S' && header[2] == 'C' && header[3] == 'C')) {
 		// check if this is a V2 texture
-		ResourceFormatLoaderCompat rlc;
-		Ref<ImportInfo> i_info = ImportInfo::load_from_file(res_path);
+		ResourceFormatLoaderCompatBinary rlcb;
+		ResourceInfo i_info = rlcb.get_resource_info(p_path, r_err);
 
 		if (*r_err == ERR_PRINTER_ON_FIRE) {
 			// no import metadata
@@ -62,7 +63,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		} else if (*r_err) {
 			ERR_FAIL_V_MSG(FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
 		}
-		String type = i_info->get_type();
+		String type = i_info.type;
 		if (type == "Texture") {
 			return FORMAT_V2_TEXTURE;
 		} else if (type == "ImageTexture") {
@@ -369,44 +370,21 @@ Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_pa
 
 Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const {
 	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
-
-	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
-	loader->fake_load = true;
-	loader->local_path = p_path;
-	loader->res_path = p_path;
-	loader->convert_v2image_indexed = true;
-	loader->hacks_for_deprecated_v2img_formats = false;
-	err = loader->open_bin(f);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot open resource '" + p_path + "'.", loader);
-	err = loader->load();
-	// deprecated format
-	if (err == ERR_UNAVAILABLE) {
-		memdelete(loader);
-		return ERR_UNAVAILABLE;
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, err, "Cannot load resource '" + p_path + "'.", loader);
+	ResourceFormatLoaderCompatBinary rlcb;
+	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot load resource '" + p_path + "'.");
 	tw_custom = 0;
 	th_custom = 0;
 	String name;
 	Vector2 size;
 	// Load the main resource, which should be the ImageTexture
-	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceProperty pe = PE->get();
-		if (pe.name == "resource/name") {
-			name = pe.value;
-		} else if (pe.name == "image") {
-			image = pe.value;
-		} else if (pe.name == "size") {
-			size = pe.value;
-		} else if (pe.name == "flags") {
-			flags = (int)pe.value;
-		}
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(image.is_null(), ERR_FILE_CORRUPT, "Cannot load resource '" + p_path + "'.", loader);
+
+	name = res->get("resource/name");
+	image = res->get("image");
+	size = res->get("size");
+	flags = res->get("flags");
+
+	ERR_FAIL_COND_V_MSG(image.is_null(), ERR_FILE_CORRUPT, "Cannot load resource '" + p_path + "'.");
 	image->set_name(name);
 	tw = image->get_width();
 	th = image->get_height();
@@ -416,7 +394,6 @@ Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int 
 	if (th != size.height) {
 		th_custom = size.height;
 	}
-	memdelete(loader);
 	return OK;
 }
 
@@ -1037,17 +1014,9 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 
 	Ref<Image> image;
 	image.instantiate();
-	ResourceLoaderCompat *loader = memnew(ResourceLoaderCompat);
-	loader->fake_load = true;
-	loader->local_path = p_path;
-	loader->res_path = p_path;
-	loader->convert_v2image_indexed = true;
-	loader->hacks_for_deprecated_v2img_formats = false;
-	err = loader->open_bin(f);
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<Image>(), "Cannot open resource '" + p_path + "'.", loader);
-
-	err = loader->load();
-	ERR_RFLBC_COND_V_MSG_CLEANUP(err != OK, Ref<Image>(), "Cannot load resource '" + p_path + "'.", loader);
+	ResourceFormatLoaderCompatBinary rlcb;
+	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Image>(), "Cannot open resource '" + p_path + "'.");
 
 	String name;
 	Vector2 size;
@@ -1057,18 +1026,8 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	int height;
 
 	// Load the main resource, which should be the ImageTexture
-	List<ResourceProperty> lrp = loader->internal_index_cached_properties[loader->res_path];
-	for (List<ResourceProperty>::Element *PE = lrp.front(); PE; PE = PE->next()) {
-		ResourceProperty pe = PE->get();
-		if (pe.name == "resource/name") {
-			name = pe.value;
-		} else if (pe.name == "data") {
-			data = pe.value;
-		}
-	}
-	ERR_RFLBC_COND_V_MSG_CLEANUP(!data.has("data") || !data.has("size"), Ref<Image>(), "Cannot load bitmap '" + p_path + "'.", loader);
-	memdelete(loader);
-
+	name = res->get("resource/name");
+	data = res->get("data");
 	bitmask = data.get("data", PackedByteArray());
 	size = data.get("size", Vector2());
 	width = size.width;
