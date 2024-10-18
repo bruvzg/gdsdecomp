@@ -506,7 +506,7 @@ Error ImportInfoRemap::_load(const String &p_path) {
 	dest_files = Vector<String>({ preferred_import_path });
 	not_an_import = true;
 	import_md_path = p_path;
-	auto_converted_export = true;
+	auto_converted_export = preferred_import_path != source_file;
 	return OK;
 }
 
