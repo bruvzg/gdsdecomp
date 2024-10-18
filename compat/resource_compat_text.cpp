@@ -2074,7 +2074,7 @@ void ResourceFormatSaverCompatTextInstance::_find_resources(const Variant &p_var
 		case Variant::OBJECT: {
 			Ref<Resource> res = p_variant;
 
-			if (res.is_null() || external_resources.has(res) || res->get_meta(SNAME("_skip_save_"), false)) {
+			if (!CompatFormatLoader::resource_is_resource(res, ver_major) || res.is_null() || external_resources.has(res) || res->get_meta(SNAME("_skip_save_"), false)) {
 				return;
 			}
 
