@@ -668,14 +668,10 @@ Error ResourceLoaderCompatText::load() {
 					bool set_valid = true;
 
 					// Should only get here on real loads.
-					if (value.get_type() == Variant::OBJECT && missing_resource == nullptr && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
+					if (value.get_type() == Variant::OBJECT && (assign == "script" || missing_resource == nullptr) && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
 						// If the property being set is a missing resource (and the parent is not),
 						// then setting it will most likely not work.
 						// Instead, save it as metadata.
-						if (!is_real_load()) {
-							WARN_PRINT("WE SHOULD NEVER GET HERE!!!!!!!!!!");
-						}
-
 						Ref<MissingResource> mr = value;
 						if (mr.is_valid()) {
 							missing_resource_properties[assign] = mr;
@@ -834,7 +830,7 @@ Error ResourceLoaderCompatText::load() {
 			if (!assign.is_empty()) {
 				bool set_valid = true;
 
-				if (value.get_type() == Variant::OBJECT && missing_resource == nullptr && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
+				if (value.get_type() == Variant::OBJECT && (assign == "script" || missing_resource == nullptr) && ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
 					// If the property being set is a missing resource (and the parent is not),
 					// then setting it will most likely not work.
 					// Instead, save it as metadata.
