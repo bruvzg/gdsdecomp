@@ -1064,7 +1064,7 @@ Error ResourceLoaderCompatText::rename_dependencies(Ref<FileAccess> p_f, const S
 				}
 
 				String uid_text = "";
-				if (res_uid != ResourceUID::INVALID_ID) {
+				if (res_uid != ResourceUID::INVALID_ID && format_version >= 3) {
 					uid_text = " uid=\"" + ResourceUID::get_singleton()->id_to_text(res_uid) + "\"";
 				}
 
@@ -2307,7 +2307,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 #endif
 		ResourceUID::ID uid = res_uid;
 
-		if (uid != ResourceUID::INVALID_ID) {
+		if (uid != ResourceUID::INVALID_ID && format_version >= 3) {
 			title += " uid=\"" + ResourceUID::get_singleton()->id_to_text(uid) + "\"";
 		}
 
