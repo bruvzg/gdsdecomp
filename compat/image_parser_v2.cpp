@@ -11,11 +11,11 @@ void _advance_padding(Ref<FileAccess> f, uint32_t p_len) {
 	}
 }
 
-void _add_padding(Ref<FileAccess> f, uint32_t p_len) {
-	uint32_t extra = 4 - (p_len % 4);
+void _pad_buffer(Ref<FileAccess> f, uint32_t p_len) {
+	int extra = 4 - (p_len % 4);
 	if (extra < 4) {
 		for (uint32_t i = 0; i < extra; i++) {
-			f->store_8(0); // pad to 32
+			f->store_8(0); //pad to 32
 		}
 	}
 }
@@ -115,12 +115,6 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		if (compress_lossless && Image::png_packer) {
 			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
 		}
-		// We do not want to resave the image as lossy because of:
-		// 1) We lose fidelity from the original asset if we do
-		// 2) V4 encoding is incompatible with V2 and V3
-		else if (compress_lossless && Image::png_packer) {
-			encoding = V2Image::IMAGE_ENCODING_LOSSLESS;
-		}
 	}
 
 	f->store_32(encoding); // raw encoding
@@ -137,7 +131,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		int dlen = val->get_data().size();
 		f->store_32(dlen);
 		f->store_buffer(val->get_data().ptr(), dlen);
-		_add_padding(f, dlen);
+		_pad_buffer(f, dlen);
 	} else {
 		Vector<uint8_t> data;
 
@@ -149,7 +143,7 @@ Error ImageParserV2::write_image_v2_to_bin(Ref<FileAccess> f, const Variant &r_v
 		f->store_32(ds);
 		if (ds > 0) {
 			f->store_buffer(data.ptr(), ds);
-			_add_padding(f, ds);
+			_pad_buffer(f, ds);
 		}
 	}
 	return OK;
