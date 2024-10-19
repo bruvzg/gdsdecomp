@@ -4,10 +4,12 @@
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
 #include "compat/optimized_translation_extractor.h"
+#include "compat/resource_loader_compat.h"
 #include "compat/resource_loader_compat2.h"
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
+#include "core/error/error_macros.h"
 #include "core/string/print_string.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
@@ -791,8 +793,10 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Ve
 
 Error ImportExporter::export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo) {
 	Error err;
-	Ref<FontFile> fontfile = ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	Ref<Resource> fontfile = ResourceCompatLoader::fake_load(iinfo->get_path(), "", &err); //ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to load font file " + iinfo->get_path());
+	PackedByteArray data = fontfile->get("data");
+	ERR_FAIL_COND_V_MSG(data.size() == 0, ERR_FILE_CORRUPT, "Font file " + iinfo->get_path() + " is empty");
 	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
 	err = ensure_dir(out_path.get_base_dir());
 	ERR_FAIL_COND_V(err, err);
@@ -800,7 +804,6 @@ Error ImportExporter::export_fontfile(const String &output_dir, Ref<ImportInfo> 
 	ERR_FAIL_COND_V(err, err);
 	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
 	// just get the raw data and write it; TTF files are stored as raw data in the fontdata file
-	PackedByteArray data = fontfile->get_data();
 	f->store_buffer(data.ptr(), data.size());
 	f->flush();
 	return OK;
