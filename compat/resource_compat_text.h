@@ -134,7 +134,7 @@ private:
 
 	VariantParser::ResourceParser rp;
 
-	friend class ResourceFormatCompatLoaderText;
+	friend class ResourceFormatLoaderCompatText;
 	friend class ResourceFormatSaverCompatText;
 
 	Error error = OK;
@@ -169,10 +169,10 @@ public:
 	ResourceLoaderCompatText();
 };
 
-class ResourceFormatCompatLoaderText : public CompatFormatLoader {
+class ResourceFormatLoaderCompatText : public CompatFormatLoader {
 private:
 public:
-	static ResourceFormatCompatLoaderText *singleton;
+	static ResourceFormatLoaderCompatText *singleton;
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
@@ -189,7 +189,7 @@ public:
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;
 	virtual bool handles_fake_load() const override { return true; }
 
-	ResourceFormatCompatLoaderText() { singleton = this; }
+	ResourceFormatLoaderCompatText() { singleton = this; }
 };
 
 class ResourceFormatSaverCompatTextInstance {

@@ -30,7 +30,7 @@ void gdsdecomp_init_callback() {
 #endif
 static GDRESettings *gdre_singleton = nullptr;
 // TODO: move this to its own thing
-static Ref<ResourceFormatCompatLoaderText> text_loader = nullptr;
+static Ref<ResourceFormatLoaderCompatText> text_loader = nullptr;
 static Ref<ResourceFormatLoaderCompatBinary> binary_loader = nullptr;
 
 void init_ver_regex() {
@@ -48,7 +48,7 @@ void free_ver_regex() {
 }
 
 void init_loaders() {
-	text_loader = memnew(ResourceFormatCompatLoaderText);
+	text_loader = memnew(ResourceFormatLoaderCompatText);
 	binary_loader = memnew(ResourceFormatLoaderCompatBinary);
 	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
