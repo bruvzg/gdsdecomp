@@ -1793,7 +1793,7 @@ ResourceUID::ID ResourceLoaderCompatText::get_uid(Ref<FileAccess> p_f) {
 
 /////////////////////
 
-Ref<Resource> ResourceFormatCompatLoaderText::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+Ref<Resource> ResourceFormatLoaderCompatText::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
@@ -1838,7 +1838,7 @@ Ref<Resource> ResourceFormatCompatLoaderText::load(const String &p_path, const S
 	}
 }
 
-void ResourceFormatCompatLoaderText::get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const {
+void ResourceFormatLoaderCompatText::get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const {
 	if (p_type.is_empty()) {
 		get_recognized_extensions(p_extensions);
 		return;
@@ -1854,16 +1854,16 @@ void ResourceFormatCompatLoaderText::get_recognized_extensions_for_type(const St
 	}
 }
 
-void ResourceFormatCompatLoaderText::get_recognized_extensions(List<String> *p_extensions) const {
+void ResourceFormatLoaderCompatText::get_recognized_extensions(List<String> *p_extensions) const {
 	p_extensions->push_back("tscn");
 	p_extensions->push_back("tres");
 }
 
-bool ResourceFormatCompatLoaderText::handles_type(const String &p_type) const {
+bool ResourceFormatLoaderCompatText::handles_type(const String &p_type) const {
 	return true;
 }
 
-void ResourceFormatCompatLoaderText::get_classes_used(const String &p_path, HashSet<StringName> *r_classes) {
+void ResourceFormatLoaderCompatText::get_classes_used(const String &p_path, HashSet<StringName> *r_classes) {
 	String ext = p_path.get_extension().to_lower();
 	if (ext == "tscn") {
 		r_classes->insert("PackedScene");
@@ -1884,7 +1884,7 @@ void ResourceFormatCompatLoaderText::get_classes_used(const String &p_path, Hash
 	loader.get_classes_used(r_classes);
 }
 
-String ResourceFormatCompatLoaderText::get_resource_type(const String &p_path) const {
+String ResourceFormatLoaderCompatText::get_resource_type(const String &p_path) const {
 	String ext = p_path.get_extension().to_lower();
 	if (ext == "tscn") {
 		return "PackedScene";
@@ -1907,7 +1907,7 @@ String ResourceFormatCompatLoaderText::get_resource_type(const String &p_path) c
 	return ClassDB::get_compatibility_remapped_class(r);
 }
 
-String ResourceFormatCompatLoaderText::get_resource_script_class(const String &p_path) const {
+String ResourceFormatLoaderCompatText::get_resource_script_class(const String &p_path) const {
 	String ext = p_path.get_extension().to_lower();
 	if (ext != "tres") {
 		return String();
@@ -1927,7 +1927,7 @@ String ResourceFormatCompatLoaderText::get_resource_script_class(const String &p
 	return loader.recognize_script_class(f);
 }
 
-ResourceUID::ID ResourceFormatCompatLoaderText::get_resource_uid(const String &p_path) const {
+ResourceUID::ID ResourceFormatLoaderCompatText::get_resource_uid(const String &p_path) const {
 	String ext = p_path.get_extension().to_lower();
 
 	if (ext != "tscn" && ext != "tres") {
@@ -1946,7 +1946,7 @@ ResourceUID::ID ResourceFormatCompatLoaderText::get_resource_uid(const String &p
 	return loader.get_uid(f);
 }
 
-void ResourceFormatCompatLoaderText::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
+void ResourceFormatLoaderCompatText::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	if (f.is_null()) {
 		ERR_FAIL();
@@ -1959,7 +1959,7 @@ void ResourceFormatCompatLoaderText::get_dependencies(const String &p_path, List
 	loader.get_dependencies(f, p_dependencies, p_add_types);
 }
 
-Error ResourceFormatCompatLoaderText::rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) {
+Error ResourceFormatLoaderCompatText::rename_dependencies(const String &p_path, const HashMap<String, String> &p_map) {
 	Error err = OK;
 	{
 		Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
@@ -1983,7 +1983,7 @@ Error ResourceFormatCompatLoaderText::rename_dependencies(const String &p_path, 
 	return err;
 }
 
-ResourceFormatCompatLoaderText *ResourceFormatCompatLoaderText::singleton = nullptr;
+ResourceFormatLoaderCompatText *ResourceFormatLoaderCompatText::singleton = nullptr;
 
 /*****************************************************************************************************/
 /*****************************************************************************************************/
@@ -2835,7 +2835,7 @@ ResourceInfo ResourceLoaderCompatText::get_resource_info() {
 	return info;
 }
 
-Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, ResourceInfo::LoadType p_load_type, Error *r_error) {
+Ref<Resource> ResourceFormatLoaderCompatText::custom_load(const String &p_path, ResourceInfo::LoadType p_load_type, Error *r_error) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
@@ -2886,7 +2886,7 @@ Ref<Resource> ResourceFormatCompatLoaderText::custom_load(const String &p_path, 
 		*r_error = err;          \
 	}
 
-ResourceInfo ResourceFormatCompatLoaderText::get_resource_info(const String &p_path, Error *r_error) const {
+ResourceInfo ResourceFormatLoaderCompatText::get_resource_info(const String &p_path, Error *r_error) const {
 	_SET_R_ERR(ERR_CANT_OPEN, r_error);
 
 	Error err;
