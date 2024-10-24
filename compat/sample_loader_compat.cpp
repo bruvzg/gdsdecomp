@@ -8,6 +8,105 @@ struct IMA_ADPCM_State {
 	int32_t predictor = 0;
 	int32_t last_nibble = -1;
 };
+struct QOA_State {
+	qoa_desc desc = {};
+	uint32_t data_ofs = 0;
+	uint32_t frame_len = 0;
+	LocalVector<int16_t> dec;
+	uint32_t dec_len = 0;
+	int64_t cache_pos = -1;
+	int16_t cache[2] = { 0, 0 };
+	int16_t cache_r[2] = { 0, 0 };
+};
+
+#define DATA_PAD 16
+
+Ref<AudioStreamWAV> SampleLoaderCompat::convert_qoa_to_16bit(const Ref<AudioStreamWAV> &p_sample) {
+	ERR_FAIL_COND_V_MSG(p_sample->get_format() != AudioStreamWAV::FORMAT_QOA, Ref<AudioStreamWAV>(), "Sample is not QOA.");
+	Ref<AudioStreamWAV> new_sample = memnew(AudioStreamWAV);
+
+	new_sample->set_format(AudioStreamWAV::FORMAT_16_BITS);
+	new_sample->set_loop_mode(p_sample->get_loop_mode());
+	new_sample->set_loop_begin(p_sample->get_loop_begin());
+	new_sample->set_loop_end(p_sample->get_loop_end());
+	new_sample->set_mix_rate(p_sample->get_mix_rate());
+	new_sample->set_stereo(p_sample->is_stereo());
+
+	auto data = p_sample->get_data();
+	bool is_stereo = p_sample->is_stereo();
+	Vector<uint8_t> dest_data;
+	int64_t p_offset = 0;
+	int64_t p_increment = 1;
+	int32_t final = 0, final_r = 0, next = 0, next_r = 0;
+	QOA_State p_qoa;
+	int sign = 1;
+
+	qoa_decode_header(data.ptr(), data.size(), &p_qoa.desc);
+	int64_t p_amount = p_qoa.desc.samples; // number of samples for EACH channel, not total
+	dest_data.resize(p_amount * sizeof(int16_t) * (is_stereo ? 2 : 1)); // number of 16-bit samples * number of channels
+	p_qoa.frame_len = qoa_max_frame_size(&p_qoa.desc);
+	int samples_len = (p_qoa.desc.samples > QOA_FRAME_LEN ? QOA_FRAME_LEN : p_qoa.desc.samples);
+	int dec_len = p_qoa.desc.channels * samples_len;
+	p_qoa.dec.resize(dec_len);
+	int16_t *dest = (int16_t *)dest_data.ptrw();
+	while (p_amount) {
+		p_amount--;
+		int64_t pos = p_offset;
+		if (pos != p_qoa.cache_pos) { // Prevents triple decoding on lower mix rates.
+			for (int i = 0; i < 2; i++) {
+				// Sign operations prevent triple decoding on backward loops, maxing prevents pop.
+				uint32_t interp_pos = MIN(pos + (i * sign) + (sign < 0), p_qoa.desc.samples - 1);
+				uint32_t new_data_ofs = 8 + interp_pos / QOA_FRAME_LEN * p_qoa.frame_len;
+				const uint8_t *src_ptr = (const uint8_t *)data.ptr();
+
+				if (p_qoa.data_ofs != new_data_ofs) {
+					p_qoa.data_ofs = new_data_ofs;
+					const uint8_t *ofs_src = (uint8_t *)src_ptr + p_qoa.data_ofs;
+					qoa_decode_frame(ofs_src, p_qoa.frame_len, &p_qoa.desc, p_qoa.dec.ptr(), &p_qoa.dec_len);
+				}
+
+				uint32_t dec_idx = (interp_pos % QOA_FRAME_LEN) * p_qoa.desc.channels;
+
+				if ((sign > 0 && i == 0) || (sign < 0 && i == 1)) {
+					final = p_qoa.dec[dec_idx];
+					p_qoa.cache[0] = final;
+					if (is_stereo) {
+						final_r = p_qoa.dec[dec_idx + 1];
+						p_qoa.cache_r[0] = final_r;
+					}
+				} else {
+					next = p_qoa.dec[dec_idx];
+					p_qoa.cache[1] = next;
+					if (is_stereo) {
+						next_r = p_qoa.dec[dec_idx + 1];
+						p_qoa.cache_r[1] = next_r;
+					}
+				}
+			}
+			p_qoa.cache_pos = pos;
+		} else {
+			final = p_qoa.cache[0];
+			if (is_stereo) {
+				final_r = p_qoa.cache_r[0];
+			}
+
+			next = p_qoa.cache[1];
+			if (is_stereo) {
+				next_r = p_qoa.cache_r[1];
+			}
+		}
+		*dest = final;
+		dest++;
+		if (is_stereo) {
+			*dest = final_r;
+			dest++;
+		}
+		p_offset += p_increment;
+	}
+
+	new_sample->set_data(dest_data);
+	return new_sample;
+}
 
 Ref<AudioStreamWAV> SampleLoaderCompat::convert_adpcm_to_16bit(const Ref<AudioStreamWAV> &p_sample) {
 	ERR_FAIL_COND_V_MSG(p_sample->get_format() != AudioStreamWAV::FORMAT_IMA_ADPCM, Ref<AudioStreamWAV>(), "Sample is not IMA ADPCM.");

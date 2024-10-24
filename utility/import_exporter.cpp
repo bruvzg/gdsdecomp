@@ -1316,6 +1316,8 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 	if (sample->get_format() == AudioStreamWAV::FORMAT_IMA_ADPCM) {
 		// convert to 16-bit
 		sample = SampleLoaderCompat::convert_adpcm_to_16bit(sample);
+	} else if (sample->get_format() == AudioStreamWAV::FORMAT_QOA) {
+		sample = SampleLoaderCompat::convert_qoa_to_16bit(sample);
 	}
 	err = sample->save_to_wav(dst_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);

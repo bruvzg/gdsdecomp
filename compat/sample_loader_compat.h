@@ -18,4 +18,5 @@ protected:
 public:
 	static Ref<AudioStreamWAV> load_wav(const String &p_path, Error *r_err);
 	static Ref<AudioStreamWAV> convert_adpcm_to_16bit(const Ref<AudioStreamWAV> &p_sample);
+	static Ref<AudioStreamWAV> convert_qoa_to_16bit(const Ref<AudioStreamWAV> &p_sample);
 };
