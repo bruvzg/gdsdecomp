@@ -506,6 +506,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 					break;
 				case 2:
 				case 3:
+				case 4:
 					revision = 0x77af6ca;
 					break;
 				default:
