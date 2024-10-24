@@ -1024,7 +1024,6 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 		}
 
 		TextureLoaderCompat tlc;
-		tlc.glft_export = true; // overides `get_image()` for glTF export
 		Vector<Ref<Resource>> textures;
 		for (auto &E : get_deps_map) {
 			String dep = E.key;
@@ -1034,12 +1033,7 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 				WARN_PRINT("Failed to find import info for texture " + dep + " for scene " + iinfo->get_path());
 				continue;
 			}
-			Ref<Resource> texture;
-			if (splits[1].contains("Texture")) {
-				texture = tlc.load_texture(tex_iinfo->get_path(), &err);
-			} else {
-				texture = ResourceCompatLoader::real_load(tex_iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-			}
+			Ref<Resource> texture = ResourceCompatLoader::gltf_load(tex_iinfo->get_path(), splits[1], &err);
 			if (err || texture.is_null()) {
 				WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
 				continue;

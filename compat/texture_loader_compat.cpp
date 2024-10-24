@@ -1,7 +1,12 @@
 #include "texture_loader_compat.h"
 #include "compat/resource_compat_binary.h"
 #include "core/error/error_macros.h"
+#include "core/io/missing_resource.h"
+#include "core/variant/dictionary.h"
 #include "image_enum_compat.h"
+#include "scene/resources/compressed_texture.h"
+#include "scene/resources/texture.h"
+#include "utility/resource_info.h"
 #include "webp_compat.h"
 
 #include "utility/gdre_settings.h"
@@ -23,6 +28,14 @@ enum FormatBits {
 };
 
 void TextureLoaderCompat::_bind_methods() {}
+
+ResourceInfo TextureLoaderCompat::_get_resource_info(TextureLoaderCompat::TextureVersionType t) {
+	ResourceInfo info;
+	info.ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
+	info.type = TextureLoaderCompat::get_type_name_from_textype(t);
+	info.resource_format = "Texture";
+	return info;
+}
 
 TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const String &p_path, Error *r_err) {
 	Error err;
@@ -67,7 +80,12 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		if (type == "Texture") {
 			return FORMAT_V2_TEXTURE;
 		} else if (type == "ImageTexture") {
-			return FORMAT_V2_IMAGE_TEXTURE;
+			if (i_info.ver_major == 2) {
+				return FORMAT_V2_IMAGE_TEXTURE;
+			} else if (i_info.ver_major == 3) {
+				return FORMAT_V3_IMAGE_TEXTURE;
+			}
+			return FORMAT_V4_IMAGE_TEXTURE;
 		} else if (type == "AtlasTexture") {
 			return FORMAT_V2_ATLAS_TEXTURE;
 		} else if (type == "LargeTexture") {
@@ -88,10 +106,12 @@ int TextureLoaderCompat::get_ver_major_from_textype(TextureVersionType type) {
 		case FORMAT_V2_LARGE_TEXTURE:
 		case FORMAT_V2_CUBEMAP:
 			return 2;
+		case FORMAT_V3_IMAGE_TEXTURE:
 		case FORMAT_V3_STREAM_TEXTURE2D:
 		case FORMAT_V3_STREAM_TEXTURE3D:
 		case FORMAT_V3_STREAM_TEXTUREARRAY:
 			return 3;
+		case FORMAT_V4_IMAGE_TEXTURE:
 		case FORMAT_V4_COMPRESSED_TEXTURE2D:
 		case FORMAT_V4_COMPRESSED_TEXTURE3D:
 		case FORMAT_V4_COMPRESSED_TEXTURELAYERED:
@@ -116,8 +136,10 @@ TextureLoaderCompat::TextureType TextureLoaderCompat::get_type_enum_from_version
 		// 2d
 		case FORMAT_V2_TEXTURE:
 		case FORMAT_V2_IMAGE_TEXTURE:
+		case FORMAT_V3_IMAGE_TEXTURE:
 		case FORMAT_V3_STREAM_TEXTURE2D:
 		case FORMAT_V4_COMPRESSED_TEXTURE2D:
+		case FORMAT_V4_IMAGE_TEXTURE:
 			return TEXTURE_TYPE_2D;
 		case FORMAT_V2_ATLAS_TEXTURE:
 			return TEXTURE_TYPE_ATLAS;
@@ -131,6 +153,8 @@ String TextureLoaderCompat::get_type_name_from_textype(TextureVersionType type) 
 		case FORMAT_V2_TEXTURE:
 			return "Texture";
 		case FORMAT_V2_IMAGE_TEXTURE:
+		case FORMAT_V3_IMAGE_TEXTURE:
+		case FORMAT_V4_IMAGE_TEXTURE:
 			return "ImageTexture";
 		case FORMAT_V2_ATLAS_TEXTURE:
 			return "AtlasTexture";
@@ -155,7 +179,7 @@ String TextureLoaderCompat::get_type_name_from_textype(TextureVersionType type) 
 	}
 }
 
-Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) const {
+Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int th, int tw_custom, int th_custom, int flags, int p_size_limit, uint32_t df, Ref<Image> &image) {
 	Image::Format format;
 	if (!(df & FORMAT_BIT_STREAM)) {
 		// do something??
@@ -329,75 +353,7 @@ public:
 };
 static_assert(sizeof(faketex2D) == sizeof(CompressedTexture2D), "faketex2D must be the same size as CompressedTexture2D");
 
-Ref<CompressedTexture2D> TextureLoaderCompat::_load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const {
-	int lw, lh, lwc, lhc, lflags;
-	Error err;
-	Ref<CompressedTexture2D> texture;
-	Ref<OverrideTexture2D> override_texture;
-	if (ver_major == 2) {
-		err = _load_data_tex_v2(p_path, lw, lh, lwc, lhc, lflags, image);
-	} else if (ver_major == 3) {
-		err = _load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
-	} else if (ver_major == 4) {
-		err = _load_data_ctex2d_v4(p_path, lw, lh, lwc, lhc, image);
-	} else {
-		err = ERR_INVALID_PARAMETER;
-	}
-	if (r_err)
-		*r_err = err;
-	// deprecated format
-	if (err == ERR_UNAVAILABLE) {
-		return texture;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	if (glft_export) {
-		override_texture.instantiate();
-		override_texture->image = image;
-		texture = override_texture;
-	} else {
-		texture.instantiate();
-	}
-	faketex2D *fake = reinterpret_cast<faketex2D *>(texture.ptr());
-	fake->w = lwc ? lwc : lw;
-	fake->h = lhc ? lhc : lh;
-	fake->format = image->get_format();
-	fake->path_to_file = p_path;
-	size_override = lwc || lhc;
-	// alpha_cache gets generated dynamically if necessary
-	// we no longer care about flags, apparently
-	return texture;
-}
-
-Error TextureLoaderCompat::_load_data_tex_v2(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image) const {
-	Error err;
-	ResourceFormatLoaderCompatBinary rlcb;
-	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot load resource '" + p_path + "'.");
-	tw_custom = 0;
-	th_custom = 0;
-	String name;
-	Vector2 size;
-	// Load the main resource, which should be the ImageTexture
-
-	name = res->get("resource/name");
-	image = res->get("image");
-	size = res->get("size");
-	flags = res->get("flags");
-
-	ERR_FAIL_COND_V_MSG(image.is_null(), ERR_FILE_CORRUPT, "Cannot load resource '" + p_path + "'.");
-	image->set_name(name);
-	tw = image->get_width();
-	th = image->get_height();
-	if (tw != size.width) {
-		tw_custom = size.width;
-	}
-	if (th != size.height) {
-		th_custom = size.height;
-	}
-	return OK;
-}
-
-Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) const {
+Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit) {
 	Error err;
 
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
@@ -430,7 +386,7 @@ Error TextureLoaderCompat::_load_data_stex2d_v3(const String &p_path, int &tw, i
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) const {
+Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	uint8_t header[4];
 	// already checked header
@@ -469,7 +425,7 @@ Error TextureLoaderCompat::_load_data_ctex2d_v4(const String &p_path, int &tw, i
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) {
 	Error err;
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Cannot open file '" + p_path + "'.");
@@ -560,7 +516,7 @@ Error TextureLoaderCompat::_load_layered_texture_v3(const String &p_path, Vector
 	return OK;
 }
 
-Error TextureLoaderCompat::_load_data_ctexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) const {
+Error TextureLoaderCompat::_load_data_ctexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
@@ -633,43 +589,6 @@ public:
 };
 static_assert(sizeof(faketex3D) == sizeof(CompressedTexture3D), "faketex3D must be the same size as CompressedTexture3D");
 
-Ref<CompressedTexture3D> TextureLoaderCompat::_load_texture3d(const String p_path, Vector<Ref<Image>> &r_data, Error *r_err, int ver_major) const {
-	int lw, lh, ld, ltype;
-	bool mipmaps;
-	Image::Format fmt;
-	Error err;
-	Ref<CompressedTexture3D> texture;
-	Ref<OverrideTexture3D> override_texture;
-	if (ver_major == 2) {
-		err = ERR_UNAVAILABLE;
-	} else if (ver_major == 3) {
-		err = _load_layered_texture_v3(p_path, r_data, fmt, lw, lh, ld, mipmaps);
-	} else if (ver_major == 4) {
-		err = _load_data_ctexlayered_v4(p_path, r_data, fmt, lw, lh, ld, ltype, mipmaps);
-	} else {
-		err = ERR_INVALID_PARAMETER;
-	}
-	if (r_err)
-		*r_err = err;
-	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, texture, "V2 Texture3d conversion unimplemented");
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Failed to load image from texture file " + p_path);
-	if (glft_export) {
-		override_texture.instantiate();
-		override_texture->data = r_data;
-		texture = override_texture;
-	} else {
-		texture.instantiate();
-	}
-	faketex3D *fake = reinterpret_cast<faketex3D *>(texture.ptr());
-	fake->w = lw;
-	fake->h = lh;
-	fake->d = ld;
-	fake->mipmaps = mipmaps;
-	fake->format = fmt;
-	fake->path_to_file = p_path;
-	return texture;
-}
-
 template <class T>
 class OverrideTextureLayered : public T {
 	static_assert(std::is_base_of<TextureLayered, T>::value, "T must be a subclass of TextureLayered");
@@ -698,229 +617,6 @@ public:
 };
 static_assert(sizeof(faketexlayered) == sizeof(CompressedTextureLayered), "faketexlayered must be the same size as CompressedTextureLayered");
 
-Ref<CompressedTextureLayered> TextureLoaderCompat::_load_texture_layered(const String p_path, Vector<Ref<Image>> &r_data, int &type, Error *r_err, int ver_major) const {
-	int lw, lh, ld;
-
-	bool mipmaps;
-	Image::Format fmt;
-	Error err;
-	if (ver_major == 2) {
-		err = ERR_UNAVAILABLE;
-	} else if (ver_major == 3) {
-		err = _load_layered_texture_v3(p_path, r_data, fmt, lw, lh, ld, mipmaps);
-		type = 0;
-	} else if (ver_major == 4) {
-		err = _load_data_ctexlayered_v4(p_path, r_data, fmt, lw, lh, ld, type, mipmaps);
-	} else {
-		err = ERR_INVALID_PARAMETER;
-	}
-	if (r_err)
-		*r_err = err;
-	ERR_FAIL_COND_V_MSG(err == ERR_UNAVAILABLE, Ref<Resource>(), "V2 TextureLayered conversion unimplemented");
-	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load image from texture file " + p_path);
-	Ref<CompressedTextureLayered> texture;
-	TextureLayered::LayeredType tl_type = TextureLayered::LayeredType::LAYERED_TYPE_2D_ARRAY;
-
-	if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
-		if (glft_export) {
-			Ref<OverrideTextureLayered<CompressedTexture2DArray>> override_texture;
-			override_texture.instantiate();
-			override_texture->layer_data = r_data;
-			texture = override_texture;
-		} else {
-			texture = Ref<CompressedTexture2DArray>();
-		}
-		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_2D_ARRAY;
-	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
-		if (glft_export) {
-			Ref<OverrideTextureLayered<CompressedCubemap>> override_texture;
-			override_texture.instantiate();
-			override_texture->layer_data = r_data;
-			texture = override_texture;
-		} else {
-			texture = Ref<CompressedCubemap>();
-		}
-		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_CUBEMAP;
-	} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
-		if (glft_export) {
-			Ref<OverrideTextureLayered<CompressedCubemapArray>> override_texture;
-			override_texture.instantiate();
-			override_texture->layer_data = r_data;
-			texture = override_texture;
-		} else {
-			texture = Ref<CompressedCubemapArray>();
-		}
-		tl_type = TextureLayered::LayeredType::LAYERED_TYPE_CUBEMAP_ARRAY;
-	}
-
-	faketexlayered *fake = reinterpret_cast<faketexlayered *>(texture.ptr());
-	fake->w = lw;
-	fake->h = lh;
-	fake->layers = r_data.size();
-	fake->mipmaps = mipmaps;
-	fake->format = fmt;
-	fake->path_to_file = p_path;
-	fake->layered_type = tl_type;
-	return texture;
-}
-
-Ref<CompressedTextureLayered> TextureLoaderCompat::load_texture_layered(const String p_path, Error *r_err) {
-	Error err;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
-
-	if (t == FORMAT_NOT_TEXTURE) {
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTextureLayered>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<CompressedTextureLayered>());
-	}
-
-	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_LAYERED,
-			Ref<Image>(), "Not a layered texture: " + res_path);
-
-	Ref<CompressedTexture3D> texture;
-	Vector<Ref<Image>> r_data;
-	int type;
-	texture = _load_texture_layered(res_path, r_data, type, &err, ver_major);
-	if (r_err) {
-		*r_err = err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture");
-	// put the texture into the rendering server
-	RID texture_rid = RS::get_singleton()->texture_2d_layered_create(r_data, RS::TextureLayeredType(type));
-	faketexlayered *fake = reinterpret_cast<faketexlayered *>(texture.ptr());
-	fake->texture = texture_rid;
-	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
-	RS::get_singleton()->texture_set_path(texture_rid, local_path);
-	texture->set_path(local_path, false);
-	return texture;
-}
-
-Ref<CompressedTexture3D> TextureLoaderCompat::load_texture3d(const String p_path, Error *r_err) {
-	Error err;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
-	if (t == FORMAT_NOT_TEXTURE) {
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTexture3D>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<CompressedTexture3D>());
-	}
-
-	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_3D,
-			Ref<CompressedTexture3D>(), "Not a 3d image texture: " + res_path);
-
-	Ref<CompressedTexture3D> texture;
-	Vector<Ref<Image>> r_data;
-
-	texture = _load_texture3d(p_path, r_data, &err, ver_major);
-	if (r_err) {
-		*r_err = err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture");
-	// put the texture into the rendering server
-	RID texture_rid = RS::get_singleton()->texture_3d_create(texture->get_format(),
-			texture->get_width(),
-			texture->get_height(),
-			texture->get_depth(),
-			texture->has_mipmaps(),
-			r_data);
-	faketex3D *fake = reinterpret_cast<faketex3D *>(texture.ptr());
-	fake->texture = texture_rid;
-	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
-	RS::get_singleton()->texture_set_path(texture_rid, local_path);
-	texture->set_path(local_path, false);
-	return texture;
-}
-
-Ref<CompressedTexture2D> TextureLoaderCompat::load_texture2d(const String p_path, Error *r_err) {
-	Error err;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
-	if (t == FORMAT_NOT_TEXTURE) {
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<CompressedTexture2D>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<CompressedTexture2D>());
-	}
-
-	int ver_major = get_ver_major_from_textype(t);
-	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_2D,
-			Ref<Image>(), "Not a 2d image texture: " + res_path);
-
-	Ref<CompressedTexture2D> texture;
-	Ref<Image> image;
-	bool size_override = false;
-	texture = _load_texture2d(res_path, image, size_override, ver_major, &err);
-	if (r_err) {
-		*r_err = err;
-	}
-	if (err == ERR_UNAVAILABLE) {
-		return texture;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
-	// put the texture into the rendering server
-	RID texture_rid = RS::get_singleton()->texture_2d_create(image);
-	faketex2D *fake = reinterpret_cast<faketex2D *>(texture.ptr());
-	fake->texture = texture_rid;
-	if (size_override) {
-		RS::get_singleton()->texture_set_size_override(texture_rid, texture->get_width(), texture->get_height());
-	}
-	String local_path = GDRESettings::get_singleton()->localize_path(p_path);
-	RS::get_singleton()->texture_set_path(texture_rid, local_path);
-	texture->set_path(local_path, false);
-	return texture;
-}
-
-Ref<Texture> TextureLoaderCompat::load_texture(const String p_path, Error *r_err) {
-	Error err;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
-	if (t == FORMAT_NOT_TEXTURE) {
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Texture>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<Texture>());
-	}
-
-	Ref<Texture> texture;
-	switch (get_type_enum_from_version_type(t)) {
-		case TEXTURE_TYPE_2D:
-			texture = load_texture2d(p_path, &err);
-			break;
-		case TEXTURE_TYPE_3D:
-			texture = load_texture3d(p_path, &err);
-			break;
-		case TEXTURE_TYPE_LAYERED:
-			texture = load_texture_layered(p_path, &err);
-			break;
-		case TEXTURE_TYPE_ATLAS: {
-			if (r_err) {
-				*r_err = ERR_UNAVAILABLE;
-			}
-			ERR_FAIL_V_MSG(Ref<Texture>(), "Atlas texture loading not yet supported! : " + res_path);
-		} break;
-		default: { // UNKNOWN
-			if (r_err) {
-				*r_err = ERR_FILE_UNRECOGNIZED;
-			}
-			ERR_FAIL_V_MSG(Ref<Texture>(), "Unknown texture type : " + res_path);
-		} break;
-	}
-	if (r_err) {
-		*r_err = err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, texture, "Couldn't load texture " + res_path);
-	return texture;
-}
-
 // TODO: What to do with this?
 Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error *r_err) {
 	Error err;
@@ -935,17 +631,21 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, data, "File " + res_path + " is not a texture.");
 		ERR_FAIL_COND_V(err != OK, data);
 	}
-	int type;
-	Ref<Resource> res;
-	int ver_major = get_ver_major_from_textype(t);
 	auto textype = get_type_enum_from_version_type(t);
 	switch (textype) {
-		case TEXTURE_TYPE_3D:
-			res = _load_texture3d(res_path, data, &err, ver_major);
-			break;
-		case TEXTURE_TYPE_LAYERED:
-			res = _load_texture_layered(res_path, data, type, &err, ver_major);
-			break;
+		case TEXTURE_TYPE_3D: {
+			ResourceFormatLoaderCompatTexture3D rlcb;
+			Ref<Texture3D> res = rlcb.custom_load(res_path, ResourceInfo::LoadType::NON_GLOBAL_LOAD, &err);
+			data = res->get_data();
+		} break;
+		case TEXTURE_TYPE_LAYERED: {
+			ResourceFormatLoaderCompatTextureLayered rlcb;
+			Ref<TextureLayered> res = rlcb.custom_load(res_path, ResourceInfo::LoadType::NON_GLOBAL_LOAD, &err);
+
+			for (int i = 0; i < res->get_layers(); i++) {
+				data.push_back(res->get_layer_data(i));
+			}
+		} break;
 		default:
 			if (r_err) {
 				*r_err = ERR_INVALID_PARAMETER;
@@ -962,39 +662,24 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 }
 
 Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *r_err) {
-	Error err;
+	Error err = OK;
+	if (!r_err) {
+		r_err = &err;
+	}
 	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
+	TextureLoaderCompat::TextureVersionType t = recognize(res_path, r_err);
 	if (t == FORMAT_NOT_TEXTURE) {
-		if (r_err) {
-			*r_err = err;
-		}
-		ERR_FAIL_COND_V_MSG(err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(err != OK, Ref<Image>());
+		ERR_FAIL_COND_V_MSG(*r_err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
+		ERR_FAIL_COND_V(*r_err != OK, Ref<Image>());
 	}
 
-	int ver_major = get_ver_major_from_textype(t);
 	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_2D,
 			Ref<Image>(), "Not a 2d image texture: " + res_path);
 
-	Ref<Image> image;
-	image.instantiate();
-	bool size_override;
-
-	_load_texture2d(res_path, image, size_override, ver_major, &err);
-	if (r_err) {
-		*r_err = err;
-	}
-	// deprecated format
-	if (*r_err == ERR_UNAVAILABLE) {
-		return Ref<Image>();
-	}
-
-	ERR_FAIL_COND_V_MSG(err || image.is_null(), Ref<Image>(), "Failed to load image from " + p_path);
-	if (image->is_empty()) {
-		WARN_PRINT("Image data is empty: " + p_path);
-	}
-	return image;
+	Ref<OverrideTexture2D> image;
+	ResourceFormatLoaderCompatTexture2D rlcb;
+	image = rlcb.custom_load(res_path, ResourceInfo::LoadType::NON_GLOBAL_LOAD, r_err);
+	return image->get_image();
 }
 
 bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
@@ -1044,4 +729,352 @@ Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Erro
 	}
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
+}
+
+bool ResourceConverterTexture2D::handles_type(const String &p_type, int ver_major) const {
+	return (p_type == "Texture" && ver_major == 2) || (p_type == "Texture2D") || (p_type == "ImageTexture") || (p_type == "StreamTexture") || (p_type == "CompressedTexture2D");
+}
+
+Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
+	String name;
+	Vector2 size;
+	int tw = 0;
+	int th = 0;
+	int tw_custom = 0;
+	int th_custom = 0;
+	int flags;
+	Ref<Image> image;
+	Ref<Resource> texture;
+	Dictionary compat_dict = (res->get_meta("compat", Dictionary()));
+	String type = res->get_original_class();
+	if (type == "Texture" || type == "ImageTexture") {
+		name = ver_major == 2 ? res->get("resource/name") : res->get("resource_name");
+		image = res->get("image");
+		size = res->get("size");
+		flags = res->get("flags");
+
+		ERR_FAIL_COND_V_MSG(image.is_null(), Ref<Resource>(), "Cannot load resource '" + name + "'.");
+		image->set_name(name);
+		tw = image->get_width();
+		th = image->get_height();
+		if (tw != size.width) {
+			tw_custom = size.width;
+		}
+		if (th != size.height) {
+			th_custom = size.height;
+		}
+		texture = ResourceFormatLoaderCompatTexture2D::_set_tex(res->get_path(), p_type, tw, th, tw_custom, th_custom, flags, image);
+	} else if (ver_major >= 3) {
+		if (p_type == ResourceInfo::LoadType::NON_GLOBAL_LOAD) {
+			return res;
+		}
+		flags = res->get("flags");
+		String load_path = res->get("load_path");
+		ResourceFormatLoaderCompatTexture2D tlc;
+		texture = tlc.custom_load(load_path, p_type, r_error);
+	}
+	texture->set_meta("compat", compat_dict);
+	return texture;
+}
+
+// get recognized extensions
+void ResourceFormatLoaderCompatTexture2D::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("stex");
+	p_extensions->push_back("ctex");
+	p_extensions->push_back("tex");
+}
+
+// handles type
+bool ResourceFormatLoaderCompatTexture2D::handles_type(const String &p_type) const {
+	return p_type == "CompressedTexture2D" || (p_type == "Texture2D") || p_type == "ImageTexture" || p_type == "StreamTexture" || p_type == "Texture";
+}
+
+// get resource type
+String ResourceFormatLoaderCompatTexture2D::get_resource_type(const String &p_path) const {
+	Error err;
+	String type = TextureLoaderCompat::get_type_name_from_textype(TextureLoaderCompat::recognize(p_path, &err));
+	return type;
+}
+
+Ref<CompressedTexture2D> ResourceFormatLoaderCompatTexture2D::_set_tex(const String &p_path, ResourceInfo::LoadType p_type, int tw, int th, int tw_custom, int th_custom, int flags, Ref<Image> image) {
+	Ref<CompressedTexture2D> texture;
+	Ref<OverrideTexture2D> override_texture;
+	if (p_type != ResourceInfo::LoadType::REAL_LOAD) {
+		override_texture.instantiate();
+		override_texture->image = image;
+		texture = override_texture;
+	} else {
+		texture.instantiate();
+	}
+	faketex2D *fake = reinterpret_cast<faketex2D *>(texture.ptr());
+	fake->w = tw_custom ? tw_custom : tw;
+	fake->h = th_custom ? th_custom : th;
+	fake->format = image->get_format();
+	fake->path_to_file = p_path;
+	bool size_override = tw_custom || th_custom;
+	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
+		RID texture_rid = RS::get_singleton()->texture_2d_create(image);
+		fake->texture = texture_rid;
+		if (size_override) {
+			RS::get_singleton()->texture_set_size_override(texture_rid, fake->w, fake->h);
+		}
+		texture->set_path(p_path, false);
+	} else {
+		texture->set_path_cache(p_path);
+	}
+	return texture;
+}
+
+ResourceInfo ResourceFormatLoaderCompatTexture2D::get_resource_info(const String &p_path, Error *r_error) const {
+	return TextureLoaderCompat::get_resource_info(p_path, r_error);
+}
+
+ResourceInfo ResourceFormatLoaderCompatTexture3D::get_resource_info(const String &p_path, Error *r_error) const {
+	return TextureLoaderCompat::get_resource_info(p_path, r_error);
+}
+
+ResourceInfo ResourceFormatLoaderCompatTextureLayered::get_resource_info(const String &p_path, Error *r_error) const {
+	return TextureLoaderCompat::get_resource_info(p_path, r_error);
+}
+
+ResourceInfo TextureLoaderCompat::get_resource_info(const String &p_path, Error *r_error) {
+	Error err;
+	TextureLoaderCompat::TextureVersionType t = TextureLoaderCompat::recognize(p_path, &err);
+	if (t == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
+		if (r_error) {
+			*r_error = err;
+		}
+		return ResourceInfo();
+	}
+	int ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
+	if (ver_major == 2 || t == TextureLoaderCompat::FORMAT_V3_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V4_IMAGE_TEXTURE) {
+		ResourceFormatLoaderCompatBinary rlcb;
+		return rlcb.get_resource_info(p_path, r_error);
+	}
+	return TextureLoaderCompat::_get_resource_info(t);
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTexture2D::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, ResourceFormatLoader::CacheMode p_cache_mode) {
+	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
+	Error err;
+	Ref<Resource> res;
+	TextureLoaderCompat::TextureVersionType t = TextureLoaderCompat::recognize(p_path, &err);
+	if (t == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
+		if (r_error) {
+			*r_error = err;
+		}
+		return Ref<Resource>();
+	}
+	int lw, lh, lwc, lhc, lflags;
+	int ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
+	Ref<Resource> texture;
+	Ref<Image> image;
+	bool convert = false;
+	if (t == TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V2_TEXTURE || t == TextureLoaderCompat::FORMAT_V3_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V4_IMAGE_TEXTURE) {
+		ResourceFormatLoaderCompatBinary rlcb;
+		Ref<MissingResource> res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
+		convert = true;
+	} else if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D) {
+		err = TextureLoaderCompat::_load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
+	} else if (t == TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D) {
+		err = TextureLoaderCompat::_load_data_ctex2d_v4(p_path, lw, lh, lwc, lhc, image);
+	} else {
+		err = ERR_INVALID_PARAMETER;
+	}
+	if (r_error) {
+		*r_error = err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
+	if (!convert) {
+		texture = _set_tex(p_path, p_type, lw, lh, lwc, lhc, lflags, image);
+	} else {
+		ResourceConverterTexture2D rc;
+		texture = rc.convert(res, p_type, ver_major, &err);
+	}
+	auto info = TextureLoaderCompat::_get_resource_info(t);
+	texture->set_meta("compat", info.to_dict());
+	return texture;
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTexture3D::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+}
+
+void ResourceFormatLoaderCompatTexture3D::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("ctex3d");
+	p_extensions->push_back("stex3d");
+}
+
+bool ResourceFormatLoaderCompatTexture3D::handles_type(const String &p_type) const {
+	return p_type == "CompressedTexture3D" || p_type == "StreamTexture3D" || p_type == "Texture3D";
+}
+
+String ResourceFormatLoaderCompatTexture3D::get_resource_type(const String &p_path) const {
+	Error err;
+	String type = TextureLoaderCompat::get_type_name_from_textype(TextureLoaderCompat::recognize(p_path, &err));
+	return type;
+}
+
+Ref<CompressedTexture3D> ResourceFormatLoaderCompatTexture3D::_set_tex(const String &p_path, ResourceInfo::LoadType p_type, int tw, int th, int td, bool mipmaps, const Vector<Ref<Image>> &images) {
+	Ref<CompressedTexture3D> texture;
+	Ref<OverrideTexture3D> override_texture;
+	if (p_type != ResourceInfo::LoadType::REAL_LOAD) {
+		override_texture.instantiate();
+		override_texture->data = images;
+		texture = override_texture;
+	} else {
+		texture.instantiate();
+	}
+	faketex3D *fake = reinterpret_cast<faketex3D *>(texture.ptr());
+	fake->w = tw;
+	fake->h = th;
+	fake->d = td;
+	fake->format = images[0]->get_format();
+	fake->path_to_file = p_path;
+	fake->mipmaps = mipmaps;
+	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
+		RID texture_rid = RS::get_singleton()->texture_3d_create(texture->get_format(), texture->get_width(), texture->get_height(), texture->get_depth(), texture->has_mipmaps(), images);
+		fake->texture = texture_rid;
+		texture->set_path(p_path, false);
+	} else {
+		texture->set_path_cache(p_path);
+	}
+	return texture;
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTexture3D::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
+	Error err;
+	Ref<Resource> res;
+	TextureLoaderCompat::TextureVersionType t = TextureLoaderCompat::recognize(p_path, &err);
+	if (t == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
+		if (r_error) {
+			*r_error = err;
+		}
+		return Ref<Resource>();
+	}
+
+	int lw, lh, ld, ltype;
+	bool mipmaps;
+	Ref<Resource> texture;
+	Vector<Ref<Image>> images;
+	Image::Format fmt;
+	if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE3D) {
+		err = TextureLoaderCompat::_load_layered_texture_v3(p_path, images, fmt, lw, lh, ld, mipmaps);
+	} else if (t == TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE3D) {
+		err = TextureLoaderCompat::_load_data_ctexlayered_v4(p_path, images, fmt, lw, lh, ld, ltype, mipmaps);
+	} else {
+		err = ERR_INVALID_PARAMETER;
+	}
+	if (r_error) {
+		*r_error = err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
+	texture = _set_tex(p_path, p_type, lw, lh, ld, mipmaps, images);
+
+	return texture;
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTextureLayered::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+}
+
+void ResourceFormatLoaderCompatTextureLayered::get_recognized_extensions(List<String> *p_extensions) const {
+	p_extensions->push_back("ctexarray");
+	p_extensions->push_back("stexarray");
+	p_extensions->push_back("ccube");
+	p_extensions->push_back("scube");
+	p_extensions->push_back("ccubearray");
+	p_extensions->push_back("scubearray");
+}
+
+bool ResourceFormatLoaderCompatTextureLayered::handles_type(const String &p_type) const {
+	return p_type == "CompressedTextureLayered" || p_type == "StreamTextureArray" || p_type == "CompressedTexture2DArray" || p_type == "CompressedCubemap" || p_type == "CompressedCubemapArray" || p_type == "StreamCubemap" || p_type == "StreamCubemapArray";
+}
+
+String ResourceFormatLoaderCompatTextureLayered::get_resource_type(const String &p_path) const {
+	Error err;
+	String type = TextureLoaderCompat::get_type_name_from_textype(TextureLoaderCompat::recognize(p_path, &err));
+	return type;
+}
+
+Ref<CompressedTextureLayered> ResourceFormatLoaderCompatTextureLayered::_set_tex(const String &p_path, ResourceInfo::LoadType p_type, int tw, int th, int td, int type, bool mipmaps, const Vector<Ref<Image>> &images) {
+	Ref<CompressedTextureLayered> texture;
+	if (p_type != ResourceInfo::LoadType::REAL_LOAD) {
+		if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
+			Ref<OverrideTextureLayered<CompressedTexture2DArray>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = images;
+			texture = override_texture;
+		} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
+			Ref<OverrideTextureLayered<CompressedCubemap>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = images;
+			texture = override_texture;
+		} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
+			Ref<OverrideTextureLayered<CompressedCubemapArray>> override_texture;
+			override_texture.instantiate();
+			override_texture->layer_data = images;
+			texture = override_texture;
+		}
+	} else {
+		if (type == RS::TEXTURE_LAYERED_2D_ARRAY) {
+			texture = memnew(CompressedTexture2DArray);
+		} else if (type == RS::TEXTURE_LAYERED_CUBEMAP) {
+			texture = memnew(CompressedCubemap);
+		} else if (type == RS::TEXTURE_LAYERED_CUBEMAP_ARRAY) {
+			texture = memnew(CompressedCubemapArray);
+		}
+	}
+	faketexlayered *fake = reinterpret_cast<faketexlayered *>(texture.ptr());
+	fake->w = tw;
+	fake->h = th;
+	fake->layers = td;
+	fake->format = images[0]->get_format();
+	fake->path_to_file = p_path;
+	fake->mipmaps = mipmaps;
+	fake->layered_type = TextureLayered::LayeredType::LAYERED_TYPE_2D_ARRAY;
+	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
+		RID texture_rid = RS::get_singleton()->texture_2d_layered_create(images, RS::TextureLayeredType(type));
+		fake->texture = texture_rid;
+		texture->set_path(p_path, false);
+	} else {
+		texture->set_path_cache(p_path);
+	}
+	return texture;
+}
+
+Ref<Resource> ResourceFormatLoaderCompatTextureLayered::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
+	Error err;
+	Ref<Resource> res;
+	TextureLoaderCompat::TextureVersionType t = TextureLoaderCompat::recognize(p_path, &err);
+	if (t == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
+		if (r_error) {
+			*r_error = err;
+		}
+		return Ref<Resource>();
+	}
+
+	int lw, lh, ld, ltype;
+	bool mipmaps;
+	Ref<Resource> texture;
+	Vector<Ref<Image>> images;
+	Image::Format fmt;
+	if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTUREARRAY) {
+		err = TextureLoaderCompat::_load_layered_texture_v3(p_path, images, fmt, lw, lh, ld, mipmaps);
+		ltype = RS::TEXTURE_LAYERED_2D_ARRAY;
+	} else if (t == TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURELAYERED) {
+		err = TextureLoaderCompat::_load_data_ctexlayered_v4(p_path, images, fmt, lw, lh, ld, ltype, mipmaps);
+	} else {
+		err = ERR_INVALID_PARAMETER;
+	}
+	if (r_error) {
+		*r_error = err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
+	texture = _set_tex(p_path, p_type, lw, lh, ld, ltype, mipmaps, images);
+
+	return texture;
 }
