@@ -108,3 +108,9 @@ public:
 	// virtual void get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const;
 	// virtual bool recognize_path(const Ref<Resource> &p_resource, const String &p_path) const;
 };
+
+class ResourceCompatConverter : RefCounted {
+public:
+	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) = 0;
+	virtual bool handles_type(const String &p_type, int ver_major) const = 0;
+};

@@ -32,6 +32,9 @@ static GDRESettings *gdre_singleton = nullptr;
 // TODO: move this to its own thing
 static Ref<ResourceFormatLoaderCompatText> text_loader = nullptr;
 static Ref<ResourceFormatLoaderCompatBinary> binary_loader = nullptr;
+static Ref<ResourceFormatLoaderCompatTexture2D> texture_loader = nullptr;
+static Ref<ResourceFormatLoaderCompatTexture3D> texture3d_loader = nullptr;
+static Ref<ResourceFormatLoaderCompatTextureLayered> texture_layered_loader = nullptr;
 
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
@@ -50,8 +53,14 @@ void free_ver_regex() {
 void init_loaders() {
 	text_loader = memnew(ResourceFormatLoaderCompatText);
 	binary_loader = memnew(ResourceFormatLoaderCompatBinary);
+	texture_loader = memnew(ResourceFormatLoaderCompatTexture2D);
+	texture3d_loader = memnew(ResourceFormatLoaderCompatTexture3D);
+	texture_layered_loader = memnew(ResourceFormatLoaderCompatTextureLayered);
 	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
+	ResourceCompatLoader::add_resource_format_loader(texture_loader, true);
+	ResourceCompatLoader::add_resource_format_loader(texture3d_loader, true);
+	ResourceCompatLoader::add_resource_format_loader(texture_layered_loader, true);
 }
 
 void deinit_loaders() {
@@ -61,8 +70,20 @@ void deinit_loaders() {
 	if (binary_loader.is_valid()) {
 		ResourceCompatLoader::remove_resource_format_loader(binary_loader);
 	}
+	if (texture_loader.is_valid()) {
+		ResourceCompatLoader::remove_resource_format_loader(texture_loader);
+	}
+	if (texture3d_loader.is_valid()) {
+		ResourceCompatLoader::remove_resource_format_loader(texture3d_loader);
+	}
+	if (texture_layered_loader.is_valid()) {
+		ResourceCompatLoader::remove_resource_format_loader(texture_layered_loader);
+	}
 	text_loader = nullptr;
 	binary_loader = nullptr;
+	texture_loader = nullptr;
+	texture3d_loader = nullptr;
+	texture_layered_loader = nullptr;
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
