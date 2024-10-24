@@ -845,7 +845,7 @@ String guess_key_from_tr(String s, Ref<Translation> default_translation) {
 }
 
 Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err;
+	Error err = OK;
 	// translation files are usually imported from one CSV and converted to multiple "<LOCALE>.translation" files
 	String default_locale = get_settings()->pack_has_project_config() && get_settings()->has_project_setting("locale/fallback")
 			? get_settings()->get_project_setting("locale/fallback")
@@ -858,7 +858,7 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	Vector<StringName> keys;
 
 	for (String path : iinfo->get_dest_files()) {
-		Ref<Translation> tr = ResourceCompatLoader::real_load(path, "");
+		Ref<Translation> tr = ResourceCompatLoader::real_load(path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load translation file " + iinfo->get_path());
 		ERR_FAIL_COND_V_MSG(!tr.is_valid(), err, "Translation file " + iinfo->get_path() + " was not valid");
 		String locale = tr->get_locale();
