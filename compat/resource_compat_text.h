@@ -32,7 +32,7 @@
 #define RESOURCE_COMPAT_TEXT_H
 
 #include "compat/resource_import_metadatav2.h"
-#include "compat/resource_loader_compat2.h"
+#include "compat/resource_loader_compat.h"
 #include "utility/resource_info.h"
 
 #include "core/io/file_access.h"

@@ -5,7 +5,6 @@
 #include "compat/oggstr_loader_compat.h"
 #include "compat/optimized_translation_extractor.h"
 #include "compat/resource_loader_compat.h"
-#include "compat/resource_loader_compat2.h"
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
