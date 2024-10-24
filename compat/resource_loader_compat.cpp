@@ -1,4 +1,4 @@
-#include "resource_loader_compat2.h"
+#include "resource_loader_compat.h"
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_compat_text.h"
 #include "core/error/error_list.h"

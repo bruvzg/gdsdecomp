@@ -1,6 +1,6 @@
 #include "import_info.h"
 #include "compat/resource_compat_binary.h"
-#include "compat/resource_loader_compat2.h"
+#include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
 #include "utility/glob.h"
 String ImportInfo::to_string() {
