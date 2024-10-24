@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import gdre_icon_builder
 import shutil
 from subprocess import Popen, PIPE
@@ -40,6 +41,9 @@ def doproc(cmd):
         return None
 
 
+semver_regex = r"^[vV]?(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+
+
 def write_version_header():
     git = shutil.which("git")
     version_info = "unknown"
@@ -56,19 +60,50 @@ def write_version_header():
             # git describe --exact-match --tags HEAD
             res = doproc([git, "describe", "--exact-match", "--tags", "HEAD"])
             if not res:
-                is_tag = False
                 splits = version_info.split("-")
                 build_info = splits[-1]
                 build_num = splits[-2]
                 # everything but the last two elements
                 new_version_info = "-".join(splits[:-2])
-                splits = new_version_info.split(".")
-                splits[2] = str(int(splits[2]) + 1)
-                new_version_info = ".".join(splits)
-                new_version_info += "-dev." if "-" not in new_version_info else "+dev."
-                version_info = new_version_info + build_num + "+" + build_info
+                semver_regex_match = re.match(semver_regex, new_version_info)
+                if semver_regex_match:
+                    major = semver_regex_match.group("major")
+                    minor = semver_regex_match.group("minor")
+                    patch = semver_regex_match.group("patch")
+                    prerelease_tag = semver_regex_match.group("prerelease")
+                    build_metadata = semver_regex_match.group("buildmetadata")
+                else:
+                    print("WARNING: version string does not match semver format")
+                    splits = new_version_info.split(".")
+                    if len(splits) < 3:
+                        print("WARNING: version string is too short")
+                        major = "0"
+                        minor = "0"
+                        patch = "0"
+                    else:
+                        major = splits[0]
+                        minor = splits[1]
+                        patch = splits[2]
+                    prerelease_tag = ""
+                    build_metadata = ""
+                dev_stuff = f"dev.{build_num}+{build_info}"
+                if prerelease_tag:
+                    prerelease_name = prerelease_tag.split(".")[0]
+                    prerelease_num = prerelease_tag.split(".")[-1]
+                    if prerelease_num.isdigit():
+                        prerelease_num = str(int(prerelease_num) + 1)
+                        print("prerelease_num", prerelease_num)
+                        prerelease_tag = f"{prerelease_name}.{prerelease_num}"
+                    else:
+                        prerelease_tag += ".1"
+                    new_version_info = f"{major}.{minor}.{patch}-{prerelease_tag}+{dev_stuff}"
+                else:
+                    patch = str(int(patch) + 1) if patch.isdigit() else 0
+                    new_version_info = f"{major}.{minor}.{patch}-{dev_stuff}"
+                if build_metadata:
+                    new_version_info += "+" + build_metadata
+                version_info = new_version_info
             else:
-                is_tag = True
                 version_info = res
 
     f = open("editor/gdre_version.gen.h", "w")
