@@ -1302,7 +1302,7 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 
-	Ref<AudioStreamWAV> sample = SampleLoaderCompat::load_wav(src_path, &err);
+	Ref<AudioStreamWAV> sample = ResourceCompatLoader::non_global_load(src_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
 
 	err = ensure_dir(dst_path.get_base_dir());

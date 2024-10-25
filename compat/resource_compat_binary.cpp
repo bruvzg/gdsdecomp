@@ -30,6 +30,7 @@
 
 #include "resource_compat_binary.h"
 
+#include "compat/resource_loader_compat.h"
 #include "core/config/project_settings.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
@@ -816,6 +817,7 @@ Error ResourceLoaderCompatBinary::load() {
 		Resource *r = nullptr;
 
 		MissingResource *missing_resource = nullptr;
+		Ref<ResourceCompatConverter> converter;
 
 		if (main && (load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD)) {
 			res = ResourceLoader::get_resource_ref_override(local_path);
@@ -838,11 +840,13 @@ Error ResourceLoaderCompatBinary::load() {
 			if (load_type == ResourceInfo::FAKE_LOAD) {
 				missing_resource = main ? CompatFormatLoader::create_missing_main_resource(path, t, uid) : CompatFormatLoader::create_missing_internal_resource(path, t, id);
 				res = Ref<Resource>(missing_resource);
-			} else {
-				// TODO!!!!!!!!!!!!!!!
-				// TODO!!!!!!!!!!!!!!!
-				// TODO: non-global loads and real loads should check if there is a loader for this resource
-				// ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
+			} else if (res.is_null()) {
+				converter = ResourceCompatLoader::get_converter_for_type(t, ver_major);
+				if (converter.is_valid()) {
+					// We pass a missing resource to the converter, so it can set the properties correctly.
+					missing_resource = main ? CompatFormatLoader::create_missing_main_resource(path, t, uid) : CompatFormatLoader::create_missing_internal_resource(path, t, id);
+					res = Ref<Resource>(missing_resource);
+				} // else, we will try to load it normally
 			}
 
 			if (res.is_null()) {
@@ -883,6 +887,11 @@ Error ResourceLoaderCompatBinary::load() {
 				}
 			}
 			r->set_scene_unique_id(id);
+		} else if (converter.is_null() && !is_real_load()) {
+			if (!path.is_empty()) {
+				res->set_path_cache(path);
+			}
+			res->set_scene_unique_id(id);
 		}
 
 		if (!main) {
@@ -973,6 +982,25 @@ Error ResourceLoaderCompatBinary::load() {
 
 		if (missing_resource) {
 			missing_resource->set_recording_properties(false);
+			if (converter.is_valid()) {
+				Dictionary compat_dict = missing_resource->get_meta(META_COMPAT, Dictionary());
+				auto new_res = converter->convert(missing_resource, load_type, ver_major, &error);
+				if (error == OK) {
+					res = new_res;
+					res->set_meta(META_COMPAT, compat_dict);
+					if (!path.is_empty()) {
+						if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && is_real_load()) {
+							res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); // If got here because the resource with same path has different type, replace it.
+						} else {
+							res->set_path_cache(path);
+						}
+					}
+					res->set_scene_unique_id(id);
+				} else {
+					// If the conversion failed, we should still keep the missing resource.
+					WARN_PRINT("Conversion failed for resource: " + path);
+				}
+			}
 		}
 
 		if (!missing_resource_properties.is_empty()) {

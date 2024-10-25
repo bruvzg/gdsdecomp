@@ -123,7 +123,7 @@ Ref<AudioStreamWAV> SampleLoaderCompat::convert_adpcm_to_16bit(const Ref<AudioSt
 	int32_t final, final_r;
 	int64_t p_offset = 0;
 	int64_t p_increment = 1;
-	auto data = p_sample->get_data();
+	auto data = p_sample->get_data(); // This gets the data past the DATA_PAD, so no need to add it to the offsets.
 	bool is_stereo = p_sample->is_stereo();
 	int64_t p_amount = data.size() * (is_stereo ? 1 : 2); // number of samples for EACH channel, not total
 	Vector<uint8_t> dest_data;
@@ -212,28 +212,10 @@ Ref<AudioStreamWAV> SampleLoaderCompat::convert_adpcm_to_16bit(const Ref<AudioSt
 	return new_sample;
 }
 
-Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_err) {
-	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (!r_err) {
-		r_err = &err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, Ref<AudioStreamWAV>(), "Cannot open file '" + p_path + "'.");
+void SampleLoaderCompat::_bind_methods() {}
 
-	ResourceFormatLoaderCompatBinary rlcb;
-	ResourceInfo i_info = rlcb.get_resource_info(p_path, r_err);
-	ERR_FAIL_COND_V_MSG(*r_err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.");
-	if (i_info.ver_major == 4) {
-		Ref<AudioStreamWAV> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-		ERR_FAIL_COND_V_MSG(*r_err != OK, Ref<AudioStreamWAV>(), "Cannot open resource '" + p_path + "'.");
-		return sample;
-	}
-
-	// otherwise, we have a version 2.x sample
-	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_err);
-
-	ERR_FAIL_COND_V_MSG(*r_err, Ref<AudioStreamWAV>(), "Cannot load resource '" + p_path + "'.");
-	String name = res->get("resource/name");
+Ref<Resource> SampleConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
+	String name = ver_major < 3 ? res->get("resource/name") : res->get("resource_name");
 	AudioStreamWAV::LoopMode loop_mode = (AudioStreamWAV::LoopMode) int(res->get("loop_format"));
 	// int loop_begin, loop_end, mix_rate, data_bytes = 0;
 	int loop_begin = res->get("loop_begin");
@@ -245,12 +227,11 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 		mix_rate = 44100;
 	}
 	Vector<uint8_t> data;
-	AudioStreamWAV::Format format;
+	AudioStreamWAV::Format format = (AudioStreamWAV::Format) int(res->get("format"));
 	int data_bytes = 0;
 	Dictionary dat = res->get("data");
 	if (dat.is_empty()) {
 		data = res->get("data");
-		format = (AudioStreamWAV::Format) int(res->get("format"));
 	} else {
 		String fmt = dat.get("format", "");
 		if (fmt == "ima_adpcm") {
@@ -259,9 +240,6 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 			format = AudioStreamWAV::FORMAT_16_BITS;
 		} else if (fmt == "pcm8") {
 			format = AudioStreamWAV::FORMAT_8_BITS;
-		} else {
-			format = (AudioStreamWAV::Format)(int)res->get("format");
-			// if it doesn't exist on the root res, then it'll return the default of FORMAT_8_BITS anyway.
 		}
 		data = dat.get("data", Vector<uint8_t>());
 		if (dat.has("stereo")) {
@@ -290,4 +268,7 @@ Ref<AudioStreamWAV> SampleLoaderCompat::load_wav(const String &p_path, Error *r_
 	sample->set_mix_rate(mix_rate);
 	return sample;
 }
-void SampleLoaderCompat::_bind_methods() {}
+
+bool SampleConverterCompat::handles_type(const String &p_type, int ver_major) const {
+	return (p_type == "AudioStreamWAV" || p_type == "AudioStreamSample") && ver_major < 4;
+}

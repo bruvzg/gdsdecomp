@@ -589,18 +589,21 @@ Error ResourceLoaderCompatText::load() {
 		}
 
 		MissingResource *missing_resource = nullptr;
+		Ref<ResourceCompatConverter> converter;
+
 		if (!is_real_load()) {
 			missing_resource = CompatFormatLoader::create_missing_internal_resource(path, type, id);
 			res = Ref<Resource>(missing_resource);
-		} else {
-			// TODO!!!!!!!!!!!!!!!
-			// TODO!!!!!!!!!!!!!!!
-			// TODO: non-global loads and real loads should check if there is a loader for this resource
-			ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
+		} else if (res.is_null()) {
+			converter = ResourceCompatLoader::get_converter_for_type(type, ver_major);
 		}
 		if (res.is_null()) { // not reuse
 			Ref<Resource> cache = ResourceCache::get_ref(path);
-			if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && cache.is_valid()) { //only if it doesn't exist
+			if (converter.is_valid() && (!cache.is_valid() || cache_mode == ResourceFormatLoader::CACHE_MODE_IGNORE)) {
+				// We pass a missing resource to the converter, so it can set the properties correctly.
+				missing_resource = CompatFormatLoader::create_missing_internal_resource(path, type, id);
+				res = Ref<Resource>(missing_resource);
+			} else if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && cache.is_valid()) { //only if it doesn't exist
 				// cached, do not assign
 				res = cache;
 			} else {
@@ -648,6 +651,11 @@ Error ResourceLoaderCompatText::load() {
 				}
 				res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
 			} else {
+				res->set_path_cache(path);
+			}
+			res->set_scene_unique_id(id);
+		} else if (converter.is_null() && !is_real_load()) {
+			if (!path.is_empty()) {
 				res->set_path_cache(path);
 			}
 			res->set_scene_unique_id(id);
@@ -725,6 +733,25 @@ Error ResourceLoaderCompatText::load() {
 
 		if (missing_resource) {
 			missing_resource->set_recording_properties(false);
+			if (converter.is_valid()) {
+				Dictionary compat_dict = missing_resource->get_meta(META_COMPAT, Dictionary());
+				auto new_res = converter->convert(missing_resource, load_type, ver_major, &error);
+				if (error == OK) {
+					res = new_res;
+					res->set_meta(META_COMPAT, compat_dict);
+					if (!path.is_empty()) {
+						if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && is_real_load()) {
+							res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); // If got here because the resource with same path has different type, replace it.
+						} else {
+							res->set_path_cache(path);
+						}
+					}
+					res->set_scene_unique_id(id);
+				} else {
+					// If the conversion failed, we should still keep the missing resource.
+					WARN_PRINT("Conversion failed for resource: " + path);
+				}
+			}
 		}
 
 		if (!missing_resource_properties.is_empty()) {
@@ -746,6 +773,8 @@ Error ResourceLoaderCompatText::load() {
 		}
 
 		MissingResource *missing_resource = nullptr;
+		Ref<ResourceCompatConverter> converter;
+
 		if (is_real_load()) {
 			resource = ResourceLoader::get_resource_ref_override(local_path);
 		}
@@ -763,10 +792,11 @@ Error ResourceLoaderCompatText::load() {
 				missing_resource = CompatFormatLoader::create_missing_main_resource(local_path, res_type, res_uid);
 				resource = Ref<Resource>(missing_resource);
 			} else {
-				// TODO!!!!!!!!!!!!!!!
-				// TODO!!!!!!!!!!!!!!!
-				// TODO: non-global loads and real loads should check if there is a loader for this resource
-				// ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Non-global loads and real loads are not supported yet.");
+				converter = ResourceCompatLoader::get_converter_for_type(res_type, ver_major);
+				if (converter.is_valid()) {
+					missing_resource = CompatFormatLoader::create_missing_main_resource(local_path, res_type, res_uid);
+					resource = Ref<Resource>(missing_resource);
+				} // else, we will create a new resource
 			}
 
 			if (!resource.is_valid()) {
@@ -893,6 +923,24 @@ Error ResourceLoaderCompatText::load() {
 
 		if (missing_resource) {
 			missing_resource->set_recording_properties(false);
+			if (converter.is_valid()) {
+				Dictionary compat_dict = missing_resource->get_meta(META_COMPAT, Dictionary());
+				auto new_res = converter->convert(missing_resource, load_type, ver_major, &error);
+				if (error == OK) {
+					resource = new_res;
+					resource->set_meta(META_COMPAT, compat_dict);
+					if (!res_path.is_empty()) {
+						if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && is_real_load()) {
+							resource->set_path(res_path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE); // If got here because the resource with same path has different type, replace it.
+						} else {
+							resource->set_path_cache(res_path);
+						}
+					}
+				} else {
+					// If the conversion failed, we should still keep the missing resource.
+					WARN_PRINT("Conversion failed for resource: " + res_path);
+				}
+			}
 		}
 
 		if (!missing_resource_properties.is_empty()) {
