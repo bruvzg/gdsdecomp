@@ -9,9 +9,7 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/vector.h"
 #include "scene/resources/compressed_texture.h"
-class TextureLoaderCompat : public RefCounted {
-	friend class ResourceConverterTexture2D;
-
+class TextureLoaderCompat {
 public:
 	enum TextureVersionType {
 		FORMAT_NOT_TEXTURE = -1,
@@ -37,13 +35,6 @@ public:
 		TEXTURE_TYPE_ATLAS
 	};
 
-private:
-	GDCLASS(TextureLoaderCompat, RefCounted);
-
-protected:
-	static void _bind_methods();
-
-public:
 	static Error _load_data_ctexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps);
 	static Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps);
 	static ResourceInfo _get_resource_info(TextureLoaderCompat::TextureVersionType t);
@@ -56,8 +47,6 @@ public:
 	static int get_ver_major_from_textype(TextureVersionType type);
 	static TextureType get_type_enum_from_version_type(TextureVersionType type);
 	static String get_type_name_from_textype(TextureVersionType type);
-	static Ref<Image> load_image_from_bitmap(const String p_path, Error *r_err);
-	static Ref<Image> load_image_from_tex(const String p_path, Error *r_err);
 	static Vector<Ref<Image>> load_images_from_layered_tex(const String p_path, Error *r_err);
 };
 

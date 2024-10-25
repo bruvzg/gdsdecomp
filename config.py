@@ -68,7 +68,6 @@ def get_doc_classes():
         "NewPackDialog",
         "PackDialog",
         "PckDumper",
-        "TextureLoaderCompat",
         "ScriptCompDialog",
         "ScriptDecompDialog",
     ]

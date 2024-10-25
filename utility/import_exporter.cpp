@@ -12,6 +12,7 @@
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
+#include "exporters/texture_exporter.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
 #include "scene/resources/packed_scene.h"
@@ -91,6 +92,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	reset_log();
 	OggStrExporter ose;
 	SampleExporter se;
+	TextureExporter te;
 	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
 	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -162,7 +164,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		for (int i = 0; i < files.size(); i++) {
 			Ref<ImportInfo> iinfo = files[i];
 			if (iinfo->is_dirty()) {
-				String dest = output_dir.path_join(iinfo->get_import_md_path().get_basename());
 				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 				if (err && err != ERR_UNAVAILABLE) {
 					print_line("Failed to save import info " + iinfo->get_path());
@@ -238,7 +239,19 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				case TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D:
 				case TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D: {
 					// Export texture
-					err = export_texture(output_dir, iinfo);
+					auto report = te.export_resource(output_dir, iinfo);
+					err = report->get_error();
+					loss_type = report->get_loss_type();
+					if (iinfo->is_dirty()) {
+						should_rewrite_metadata = true;
+					}
+					if (err == ERR_UNAVAILABLE) {
+						String format_name = report->get_unsupported_format_type();
+						if (format_name.is_empty()) {
+							format_name = src_ext;
+						}
+						report_unsupported_resource(type, format_name, path);
+					}
 				} break;
 				case TextureLoaderCompat::FORMAT_NOT_TEXTURE:
 					if (err == ERR_FILE_UNRECOGNIZED) {
@@ -267,7 +280,19 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else if (opt_export_mp3 && importer == "mp3") {
 			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (importer == "bitmap") {
-			err = export_texture(output_dir, iinfo);
+			auto report = te.export_resource(output_dir, iinfo);
+			err = report->get_error();
+			loss_type = report->get_loss_type();
+			if (iinfo->is_dirty()) {
+				should_rewrite_metadata = true;
+			}
+			if (err == ERR_UNAVAILABLE) {
+				String format_name = report->get_unsupported_format_type();
+				if (format_name.is_empty()) {
+					format_name = src_ext;
+				}
+				report_unsupported_resource(type, format_name, path);
+			}
 		} else if ((opt_bin2text && iinfo->is_auto_converted())
 				//|| (opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
 				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
@@ -1034,7 +1059,6 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 			}
 		}
 
-		TextureLoaderCompat tlc;
 		Vector<Ref<Resource>> textures;
 		for (auto &E : get_deps_map) {
 			String dep = E.key;
@@ -1076,96 +1100,6 @@ Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &ii
 	return err ? err : ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
 }
 
-Error ImportExporter::export_texture(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	String path = iinfo->get_path();
-	String source = iinfo->get_source_file();
-	bool should_rewrite_metadata = false;
-	bool lossy = false;
-
-	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
-	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
-	String source_ext = source.get_extension().to_lower();
-	if (source_ext != "png" || iinfo->get_ver_major() == 2) {
-		if (iinfo->get_ver_major() > 2) {
-			if ((source_ext == "jpg" || source_ext == "jpeg") && opt_export_jpg) {
-				lossy = true;
-			} else if (source_ext == "webp" && opt_export_webp) {
-				// if the engine is <3.4, it can't handle lossless encoded WEBPs
-				if (get_ver_major() < 4 && !(get_ver_major() == 3 && get_ver_minor() >= 4)) {
-					lossy = true;
-				}
-			} else {
-				iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
-				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
-				// disable this for now
-				if (false && opt_rewrite_imd_v3 && iinfo->is_import()) {
-					should_rewrite_metadata = true;
-				} else {
-					// save it under .assets, which won't be picked up for import by the godot editor
-					if (!iinfo->get_export_dest().replace("res://", "").begins_with(".assets")) {
-						String prefix = ".assets";
-						if (iinfo->get_export_dest().begins_with("res://")) {
-							prefix = "res://.assets";
-						}
-						iinfo->set_export_dest(prefix.path_join(iinfo->get_export_dest().replace("res://", "")));
-					}
-				}
-			}
-		} else { //version 2
-			iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
-			if (opt_rewrite_imd_v2 && iinfo->is_import()) {
-				should_rewrite_metadata = true;
-			}
-		}
-	}
-
-	Error err;
-	if (iinfo->get_importer() == "bitmap") {
-		err = _convert_bitmap(output_dir, path, iinfo->get_export_dest(), lossy);
-	} else {
-		err = _convert_tex(output_dir, path, iinfo->get_export_dest(), lossy);
-	}
-	if (err == ERR_UNAVAILABLE) {
-		// Already reported in export functions above
-		return ERR_UNAVAILABLE;
-	}
-	ERR_FAIL_COND_V(err, err);
-	// If lossy, also convert it as a png
-	if (lossy) {
-		String dest = iinfo->get_export_dest().get_basename() + ".png";
-		if (!dest.replace("res://", "").begins_with(".assets")) {
-			String prefix = ".assets";
-			if (dest.begins_with("res://")) {
-				prefix = "res://.assets";
-			}
-			dest = prefix.path_join(dest.replace("res://", ""));
-		}
-		iinfo->set_export_lossless_copy(dest);
-		err = _convert_tex(output_dir, path, dest, false);
-		if (err == ERR_UNAVAILABLE) {
-			return ERR_UNAVAILABLE;
-		}
-		ERR_FAIL_COND_V(err != OK, err);
-	}
-	if (should_rewrite_metadata) {
-		return ERR_PRINTER_ON_FIRE;
-	} else if (iinfo->get_source_file() != iinfo->get_export_dest()) {
-		return ERR_DATABASE_CANT_WRITE;
-	}
-
-	return err;
-}
-
-Error ImportExporter::export_sample(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err = convert_sample_to_wav(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to convert sample " + iinfo->get_path() + " to WAV");
-	if (iinfo->get_import_loss_type() != ImportInfo::LOSSLESS) {
-		// We convert from ADPCM to 16-bit, so we need to make sure we reimport as lossless to avoid quality loss
-		iinfo->set_param("compress/mode", 0);
-	}
-	return OK;
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
@@ -1198,86 +1132,12 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 	return ResourceCompatLoader::to_text(p_path, dest);
 }
 
-Error ImportExporter::_convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
-	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
-	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
-	Error err;
-	TextureLoaderCompat tl;
-	Ref<Image> img = tl.load_image_from_bitmap(p_path, &err);
-	// deprecated format
-	if (err == ERR_UNAVAILABLE) {
-		// TODO: Not reporting here because we can't get the deprecated format type yet,
-		// implement functionality to pass it back
-		print_line("Did not convert deprecated Bitmap resource " + p_path);
-		return err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
-	err = ensure_dir(dst_dir);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
-	String dest_ext = dest_path.get_extension().to_lower();
-	if (dest_ext == "jpg" || dest_ext == "jpeg") {
-		err = gdreutil::save_image_as_jpeg(dest_path, img);
-	} else if (dest_ext == "webp") {
-		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
-	} else if (dest_ext == "png") {
-		err = img->save_png(dest_path);
-	} else {
-		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
-	}
-
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
-
-	print_verbose("Converted " + p_path + " to " + p_dst);
-	return OK;
-}
-
-Error ImportExporter::_convert_tex(const String &output_dir, const String &p_path, const String &p_dst, bool lossy = true) {
-	String dst_dir = output_dir.path_join(p_dst.get_base_dir().replace("res://", ""));
-	String dest_path = output_dir.path_join(p_dst.replace("res://", ""));
-	Error err;
-	TextureLoaderCompat tl;
-
-	Ref<Image> img = tl.load_image_from_tex(p_path, &err);
-	// deprecated format
-	if (err == ERR_UNAVAILABLE) {
-		// TODO: Not reporting here because we can't get the deprecated format type yet,
-		// implement functionality to pass it back
-		print_line("Did not convert deprecated Texture resource " + p_path);
-		return err;
-	}
-	ERR_FAIL_COND_V_MSG(err != OK || img.is_null(), err, "Failed to load texture " + p_path);
-	ERR_FAIL_COND_V_MSG(img->is_empty(), ERR_FILE_EOF, "Image data is empty for texture " + p_path + ", not saving");
-	err = ensure_dir(dst_dir);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
-	if (img->is_compressed()) {
-		String fmt_name = Image::get_format_name(img->get_format());
-		err = img->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			WARN_PRINT("Decompression not implemented yet for texture format " + fmt_name);
-			report_unsupported_resource("Texture", fmt_name, p_path);
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + fmt_name + " texture " + p_path);
-	}
-	String dest_ext = dest_path.get_extension().to_lower();
-	if (dest_ext == "jpg" || dest_ext == "jpeg") {
-		err = gdreutil::save_image_as_jpeg(dest_path, img);
-	} else if (dest_ext == "webp") {
-		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
-	} else if (dest_ext == "png") {
-		err = img->save_png(dest_path);
-	} else {
-		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
-	}
-
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
-
-	print_verbose("Converted " + p_path + " to " + p_dst);
-	return OK;
-}
-
 Error ImportExporter::convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
-	return _convert_tex(output_dir, p_path, p_dst);
+	String src_path = _get_path(output_dir, p_path);
+	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
+	Error err;
+	TextureExporter te;
+	return te.export_file(dst_path, src_path);
 }
 
 String ImportExporter::_get_path(const String &output_dir, const String &p_path) {
