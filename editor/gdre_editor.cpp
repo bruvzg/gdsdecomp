@@ -3,6 +3,7 @@
 /*************************************************************************/
 
 #include "exporters/sample_exporter.h"
+#include "exporters/texture_exporter.h"
 #include "gdre_version.gen.h"
 /*************************************************************************/
 #ifdef TOOLS_ENABLED
@@ -1012,20 +1013,12 @@ void GodotREEditor::_res_stxt_2_png_process() {
 		}
 
 		Error err;
-		TextureLoaderCompat tlc;
-		Ref<Image> img = tlc.load_image_from_tex(res_files[i], &err);
+		TextureExporter tlc;
+		String dst = res_files[i].get_basename() + ".png";
+		err = tlc.export_file(res_files[i], dst);
 		if (err != OK) {
 			failed_files += res_files[i] + " (load StreamTexture error)\n";
 			continue;
-		}
-		if (img.is_null()) {
-			failed_files += res_files[i] + " (invalid texture data)\n";
-			continue;
-		}
-
-		err = img->save_png(res_files[i].get_basename() + ".png");
-		if (err != OK) {
-			failed_files += res_files[i] + " (write error)\n";
 		}
 	}
 

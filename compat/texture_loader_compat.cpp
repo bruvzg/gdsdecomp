@@ -27,8 +27,6 @@ enum FormatBits {
 	FORMAT_BIT_DETECT_ROUGNESS = 1 << 27,
 };
 
-void TextureLoaderCompat::_bind_methods() {}
-
 ResourceInfo TextureLoaderCompat::_get_resource_info(TextureLoaderCompat::TextureVersionType t) {
 	ResourceInfo info;
 	info.ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
@@ -80,7 +78,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 		if (type == "Texture") {
 			return FORMAT_V2_TEXTURE;
 		} else if (type == "ImageTexture") {
-			if (i_info.ver_major == 2) {
+			if (i_info.ver_major <= 2) {
 				return FORMAT_V2_IMAGE_TEXTURE;
 			} else if (i_info.ver_major == 3) {
 				return FORMAT_V3_IMAGE_TEXTURE;
@@ -659,76 +657,6 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, data, "Texture " + res_path + " could not be loaded");
 	return data;
-}
-
-Ref<Image> TextureLoaderCompat::load_image_from_tex(const String p_path, Error *r_err) {
-	Error err = OK;
-	if (!r_err) {
-		r_err = &err;
-	}
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	TextureLoaderCompat::TextureVersionType t = recognize(res_path, r_err);
-	if (t == FORMAT_NOT_TEXTURE) {
-		ERR_FAIL_COND_V_MSG(*r_err == ERR_FILE_UNRECOGNIZED, Ref<Image>(), "File " + p_path + " is not a texture.");
-		ERR_FAIL_COND_V(*r_err != OK, Ref<Image>());
-	}
-
-	ERR_FAIL_COND_V_MSG(get_type_enum_from_version_type(t) != TEXTURE_TYPE_2D,
-			Ref<Image>(), "Not a 2d image texture: " + res_path);
-
-	Ref<OverrideTexture2D> image;
-	ResourceFormatLoaderCompatTexture2D rlcb;
-	image = rlcb.custom_load(res_path, ResourceInfo::LoadType::NON_GLOBAL_LOAD, r_err);
-	return image->get_image();
-}
-
-bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
-	int ofs = width * p_y + p_x;
-	int bbyte = ofs / 8;
-	int bbit = ofs % 8;
-
-	return (bitmask[bbyte] & (1 << bbit)) != 0;
-}
-
-// Format is the same on V2 - V4
-Ref<Image> TextureLoaderCompat::load_image_from_bitmap(const String p_path, Error *r_err) {
-	Error err;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
-	Ref<FileAccess> f = FileAccess::open(res_path, FileAccess::READ, &err);
-	ERR_FAIL_COND_V_MSG(err != OK, Ref<Image>(), "Cannot open file '" + p_path + "'.");
-
-	Ref<Image> image;
-	image.instantiate();
-	ResourceFormatLoaderCompatBinary rlcb;
-	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
-	ERR_FAIL_COND_V_MSG(err != OK, Ref<Image>(), "Cannot open resource '" + p_path + "'.");
-
-	String name;
-	Vector2 size;
-	Dictionary data;
-	PackedByteArray bitmask;
-	int width;
-	int height;
-
-	// Load the main resource, which should be the ImageTexture
-	name = res->get("resource/name");
-	data = res->get("data");
-	bitmask = data.get("data", PackedByteArray());
-	size = data.get("size", Vector2());
-	width = size.width;
-	height = size.height;
-	image->initialize_data(width, height, false, Image::FORMAT_L8);
-
-	if (!name.is_empty()) {
-		image->set_name(name);
-	}
-	for (int i = 0; i < width; i++) {
-		for (int j = 0; j < height; j++) {
-			image->set_pixel(i, j, get_bit(bitmask, width, i, j) ? Color(1, 1, 1) : Color(0, 0, 0));
-		}
-	}
-	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
-	return image;
 }
 
 bool ResourceConverterTexture2D::handles_type(const String &p_type, int ver_major) const {

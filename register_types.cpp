@@ -131,7 +131,6 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ImportInfoRemap>();
 	ClassDB::register_class<ImportExporter>();
 	ClassDB::register_class<ImportExporterReport>();
-	ClassDB::register_class<TextureLoaderCompat>();
 	ClassDB::register_class<GDRESettings>();
 
 	ClassDB::register_class<PackedFileInfo>();

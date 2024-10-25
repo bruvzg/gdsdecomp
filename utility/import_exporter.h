@@ -105,15 +105,9 @@ class ImportExporter : public RefCounted {
 	Ref<ImportExporterReport> report;
 
 	Error export_scene(const String &output_dir, Ref<ImportInfo> &iinfo);
-	Error export_texture(const String &output_dir, Ref<ImportInfo> &iinfo);
-	Error export_sample(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
-	Error _convert_bitmap(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
 	Error export_translation(const String &output_dir, Ref<ImportInfo> &iinfo);
-
-	Error _convert_tex(const String &output_dir, const String &p_path, const String &p_dst, bool lossy);
-	Error _convert_tex_to_jpg(const String &output_dir, const String &p_path, const String &p_dst);
 
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);

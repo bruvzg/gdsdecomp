@@ -10,6 +10,7 @@ class ExportReport : public RefCounted {
 	String new_source_path;
 	String saved_path;
 	Error error = OK;
+	String unsupported_format_type;
 	ImportInfo::LossType loss_type = ImportInfo::LossType::LOSSLESS;
 
 protected:
@@ -37,6 +38,9 @@ public:
 
 	void set_loss_type(ImportInfo::LossType p_loss_type) { loss_type = p_loss_type; }
 	ImportInfo::LossType get_loss_type() const { return loss_type; }
+
+	void set_unsupported_format_type(const String &p_type) { unsupported_format_type = p_type; }
+	String get_unsupported_format_type() const { return unsupported_format_type; }
 
 	ExportReport(Ref<ImportInfo> p_import_info) :
 			import_info(p_import_info), source_path(p_import_info->get_source_file()), new_source_path(import_info->get_export_dest()) {}
