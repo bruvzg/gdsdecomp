@@ -3,11 +3,12 @@
 #include "compat/resource_compat_text.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
-#include "utility/gdre_settings.h"
 #include "utility/resource_info.h"
 
 Ref<CompatFormatLoader> ResourceCompatLoader::loader[ResourceCompatLoader::MAX_LOADERS];
+Ref<ResourceCompatConverter> ResourceCompatLoader::converters[ResourceCompatLoader::MAX_CONVERTERS];
 int ResourceCompatLoader::loader_count = 0;
+int ResourceCompatLoader::converter_count = 0;
 bool ResourceCompatLoader::doing_gltf_load = false;
 
 #define FAIL_LOADER_NOT_FOUND(loader)                                                                                                                        \
@@ -88,6 +89,42 @@ void ResourceCompatLoader::remove_resource_format_loader(Ref<CompatFormatLoader>
 	--loader_count;
 }
 
+void ResourceCompatLoader::add_resource_object_converter(Ref<ResourceCompatConverter> p_converter, bool p_at_front) {
+	ERR_FAIL_COND(p_converter.is_null());
+	ERR_FAIL_COND(converter_count >= MAX_CONVERTERS);
+
+	if (p_at_front) {
+		for (int i = converter_count; i > 0; i--) {
+			converters[i] = converters[i - 1];
+		}
+		converters[0] = p_converter;
+		converter_count++;
+	} else {
+		converters[converter_count++] = p_converter;
+	}
+}
+
+void ResourceCompatLoader::remove_resource_object_converter(Ref<ResourceCompatConverter> p_converter) {
+	ERR_FAIL_COND(p_converter.is_null());
+
+	// Find converter
+	int i = 0;
+	for (; i < converter_count; ++i) {
+		if (converters[i] == p_converter) {
+			break;
+		}
+	}
+
+	ERR_FAIL_COND(i >= converter_count); // Not found
+
+	// Shift next converters up
+	for (; i < converter_count - 1; ++i) {
+		converters[i] = converters[i + 1];
+	}
+	converters[converter_count - 1].unref();
+	--converter_count;
+}
+
 //get_loader_for_path
 Ref<CompatFormatLoader> ResourceCompatLoader::get_loader_for_path(const String &p_path, const String &p_type_hint) {
 	for (int i = 0; i < loader_count; i++) {
@@ -96,6 +133,15 @@ Ref<CompatFormatLoader> ResourceCompatLoader::get_loader_for_path(const String &
 		}
 	}
 	return Ref<CompatFormatLoader>();
+}
+
+Ref<ResourceCompatConverter> ResourceCompatLoader::get_converter_for_type(const String &p_type, int ver_major) {
+	for (int i = 0; i < converter_count; i++) {
+		if (converters[i]->handles_type(p_type, ver_major)) {
+			return converters[i];
+		}
+	}
+	return Ref<ResourceCompatConverter>();
 }
 
 Error ResourceCompatLoader::to_text(const String &p_path, const String &p_dst, uint32_t p_flags) {

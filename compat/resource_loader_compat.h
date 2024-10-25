@@ -12,12 +12,17 @@
 
 class CompatFormatLoader;
 class CompatFormatSaver;
+class ResourceCompatConverter;
 class ResourceCompatLoader {
 	enum {
-		MAX_LOADERS = 64
+		MAX_LOADERS = 64,
+		MAX_CONVERTERS = 8192,
 	};
 	static Ref<CompatFormatLoader> loader[MAX_LOADERS];
+	static Ref<ResourceCompatConverter> converters[MAX_CONVERTERS];
+
 	static int loader_count;
+	static int converter_count;
 	static bool doing_gltf_load;
 
 public:
@@ -27,7 +32,10 @@ public:
 	static Ref<Resource> real_load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, Error *r_error = nullptr);
 	static void add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front = false);
 	static void remove_resource_format_loader(Ref<CompatFormatLoader> p_format_loader);
+	static void add_resource_object_converter(Ref<ResourceCompatConverter> p_converter, bool p_at_front = false);
+	static void remove_resource_object_converter(Ref<ResourceCompatConverter> p_converter);
 	static Ref<CompatFormatLoader> get_loader_for_path(const String &p_path, const String &p_type_hint);
+	static Ref<ResourceCompatConverter> get_converter_for_type(const String &p_type, int ver_major);
 	static ResourceInfo get_resource_info(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 
 	static Error to_text(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
@@ -109,7 +117,9 @@ public:
 	// virtual bool recognize_path(const Ref<Resource> &p_resource, const String &p_path) const;
 };
 
-class ResourceCompatConverter : RefCounted {
+class ResourceCompatConverter : public RefCounted {
+	GDCLASS(ResourceCompatConverter, RefCounted);
+
 public:
 	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) = 0;
 	virtual bool handles_type(const String &p_type, int ver_major) const = 0;

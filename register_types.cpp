@@ -14,6 +14,7 @@
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_compat_text.h"
 #include "compat/resource_loader_compat.h"
+#include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "editor/gdre_editor.h"
 #include "utility/gdre_settings.h"
@@ -35,6 +36,9 @@ static Ref<ResourceFormatLoaderCompatBinary> binary_loader = nullptr;
 static Ref<ResourceFormatLoaderCompatTexture2D> texture_loader = nullptr;
 static Ref<ResourceFormatLoaderCompatTexture3D> texture3d_loader = nullptr;
 static Ref<ResourceFormatLoaderCompatTextureLayered> texture_layered_loader = nullptr;
+//converters
+static Ref<SampleConverterCompat> sample_converter = nullptr;
+static Ref<ResourceConverterTexture2D> texture_converter = nullptr;
 
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
@@ -56,11 +60,15 @@ void init_loaders() {
 	texture_loader = memnew(ResourceFormatLoaderCompatTexture2D);
 	texture3d_loader = memnew(ResourceFormatLoaderCompatTexture3D);
 	texture_layered_loader = memnew(ResourceFormatLoaderCompatTextureLayered);
+	sample_converter = memnew(SampleConverterCompat);
+	texture_converter = memnew(ResourceConverterTexture2D);
 	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture3d_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture_layered_loader, true);
+	ResourceCompatLoader::add_resource_object_converter(sample_converter, true);
+	ResourceCompatLoader::add_resource_object_converter(texture_converter, true);
 }
 
 void deinit_loaders() {
@@ -79,11 +87,19 @@ void deinit_loaders() {
 	if (texture_layered_loader.is_valid()) {
 		ResourceCompatLoader::remove_resource_format_loader(texture_layered_loader);
 	}
+	if (sample_converter.is_valid()) {
+		ResourceCompatLoader::remove_resource_object_converter(sample_converter);
+	}
+	if (texture_converter.is_valid()) {
+		ResourceCompatLoader::remove_resource_object_converter(texture_converter);
+	}
 	text_loader = nullptr;
 	binary_loader = nullptr;
 	texture_loader = nullptr;
 	texture3d_loader = nullptr;
 	texture_layered_loader = nullptr;
+	sample_converter = nullptr;
+	texture_converter = nullptr;
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
