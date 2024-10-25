@@ -15,6 +15,7 @@
 #include "compat/oggstr_loader_compat.h"
 #include "compat/resource_loader_compat.h"
 #include "compat/texture_loader_compat.h"
+#include "exporters/oggstr_exporter.h"
 #include "utility/gdre_settings.h"
 #include "utility/import_exporter.h"
 #include "utility/pcfg_loader.h"
@@ -960,19 +961,13 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 
 		print_warning("converting " + res_files[i], RTR("Convert OGG samples"));
 		Error err;
-		OggStreamLoaderCompat oslc;
-		Vector<uint8_t> buf = oslc.get_ogg_stream_data(res_files[i], &err);
+		OggStrExporter ose;
+		String dst = res_files[i].get_basename() + ".ogg";
+		err = ose.export_file(dst, res_files[i], 0);
 		if (err) {
 			failed_files += res_files[i] + " (load AudioStreamOggVorbis error)\n";
 			continue;
 		}
-
-		Ref<FileAccess> res = FileAccess::open(res_files[i].get_basename() + ".ogg", FileAccess::WRITE);
-		if (res.is_null()) {
-			failed_files += res_files[i] + " (write error)\n";
-			continue;
-		}
-		res->store_buffer(buf.ptr(), buf.size());
 	}
 
 	memdelete(pr);

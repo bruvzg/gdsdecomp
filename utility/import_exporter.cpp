@@ -10,6 +10,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/string/print_string.h"
+#include "exporters/oggstr_exporter.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
 #include "scene/resources/packed_scene.h"
@@ -87,7 +88,7 @@ Vector<String> hashset_to_vector(const HashSet<String> &hs) {
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
-
+	OggStrExporter ose;
 	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
 	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -253,7 +254,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
 			err = export_sample(output_dir, iinfo);
 		} else if (opt_export_ogg && (importer == "ogg_vorbis" || importer == "oggvorbisstr")) {
-			err = convert_oggstr_to_ogg(output_dir, iinfo->get_path(), iinfo->get_export_dest());
+			auto report = ose.export_resource(output_dir, iinfo);
+			err = report->get_error();
 		} else if (opt_export_mp3 && importer == "mp3") {
 			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
 		} else if (importer == "bitmap") {
@@ -1325,18 +1327,9 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
-	OggStreamLoaderCompat oslc;
-	PackedByteArray data = oslc.get_ogg_stream_data(src_path, &err);
+	OggStrExporter oslc;
+	err = oslc.export_file(dst_path, src_path, 0);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
-
-	err = ensure_dir(dst_path.get_base_dir());
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dst_path);
-
-	Ref<FileAccess> f = FileAccess::open(dst_path, FileAccess::WRITE);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not open " + p_dst + " for saving");
-
-	f->store_buffer(data.ptr(), data.size());
-
 	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
 }
