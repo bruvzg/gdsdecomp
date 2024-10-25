@@ -1,9 +1,6 @@
 #include "oggstr_loader_compat.h"
 #include "modules/vorbis/resource_importer_ogg_vorbis.h"
 
-// virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
-// virtual bool handles_type(const String &p_type, int ver_major) const override;
-
 Ref<Resource> OggStreamConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
 	String name = ver_major < 3 ? res->get("resource/name") : res->get("resource_name");
 	if (name.is_empty()) {
@@ -19,7 +16,6 @@ Ref<Resource> OggStreamConverterCompat::convert(const Ref<MissingResource> &res,
 	sample->set_loop(loop);
 	sample->set_loop_offset(loop_offset);
 	return sample;
-	// else if (data_bytes != data.size()) {
 }
 
 bool OggStreamConverterCompat::handles_type(const String &p_type, int ver_major) const {

@@ -351,4 +351,7 @@ private:
 public:
 	ImportInfoRemap();
 };
+
+VARIANT_ENUM_CAST(ImportInfo::LossType);
+
 #endif

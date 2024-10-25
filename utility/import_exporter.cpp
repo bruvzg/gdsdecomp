@@ -11,6 +11,7 @@
 #include "core/error/error_macros.h"
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
+#include "exporters/sample_exporter.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
 #include "scene/resources/packed_scene.h"
@@ -89,6 +90,7 @@ Vector<String> hashset_to_vector(const HashSet<String> &hs) {
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 	OggStrExporter ose;
+	SampleExporter se;
 	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
 	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -252,7 +254,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 					not_exported = true;
 			}
 		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
-			err = export_sample(output_dir, iinfo);
+			auto report = se.export_resource(output_dir, iinfo);
+			err = report->get_error();
+			loss_type = report->get_loss_type();
+			if (err == OK && loss_type != ImportInfo::LOSSLESS) {
+				iinfo->set_param("compress/mode", 0);
+				should_rewrite_metadata = true;
+			}
 		} else if (opt_export_ogg && (importer == "ogg_vorbis" || importer == "oggvorbisstr")) {
 			auto report = ose.export_resource(output_dir, iinfo);
 			err = report->get_error();
@@ -1303,21 +1311,9 @@ Error ImportExporter::convert_sample_to_wav(const String &output_dir, const Stri
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
-
-	Ref<AudioStreamWAV> sample = ResourceCompatLoader::non_global_load(src_path, "", &err);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + p_path);
-
-	err = ensure_dir(dst_path.get_base_dir());
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dst_path);
-
-	if (sample->get_format() == AudioStreamWAV::FORMAT_IMA_ADPCM) {
-		// convert to 16-bit
-		sample = SampleLoaderCompat::convert_adpcm_to_16bit(sample);
-	} else if (sample->get_format() == AudioStreamWAV::FORMAT_QOA) {
-		sample = SampleLoaderCompat::convert_qoa_to_16bit(sample);
-	}
-	err = sample->save_to_wav(dst_path);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + p_dst);
+	SampleExporter se;
+	err = se.export_file(dst_path, src_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not export " + p_dst);
 
 	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
@@ -1328,8 +1324,8 @@ Error ImportExporter::convert_oggstr_to_ogg(const String &output_dir, const Stri
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 	OggStrExporter oslc;
-	err = oslc.export_file(dst_path, src_path, 0);
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load oggstr file " + p_path);
+	err = oslc.export_file(dst_path, src_path);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not export oggstr file " + p_path);
 	print_verbose("Converted " + src_path + " to " + dst_path);
 	return OK;
 }

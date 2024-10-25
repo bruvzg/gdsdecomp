@@ -118,7 +118,7 @@ Vector<uint8_t> OggStrExporter::load_ogg_stream_data(const String &p_path, int v
 	return data;
 }
 
-Error OggStrExporter::export_file(const String &dst_path, const String &res_path, int ver_major) {
+Error OggStrExporter::_export_file(const String &dst_path, const String &res_path, int ver_major) {
 	Error err = OK;
 	if (ver_major == 0) {
 		ver_major = get_ver_major(res_path);
@@ -132,12 +132,16 @@ Error OggStrExporter::export_file(const String &dst_path, const String &res_path
 	return OK;
 }
 
+Error OggStrExporter::export_file(const String &dst_path, const String &res_path) {
+	return _export_file(dst_path, res_path, get_ver_major(res_path));
+}
+
 Ref<ExportReport> OggStrExporter::export_resource(const String &output_dir, Ref<ImportInfo> import_info) {
 	String src_path = import_info->get_path();
 	String dst_path = output_dir.path_join(import_info->get_export_dest().replace("res://", ""));
 	// Implement the logic to export the Ogg Vorbis stream to the specified path
 	Ref<ExportReport> report = memnew(ExportReport(import_info));
-	Error err = export_file(dst_path, src_path, import_info->get_ver_major());
+	Error err = _export_file(dst_path, src_path, import_info->get_ver_major());
 	if (err != OK) {
 		report->set_error(err);
 		if (err == ERR_FILE_CORRUPT) {
