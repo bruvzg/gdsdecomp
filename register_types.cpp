@@ -39,6 +39,7 @@ static Ref<ResourceFormatLoaderCompatTextureLayered> texture_layered_loader = nu
 //converters
 static Ref<SampleConverterCompat> sample_converter = nullptr;
 static Ref<ResourceConverterTexture2D> texture_converter = nullptr;
+static Ref<OggStreamConverterCompat> ogg_converter = nullptr;
 
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
@@ -62,6 +63,7 @@ void init_loaders() {
 	texture_layered_loader = memnew(ResourceFormatLoaderCompatTextureLayered);
 	sample_converter = memnew(SampleConverterCompat);
 	texture_converter = memnew(ResourceConverterTexture2D);
+	ogg_converter = memnew(OggStreamConverterCompat);
 	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture_loader, true);
@@ -69,6 +71,7 @@ void init_loaders() {
 	ResourceCompatLoader::add_resource_format_loader(texture_layered_loader, true);
 	ResourceCompatLoader::add_resource_object_converter(sample_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(texture_converter, true);
+	ResourceCompatLoader::add_resource_object_converter(ogg_converter, true);
 }
 
 void deinit_loaders() {
@@ -93,6 +96,9 @@ void deinit_loaders() {
 	if (texture_converter.is_valid()) {
 		ResourceCompatLoader::remove_resource_object_converter(texture_converter);
 	}
+	if (ogg_converter.is_valid()) {
+		ResourceCompatLoader::remove_resource_object_converter(ogg_converter);
+	}
 	text_loader = nullptr;
 	binary_loader = nullptr;
 	texture_loader = nullptr;
@@ -100,6 +106,7 @@ void deinit_loaders() {
 	texture_layered_loader = nullptr;
 	sample_converter = nullptr;
 	texture_converter = nullptr;
+	ogg_converter = nullptr;
 }
 
 void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {

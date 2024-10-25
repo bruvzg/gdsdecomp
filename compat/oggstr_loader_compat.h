@@ -1,4 +1,5 @@
 
+#include "compat/resource_loader_compat.h"
 #include "core/io/file_access.h"
 #include "core/io/image.h"
 #include "core/io/resource.h"
@@ -19,4 +20,13 @@ protected:
 public:
 	Vector<uint8_t> get_ogg_stream_data(const String &p_path, Error *r_err) const;
 };
+
+class OggStreamConverterCompat : public ResourceCompatConverter {
+	GDCLASS(OggStreamConverterCompat, ResourceCompatConverter);
+
+public:
+	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
+	virtual bool handles_type(const String &p_type, int ver_major) const override;
+};
+
 #endif //OGGSTR_LOADER_COMPAT_H

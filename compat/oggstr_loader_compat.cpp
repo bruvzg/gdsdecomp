@@ -1,8 +1,8 @@
 #include "oggstr_loader_compat.h"
 #include "compat/resource_compat_binary.h"
 #include "core/io/file_access.h"
+#include "modules/vorbis/resource_importer_ogg_vorbis.h"
 #include "ogg/ogg.h"
-
 Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence, Vector<uint8_t> &r_data) {
 	auto page_data = packet_sequence->get_packet_data();
 	Vector<uint64_t> page_sizes;
@@ -80,32 +80,50 @@ Error packet_sequence_to_raw_data(const Ref<OggPacketSequence> &packet_sequence,
 }
 
 Vector<uint8_t> OggStreamLoaderCompat::get_ogg_stream_data(const String &p_path, Error *r_err) const {
-	Error _err;
+	Error _err = OK;
 	if (!r_err) {
 		r_err = &_err;
 	}
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, r_err);
-	ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open file '" + p_path + "'.");
 	Vector<uint8_t> data;
 	ResourceFormatLoaderCompatBinary rlcb;
 	ResourceInfo i_info = rlcb.get_resource_info(p_path, r_err);
 	ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
 	if (i_info.ver_major == 4) {
-		Ref<AudioStreamOggVorbis> sample = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, r_err);
+		Ref<AudioStreamOggVorbis> sample = ResourceCompatLoader::non_global_load(p_path, "", r_err);
 		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
 		auto packet_sequence = sample->get_packet_sequence();
 		*r_err = packet_sequence_to_raw_data(packet_sequence, data);
 		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
-		return data;
+	} else {
+		auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_err);
+		ERR_FAIL_COND_V_MSG(*r_err, Vector<uint8_t>(), "Cannot load resource '" + p_path + "'.");
+		data = res->get("data");
 	}
-	auto res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, r_err);
-
-	ERR_FAIL_COND_V_MSG(*r_err, Vector<uint8_t>(), "Cannot load resource '" + p_path + "'.");
-	String name;
-	// bool loop;
-	// float loop_offset;
-	name = res->get("resource/name");
-	data = res->get("data");
 	return data;
 }
 void OggStreamLoaderCompat::_bind_methods() {}
+
+// virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
+// virtual bool handles_type(const String &p_type, int ver_major) const override;
+
+Ref<Resource> OggStreamConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
+	String name = ver_major < 3 ? res->get("resource/name") : res->get("resource_name");
+	if (name.is_empty()) {
+		name = res->get_name();
+	}
+	Vector<uint8_t> data = res->get("data");
+	bool loop = res->get("loop");
+	double loop_offset = res->get("loop_offset");
+	Ref<AudioStreamOggVorbis> sample = ResourceImporterOggVorbis::load_from_buffer(data);
+	if (!name.is_empty()) {
+		sample->set_name(name);
+	}
+	sample->set_loop(loop);
+	sample->set_loop_offset(loop_offset);
+	return sample;
+	// else if (data_bytes != data.size()) {
+}
+
+bool OggStreamConverterCompat::handles_type(const String &p_type, int ver_major) const {
+	return (p_type == "AudioStreamOGGVorbis" && ver_major <= 3);
+}
