@@ -1,5 +1,7 @@
 #include "resource_exporter.h"
 #include "compat/resource_loader_compat.h"
+#include "core/error/error_list.h"
+#include "core/error/error_macros.h"
 #include "core/io/dir_access.h"
 Error ResourceExporter::ensure_dir(const String &dst_dir) {
 	Error err;
@@ -7,6 +9,15 @@ Error ResourceExporter::ensure_dir(const String &dst_dir) {
 	ERR_FAIL_COND_V(da.is_null(), ERR_FILE_CANT_OPEN);
 	err = da->make_dir_recursive(dst_dir);
 	return err;
+}
+
+Error ResourceExporter::write_to_file(const String &path, const Vector<uint8_t> &data) {
+	Error err = ensure_dir(path.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to create directory for " + path);
+	Ref<FileAccess> file = FileAccess::open(path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(file.is_null(), !err ? ERR_FILE_CANT_WRITE : err, "Cannot open file '" + path + "' for writing.");
+	file->store_buffer(data.ptr(), data.size());
+	return OK;
 }
 
 int ResourceExporter::get_ver_major(const String &res_path) {

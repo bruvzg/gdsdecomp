@@ -10,7 +10,7 @@ class ExportReport : public RefCounted {
 	String new_source_path;
 	String saved_path;
 	Error error = OK;
-	bool is_lossless = true;
+	ImportInfo::LossType loss_type = ImportInfo::LossType::LOSSLESS;
 
 protected:
 	static void _bind_methods();
@@ -35,8 +35,8 @@ public:
 	void set_error(Error p_error) { error = p_error; }
 	Error get_error() const { return error; }
 
-	void set_is_lossless(bool p_is_lossless) { is_lossless = p_is_lossless; }
-	bool get_is_lossless() const { return is_lossless; }
+	void set_loss_type(ImportInfo::LossType p_loss_type) { loss_type = p_loss_type; }
+	ImportInfo::LossType get_loss_type() const { return loss_type; }
 
 	ExportReport(Ref<ImportInfo> p_import_info) :
 			import_info(p_import_info), source_path(p_import_info->get_source_file()), new_source_path(import_info->get_export_dest()) {}

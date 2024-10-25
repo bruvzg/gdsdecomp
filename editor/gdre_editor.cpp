@@ -2,6 +2,7 @@
 /*  gdre_editor.cpp                                                      */
 /*************************************************************************/
 
+#include "exporters/sample_exporter.h"
 #include "gdre_version.gen.h"
 /*************************************************************************/
 #ifdef TOOLS_ENABLED
@@ -908,14 +909,13 @@ void GodotREEditor::_res_smpl_2_wav_process() {
 		if (cancel) {
 			break;
 		}
-
-		Ref<AudioStreamWAV> sample = rl->load(res_files[i]);
-		if (sample.is_null()) {
+		String dst = res_files[i].get_basename() + ".wav";
+		SampleExporter se;
+		Error err = se.export_file(dst, res_files[i]);
+		if (err) {
 			failed_files += res_files[i] + " (load AudioStreamWAV error)\n";
 			continue;
 		}
-
-		sample->save_to_wav(res_files[i].get_basename() + ".wav");
 	}
 
 	memdelete(pr);
@@ -963,7 +963,7 @@ void GodotREEditor::_res_ostr_2_ogg_process() {
 		Error err;
 		OggStrExporter ose;
 		String dst = res_files[i].get_basename() + ".ogg";
-		err = ose.export_file(dst, res_files[i], 0);
+		err = ose.export_file(dst, res_files[i]);
 		if (err) {
 			failed_files += res_files[i] + " (load AudioStreamOggVorbis error)\n";
 			continue;
