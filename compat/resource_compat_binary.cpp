@@ -1458,6 +1458,7 @@ void ResourceFormatLoaderCompatBinary::get_recognized_extensions(List<String> *p
 	// TODO: put this somewhere
 	extensions.push_back("fnt");
 	extensions.push_back("smp");
+	extensions.push_back("oggstr");
 	extensions.sort();
 
 	for (const String &E : extensions) {
