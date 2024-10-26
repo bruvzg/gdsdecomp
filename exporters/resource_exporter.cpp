@@ -3,6 +3,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/dir_access.h"
+
 Error ResourceExporter::ensure_dir(const String &dst_dir) {
 	Error err;
 	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
@@ -17,11 +18,14 @@ Error ResourceExporter::write_to_file(const String &path, const Vector<uint8_t> 
 	Ref<FileAccess> file = FileAccess::open(path, FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(file.is_null(), !err ? ERR_FILE_CANT_WRITE : err, "Cannot open file '" + path + "' for writing.");
 	file->store_buffer(data.ptr(), data.size());
+	file->flush();
 	return OK;
 }
 
 int ResourceExporter::get_ver_major(const String &res_path) {
-	auto info = ResourceCompatLoader::get_resource_info(res_path);
+	Error err;
+	auto info = ResourceCompatLoader::get_resource_info(res_path, "", &err);
+	ERR_FAIL_COND_V_MSG(err != OK, 0, "Failed to get resource info for " + res_path);
 	return info.ver_major; // Placeholder return value
 }
 
