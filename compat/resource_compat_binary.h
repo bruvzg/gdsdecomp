@@ -118,10 +118,12 @@ class ResourceLoaderCompatBinary {
 	uint64_t get_metadata_size();
 	Error load_import_metadata(bool p_return_to_pos = false);
 	bool is_real_load() const { return load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD; }
+
 	Ref<ResourceLoader::LoadToken> start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx);
 	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
 public:
+	bool should_threaded_load() const;
 	Ref<Resource> get_resource();
 	Error load();
 	void set_translation_remapped(bool p_remapped);

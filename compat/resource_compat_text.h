@@ -149,6 +149,7 @@ private:
 	Ref<Resource> finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err);
 
 public:
+	bool should_threaded_load() const;
 	ResourceInfo get_resource_info();
 	Ref<Resource> get_resource();
 	Error load();

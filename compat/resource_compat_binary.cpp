@@ -3031,17 +3031,20 @@ Error ResourceLoaderCompatBinary::load_import_metadata(bool p_return_to_pos) {
 	return OK;
 }
 
+bool ResourceLoaderCompatBinary::should_threaded_load() const {
+	return is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
+}
+
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx) {
 	Ref<ResourceLoader::LoadToken> load_token;
-	if (!is_real_load()) {
-		Error err = OK;
+	Error err = OK;
+	if (!should_threaded_load()) {
 		load_token = Ref<ResourceLoader::LoadToken>(memnew(ResourceLoader::LoadToken));
-		// load_token->local_path = p_path;
-		// load_token->user_path = p_path;
-		// load_token->user_rc = er_idx;
 		ERR_FAIL_COND_V_MSG(er_idx < 0 || er_idx >= external_resources.size(), Ref<ResourceLoader::LoadToken>(), "Invalid external resource index.");
 		if (load_type == ResourceInfo::GLTF_LOAD) {
 			external_resources.write[er_idx].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
+		} else if (load_type == ResourceInfo::REAL_LOAD) {
+			external_resources.write[er_idx].fallback = ResourceCompatLoader::real_load(p_path, p_type_hint, cache_mode_for_external, &err);
 		} else {
 			external_resources.write[er_idx].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, itos(er_idx));
 		}
@@ -3049,13 +3052,13 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const 
 			load_token = Ref<ResourceLoader::LoadToken>();
 		}
 	} else { // real load
-		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, ResourceFormatLoader::CACHE_MODE_REUSE);
+		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, cache_mode_for_external);
 	}
 	return load_token;
 }
 
 Ref<Resource> ResourceLoaderCompatBinary::finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err) {
-	if (load_type == ResourceInfo::REAL_LOAD) {
+	if (should_threaded_load()) {
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
 	}
 	String path;
