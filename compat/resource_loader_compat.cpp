@@ -10,6 +10,7 @@ Ref<ResourceCompatConverter> ResourceCompatLoader::converters[ResourceCompatLoad
 int ResourceCompatLoader::loader_count = 0;
 int ResourceCompatLoader::converter_count = 0;
 bool ResourceCompatLoader::doing_gltf_load = false;
+bool ResourceCompatLoader::globally_available = false;
 
 #define FAIL_LOADER_NOT_FOUND(loader)                                                                                                                        \
 	if (loader.is_null()) {                                                                                                                                  \
@@ -64,10 +65,16 @@ void ResourceCompatLoader::add_resource_format_loader(Ref<CompatFormatLoader> p_
 	} else {
 		loader[loader_count++] = p_format_loader;
 	}
+	if (globally_available) {
+		ResourceLoader::add_resource_format_loader(p_format_loader, p_at_front);
+	}
 }
 
 void ResourceCompatLoader::remove_resource_format_loader(Ref<CompatFormatLoader> p_format_loader) {
 	ERR_FAIL_COND(p_format_loader.is_null());
+	if (globally_available) {
+		ResourceLoader::remove_resource_format_loader(p_format_loader);
+	}
 
 	// Find loader
 	int i = 0;
@@ -191,4 +198,28 @@ bool ResourceCompatLoader::is_default_gltf_load() {
 
 void ResourceCompatLoader::set_default_gltf_load(bool p_enable) {
 	doing_gltf_load = p_enable;
+}
+
+void ResourceCompatLoader::make_globally_available() {
+	if (globally_available) {
+		return;
+	}
+	for (int i = loader_count - 1; i > 0; i--) {
+		ResourceLoader::add_resource_format_loader(loader[i], true);
+	}
+	globally_available = true;
+}
+
+void ResourceCompatLoader::unmake_globally_available() {
+	if (!globally_available) {
+		return;
+	}
+	for (int i = 0; i < loader_count; i++) {
+		ResourceLoader::remove_resource_format_loader(loader[i]);
+	}
+	globally_available = false;
+}
+
+bool ResourceCompatLoader::is_globally_available() {
+	return globally_available;
 }
