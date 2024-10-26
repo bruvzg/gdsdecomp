@@ -30,6 +30,7 @@
 
 #include "resource_compat_text.h"
 
+#include "compat/resource_loader_compat.h"
 #include "core/config/project_settings.h"
 #include "core/error/error_macros.h"
 #include "core/io/dir_access.h"
@@ -2840,14 +2841,20 @@ void ResourceLoaderCompatText::set_compat_meta(Ref<Resource> &r_res) {
 	r_res->set_meta(META_COMPAT, compat.to_dict());
 }
 
+bool ResourceLoaderCompatText::should_threaded_load() const {
+	return is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
+}
+
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id) {
 	Ref<ResourceLoader::LoadToken> load_token;
-	if (!is_real_load()) {
+	Error err = OK;
+	if (!should_threaded_load()) {
 		ERR_FAIL_COND_V_MSG(!ext_resources.has(id), load_token, "External resources doesn't have id: " + id);
-		Error err = OK;
 		load_token = Ref<ResourceLoader::LoadToken>(memnew(ResourceLoader::LoadToken));
 		if (load_type == ResourceInfo::GLTF_LOAD) {
 			ext_resources[id].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
+		} else if (load_type == ResourceInfo::REAL_LOAD) {
+			ext_resources[id].fallback = ResourceCompatLoader::real_load(p_path, p_type_hint, cache_mode_for_external, &err);
 		} else {
 			ext_resources[id].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
 		}
@@ -2855,12 +2862,13 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const St
 			load_token = Ref<ResourceLoader::LoadToken>();
 		}
 	} else { // real load
-		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, ResourceFormatLoader::CACHE_MODE_REUSE);
+		load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, cache_mode_for_external);
 	}
+	ERR_FAIL_COND_V_MSG(err != OK || load_token.is_null(), load_token, "Failed to load external resource: " + p_path);
 	return load_token;
 }
 Ref<Resource> ResourceLoaderCompatText::finish_ext_load(Ref<ResourceLoader::LoadToken> &load_token, Error *r_err) {
-	if (is_real_load()) {
+	if (should_threaded_load()) {
 		return ResourceLoader::_load_complete(*load_token.ptr(), r_err);
 	} // Fake_load, non-global load
 	for (const auto &E : ext_resources) {
