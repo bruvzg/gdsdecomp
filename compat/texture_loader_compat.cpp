@@ -27,6 +27,20 @@ enum FormatBits {
 	FORMAT_BIT_DETECT_ROUGNESS = 1 << 27,
 };
 
+bool is_real_or_gltf_load(ResourceInfo::LoadType p_type) {
+	return p_type == ResourceInfo::LoadType::REAL_LOAD || p_type == ResourceInfo::LoadType::GLTF_LOAD;
+}
+
+void set_res_path(Ref<Resource> res, const String &path, ResourceInfo::LoadType p_type) {
+	if (res.is_valid()) {
+		if (is_real_or_gltf_load(p_type)) {
+			res->set_path(path, false);
+		} else {
+			res->set_path_cache(path);
+		}
+	}
+}
+
 ResourceInfo TextureLoaderCompat::_get_resource_info(TextureLoaderCompat::TextureVersionType t) {
 	ResourceInfo info;
 	info.ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
@@ -746,9 +760,6 @@ Ref<CompressedTexture2D> ResourceFormatLoaderCompatTexture2D::_set_tex(const Str
 		if (size_override) {
 			RS::get_singleton()->texture_set_size_override(texture_rid, fake->w, fake->h);
 		}
-		texture->set_path(p_path, false);
-	} else {
-		texture->set_path_cache(p_path);
 	}
 	return texture;
 }
@@ -822,6 +833,8 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 		ResourceConverterTexture2D rc;
 		texture = rc.convert(res, p_type, ver_major, &err);
 	}
+	// TODO: Take care of the cache mode
+	set_res_path(texture, p_path, p_type);
 	auto info = TextureLoaderCompat::_get_resource_info(t);
 	texture->set_meta("compat", info.to_dict());
 	return texture;
@@ -866,16 +879,12 @@ Ref<CompressedTexture3D> ResourceFormatLoaderCompatTexture3D::_set_tex(const Str
 	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
 		RID texture_rid = RS::get_singleton()->texture_3d_create(texture->get_format(), texture->get_width(), texture->get_height(), texture->get_depth(), texture->has_mipmaps(), images);
 		fake->texture = texture_rid;
-		texture->set_path(p_path, false);
-	} else {
-		texture->set_path_cache(p_path);
 	}
 	return texture;
 }
 
 Ref<Resource> ResourceFormatLoaderCompatTexture3D::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
 	Error err;
-	Ref<Resource> res;
 	TextureLoaderCompat::TextureVersionType t = TextureLoaderCompat::recognize(p_path, &err);
 	if (t == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
 		if (r_error) {
@@ -901,7 +910,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture3D::custom_load(const String &p_p
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
 	texture = _set_tex(p_path, p_type, lw, lh, ld, mipmaps, images);
-
+	set_res_path(texture, p_path, p_type);
 	return texture;
 }
 
@@ -967,9 +976,6 @@ Ref<CompressedTextureLayered> ResourceFormatLoaderCompatTextureLayered::_set_tex
 	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
 		RID texture_rid = RS::get_singleton()->texture_2d_layered_create(images, RS::TextureLayeredType(type));
 		fake->texture = texture_rid;
-		texture->set_path(p_path, false);
-	} else {
-		texture->set_path_cache(p_path);
 	}
 	return texture;
 }
@@ -1003,6 +1009,7 @@ Ref<Resource> ResourceFormatLoaderCompatTextureLayered::custom_load(const String
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
 	texture = _set_tex(p_path, p_type, lw, lh, ld, ltype, mipmaps, images);
+	set_res_path(texture, res->get_path(), p_type);
 
 	return texture;
 }
