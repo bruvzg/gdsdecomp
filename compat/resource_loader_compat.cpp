@@ -178,3 +178,11 @@ ResourceInfo ResourceCompatLoader::get_resource_info(const String &p_path, const
 	}
 	return loader->get_resource_info(p_path, r_error);
 }
+
+//	static void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types = false);
+
+void ResourceCompatLoader::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
+	auto loader = get_loader_for_path(p_path, "");
+	ERR_FAIL_COND_MSG(loader.is_null(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+	loader->get_dependencies(p_path, p_dependencies, p_add_types);
+}
