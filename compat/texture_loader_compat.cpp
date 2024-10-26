@@ -802,8 +802,6 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 	Ref<Image> image;
 	bool convert = false;
 	if (t == TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V2_TEXTURE || t == TextureLoaderCompat::FORMAT_V3_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V4_IMAGE_TEXTURE) {
-		ResourceFormatLoaderCompatBinary rlcb;
-		Ref<MissingResource> res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
 		convert = true;
 	} else if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D) {
 		err = TextureLoaderCompat::_load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
@@ -819,6 +817,8 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 	if (!convert) {
 		texture = _set_tex(p_path, p_type, lw, lh, lwc, lhc, lflags, image);
 	} else {
+		ResourceFormatLoaderCompatBinary rlcb;
+		Ref<Resource> res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
 		ResourceConverterTexture2D rc;
 		texture = rc.convert(res, p_type, ver_major, &err);
 	}
