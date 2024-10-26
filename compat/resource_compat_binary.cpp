@@ -1256,7 +1256,8 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 		er.path = get_unicode_string();
 		if (using_uids) {
 			er.uid = f->get_64();
-#if 0
+			// clang-format off
+			if (is_real_load()){
 			if (!p_keep_uuid_paths && er.uid != ResourceUID::INVALID_ID) {
 				if (ResourceUID::get_singleton()->has_id(er.uid)) {
 					// If a UID is found and the path is valid, it will be used, otherwise, it falls back to the path.
@@ -1272,7 +1273,8 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 #endif
 				}
 			}
-#endif
+			}
+			// clang-format on
 		}
 
 		external_resources.push_back(er);
@@ -1601,14 +1603,25 @@ Error ResourceFormatLoaderCompatBinary::rename_dependencies(const String &p_path
 		ResourceUID::ID uid = ResourceUID::INVALID_ID;
 		if (using_uids) {
 			uid = f->get_64();
-#if 0
 			if (uid != ResourceUID::INVALID_ID) {
 				if (ResourceUID::get_singleton()->has_id(uid)) {
 					// If a UID is found and the path is valid, it will be used, otherwise, it falls back to the path.
+					String old_path = path;
 					path = ResourceUID::get_singleton()->get_id_path(uid);
+					if (old_path.get_file().begins_with("gdre_")) {
+						String path_file = path.get_file();
+						if (path_file.begins_with("export-")) {
+							path_file = path_file.replace_first("export-", "");
+							path_file = path_file.find("-") != -1 ? path_file.substr(path_file.find("-") + 1) : path_file;
+						}
+						if (!path_file.begins_with("gdre_")) {
+							// This is a warning, but we can still rename it.
+							WARN_PRINT("PLEASE REPORT THIS: Attempted to rename UID " + String::num(uid) + " from " + old_path + " to " + path);
+							path = old_path;
+						}
+					}
 				}
 			}
-#endif
 		}
 
 		bool relative = false;
