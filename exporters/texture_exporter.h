@@ -1,4 +1,5 @@
 #pragma once
+#include "core/io/image.h"
 #include "exporters/resource_exporter.h"
 
 class TextureExporter : public ResourceExporter {
