@@ -1884,6 +1884,7 @@ Ref<Resource> ResourceFormatLoaderCompatText::load(const String &p_path, const S
 			loader.cache_mode_for_external = p_cache_mode;
 			break;
 	}
+	loader.load_type = get_default_real_load();
 	loader.use_sub_threads = p_use_sub_threads;
 	loader.local_path = GDRESettings::get_singleton()->localize_path(path);
 	loader.progress = r_progress;

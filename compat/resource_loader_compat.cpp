@@ -41,9 +41,7 @@ Ref<Resource> ResourceCompatLoader::non_global_load(const String &p_path, const 
 Ref<Resource> ResourceCompatLoader::gltf_load(const String &p_path, const String &p_type_hint, Error *r_error) {
 	auto loader = get_loader_for_path(p_path, p_type_hint);
 	FAIL_LOADER_NOT_FOUND(loader);
-	doing_gltf_load = true;
 	auto ret = loader->custom_load(p_path, ResourceInfo::LoadType::GLTF_LOAD, r_error);
-	doing_gltf_load = false;
 	return ret;
 }
 
@@ -185,4 +183,12 @@ void ResourceCompatLoader::get_dependencies(const String &p_path, List<String> *
 	auto loader = get_loader_for_path(p_path, "");
 	ERR_FAIL_COND_MSG(loader.is_null(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
 	loader->get_dependencies(p_path, p_dependencies, p_add_types);
+}
+
+bool ResourceCompatLoader::is_default_gltf_load() {
+	return doing_gltf_load;
+}
+
+void ResourceCompatLoader::set_default_gltf_load(bool p_enable) {
+	doing_gltf_load = p_enable;
 }
