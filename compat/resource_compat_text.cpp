@@ -483,8 +483,9 @@ Error ResourceLoaderCompatText::load() {
 		if (next_tag.fields.has("uid")) {
 			String uidt = next_tag.fields["uid"];
 			uid = ResourceUID::get_singleton()->text_to_id(uidt);
-// UID Stuff
-#if 0
+			// UID Stuff
+			// clang-format off
+			if (is_real_load()){
 			if (uid != ResourceUID::INVALID_ID && ResourceUID::get_singleton()->has_id(uid)) {
 				// If a UID is found and the path is valid, it will be used, otherwise, it falls back to the path.
 				path = ResourceUID::get_singleton()->get_id_path(uid);
@@ -498,7 +499,8 @@ Error ResourceLoaderCompatText::load() {
 				WARN_PRINT(String(res_path + ":" + itos(lines) + " - ext_resource, invalid UID: " + uidt + " - using text path instead: " + path).utf8().get_data());
 #endif
 			}
-#endif
+			}
+			// clang-format on
 		}
 
 		if (!path.contains("://") && path.is_relative_path()) {
@@ -1145,7 +1147,19 @@ Error ResourceLoaderCompatText::rename_dependencies(Ref<FileAccess> p_f, const S
 				ResourceUID::ID uid = ResourceUID::get_singleton()->text_to_id(uidt);
 				if (uid != ResourceUID::INVALID_ID && ResourceUID::get_singleton()->has_id(uid)) {
 					// If a UID is found and the path is valid, it will be used, otherwise, it falls back to the path.
+					String old_path = path;
 					path = ResourceUID::get_singleton()->get_id_path(uid);
+					if (old_path.get_file().begins_with("gdre_")) {
+						String path_file = path.get_file();
+						if (path_file.begins_with("export-")) {
+							path_file = path_file.replace_first("export-", "");
+							path_file = path_file.find("-") != -1 ? path_file.substr(path_file.find("-") + 1) : path_file;
+						}
+						if (!path_file.begins_with("gdre_")) {
+							WARN_PRINT("PLEASE REPORT THIS: Refusing to rename UID " + String::num(uid) + " from " + old_path + " to " + path);
+							path = old_path;
+						}
+					}
 				}
 			}
 			bool relative = false;
