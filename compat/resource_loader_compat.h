@@ -24,6 +24,7 @@ class ResourceCompatLoader {
 	static int loader_count;
 	static int converter_count;
 	static bool doing_gltf_load;
+	static bool globally_available;
 
 public:
 	static Ref<Resource> fake_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
@@ -42,6 +43,9 @@ public:
 	static Error to_binary(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
 	static void set_default_gltf_load(bool p_enable);
 	static bool is_default_gltf_load();
+	static void make_globally_available();
+	static void unmake_globally_available();
+	static bool is_globally_available();
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {
