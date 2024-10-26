@@ -40,6 +40,8 @@ public:
 	static void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types = false);
 	static Error to_text(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
 	static Error to_binary(const String &p_path, const String &p_dst, uint32_t p_flags = 0);
+	static void set_default_gltf_load(bool p_enable);
+	static bool is_default_gltf_load();
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {
@@ -47,6 +49,12 @@ public:
 	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) = 0;
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const = 0;
 	virtual bool handles_fake_load() const { return false; }
+	static ResourceInfo::LoadType get_default_real_load() {
+		if (ResourceCompatLoader::is_default_gltf_load()) {
+			return ResourceInfo::LoadType::GLTF_LOAD;
+		}
+		return ResourceInfo::LoadType::REAL_LOAD;
+	}
 	static Ref<Resource> create_missing_external_resource(const String &path, const String &type, const ResourceUID::ID uid, const String &scene_id = "") {
 		Ref<MissingResource> res{ memnew(MissingResource) };
 		res->set_original_class(type);

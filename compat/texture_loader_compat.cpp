@@ -1,5 +1,6 @@
 #include "texture_loader_compat.h"
 #include "compat/resource_compat_binary.h"
+#include "compat/resource_loader_compat.h"
 #include "core/error/error_macros.h"
 #include "core/io/missing_resource.h"
 #include "core/variant/dictionary.h"
@@ -794,7 +795,7 @@ ResourceInfo TextureLoaderCompat::get_resource_info(const String &p_path, Error 
 }
 
 Ref<Resource> ResourceFormatLoaderCompatTexture2D::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, ResourceFormatLoader::CacheMode p_cache_mode) {
-	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+	return custom_load(p_path, get_default_real_load(), r_error);
 }
 
 Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
@@ -841,7 +842,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 }
 
 Ref<Resource> ResourceFormatLoaderCompatTexture3D::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
-	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+	return custom_load(p_path, get_default_real_load(), r_error);
 }
 
 void ResourceFormatLoaderCompatTexture3D::get_recognized_extensions(List<String> *p_extensions) const {
@@ -915,7 +916,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture3D::custom_load(const String &p_p
 }
 
 Ref<Resource> ResourceFormatLoaderCompatTextureLayered::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
-	return custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+	return custom_load(p_path, get_default_real_load(), r_error);
 }
 
 void ResourceFormatLoaderCompatTextureLayered::get_recognized_extensions(List<String> *p_extensions) const {

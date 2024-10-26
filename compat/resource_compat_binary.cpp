@@ -1418,6 +1418,7 @@ Ref<Resource> ResourceFormatLoaderCompatBinary::load(const String &p_path, const
 			loader.cache_mode_for_external = p_cache_mode;
 			break;
 	}
+	loader.load_type = get_default_real_load();
 	loader.use_sub_threads = p_use_sub_threads;
 	loader.progress = r_progress;
 	String path = !p_original_path.is_empty() ? p_original_path : p_path;
