@@ -865,6 +865,9 @@ bool GDRESettings::has_any_remaps() const {
 			if (remap_iinfo.size() > 0) {
 				return true;
 			}
+			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("path_remap/remapped_paths")) {
+				return true;
+			}
 		} else { // version 1-2
 			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
 				return true;
@@ -880,6 +883,12 @@ Dictionary GDRESettings::get_remaps(bool include_imports) const {
 		if (get_ver_major() >= 3) {
 			for (auto E : remap_iinfo) {
 				ret[E.key] = E.value->get_path();
+			}
+			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("path_remap/remapped_paths")) {
+				PackedStringArray v3remaps = current_pack->pcfg->get_setting("path_remap/remapped_paths", PackedStringArray());
+				for (int i = 0; i < v3remaps.size(); i += 2) {
+					ret[v3remaps[i]] = v3remaps[i + 1];
+				}
 			}
 		} else {
 			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
@@ -899,25 +908,34 @@ Dictionary GDRESettings::get_remaps(bool include_imports) const {
 	return ret;
 }
 
-//only works on 2.x right now
+bool has_old_remap(const Vector<String> &remaps, const String &src, const String &dst) {
+	int idx = remaps.find(src);
+	if (idx != -1) {
+		if (dst.is_empty()) {
+			return true;
+		}
+		return remaps[idx + 1] == dst;
+	}
+	return false;
+}
+
 bool GDRESettings::has_remap(const String &src, const String &dst) const {
 	if (is_pack_loaded()) {
+		String local_src = localize_path(src);
+		String local_dst = !dst.is_empty() ? localize_path(dst) : "";
 		if (get_ver_major() >= 3) {
-			String remap_file = localize_path(src) + ".remap";
+			String remap_file = local_src + ".remap";
 			if (remap_iinfo.has(remap_file)) {
 				if (dst.is_empty()) {
 					return true;
 				}
 				String dest_file = remap_iinfo[remap_file]->get_path();
-				return dest_file == localize_path(dst);
+				return dest_file == local_dst;
 			}
-		} else {
-			if (is_project_config_loaded() && current_pack->pcfg->has_setting("remap/all")) {
-				PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
-				if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
-					return true;
-				}
-			}
+		}
+		String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
+		if (is_project_config_loaded() && current_pack->pcfg->has_setting(setting)) {
+			return has_old_remap(current_pack->pcfg->get_setting(setting, PackedStringArray()), local_src, local_dst);
 		}
 	}
 	return false;
@@ -928,20 +946,25 @@ Error GDRESettings::add_remap(const String &src, const String &dst) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
 	if (get_ver_major() >= 3) {
 		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Adding Remaps is not supported in 3.x-4.x packs yet!");
-	} else {
-		ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
-		PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
-		v2remaps.push_back(localize_path(src));
-		v2remaps.push_back(localize_path(dst));
-		current_pack->pcfg->set_setting("remap/all", v2remaps);
 	}
+	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
+	String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
+	PackedStringArray v2remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+	String local_src = localize_path(src);
+	String local_dst = localize_path(dst);
+	int idx = v2remaps.find(local_src);
+	if (idx != -1) {
+		v2remaps.write[idx + 1] = local_dst;
+	} else {
+		v2remaps.push_back(local_src);
+		v2remaps.push_back(local_dst);
+	}
+	current_pack->pcfg->set_setting(setting, v2remaps);
 	return OK;
 }
 
 Error GDRESettings::remove_remap(const String &src, const String &dst, const String &output_dir) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DATABASE_CANT_READ, "Pack not loaded!");
-	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
-	PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
 	Error err;
 	if (get_ver_major() >= 3) {
 		ERR_FAIL_COND_V_MSG(output_dir.is_empty(), ERR_INVALID_PARAMETER, "Output directory must be specified for 3.x-4.x packs!");
@@ -958,11 +981,19 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 			remap_iinfo.erase(remap_file);
 			return da->remove(remap_file.replace("res://", ""));
 		}
-		ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap for " + src + " does not exist!");
 	}
-	if ((v2remaps.has(localize_path(src)) && v2remaps.has(localize_path(dst)))) {
-		v2remaps.erase(localize_path(src));
-		v2remaps.erase(localize_path(dst));
+	if (!is_project_config_loaded()) {
+		ERR_FAIL_COND_V_MSG(get_ver_major() < 3, ERR_DATABASE_CANT_READ, "project config not loaded!");
+		ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
+	}
+	String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
+	ERR_FAIL_COND_V_MSG(!current_pack->pcfg->has_setting(setting), ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
+	PackedStringArray v2remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+	String local_src = localize_path(src);
+	String local_dst = localize_path(dst);
+	if (has_old_remap(v2remaps, local_src, local_dst)) {
+		v2remaps.erase(local_src);
+		v2remaps.erase(local_dst);
 		if (v2remaps.size()) {
 			err = current_pack->pcfg->set_setting("remap/all", v2remaps);
 		} else {
