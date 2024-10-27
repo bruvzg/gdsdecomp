@@ -21,6 +21,140 @@ bool ResourceCompatLoader::globally_available = false;
 		return Ref<Resource>();                                                                                                                              \
 	}
 
+static Vector<Pair<String, Vector<String>>> core_recognized_extensions_v3 = {
+	{ "theme", { "Theme", "Object", "Resource", "Reference", "Theme" } },
+	{ "phymat", { "PhysicsMaterial", "Object", "Resource", "Reference", "PhysicsMaterial" } },
+	{ "scn", { "PackedScene", "PackedSceneGLTF", "PackedScene", "Object", "Resource", "Reference" } },
+	{ "largetex", { "LargeTexture", "Object", "LargeTexture", "Resource", "Reference", "Texture" } },
+	{ "meshlib", { "MeshLibrary", "MeshLibrary", "Object", "Resource", "Reference" } },
+	{ "lmbake", { "BakedLightmapData", "BakedLightmapData", "Object", "Resource", "Reference" } },
+	{ "anim", { "Animation", "Animation", "Object", "Resource", "Reference" } },
+	{ "cubemap", { "CubeMap", "CubeMap", "Object", "Resource", "Reference" } },
+	{ "occ", { "OccluderShape", "OccluderShapePolygon", "Object", "OccluderShape", "Resource", "OccluderShapeSphere", "Reference" } },
+	{ "mesh", { "ArrayMesh", "ArrayMesh", "Mesh", "Object", "Resource", "Reference" } },
+	{ "oggstr", { "AudioStreamOGGVorbis", "AudioStream", "Object", "Resource", "Reference", "AudioStreamOGGVorbis" } },
+	{ "curvetex", { "CurveTexture", "CurveTexture", "Object", "Resource", "Reference", "Texture" } },
+	{ "meshtex", { "MeshTexture", "Object", "MeshTexture", "Resource", "Reference", "Texture" } },
+	{ "atlastex", { "AtlasTexture", "AtlasTexture", "Object", "Resource", "Reference", "Texture" } },
+	{ "font", { "BitmapFont", "BitmapFont", "Object", "Font", "Resource", "Reference" } },
+	{ "material", { "Material", "SpatialMaterial", "Material3D", "ORMSpatialMaterial", "ParticlesMaterial", "Object", "CanvasItemMaterial", "ShaderMaterial", "Resource", "Reference", "Material" } },
+	{ "translation", { "Translation", "Translation", "Object", "PHashTranslation", "Resource", "Reference" } },
+	{ "world", { "World", "World", "Object", "Resource", "Reference" } },
+	{ "multimesh", { "MultiMesh", "MultiMesh", "Object", "Resource", "Reference" } },
+	{ "vs", { "VisualScript", "VisualScript", "Script", "Object", "Resource", "Reference" } },
+	{ "mp3str", { "AudioStreamMP3", "AudioStream", "Object", "Resource", "AudioStreamMP3", "Reference" } },
+	{ "tex", { "ImageTexture", "ImageTexture", "Object", "Resource", "Reference", "Texture" } },
+	{ "shape", { "Shape", "RayShape", "CylinderShape", "HeightMapShape", "SphereShape", "Shape", "Object", "ConcavePolygonShape", "BoxShape", "CapsuleShape", "PlaneShape", "Resource", "ConvexPolygonShape", "Reference" } },
+	{ "sample", { "AudioStreamSample", "AudioStreamSample", "AudioStream", "Object", "Resource", "Reference" } },
+	{ "stylebox", { "StyleBox", "StyleBoxEmpty", "StyleBoxFlat", "StyleBox", "StyleBoxLine", "Object", "Resource", "StyleBoxTexture", "Reference" } },
+	{ "res", { "Resource", "Curve2D", "AnimationNodeBlendTree", "InputEventMagnifyGesture", "AudioEffectHighPassFilter", "VisualShaderNodeColorFunc", "AnimationNodeTimeSeek", "AnimationNodeTimeScale", "AnimationNodeBlend2", "RayShape", "AnimationNodeBlend3", "GradientTexture", "GDScript", "VisualShaderNodeFresnel", "Animation", "VisualScriptSequence", "VisualScriptWhile", "GLTFBufferView", "VisualShaderNodeOutput", "VisualShaderNodeTextureUniform", "MeshLibrary", "PackedSceneGLTF", "VideoStream", "Image", "VisualShaderNodeVectorOp", "VisualShaderNodeVectorDerivativeFunc", "VisualShaderNodeVectorDecompose", "VisualShaderNodeSwitch", "AudioStreamGenerator", "AudioEffectReverb", "AnimationNode", "PrimitiveMesh", "AtlasTexture", "VisualScriptSceneTree", "Shape2D", "AnimationNodeStateMachineTransition", "CylinderMesh", "VisualScript", "StyleBoxEmpty", "AnimationRootNode", "TorusMesh", "VisualScriptFunctionCall", "CylinderShape", "GLTFDocument", "AudioEffectCompressor", "VisualShaderNodeVec3Constant", "VisualShaderNodeDeterminant", "ArrayMesh", "AnimationNodeBlendSpace2D", "Mesh", "AudioEffectDelay", "VisualScriptNode", "NoiseTexture", "LineShape2D", "InputEventJoypadMotion", "VisualShaderNodeColorOp", "VisualShaderNodeTextureUniformTriplanar", "InputEventWithModifiers", "TextureArray", "VisualShaderNodeScalarConstant", "VisualShaderNodeVectorClamp", "VisualShaderNodeBooleanUniform", "GLTFTextureSampler", "VisualScriptIterator", "SphereMesh", "ImageTexture", "ExternalTexture", "BitmapFont", "Skin", "Script", "AudioEffectLimiter", "Environment", "VisualScriptEmitSignal", "CurveTexture", "DynamicFontData", "TextureLayered", "RichTextEffect", "AudioEffectSpectrumAnalyzer", "VisualShaderNodeCompare", "MultiMesh", "PrismMesh", "SegmentShape2D", "VisualShaderNodeColorConstant", "VisualShaderNodeVectorCompose", "CameraTexture", "VisualScriptSwitch", "InputEventMouse", "InputEventKey", "VisualShaderNodeBooleanConstant", "VisualScriptComment", "ShortCut", "Curve3D", "VisualScriptMathConstant", "NavigationMesh", "PlaneMesh", "StreamTexture", "CubeMap", "BitMap", "VisualScriptYieldSignal", "GLTFTexture", "AudioEffect", "AudioStreamSample", "AnimationNodeAdd2", "VisualShaderNodeInput", "VisualShaderNodeExpression", "StyleBoxFlat", "AnimationNodeAdd3", "AudioEffectStereoEnhance", "GLTFLight", "PanoramaSky", "GDNativeLibrary", "BakedLightmapData", "HeightMapShape", "VisualScriptLocalVarSet", "ButtonGroup", "VisualScriptBuiltinFunc", "GLTFDocumentExtensionPhysics", "CubeMesh", "VisualShaderNodeTransformVecMult", "VideoStreamWebm", "VisualShaderNodeCubeMapUniform", "VisualScriptSubCall", "VisualScriptFunction", "VisualShaderNodeTransformMult", "VisualShaderNodeVectorDistance", "OccluderPolygon2D", "VisualScriptCondition", "VisualScriptPreload", "InputEventScreenDrag", "VisualShaderNodeColorUniform", "OpenSimplexNoise", "AudioStreamMicrophone", "RayShape2D", "AudioEffectChorus", "AnimatedTexture", "InputEventMIDI", "InputEventScreenTouch", "GradientTexture2D", "VisualScriptTypeCast", "PackedScene", "VisualScriptBasicTypeConstant", "InputEventMouseButton", "AudioEffectHighShelfFilter", "Sky", "NavigationPolygon", "SphereShape", "VisualScriptExpression", "CircleShape2D", "VisualShaderNodeGroupBase", "VisualShaderNodeTransformFunc", "VisualShaderNodeScalarInterp", "VisualShaderNodeScalarSwitch", "StyleBox", "NativeScript", "RectangleShape2D", "AnimationNodeStateMachine", "VisualShaderNodeScalarSmoothStep", "SpatialMaterial", "VisualScriptResourcePath", "VisualScriptComposeArray", "GLTFPhysicsBody", "AudioStream", "World2D", "GLTFAccessor", "VisualShaderNodeIf", "AudioEffectPhaser", "GIProbeData", "VisualShaderNodeTexture", "StyleBoxLine", "VisualShaderNodeVectorLen", "VisualShaderNodeTransformCompose", "PluginScript", "Curve", "VideoStreamTheora", "AnimationNodeAnimation", "VisualShaderNodeScalarOp", "VisualShaderNodeScalarDerivativeFunc", "Material3D", "VisualShaderNodeScalarUniform", "VisualShaderNodeVectorScalarMix", "World", "Texture3D", "VisualScriptReturn", "VisualScriptClassConstant", "GLTFDocumentExtension", "CryptoKey", "OccluderShapePolygon", "AudioEffectEQ6", "VisualShaderNodeVectorRefract", "ORMSpatialMaterial", "VisualShaderNodeCustom", "VisualShaderNodeTransformUniform", "VisualShaderNodeIs", "VisualScriptPropertyGet", "GLTFState", "ConcavePolygonShape2D", "Gradient", "VisualShaderNodeUniformRef", "VisualScriptVariableGet", "Translation", "InputEventPanGesture", "InputEventAction", "AnimationNodeTransition", "InputEventGesture", "InputEventMouseMotion", "AudioEffectAmplify", "AudioEffectBandPassFilter", "VisualShaderNodeUniform", "Shape", "VisualScriptEngineSingleton", "GLTFSkeleton", "VisualShaderNodeGlobalExpression", "GLTFNode", "AudioEffectCapture", "CapsuleShape2D", "VisualScriptOperator", "VideoStreamGDNative", "AudioEffectEQ", "AudioEffectPitchShift", "GLTFCamera", "AudioEffectEQ10", "ParticlesMaterial", "VisualScriptDeconstruct", "VisualScriptInputAction", "AnimationNodeOutput", "Object", "VisualShaderNodeTransformConstant", "PointMesh", "Font", "QuadMesh", "ConcavePolygonShape", "VisualShaderNodeDotProduct", "VisualScriptPropertySet", "GLTFMesh", "CanvasItemMaterial", "BoxShape", "VisualScriptVariableSet", "GLTFCollider", "LargeTexture", "DynamicFont", "VisualScriptLocalVar", "VisualScriptSceneNode", "AudioEffectRecord", "CapsuleShape", "MeshTexture", "VisualScriptYield", "GLTFSpecGloss", "VisualScriptIndexGet", "AudioEffectNotchFilter", "VisualShaderNodeOuterProduct", "PlaneShape", "GLTFSkin", "ConvexPolygonShape2D", "VisualShaderNodeVec3Uniform", "OccluderShape", "AnimationNodeStateMachinePlayback", "PHashTranslation", "AudioEffectPanner", "VisualScriptGlobalConstant", "PackedDataContainer", "AudioEffectFilter", "TextFile", "AnimationNodeOneShot", "ShaderMaterial", "Resource", "ProceduralSky", "VisualScriptSelect", "AudioEffectLowShelfFilter", "OccluderShapeSphere", "VisualScriptCustomNode", "EditorSpatialGizmoPlugin", "VisualShader", "StyleBoxTexture", "AnimationNodeBlendSpace1D", "VisualShaderNodeTransformDecompose", "ConvexPolygonShape", "VisualScriptIndexSet", "GLTFAnimation", "PolygonPathFinder", "AudioStreamMP3", "AudioEffectLowPassFilter", "AudioEffectDistortion", "VisualShaderNodeCubeMap", "VisualScriptConstructor", "Reference", "Material", "AudioStreamOGGVorbis", "VisualShaderNodeVectorFunc", "VisualShaderNodeVectorScalarSmoothStep", "ViewportTexture", "Texture", "VisualShaderNode", "InputEvent", "TextMesh", "PhysicsMaterial", "VisualScriptSelf", "VisualScriptConstant", "VisualShaderNodeScalarFunc", "ProxyTexture", "Theme", "VisualShaderNodeScalarClamp", "InputEventJoypadButton", "VisualShaderNodeFaceForward", "SpriteFrames", "VisualShaderNodeVectorScalarStep", "VisualShaderNodeVectorInterp", "AudioStreamRandomPitch", "Shader", "VisualScriptLists", "EditorSettings", "AudioEffectEQ21", "X509Certificate", "AudioEffectBandLimitFilter", "AudioBusLayout", "VisualShaderNodeVectorSmoothStep", "TileSet", "CapsuleMesh" } },
+};
+
+static Vector<Pair<String, Vector<String>>> core_recognized_extensions_v2 = {
+	{ "shp", { "Shape", "RayShape", "Shape", "Object", "ConcavePolygonShape", "BoxShape", "CapsuleShape", "PlaneShape", "Resource", "ConvexPolygonShape", "Reference", "SphereShape" } },
+	{ "gt", { "MeshLibrary", "MeshLibrary", "Object", "Resource", "Reference" } },
+	{ "scn", { "PackedScene", "Object", "Resource", "Reference", "PackedScene" } },
+	{ "anm", { "Animation", "Animation", "Object", "Resource", "Reference" } },
+	{ "xl", { "Translation", "Translation", "Object", "PHashTranslation", "Resource", "Reference" } },
+	{ "sbx", { "StyleBox", "StyleBoxImageMask", "StyleBoxEmpty", "Object", "StyleBoxFlat", "Resource", "StyleBoxTexture", "Reference", "StyleBox" } },
+	{ "ltex", { "LargeTexture", "Object", "LargeTexture", "Resource", "Reference", "Texture" } },
+	{ "wrd", { "World", "World", "Object", "Resource", "Reference" } },
+	{ "mmsh", { "MultiMesh", "Object", "MultiMesh", "Resource", "Reference" } },
+	{ "room", { "RoomBounds", "RoomBounds", "Object", "Resource", "Reference" } },
+	{ "mtl", { "Material", "FixedMaterial", "Object", "ShaderMaterial", "Resource", "Reference", "Material" } },
+	{ "pbm", { "BitMap", "Object", "BitMap", "Resource", "Reference" } },
+	{ "shd", { "Shader", "Object", "CanvasItemShader", "MaterialShader", "Resource", "ShaderGraph", "Reference", "CanvasItemShaderGraph", "Shader", "MaterialShaderGraph" } },
+	{ "smp", { "Sample", "Object", "Sample", "Resource", "Reference" } },
+	{ "fnt", { "BitmapFont", "BitmapFont", "Object", "Font", "Resource", "Reference" } },
+	{ "msh", { "Mesh", "Mesh", "Object", "Resource", "Reference" } },
+	{ "thm", { "Theme", "Object", "Resource", "Reference", "Theme" } },
+	{ "tex", { "ImageTexture", "ImageTexture", "Object", "Resource", "Reference", "Texture" } },
+	{ "cbm", { "CubeMap", "Object", "CubeMap", "Resource", "Reference" } },
+	{ "atex", { "AtlasTexture", "AtlasTexture", "Object", "Resource", "Reference", "Texture" } },
+	{ "sgp", { "ShaderGraph", "Object", "Resource", "ShaderGraph", "Reference", "CanvasItemShaderGraph", "Shader", "MaterialShaderGraph" } },
+	{ "res", { "Resource", "Curve2D", "RectangleShape2D", "RayShape", "AudioStreamMPC", "AudioStream", "World2D", "FixedMaterial", "GDScript", "Animation", "MeshLibrary", "AudioStreamSpeex", "VideoStream", "VideoStreamTheora", "AtlasTexture", "Shape2D", "World", "RoomBounds", "StyleBoxImageMask", "StyleBoxEmpty", "EventStreamChibi", "Mesh", "EventStream", "ConcavePolygonShape2D", "LineShape2D", "ColorRamp", "BakedLight", "Translation", "Shape", "CapsuleShape2D", "ImageTexture", "BitmapFont", "Script", "Environment", "DynamicFontData", "Object", "Font", "ConcavePolygonShape", "MultiMesh", "RenderTargetTexture", "SegmentShape2D", "BoxShape", "CanvasItemMaterial", "DynamicFont", "LargeTexture", "ShortCut", "Curve3D", "BitMap", "CubeMap", "NavigationMesh", "CapsuleShape", "StyleBoxFlat", "PlaneShape", "ConvexPolygonShape2D", "Sample", "CanvasItemShader", "PHashTranslation", "AudioStreamOpus", "PackedDataContainer", "MaterialShader", "ShaderMaterial", "Resource", "ShaderGraph", "StyleBoxTexture", "ConvexPolygonShape", "PolygonPathFinder", "Reference", "OccluderPolygon2D", "Material", "AudioStreamOGGVorbis", "Texture", "RayShape2D", "Theme", "CanvasItemShaderGraph", "SpriteFrames", "PackedScene", "SampleLibrary", "Shader", "EditorSettings", "NavigationPolygon", "SphereShape", "MaterialShaderGraph", "CircleShape2D", "StyleBox", "TileSet" } },
+};
+
+HashMap<String, HashSet<String>> _init_ext_to_types() {
+	HashMap<String, HashSet<String>> map;
+	for (const auto &pair : core_recognized_extensions_v3) {
+		if (!map.has(pair.first)) {
+			map[pair.first] = HashSet<String>();
+		}
+		for (const String &type : pair.second) {
+			map[pair.first].insert(type);
+		}
+	}
+	for (const auto &pair : core_recognized_extensions_v2) {
+		if (!map.has(pair.first)) {
+			map[pair.first] = HashSet<String>();
+		}
+		for (const String &type : pair.second) {
+			map[pair.first].insert(type);
+		}
+	}
+	return map;
+}
+
+HashMap<String, HashSet<String>> _init_type_to_exts() {
+	HashMap<String, HashSet<String>> map;
+	for (const auto &pair : core_recognized_extensions_v3) {
+		if (!map.has(pair.first)) {
+			map[pair.first] = HashSet<String>();
+		}
+		for (const String &type : pair.second) {
+			map[type].insert(pair.first);
+		}
+	}
+	for (const auto &pair : core_recognized_extensions_v2) {
+		if (!map.has(pair.first)) {
+			map[pair.first] = HashSet<String>();
+		}
+		for (const String &type : pair.second) {
+			map[type].insert(pair.first);
+		}
+	}
+	return map;
+}
+
+static HashMap<String, HashSet<String>> ext_to_types = _init_ext_to_types();
+static HashMap<String, HashSet<String>> type_to_exts = _init_type_to_exts();
+//	static void get_base_extensions(List<String> *p_extensions);
+
+void ResourceCompatLoader::get_base_extensions(List<String> *p_extensions) {
+	HashSet<String> unique_extensions;
+	ClassDB::get_resource_base_extensions(p_extensions);
+
+	for (const String &ext : *p_extensions) {
+		unique_extensions.insert(ext);
+	}
+	for (const auto &pair : ext_to_types) {
+		if (!unique_extensions.has(pair.key)) {
+			unique_extensions.insert(pair.key);
+			p_extensions->push_back(pair.key);
+		}
+	}
+}
+
+void ResourceCompatLoader::get_base_extensions_for_type(const String &p_type, List<String> *p_extensions) {
+	List<String> extensions;
+	HashSet<String> unique_extensions;
+	ClassDB::get_extensions_for_type(p_type, &extensions);
+
+	for (const String &ext : extensions) {
+		unique_extensions.insert(ext);
+	}
+	if (type_to_exts.has(p_type)) {
+		HashSet<String> old_exts = type_to_exts.get(p_type);
+		for (const String &ext : old_exts) {
+			unique_extensions.insert(ext);
+		}
+	}
+	for (const String &ext : unique_extensions) {
+		p_extensions->push_back(ext);
+	}
+}
+
 Ref<Resource> ResourceCompatLoader::fake_load(const String &p_path, const String &p_type_hint, Error *r_error) {
 	Ref<CompatFormatLoader> loadr;
 	for (int i = 0; i < loader_count; i++) {
