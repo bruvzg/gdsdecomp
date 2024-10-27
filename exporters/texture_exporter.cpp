@@ -193,6 +193,7 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 		err = _convert_tex(path, dest_path, lossy, img_format);
 	}
 	report->set_error(err);
+	report->set_saved_path(dest_path);
 	if (err == ERR_UNAVAILABLE) {
 		report->set_unsupported_format_type(img_format);
 		report->set_message("Decompression not implemented yet for texture format " + img_format);
@@ -210,7 +211,8 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 			dest = prefix.path_join(dest.replace("res://", ""));
 		}
 		iinfo->set_export_lossless_copy(dest);
-		err = _convert_tex(path, dest, false, img_format);
+		dest_path = output_dir.path_join(dest.replace("res://", ""));
+		err = _convert_tex(path, dest_path, false, img_format);
 		ERR_FAIL_COND_V(err != OK, report);
 	}
 
