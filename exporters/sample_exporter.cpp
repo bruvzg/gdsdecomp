@@ -221,6 +221,7 @@ Error SampleExporter::_export_file(const String &out_path, const String &res_pat
 	Error err;
 	Ref<AudioStreamWAV> sample = ResourceCompatLoader::non_global_load(res_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load sample file " + res_path);
+	ERR_FAIL_COND_V_MSG(sample.is_null(), ERR_FILE_UNRECOGNIZED, "Sample not loaded: " + res_path);
 	bool converted = false;
 	if (sample->get_format() == AudioStreamWAV::FORMAT_IMA_ADPCM) {
 		// convert to 16-bit
@@ -259,5 +260,6 @@ Ref<ExportReport> SampleExporter::export_resource(const String &output_dir, Ref<
 		report->set_error(err);
 		report->set_message("Failed to export sample: " + src_path);
 	}
+	report->set_saved_path(dst_path);
 	return report;
 }

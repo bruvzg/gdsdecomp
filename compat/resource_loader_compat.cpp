@@ -357,3 +357,15 @@ void ResourceCompatLoader::unmake_globally_available() {
 bool ResourceCompatLoader::is_globally_available() {
 	return globally_available;
 }
+
+String ResourceCompatConverter::get_resource_name(const Ref<Resource> &res, int ver_major) {
+	String name;
+	Variant n = ver_major < 3 ? res->get("resource/name") : res->get("resource_name");
+	if (n.get_type() == Variant::STRING) {
+		name = n;
+	}
+	if (name.is_empty()) {
+		name = res->get_name();
+	}
+	return name;
+}

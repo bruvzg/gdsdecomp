@@ -136,6 +136,7 @@ class ResourceCompatConverter : public RefCounted {
 	GDCLASS(ResourceCompatConverter, RefCounted);
 
 public:
+	static String get_resource_name(const Ref<Resource> &res, int ver_major);
 	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) = 0;
 	virtual bool handles_type(const String &p_type, int ver_major) const = 0;
 };
