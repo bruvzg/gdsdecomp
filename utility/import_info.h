@@ -345,10 +345,12 @@ class ImportInfoRemap : public ImportInfoDummy {
 	GDCLASS(ImportInfoRemap, ImportInfoDummy)
 private:
 	friend class ImportInfo;
+	String importer = "<NONE>";
 
 	virtual Error _load(const String &p_path) override;
 
 public:
+	virtual String get_importer() const override { return importer; };
 	ImportInfoRemap();
 };
 
