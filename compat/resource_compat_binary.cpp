@@ -1018,7 +1018,7 @@ Error ResourceLoaderCompatBinary::load() {
 		resource_cache.push_back(res);
 
 		if (main) {
-			if (ver_major == 2) {
+			if (ver_major <= 2) {
 				Error limperr = load_import_metadata();
 				// if this was an error other than the metadata being unavailable...
 				if (limperr != OK && limperr != ERR_UNAVAILABLE) {
@@ -1181,9 +1181,13 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 				break;
 			case 4:
 			case 5:
+				suspect_version = true;
+				ver_major = 4;
+				break;
 			case 6:
 				suspect_version = true;
 				ver_major = 4;
+				ver_minor = 3;
 				break;
 		}
 	}
@@ -3121,7 +3125,7 @@ ResourceInfo ResourceFormatLoaderCompatBinary::get_resource_info(const String &p
 	Error err;
 
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	ERR_FAIL_SET_ERR_V_MSG_SETERR(err, ResourceInfo(), "Cannot open file '" + p_path + "'.");
+	ERR_FAIL_COND_V_MSG(err, ResourceInfo(), "Cannot open file '" + p_path + "'.");
 
 	ResourceLoaderCompatBinary loader;
 	String path = p_path;
@@ -3130,15 +3134,17 @@ ResourceInfo ResourceFormatLoaderCompatBinary::get_resource_info(const String &p
 	loader.use_sub_threads = false;
 	loader.local_path = GDRESettings::get_singleton()->localize_path(path);
 	loader.res_path = loader.local_path;
-	loader.open(f);
-	auto res_info = loader.get_resource_info();
-	if (res_info.ver_major == 2) {
+	loader.open(f, true, true);
+	ERR_FAIL_SET_ERR_V_MSG_SETERR(loader.error, ResourceInfo(), "Cannot load binary resource " + p_path + ".");
+	if (loader.ver_major <= 2) {
+		f->seek(0);
+		loader.open(f, false, true);
 		err = loader.load_import_metadata(true);
 		if (err != OK && err != ERR_UNAVAILABLE) {
-			ERR_FAIL_SET_ERR_V_MSG_SETERR(err, res_info, "Cannot load import metadata.");
+			ERR_FAIL_SET_ERR_V_MSG_SETERR(err, loader.get_resource_info(), "Cannot load import metadata for v2 resource " + p_path + ".");
 		}
-		res_info.v2metadata = loader.imd;
 	}
+	auto res_info = loader.get_resource_info();
 	if (r_error) {
 		*r_error = OK;
 	}
