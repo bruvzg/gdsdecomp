@@ -46,6 +46,9 @@ public:
 	static void make_globally_available();
 	static void unmake_globally_available();
 	static bool is_globally_available();
+
+	static void get_base_extensions_for_type(const String &p_type, List<String> *p_extensions);
+	static void get_base_extensions(List<String> *p_extensions);
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {

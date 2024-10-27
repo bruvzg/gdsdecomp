@@ -1445,7 +1445,7 @@ void ResourceFormatLoaderCompatBinary::get_recognized_extensions_for_type(const 
 	}
 
 	List<String> extensions;
-	ClassDB::get_extensions_for_type(p_type, &extensions);
+	ResourceCompatLoader::get_base_extensions_for_type(p_type, &extensions);
 
 	extensions.sort();
 
@@ -1457,11 +1457,7 @@ void ResourceFormatLoaderCompatBinary::get_recognized_extensions_for_type(const 
 
 void ResourceFormatLoaderCompatBinary::get_recognized_extensions(List<String> *p_extensions) const {
 	List<String> extensions;
-	ClassDB::get_resource_base_extensions(&extensions);
-	// TODO: put this somewhere
-	extensions.push_back("fnt");
-	extensions.push_back("smp");
-	extensions.push_back("oggstr");
+	ResourceCompatLoader::get_base_extensions(&extensions);
 	extensions.sort();
 
 	for (const String &E : extensions) {
