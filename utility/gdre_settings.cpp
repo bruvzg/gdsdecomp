@@ -915,7 +915,7 @@ bool has_old_remap(const Vector<String> &remaps, const String &src, const String
 		if (dst.is_empty()) {
 			return true;
 		}
-		return remaps[idx + 1] == dst;
+		return idx + 1 == remaps.size() ? false : remaps[idx + 1] == dst;
 	}
 	return false;
 }
