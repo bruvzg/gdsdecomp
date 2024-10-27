@@ -104,7 +104,6 @@ class ImportExporter : public RefCounted {
 
 	Ref<ImportExporterReport> report;
 
-	Error export_scene(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo);
 	Error rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	Error export_translation(const String &output_dir, Ref<ImportInfo> &iinfo);

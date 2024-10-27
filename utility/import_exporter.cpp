@@ -12,6 +12,7 @@
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
+#include "exporters/scene_exporter.h"
 #include "exporters/texture_exporter.h"
 #include "gdre_settings.h"
 #include "pcfg_loader.h"
@@ -93,6 +94,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	OggStrExporter ose;
 	SampleExporter se;
 	TextureExporter te;
+	SceneExporter scne;
 	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
 	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -321,7 +323,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 					report->not_converted.push_back(iinfo);
 					not_exported = true;
 				} else {
-					err = export_scene(output_dir, iinfo);
+					auto report = scne.export_resource(output_dir, iinfo);
+					err = report->get_error();
+					if (err == OK) {
+						err = ERR_PRINTER_ON_FIRE;
+					}
 				}
 			}
 		} else if (importer == "font_data_dynamic") {
@@ -995,111 +1001,6 @@ Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInf
 	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
 }
 
-Error _export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err;
-	// All 3.x scenes that were imported from scenes/models SHOULD be compatible with 4.x
-	// The "escn" format basically force Godot to have compatibility with 3.x scenes
-	// This will also pull in any dependencies that were created by the importer (like textures and materials, which should also be similarly compatible)
-	Ref<PackedScene> scene = ResourceCompatLoader::real_load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-	ERR_FAIL_COND_V_MSG(err, err, "Failed to load scene " + iinfo->get_path());
-	// GLTF export can result in inaccurate models
-	// save it under .assets, which won't be picked up for import by the godot editor
-	String new_path = iinfo->get_export_dest().replace("res://", "res://.assets/");
-	// we only export glbs
-	if (new_path.get_extension().to_lower() != "glb") {
-		new_path = new_path.get_basename() + ".glb";
-	}
-	iinfo->set_export_dest(new_path);
-	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
-	err = ImportExporter::ensure_dir(out_path.get_base_dir());
-	Node *root;
-	{
-		List<String> deps;
-		Ref<GLTFDocument> doc;
-		doc.instantiate();
-		Ref<GLTFState> state;
-		state.instantiate();
-		int32_t flags = 0;
-		flags |= 16; // EditorSceneFormatImporter::IMPORT_USE_NAMED_SKIN_BINDS;
-		root = scene->instantiate();
-		err = doc->append_from_scene(root, state, flags);
-		if (err) {
-			memdelete(root);
-			ERR_FAIL_COND_V_MSG(err, err, "Failed to append scene " + iinfo->get_path() + " to glTF document");
-		}
-		err = doc->write_to_filesystem(state, out_path);
-	}
-	memdelete(root);
-	ERR_FAIL_COND_V_MSG(err, err, "Failed to write glTF document to " + out_path);
-	return OK;
-}
-
-Error ImportExporter::export_scene(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err;
-	report->exported_scenes = true;
-	Vector<uint64_t> texture_uids;
-	{
-		// real load here
-		List<String> get_deps;
-		// We need to preload any Texture resources that are used by the scene with our own loader
-		ResourceLoader::get_dependencies(iinfo->get_path(), &get_deps, true);
-		HashMap<String, Vector<String>> get_deps_map;
-		for (auto &i : get_deps) {
-			auto splits = i.split("::");
-			if (splits.size() < 3) {
-				continue;
-			}
-			get_deps_map.insert(splits[2], splits);
-		}
-		// Check if the deps have any bad resources that we can't load
-		for (auto &failed_info : report->failed) {
-			if (get_deps_map.has(failed_info->get_source_file())) {
-				print_line(vformat("Scene %s has known bad dependencies (%s), refusing to export.", iinfo->get_path(), failed_info->get_path()));
-				return ERR_FILE_MISSING_DEPENDENCIES;
-			}
-		}
-
-		Vector<Ref<Resource>> textures;
-		for (auto &E : get_deps_map) {
-			String dep = E.key;
-			auto &splits = E.value;
-			Ref<ImportInfo> tex_iinfo = get_settings()->get_import_info_by_source(dep);
-			if (tex_iinfo.is_null()) {
-				WARN_PRINT("Failed to find import info for texture " + dep + " for scene " + iinfo->get_path());
-				continue;
-			}
-			Ref<Resource> texture = ResourceCompatLoader::gltf_load(tex_iinfo->get_path(), splits[1], &err);
-			if (err || texture.is_null()) {
-				WARN_PRINT("Failed to load texture " + tex_iinfo->get_path() + " for scene " + iinfo->get_path());
-				continue;
-			}
-#ifdef TOOLS_ENABLED
-			texture->set_import_path(tex_iinfo->get_path());
-#endif
-			texture->set_path(dep);
-			if (!splits[0].is_empty()) {
-				auto id = ResourceUID::get_singleton()->text_to_id(splits[0]);
-				if (id != ResourceUID::INVALID_ID) {
-					if (!ResourceUID::get_singleton()->has_id(id)) {
-						ResourceUID::get_singleton()->add_id(id, splits[2]);
-					} else {
-						ResourceUID::get_singleton()->set_id(id, splits[2]);
-					}
-					texture_uids.push_back(id);
-				}
-			}
-			textures.push_back(texture);
-		}
-		err = _export_scene(output_dir, iinfo);
-	}
-	// remove the UIDs
-	for (uint64_t id : texture_uids) {
-		ResourceUID::get_singleton()->remove_id(id);
-	}
-
-	return err ? err : ERR_PRINTER_ON_FIRE; // We always save to an unoriginal path
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
@@ -1135,7 +1036,6 @@ Error ImportExporter::convert_res_bin_2_txt(const String &output_dir, const Stri
 Error ImportExporter::convert_tex_to_png(const String &output_dir, const String &p_path, const String &p_dst) {
 	String src_path = _get_path(output_dir, p_path);
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
-	Error err;
 	TextureExporter te;
 	return te.export_file(dst_path, src_path);
 }
