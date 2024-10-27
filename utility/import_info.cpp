@@ -123,7 +123,8 @@ Ref<ResourceImportMetadatav2> copy_imd_v2(Ref<ResourceImportMetadatav2> p_cf) {
 	Ref<ResourceImportMetadatav2> r_imd;
 	r_imd.instantiate();
 	r_imd->set_editor(p_cf->get_editor());
-	for (int i = 0; p_cf->get_source_count(); i++) {
+	int src_count = p_cf->get_source_count();
+	for (int i = 0; i < src_count; i++) {
 		r_imd->add_source(p_cf->get_source_path(i), p_cf->get_source_md5(i));
 	}
 	List<String> *r_options = memnew(List<String>);
@@ -298,7 +299,6 @@ String ImportInfoModern::get_source_md5() const {
 
 void ImportInfoModern::set_source_md5(const String &md5) {
 	src_md5 = md5;
-	dirty = true;
 }
 
 String ImportInfoModern::get_uid() const {
@@ -576,6 +576,7 @@ Error ImportInfov2::_load(const String &p_path) {
 		// if this doesn't match "filename.ext.converted.newext"
 		ERR_FAIL_COND_V_MSG(spl.size() != 4, ERR_CANT_RESOLVE, "Can't open imported file " + p_path);
 		source_file = p_path.get_base_dir().path_join(spl[0] + "." + spl[1]);
+		importer = "autoconverted";
 	}
 
 	not_an_import = true;
@@ -825,6 +826,7 @@ void ImportInfo::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_dest_files"), &ImportInfo::get_dest_files);
 	ClassDB::bind_method(D_METHOD("set_dest_files", "dest_files"), &ImportInfo::set_dest_files);
+	ClassDB::bind_method(D_METHOD("has_dest_file", "dest_file"), &ImportInfo::has_dest_file);
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "dest_files"), "set_dest_files", "get_dest_files");
 
 	ClassDB::bind_method(D_METHOD("get_additional_sources"), &ImportInfo::get_additional_sources);
