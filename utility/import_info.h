@@ -144,6 +144,7 @@ public:
 	// Gets the godot resources that were created from from this import (e.g. res://icon.<md5>.stex)
 	virtual Vector<String> get_dest_files() const = 0;
 	virtual void set_dest_files(const Vector<String> p_dest_files) = 0;
+	virtual bool has_dest_file(const String &p_dest_file) const { return get_dest_files().has(p_dest_file); };
 
 	// v3-v4 only. Gets the metadata prop in the "remap" section of import file
 	virtual Dictionary get_metadata_prop() const { return Dictionary(); };
