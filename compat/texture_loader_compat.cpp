@@ -558,8 +558,7 @@ Error TextureLoaderCompat::_load_data_ctexlayered_v4(const String &p_path, Vecto
 
 	String ext = p_path.get_extension();
 	bool is_layered = false;
-	if (ext == "stexarray" || ext == "scube" || ext == "scubearray" ||
-			ext == "ctexarray" || ext == "ccube" || ext == "ccubearray") {
+	if (ext == "ctexarray" || ext == "ccube" || ext == "ccubearray") {
 		is_layered = true;
 	}
 
@@ -847,7 +846,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture3D::load(const String &p_path, co
 
 void ResourceFormatLoaderCompatTexture3D::get_recognized_extensions(List<String> *p_extensions) const {
 	p_extensions->push_back("ctex3d");
-	p_extensions->push_back("stex3d");
+	p_extensions->push_back("tex3d");
 }
 
 bool ResourceFormatLoaderCompatTexture3D::handles_type(const String &p_type) const {
@@ -921,15 +920,13 @@ Ref<Resource> ResourceFormatLoaderCompatTextureLayered::load(const String &p_pat
 
 void ResourceFormatLoaderCompatTextureLayered::get_recognized_extensions(List<String> *p_extensions) const {
 	p_extensions->push_back("ctexarray");
-	p_extensions->push_back("stexarray");
 	p_extensions->push_back("ccube");
-	p_extensions->push_back("scube");
 	p_extensions->push_back("ccubearray");
-	p_extensions->push_back("scubearray");
+	p_extensions->push_back("texarr");
 }
 
 bool ResourceFormatLoaderCompatTextureLayered::handles_type(const String &p_type) const {
-	return p_type == "CompressedTextureLayered" || p_type == "StreamTextureArray" || p_type == "CompressedTexture2DArray" || p_type == "CompressedCubemap" || p_type == "CompressedCubemapArray" || p_type == "StreamCubemap" || p_type == "StreamCubemapArray";
+	return p_type == "CompressedTexture2DArray" || p_type == "CompressedCubemap" || p_type == "CompressedCubemapArray" || p_type == "TextureArray";
 }
 
 String ResourceFormatLoaderCompatTextureLayered::get_resource_type(const String &p_path) const {
