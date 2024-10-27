@@ -1741,7 +1741,7 @@ ResourceUID::ID ResourceFormatLoaderCompatBinary::get_resource_uid(const String 
 	ResourceLoaderCompatBinary loader;
 	loader.local_path = p_path; // No need for local path, it only gets used in error meesges.
 	loader.res_path = loader.local_path;
-	loader.open(f, true);
+	loader.open(f, true, true);
 	if (loader.error != OK) {
 		return ResourceUID::INVALID_ID; //could not read
 	}
@@ -3165,7 +3165,7 @@ Error ResourceFormatLoaderCompatBinary::rewrite_v2_import_metadata(const String 
 		loader.use_sub_threads = false;
 		loader.local_path = GDRESettings::get_singleton()->localize_path(path);
 		loader.res_path = loader.local_path;
-		loader.open(f);
+		loader.open(f, false, true);
 		ERR_FAIL_COND_V_MSG(loader.error != OK, loader.error, "Cannot load resource.");
 		ERR_FAIL_COND_V_MSG(loader.ver_format > 2, ERR_UNAVAILABLE, "Resource is not version 2.");
 		loader.load();
