@@ -1,5 +1,6 @@
 #include "gdre_settings.h"
 #include "bytecode/bytecode_tester.h"
+#include "compat/resource_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/file_access.h"
@@ -1082,19 +1083,6 @@ bool GDRESettings::has_file(const String &p_path) {
 Error GDRESettings::load_import_files() {
 	Vector<String> file_names;
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
-	static const Vector<String> v2wildcards = {
-		"*.converted.*",
-		"*.tex",
-		"*.fnt",
-		"*.msh",
-		"*.scn",
-		"*.res",
-		"*.smp",
-		"*.xl",
-		"*.cbm",
-		"*.pbm",
-		"*.gdc"
-	};
 	static const Vector<String> v3wildcards = {
 		"*.import",
 		"*.gdc",
@@ -1109,6 +1097,13 @@ Error GDRESettings::load_import_files() {
 		_ver_major = get_ver_major_from_dir();
 	}
 	if (_ver_major == 2) {
+		List<String> extensions;
+		ResourceCompatLoader::get_base_extensions(&extensions);
+		Vector<String> v2wildcards;
+		for (auto &ext : extensions) {
+			v2wildcards.push_back("*." + ext);
+		}
+		v2wildcards.push_back("*.gdc");
 		file_names = get_file_list(v2wildcards);
 	} else if (_ver_major == 3 || _ver_major == 4) {
 		file_names = get_file_list(v3wildcards);

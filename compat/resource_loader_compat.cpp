@@ -121,8 +121,25 @@ static HashMap<String, HashSet<String>> ext_to_types = _init_ext_to_types();
 static HashMap<String, HashSet<String>> type_to_exts = _init_type_to_exts();
 //	static void get_base_extensions(List<String> *p_extensions);
 
-void ResourceCompatLoader::get_base_extensions(List<String> *p_extensions) {
+void ResourceCompatLoader::get_base_extensions(List<String> *p_extensions, int ver_major) {
 	HashSet<String> unique_extensions;
+	if (ver_major > 0) {
+		switch (ver_major) {
+			case 2:
+				for (const auto &pair : core_recognized_extensions_v2) {
+					p_extensions->push_back(pair.first);
+				}
+				return;
+			case 3:
+				for (const auto &pair : core_recognized_extensions_v3) {
+					p_extensions->push_back(pair.first);
+				}
+				return;
+			case 4:
+				ClassDB::get_resource_base_extensions(p_extensions);
+				return;
+		}
+	}
 	ClassDB::get_resource_base_extensions(p_extensions);
 
 	for (const String &ext : *p_extensions) {
