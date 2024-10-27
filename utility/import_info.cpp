@@ -149,12 +149,18 @@ Ref<ImportInfo> ImportInfo::copy(const Ref<ImportInfo> &p_iinfo) {
 			((Ref<ImportInfov2>)r_iinfo)->v2metadata = copy_imd_v2(((Ref<ImportInfov2>)p_iinfo)->v2metadata);
 			break;
 		case IInfoType::DUMMY:
-		case IInfoType::REMAP:
 			r_iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
 			((Ref<ImportInfoDummy>)r_iinfo)->type = ((Ref<ImportInfoDummy>)p_iinfo)->type;
 			((Ref<ImportInfoDummy>)r_iinfo)->source_file = ((Ref<ImportInfoDummy>)p_iinfo)->source_file;
 			((Ref<ImportInfoDummy>)r_iinfo)->src_md5 = ((Ref<ImportInfoDummy>)p_iinfo)->src_md5;
 			((Ref<ImportInfoDummy>)r_iinfo)->dest_files = ((Ref<ImportInfoDummy>)p_iinfo)->dest_files;
+		case IInfoType::REMAP:
+			r_iinfo = Ref<ImportInfo>(memnew(ImportInfoRemap));
+			((Ref<ImportInfoRemap>)r_iinfo)->type = ((Ref<ImportInfoRemap>)p_iinfo)->type;
+			((Ref<ImportInfoRemap>)r_iinfo)->source_file = ((Ref<ImportInfoRemap>)p_iinfo)->source_file;
+			((Ref<ImportInfoRemap>)r_iinfo)->src_md5 = ((Ref<ImportInfoRemap>)p_iinfo)->src_md5;
+			((Ref<ImportInfoRemap>)r_iinfo)->dest_files = ((Ref<ImportInfoRemap>)p_iinfo)->dest_files;
+			((Ref<ImportInfoRemap>)r_iinfo)->importer = ((Ref<ImportInfoRemap>)p_iinfo)->importer;
 			break;
 		default:
 			break;
@@ -239,6 +245,10 @@ Ref<ImportInfo> ImportInfo::load_from_file(const String &p_path, int ver_major, 
 		// .remap file for an autoconverted export
 		iinfo = Ref<ImportInfoRemap>(memnew(ImportInfoRemap));
 		err = iinfo->_load(p_path);
+		if (iinfo->get_importer() == "script_bytecode") {
+			iinfo->ver_major = ver_major;
+			iinfo->ver_minor = ver_minor;
+		}
 	} else if (ver_major >= 3) {
 		iinfo = Ref<ImportInfo>(memnew(ImportInfoDummy));
 		err = iinfo->_load(p_path);
@@ -426,6 +436,7 @@ Error ImportInfoModern::_load(const String &p_path) {
 					// We need to recreate it
 					String source_file = import_md_path.get_basename();
 					String prefix = source_file.get_basename();
+					// TODO: Fix this!
 					preferred_import_path = prefix + ".*.translation";
 					if (GDRESettings::get_singleton()->is_project_config_loaded()) {
 						//internationalization/locale/translations
@@ -495,18 +506,30 @@ Error ImportInfoRemap::_load(const String &p_path) {
 		ERR_FAIL_V_MSG(ERR_BUG, "Failed to load import data from " + path);
 	}
 	preferred_import_path = cf->get_value("remap", "path", "");
-	ResourceInfo res_info = ResourceCompatLoader::get_resource_info(preferred_import_path, "", &err);
-	if (err) {
-		cf = Ref<ConfigFile>();
+	const String src_ext = source_file.get_extension().to_lower();
+	if (src_ext != "gd") {
+		ResourceInfo res_info = ResourceCompatLoader::get_resource_info(preferred_import_path, "", &err);
+		if (err) {
+			cf = Ref<ConfigFile>();
+		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + preferred_import_path);
+		type = res_info.type;
+		ver_major = res_info.ver_major;
+		ver_minor = res_info.ver_minor;
+	} else {
+		type = "Script";
 	}
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load " + preferred_import_path);
-	type = res_info.type;
-	ver_major = res_info.ver_major;
-	ver_minor = res_info.ver_minor;
 	dest_files = Vector<String>({ preferred_import_path });
 	not_an_import = true;
 	import_md_path = p_path;
 	auto_converted_export = preferred_import_path != source_file;
+	if (auto_converted_export) {
+		if (src_ext == "gd") {
+			importer = "script_bytecode";
+		} else {
+			importer = "autoconverted";
+		}
+	}
 	return OK;
 }
 
