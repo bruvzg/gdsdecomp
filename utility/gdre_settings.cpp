@@ -923,6 +923,26 @@ bool has_old_remap(const Vector<String> &remaps, const String &src, const String
 	return false;
 }
 
+String GDRESettings::get_mapped_path(const String &src) const {
+	if (is_pack_loaded()) {
+		String remapped_path = get_remap(src);
+		if (!remapped_path.is_empty()) {
+			return remapped_path;
+		}
+		String local_src = localize_path(src);
+		if (!FileAccess::exists(local_src + ".import")) {
+			return src;
+		}
+		for (int i = 0; i < import_files.size(); i++) {
+			Ref<ImportInfo> iinfo = import_files[i];
+			if (iinfo->get_source_file() == local_src) {
+				return iinfo->get_path();
+			}
+		}
+	}
+	return src;
+}
+
 String GDRESettings::get_remap(const String &src) const {
 	if (is_pack_loaded()) {
 		String local_src = localize_path(src);

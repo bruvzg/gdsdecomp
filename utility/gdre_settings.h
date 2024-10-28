@@ -178,6 +178,7 @@ public:
 	bool has_remap(const String &src, const String &dst) const;
 	Error add_remap(const String &src, const String &dst);
 	String get_remap(const String &src) const;
+	String get_mapped_path(const String &src) const;
 	Error remove_remap(const String &src, const String &dst, const String &output_dir = "");
 	Variant get_project_setting(const String &p_setting);
 	bool has_project_setting(const String &p_setting);
