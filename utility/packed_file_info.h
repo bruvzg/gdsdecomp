@@ -5,8 +5,6 @@
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
 
-#define PATH_REPLACER "_"
-
 static constexpr uint8_t MD5_EMPTY[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 class PackedFileInfo : public RefCounted {
 	GDCLASS(PackedFileInfo, RefCounted);
@@ -73,82 +71,7 @@ protected:
 	static void _bind_methods();
 
 private:
-	void fix_path() {
-		path = raw_path;
-		malformed_path = false;
-		String prefix = "";
-
-		//remove prefix first
-		if (path.begins_with("res://")) {
-			path = path.replace_first("res://", "");
-			prefix = "res://";
-		} else if (path.begins_with("local://")) {
-			path = path.replace_first("local://", "");
-			prefix = "local://";
-		}
-
-		while (path.begins_with("~")) {
-			path = path.substr(1, path.length() - 1);
-			malformed_path = true;
-		}
-
-		while (path.begins_with("/") || path.begins_with("./")) {
-			while (path.begins_with("/")) {
-				path = path.substr(1, path.length() - 1);
-				malformed_path = true;
-			}
-			while (path.begins_with("./")) {
-				path = path.substr(2, path.length() - 1);
-				malformed_path = true;
-			}
-		}
-
-		if (path.find("//") >= 0) {
-			path = path.replace("//", "/");
-			malformed_path = true;
-		}
-		if (path.find("/./") >= 0) {
-			path = path.replace("/./", "/");
-			malformed_path = true;
-		}
-		if (path.find("\\") >= 0) {
-			path = path.replace("\\", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find(":") >= 0) {
-			path = path.replace(":", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find("|") >= 0) {
-			path = path.replace("|", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find("?") >= 0) {
-			path = path.replace("?", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find(">") >= 0) {
-			path = path.replace(">", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find("<") >= 0) {
-			path = path.replace("<", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find("*") >= 0) {
-			path = path.replace("*", PATH_REPLACER);
-			malformed_path = true;
-		}
-		if (path.find("\"") >= 0) {
-			path = path.replace("\"", PATH_REPLACER);
-			malformed_path = true;
-		}
-
-		// add the prefix back
-		if (prefix != "") {
-			path = prefix + path;
-		}
-	}
+	void fix_path();
 };
 
 #endif
