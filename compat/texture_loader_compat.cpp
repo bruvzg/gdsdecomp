@@ -55,7 +55,7 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 	if (!r_err) {
 		r_err = &err;
 	}
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	const String res_path = p_path;
 	Ref<FileAccess> f = FileAccess::open(res_path, FileAccess::READ, r_err);
 
 	ERR_FAIL_COND_V_MSG(*r_err != OK || f.is_null(), FORMAT_NOT_TEXTURE, "Can't open texture file " + p_path);
@@ -633,7 +633,7 @@ static_assert(sizeof(faketexlayered) == sizeof(CompressedTextureLayered), "faket
 Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const String p_path, Error *r_err) {
 	Error err;
 	Vector<Ref<Image>> data;
-	const String res_path = GDRESettings::get_singleton()->get_res_path(p_path);
+	const String res_path = p_path;
 
 	TextureLoaderCompat::TextureVersionType t = recognize(res_path, &err);
 	if (t == FORMAT_NOT_TEXTURE) {

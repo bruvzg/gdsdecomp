@@ -125,7 +125,7 @@ Error OggStrExporter::_export_file(const String &dst_path, const String &res_pat
 	}
 	Vector<uint8_t> data = load_ogg_stream_data(res_path, ver_major, &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load Ogg stream data from " + res_path);
-	err = ensure_dir(dst_path.get_base_dir());
+	err = gdre::ensure_dir(dst_path.get_base_dir());
 	Ref<FileAccess> f = FileAccess::open(dst_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(f.is_null(), ERR_FILE_CANT_WRITE, "Cannot open file '" + dst_path + "' for writing.");
 	f->store_buffer(data.ptr(), data.size());
@@ -158,4 +158,13 @@ Ref<ExportReport> OggStrExporter::export_resource(const String &output_dir, Ref<
 	// Here you would add the actual export logic
 	// For now, we will just simulate a successful export
 	return report;
+}
+
+void OggStrExporter::get_handled_types(List<String> *out) const {
+	out->push_back("AudioStreamOGGVorbis");
+}
+
+void OggStrExporter::get_handled_importers(List<String> *out) const {
+	out->push_back("ogg_vorbis");
+	out->push_back("oggvorbisstr");
 }

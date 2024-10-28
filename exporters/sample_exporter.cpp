@@ -231,7 +231,7 @@ Error SampleExporter::_export_file(const String &out_path, const String &res_pat
 		sample = convert_qoa_to_16bit(sample);
 		converted = true;
 	}
-	err = ensure_dir(out_path.get_base_dir());
+	err = gdre::ensure_dir(out_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + out_path);
 	err = sample->save_to_wav(out_path);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + out_path);
@@ -262,4 +262,13 @@ Ref<ExportReport> SampleExporter::export_resource(const String &output_dir, Ref<
 	}
 	report->set_saved_path(dst_path);
 	return report;
+}
+
+void SampleExporter::get_handled_types(List<String> *out) const {
+	out->push_back("AudioStreamWAV");
+}
+
+void SampleExporter::get_handled_importers(List<String> *out) const {
+	out->push_back("sample");
+	out->push_back("wav");
 }
