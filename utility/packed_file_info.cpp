@@ -12,3 +12,82 @@ void PackedFileInfo::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_encrypted"), &PackedFileInfo::is_encrypted);
 	ClassDB::bind_method(D_METHOD("is_checksum_validated"), &PackedFileInfo::is_checksum_validated);
 }
+
+#define PATH_REPLACER "_"
+
+void PackedFileInfo::fix_path() {
+	path = raw_path;
+	malformed_path = false;
+	String prefix = "";
+
+	//remove prefix first
+	if (path.begins_with("res://")) {
+		path = path.replace_first("res://", "");
+		prefix = "res://";
+	} else if (path.begins_with("local://")) {
+		path = path.replace_first("local://", "");
+		prefix = "local://";
+	}
+
+	while (path.begins_with("~")) {
+		path = path.substr(1, path.length() - 1);
+		malformed_path = true;
+	}
+
+	while (path.begins_with("/") || path.begins_with("./")) {
+		while (path.begins_with("/")) {
+			path = path.substr(1, path.length() - 1);
+			malformed_path = true;
+		}
+		while (path.begins_with("./")) {
+			path = path.substr(2, path.length() - 1);
+			malformed_path = true;
+		}
+	}
+
+	if (path.find("//") >= 0) {
+		path = path.replace("//", "/");
+		malformed_path = true;
+	}
+	if (path.find("/./") >= 0) {
+		path = path.replace("/./", "/");
+		malformed_path = true;
+	}
+	if (path.find("\\") >= 0) {
+		path = path.replace("\\", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find(":") >= 0) {
+		path = path.replace(":", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find("|") >= 0) {
+		path = path.replace("|", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find("?") >= 0) {
+		path = path.replace("?", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find(">") >= 0) {
+		path = path.replace(">", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find("<") >= 0) {
+		path = path.replace("<", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find("*") >= 0) {
+		path = path.replace("*", PATH_REPLACER);
+		malformed_path = true;
+	}
+	if (path.find("\"") >= 0) {
+		path = path.replace("\"", PATH_REPLACER);
+		malformed_path = true;
+	}
+
+	// add the prefix back
+	if (prefix != "") {
+		path = prefix + path;
+	}
+}
