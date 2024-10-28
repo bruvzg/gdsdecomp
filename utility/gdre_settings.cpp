@@ -1174,7 +1174,7 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 
 Error GDRESettings::reset_uid_cache() {
 	unique_ids.clear();
-	ResourceUID::get_singleton()->load_from_cache(true);
+	return ResourceUID::get_singleton()->load_from_cache(true);
 }
 
 Error GDRESettings::load_import_files() {
