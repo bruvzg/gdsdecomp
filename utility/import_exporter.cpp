@@ -9,6 +9,7 @@
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
+#include "core/io/resource_loader.h"
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
@@ -129,10 +130,8 @@ Error ImportExporter::remove_remap_and_autoconverted(const String &source_file, 
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
-	OggStrExporter ose;
-	SampleExporter se;
-	TextureExporter te;
-	SceneExporter scne;
+	ResourceCompatLoader::make_globally_available();
+	ResourceCompatLoader::set_default_gltf_load(true);
 	report = Ref<ImportExporterReport>(memnew(ImportExporterReport(get_settings()->get_version_string())));
 	report->log_file_location = get_settings()->get_log_file_path();
 	ERR_FAIL_COND_V_MSG(!get_settings()->is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
@@ -224,10 +223,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
+		String importer = iinfo->get_importer();
+		if (importer == "script_bytecode") {
+			continue;
+		}
 		String path = iinfo->get_path();
 		String source = iinfo->get_source_file();
 		String type = iinfo->get_type();
-		String importer = iinfo->get_importer();
 		auto loss_type = iinfo->get_import_loss_type();
 		// If files_to_export is empty, then we export everything
 		if (partial_export) {
@@ -407,6 +409,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 	}
 	report->print_report();
+	ResourceCompatLoader::set_default_gltf_load(false);
+	ResourceCompatLoader::unmake_globally_available();
 	return OK;
 }
 
