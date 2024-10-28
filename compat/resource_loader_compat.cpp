@@ -363,7 +363,7 @@ void ResourceCompatLoader::make_globally_available() {
 	if (globally_available) {
 		return;
 	}
-	for (int i = loader_count - 1; i > 0; i--) {
+	for (int i = loader_count - 1; i >= 0; i--) {
 		ResourceLoader::add_resource_format_loader(loader[i], true);
 	}
 	globally_available = true;
