@@ -22,6 +22,7 @@
 #include "core/version.h"
 #include "modules/regex/regex.h"
 #include "servers/rendering_server.h"
+#include "utility/glob.h"
 
 #if defined(WINDOWS_ENABLED)
 #include <windows.h>
@@ -127,9 +128,9 @@ bool GDRESettings::check_if_dir_is_v3() {
 }
 
 bool GDRESettings::check_if_dir_is_v2() {
-	// these are files that will only show up in version 2
-	static const Vector<String> wildcards = { "*.tex" };
-	if (get_file_list(wildcards).size() > 0) {
+	// these are files that will NOT show up in version 2
+	static const Vector<String> wildcards = { "*.import", "*.remap" };
+	if (get_file_list(wildcards).size() == 0) {
 		return true;
 	} else {
 		return false;
@@ -137,12 +138,50 @@ bool GDRESettings::check_if_dir_is_v2() {
 }
 
 int GDRESettings::get_ver_major_from_dir() {
-	if (check_if_dir_is_v2())
+	if (FileAccess::exists("res://engine.cfb") || FileAccess::exists("res://engine.cfg")) {
 		return 2;
-	if (check_if_dir_is_v3())
-		return 3;
+	}
 	if (check_if_dir_is_v4())
 		return 4;
+	if (check_if_dir_is_v3())
+		return 3;
+	if (!(FileAccess::exists("res://project.binary") || FileAccess::exists("res://project.godot")) && check_if_dir_is_v2())
+		return 2;
+
+	// deeper checking; we know it's not v2, so we don't need to check that.
+	HashSet<String> v3exts;
+	HashSet<String> v4exts;
+	auto get_exts_func([&](HashSet<String> &ext, int ver_major) {
+		List<String> exts;
+		ResourceCompatLoader::get_base_extensions(&exts, ver_major);
+		for (const String &extf : exts) {
+			ext.insert(extf);
+		}
+	});
+	get_exts_func(v3exts, 3);
+	get_exts_func(v4exts, 4);
+	auto check_func([&](HashSet<String> &exts) {
+		Vector<String> wildcards;
+		for (auto &ext : exts) {
+			wildcards.push_back("res://**/*." + ext);
+		}
+		if (Glob::rglob_list(wildcards).size() > 0) {
+			return true;
+		}
+		return false;
+	});
+	for (const String &ext : v3exts) {
+		if (v4exts.has(ext)) {
+			v3exts.erase(ext);
+			v4exts.erase(ext);
+		}
+	}
+	if (check_func(v4exts)) {
+		return 4;
+	}
+	if (check_func(v3exts)) {
+		return 3;
+	}
 	return 0;
 }
 
