@@ -496,7 +496,7 @@ Error ResourceLoaderCompatBinary::parse_variant(Variant &r_v) {
 							Error err;
 							Ref<Resource> res = finish_ext_load(load_token, &err);
 							if (res.is_null()) {
-								if (load_type != ResourceInfo::REAL_LOAD) {
+								if (!is_real_load()) {
 									error = ERR_FILE_MISSING_DEPENDENCIES;
 									ERR_FAIL_V_MSG(error, "WE SHOULD NEVER GET HERE!!!!!!!!!!!!!!!!!!!  : Can't load dependency: " + external_resources[erindex].path + ".");
 								}
