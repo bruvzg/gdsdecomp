@@ -91,10 +91,8 @@ Error SceneExporter::_export_file(const String &p_dest_path, const String &p_src
 			if (info.uid != ResourceUID::INVALID_ID) {
 				if (!ResourceUID::get_singleton()->has_id(info.uid)) {
 					ResourceUID::get_singleton()->add_id(info.uid, info.remap);
-				} else {
-					ResourceUID::get_singleton()->set_id(info.uid, info.remap);
+					texture_uids.push_back(info.uid);
 				}
-				texture_uids.push_back(info.uid);
 			} else {
 				String load_path = info.remap;
 				Ref<Resource> texture = ResourceCompatLoader::gltf_load(load_path, info.type, &err);
@@ -174,6 +172,7 @@ Ref<ExportReport> SceneExporter::export_resource(const String &output_dir, Ref<I
 			new_path = new_path.get_basename() + ".glb";
 		}
 	}
+	iinfo->set_export_dest(new_path);
 	String dest_path = output_dir.path_join(new_path.replace("res://", ""));
 	if (!to_text && iinfo->get_ver_major() != 4) {
 		err = ERR_UNAVAILABLE;
