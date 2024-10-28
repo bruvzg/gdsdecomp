@@ -290,10 +290,14 @@ void FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 }
 
 bool FileAccessGDRE::file_exists(const String &p_name) {
-	if (proxy.is_null()) {
-		return false;
+	if (GDREPackedData::get_singleton() && !GDREPackedData::get_singleton()->is_disabled() && GDREPackedData::get_singleton()->has_path(p_name)) {
+		return true;
 	}
-	return proxy->file_exists(p_name);
+	if (proxy.is_valid()) {
+		return proxy->file_exists(p_name);
+	}
+
+	return false;
 }
 
 void FileAccessGDRE::close() {
