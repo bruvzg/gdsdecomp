@@ -383,7 +383,7 @@ func recovery(  input_file:String,
 	if translation_only and scripts_only:
 		print("Error: cannot specify both --translation-only and --scripts-only")
 		return
-	elif (translation_only or scripts_only and (includes.size() > 0 or excludes.size() > 0)):
+	elif ((translation_only or scripts_only) and (includes.size() > 0 or excludes.size() > 0)):
 		print("Error: cannot specify both --translation-only or --scripts-only and --include or --exclude")
 		return
 	if (translation_only):
@@ -395,7 +395,6 @@ func recovery(  input_file:String,
 		files.append_array(new_files)
 		print("Translation only mode, only extracting translation files")
 	elif scripts_only:
-		files = GDRESettings.get_file_list()
 		var new_files:PackedStringArray = []
 		# remove all the non ".gd" files
 		for file in GDRESettings.get_file_list():
