@@ -96,6 +96,12 @@ private:
 	String gdre_resource_path = "";
 
 	String current_project_path = "";
+	struct UID_Cache {
+		CharString cs;
+		bool saved_to_cache = false;
+	};
+
+	HashMap<ResourceUID::ID, UID_Cache> unique_ids; //unique IDs and utf8 paths (less memory used)
 
 	uint8_t old_key[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	bool set_key = false;
@@ -123,6 +129,8 @@ private:
 	Error unload_dir();
 	Error fix_patch_number();
 	bool has_valid_version() const;
+	Error load_pack_uid_cache(bool p_reset = false);
+	Error reset_uid_cache();
 
 protected:
 	static void _bind_methods();

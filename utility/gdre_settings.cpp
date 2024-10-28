@@ -386,6 +386,7 @@ Error GDRESettings::load_dir(const String &p_path) {
 		unload_pack();
 		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts!");
 	}
+	load_pack_uid_cache();
 	return OK;
 }
 
@@ -517,6 +518,7 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 		unload_pack();
 		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts, please report this on the GitHub page!");
 	}
+	load_pack_uid_cache();
 	return OK;
 }
 
@@ -594,6 +596,7 @@ Error GDRESettings::unload_pack() {
 	if (!is_pack_loaded()) {
 		return ERR_DOES_NOT_EXIST;
 	}
+	reset_uid_cache();
 	if (get_pack_type() == PackInfo::DIR) {
 		return unload_dir();
 	}
@@ -1103,6 +1106,55 @@ Array GDRESettings::get_import_files(bool copy) {
 
 bool GDRESettings::has_file(const String &p_path) {
 	return file_map.has(p_path);
+}
+
+Error GDRESettings::load_pack_uid_cache(bool p_reset) {
+	if (!is_pack_loaded()) {
+		return ERR_UNAVAILABLE;
+	}
+	String cache_file = "res://.godot/uid_cache.bin";
+	//"application/config/use_hidden_project_data_directory"
+	if (is_project_config_loaded()) {
+		// if this is set, we want to load the cache from the hidden directory
+		cache_file = current_pack->pcfg->get_setting("application/config/use_hidden_project_data_directory", true) ? cache_file : "res://godot/uid_cache.bin";
+	}
+	Ref<FileAccess> f = FileAccess::open(cache_file, FileAccess::READ);
+
+	if (f.is_null()) {
+		return ERR_CANT_OPEN;
+	}
+
+	if (p_reset) {
+		unique_ids.clear();
+	}
+
+	uint32_t entry_count = f->get_32();
+	for (uint32_t i = 0; i < entry_count; i++) {
+		int64_t id = f->get_64();
+		int32_t len = f->get_32();
+		UID_Cache c;
+		c.cs.resize(len + 1);
+		ERR_FAIL_COND_V(c.cs.size() != len + 1, ERR_FILE_CORRUPT); // out of memory
+		c.cs[len] = 0;
+		int32_t rl = f->get_buffer((uint8_t *)c.cs.ptrw(), len);
+		ERR_FAIL_COND_V(rl != len, ERR_FILE_CORRUPT);
+
+		c.saved_to_cache = true;
+		unique_ids[id] = c;
+	}
+	for (auto E : unique_ids) {
+		if (ResourceUID::get_singleton()->has_id(E.key)) {
+			ResourceUID::get_singleton()->set_id(E.key, String(E.value.cs));
+		} else {
+			ResourceUID::get_singleton()->add_id(E.key, String(E.value.cs));
+		}
+	}
+	return OK;
+}
+
+Error GDRESettings::reset_uid_cache() {
+	unique_ids.clear();
+	ResourceUID::get_singleton()->load_from_cache(true);
 }
 
 Error GDRESettings::load_import_files() {
