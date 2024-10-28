@@ -920,6 +920,27 @@ bool has_old_remap(const Vector<String> &remaps, const String &src, const String
 	return false;
 }
 
+String GDRESettings::get_remap(const String &src) const {
+	if (is_pack_loaded()) {
+		String local_src = localize_path(src);
+		if (get_ver_major() >= 3) {
+			String remap_file = local_src + ".remap";
+			if (remap_iinfo.has(remap_file)) {
+				return remap_iinfo[remap_file]->get_path();
+			}
+		}
+		String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
+		if (is_project_config_loaded() && current_pack->pcfg->has_setting(setting)) {
+			PackedStringArray remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+			int idx = remaps.find(local_src);
+			if (idx != -1 && idx + 1 < remaps.size()) {
+				return remaps[idx + 1];
+			}
+		}
+	}
+	return "";
+}
+
 bool GDRESettings::has_remap(const String &src, const String &dst) const {
 	if (is_pack_loaded()) {
 		String local_src = localize_path(src);
@@ -971,8 +992,6 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 		ERR_FAIL_COND_V_MSG(output_dir.is_empty(), ERR_INVALID_PARAMETER, "Output directory must be specified for 3.x-4.x packs!");
 		String remap_file = localize_path(src) + ".remap";
 		if (remap_iinfo.has(remap_file)) {
-			Ref<DirAccess> da = DirAccess::open(output_dir, &err);
-			ERR_FAIL_COND_V_MSG(err, err, "Can't open directory " + output_dir);
 			if (!dst.is_empty()) {
 				String dest_file = remap_iinfo[remap_file]->get_path();
 				if (dest_file != localize_path(dst)) {
@@ -980,7 +999,13 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 				}
 			}
 			remap_iinfo.erase(remap_file);
-			return da->remove(remap_file.replace("res://", ""));
+			Ref<DirAccess> da = DirAccess::open(output_dir, &err);
+			ERR_FAIL_COND_V_MSG(err, err, "Can't open directory " + output_dir);
+			String dest_path = output_dir.path_join(remap_file.replace("res://", ""));
+			if (!FileAccess::exists(dest_path)) {
+				return ERR_FILE_NOT_FOUND;
+			}
+			return da->remove(dest_path);
 		}
 	}
 	if (!is_project_config_loaded()) {
@@ -1098,7 +1123,7 @@ Error GDRESettings::load_import_files() {
 	}
 	if (_ver_major == 2) {
 		List<String> extensions;
-		ResourceCompatLoader::get_base_extensions(&extensions);
+		ResourceCompatLoader::get_base_extensions(&extensions, 2);
 		Vector<String> v2wildcards;
 		for (auto &ext : extensions) {
 			v2wildcards.push_back("*." + ext);

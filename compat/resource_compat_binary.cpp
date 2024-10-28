@@ -963,7 +963,7 @@ Error ResourceLoaderCompatBinary::load() {
 				Dictionary _bundled = res->get("_bundled");
 				if (!main) {
 					// ??????
-					WARN_PRINT("PackedScene found in non-main resource?!!??!?!?!");
+					// WARN_PRINT("PackedScene found in non-main resource?!!??!?!?!");
 					// set it anyway; get the compat metadata from the res and set the packed_scene_version
 					if (_bundled.has("version")) {
 						ResourceInfo compat = ResourceInfo::from_dict(res->get_meta(META_COMPAT, Dictionary()));

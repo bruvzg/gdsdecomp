@@ -2,7 +2,9 @@
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_loader_compat.h"
 #include "gdre_settings.h"
+#include "utility/common.h"
 #include "utility/glob.h"
+
 String ImportInfo::to_string() {
 	return as_text(false);
 }
@@ -728,13 +730,16 @@ void ImportInfov2::set_params(Dictionary params) {
 }
 
 Error ImportInfoModern::save_to(const String &new_import_file) {
-	Error err = cf->save(new_import_file);
+	Error err = gdre::ensure_dir(new_import_file.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to create directory for " + new_import_file);
+	err = cf->save(new_import_file);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
 	return OK;
 }
 
 Error ImportInfov2::save_to(const String &new_import_file) {
-	Error err;
+	Error err = gdre::ensure_dir(new_import_file.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err, err, "Failed to create directory for " + new_import_file);
 	err = ResourceFormatLoaderCompatBinary::rewrite_v2_import_metadata(import_md_path, new_import_file, v2metadata);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to rename file " + import_md_path + ".tmp");
 	return err;

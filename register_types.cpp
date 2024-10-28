@@ -17,12 +17,23 @@
 #include "compat/sample_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "editor/gdre_editor.h"
+#include "exporters/autoconverted_exporter.h"
+#include "exporters/export_report.h"
+#include "exporters/fontfile_exporter.h"
+#include "exporters/mp3str_exporter.h"
+#include "exporters/oggstr_exporter.h"
+#include "exporters/resource_exporter.h"
+#include "exporters/sample_exporter.h"
+#include "exporters/scene_exporter.h"
+#include "exporters/texture_exporter.h"
+#include "exporters/translation_exporter.h"
 #include "utility/gdre_settings.h"
 #include "utility/glob.h"
 #include "utility/godotver.h"
 #include "utility/import_exporter.h"
 #include "utility/packed_file_info.h"
 #include "utility/pck_dumper.h"
+
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
 	EditorNode *editor = EditorNode::get_singleton();
@@ -40,6 +51,16 @@ static Ref<ResourceFormatLoaderCompatTextureLayered> texture_layered_loader = nu
 static Ref<SampleConverterCompat> sample_converter = nullptr;
 static Ref<ResourceConverterTexture2D> texture_converter = nullptr;
 static Ref<OggStreamConverterCompat> ogg_converter = nullptr;
+
+//exporters
+static Ref<AutoConvertedExporter> auto_converted_exporter = nullptr;
+static Ref<FontFileExporter> fontfile_exporter = nullptr;
+static Ref<Mp3StrExporter> mp3str_exporter = nullptr;
+static Ref<OggStrExporter> oggstr_exporter = nullptr;
+static Ref<SampleExporter> sample_exporter = nullptr;
+static Ref<SceneExporter> scene_exporter = nullptr;
+static Ref<TextureExporter> texture_exporter = nullptr;
+static Ref<TranslationExporter> translation_exporter = nullptr;
 
 void init_ver_regex() {
 	SemVer::strict_regex = RegEx::create_from_string(GodotVer::strict_regex_str);
@@ -64,14 +85,68 @@ void init_loaders() {
 	sample_converter = memnew(SampleConverterCompat);
 	texture_converter = memnew(ResourceConverterTexture2D);
 	ogg_converter = memnew(OggStreamConverterCompat);
-	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
+	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture3d_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(texture_layered_loader, true);
 	ResourceCompatLoader::add_resource_object_converter(sample_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(texture_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(ogg_converter, true);
+}
+
+void init_exporters() {
+	auto_converted_exporter = memnew(AutoConvertedExporter);
+	fontfile_exporter = memnew(FontFileExporter);
+	mp3str_exporter = memnew(Mp3StrExporter);
+	oggstr_exporter = memnew(OggStrExporter);
+	sample_exporter = memnew(SampleExporter);
+	scene_exporter = memnew(SceneExporter);
+	texture_exporter = memnew(TextureExporter);
+	translation_exporter = memnew(TranslationExporter);
+	Exporter::add_exporter(auto_converted_exporter);
+	Exporter::add_exporter(fontfile_exporter);
+	Exporter::add_exporter(mp3str_exporter);
+	Exporter::add_exporter(oggstr_exporter);
+	Exporter::add_exporter(sample_exporter);
+	Exporter::add_exporter(scene_exporter);
+	Exporter::add_exporter(texture_exporter);
+	Exporter::add_exporter(translation_exporter);
+}
+
+void deinit_exporters() {
+	if (auto_converted_exporter.is_valid()) {
+		Exporter::remove_exporter(auto_converted_exporter);
+	}
+	if (fontfile_exporter.is_valid()) {
+		Exporter::remove_exporter(fontfile_exporter);
+	}
+	if (mp3str_exporter.is_valid()) {
+		Exporter::remove_exporter(mp3str_exporter);
+	}
+	if (oggstr_exporter.is_valid()) {
+		Exporter::remove_exporter(oggstr_exporter);
+	}
+	if (sample_exporter.is_valid()) {
+		Exporter::remove_exporter(sample_exporter);
+	}
+	if (scene_exporter.is_valid()) {
+		Exporter::remove_exporter(scene_exporter);
+	}
+	if (texture_exporter.is_valid()) {
+		Exporter::remove_exporter(texture_exporter);
+	}
+	if (translation_exporter.is_valid()) {
+		Exporter::remove_exporter(translation_exporter);
+	}
+	auto_converted_exporter = nullptr;
+	fontfile_exporter = nullptr;
+	mp3str_exporter = nullptr;
+	oggstr_exporter = nullptr;
+	sample_exporter = nullptr;
+	scene_exporter = nullptr;
+	texture_exporter = nullptr;
+	translation_exporter = nullptr;
 }
 
 void deinit_loaders() {
@@ -146,9 +221,11 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	EditorNode::add_init_callback(&gdsdecomp_init_callback);
 #endif
 	init_loaders();
+	init_exporters();
 }
 
 void uninitialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
+	deinit_exporters();
 	deinit_loaders();
 	if (gdre_singleton) {
 		memdelete(gdre_singleton);

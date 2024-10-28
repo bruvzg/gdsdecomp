@@ -3,6 +3,8 @@
 #include "compat/resource_compat_text.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
+#include "core/io/dir_access.h"
+#include "utility/common.h"
 #include "utility/resource_info.h"
 
 Ref<CompatFormatLoader> ResourceCompatLoader::loader[ResourceCompatLoader::MAX_LOADERS];
@@ -138,6 +140,8 @@ void ResourceCompatLoader::get_base_extensions(List<String> *p_extensions, int v
 			case 4:
 				ClassDB::get_resource_base_extensions(p_extensions);
 				return;
+			default:
+				ERR_FAIL_MSG("Invalid version.");
 		}
 	}
 	ClassDB::get_resource_base_extensions(p_extensions);
@@ -308,6 +312,8 @@ Error ResourceCompatLoader::to_text(const String &p_path, const String &p_dst, u
 	auto res = loader->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
 	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
 	ResourceFormatSaverCompatTextInstance saver;
+	err = gdre::ensure_dir(p_dst.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for " + p_dst);
 	return saver.save(p_dst, res, p_flags);
 }
 
@@ -318,6 +324,8 @@ Error ResourceCompatLoader::to_binary(const String &p_path, const String &p_dst,
 
 	auto res = loader->custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
 	ERR_FAIL_COND_V_MSG(err != OK || res.is_null(), err, "Failed to load " + p_path);
+	err = gdre::ensure_dir(p_dst.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for " + p_dst);
 	ResourceFormatSaverCompatBinaryInstance saver;
 	return saver.save(p_dst, res, p_flags);
 }

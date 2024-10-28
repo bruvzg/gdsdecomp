@@ -89,6 +89,44 @@ Vector<String> hashset_to_vector(const HashSet<String> &hs) {
 	return ret;
 }
 
+bool vectors_intersect(const Vector<String> &a, const Vector<String> &b) {
+	const Vector<String> &bigger = a.size() > b.size() ? a : b;
+	const Vector<String> &smaller = a.size() > b.size() ? b : a;
+	for (int i = 0; i < smaller.size(); i++) {
+		if (bigger.has(a[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+// Error remove_remap(const String &src, const String &dst, const String &output_dir);
+Error ImportExporter::handle_auto_converted_file(const String &autoconverted_file, const String &output_dir) {
+	String prefix = autoconverted_file.replace_first("res://", "");
+	if (!prefix.begins_with(".")) {
+		String old_path = output_dir.path_join(prefix);
+		if (FileAccess::exists(old_path)) {
+			String new_path = output_dir.path_join(".autoconverted").path_join(prefix);
+			Error err = ensure_dir(new_path.get_base_dir());
+			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for remap " + new_path);
+			Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+			ERR_FAIL_COND_V_MSG(da.is_null(), ERR_CANT_CREATE, "Failed to create directory for remap " + new_path);
+			return da->rename(old_path, new_path);
+		}
+	}
+	return OK;
+}
+
+Error ImportExporter::remove_remap_and_autoconverted(const String &source_file, const String &autoconverted_file, const String &output_dir) {
+	if (get_settings()->has_remap(source_file, autoconverted_file)) {
+		Error err = get_settings()->remove_remap(source_file, autoconverted_file, output_dir);
+		if (err != ERR_FILE_NOT_FOUND) {
+			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to remove remap for " + source_file + " -> " + autoconverted_file);
+		}
+		return handle_auto_converted_file(autoconverted_file, output_dir);
+	}
+	return OK;
+}
+
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 	OggStrExporter ose;
@@ -165,7 +203,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		// we need to re-save all the iinfo files to the output directory if they are dirty
 		for (int i = 0; i < files.size(); i++) {
 			Ref<ImportInfo> iinfo = files[i];
-			if (iinfo->is_dirty()) {
+			if (iinfo->is_dirty() && (!partial_export || vectors_intersect(iinfo->get_dest_files(), files_to_export))) {
 				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 				if (err && err != ERR_UNAVAILABLE) {
 					print_line("Failed to save import info " + iinfo->get_path());
@@ -174,6 +212,15 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 	}
 	// files.sort_custom<IInfoComparator>();
+	HashMap<String, Ref<ResourceExporter>> exporter_map;
+	for (int i = 0; i < Exporter::exporter_count; i++) {
+		Ref<ResourceExporter> exporter = Exporter::exporters[i];
+		List<String> handled_importers;
+		exporter->get_handled_importers(&handled_importers);
+		for (const String &importer : handled_importers) {
+			exporter_map[importer] = exporter;
+		}
+	}
 
 	for (int i = 0; i < files.size(); i++) {
 		Ref<ImportInfo> iinfo = files[i];
@@ -231,135 +278,56 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			should_rewrite_metadata = true;
 		}
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
-		bool not_exported = false;
 		// ***** Export resource *****
-		if (opt_export_textures && importer == "texture") {
-			// Right now we only convert 2d image textures
-			auto tex_type = TextureLoaderCompat::recognize(path, &err);
-			switch (tex_type) {
-				case TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE:
-				case TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D:
-				case TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D: {
-					// Export texture
-					auto report = te.export_resource(output_dir, iinfo);
-					err = report->get_error();
-					loss_type = report->get_loss_type();
-					if (iinfo->is_dirty()) {
-						should_rewrite_metadata = true;
-					}
-					if (err == ERR_UNAVAILABLE) {
-						String format_name = report->get_unsupported_format_type();
-						if (format_name.is_empty()) {
-							format_name = src_ext;
-						}
-						report_unsupported_resource(type, format_name, path);
-					}
-				} break;
-				case TextureLoaderCompat::FORMAT_NOT_TEXTURE:
-					if (err == ERR_FILE_UNRECOGNIZED) {
-						WARN_PRINT("Import of type " + type + " is not a texture(?): " + path);
-					} else {
-						WARN_PRINT("Failed to load texture " + type + " " + path);
-					}
-					report->not_converted.push_back(iinfo);
-					break;
-				default:
-					report_unsupported_resource(type, src_ext, path);
-					report->not_converted.push_back(iinfo);
-					not_exported = true;
-			}
-		} else if (opt_export_samples && (importer == "sample" || importer == "wav")) {
-			auto report = se.export_resource(output_dir, iinfo);
-			err = report->get_error();
-			loss_type = report->get_loss_type();
-			if (err == OK && loss_type != ImportInfo::LOSSLESS) {
-				iinfo->set_param("compress/mode", 0);
-				should_rewrite_metadata = true;
-			}
-		} else if (opt_export_ogg && (importer == "ogg_vorbis" || importer == "oggvorbisstr")) {
-			auto report = ose.export_resource(output_dir, iinfo);
-			err = report->get_error();
-		} else if (opt_export_mp3 && importer == "mp3") {
-			err = convert_mp3str_to_mp3(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-		} else if (importer == "bitmap") {
-			auto report = te.export_resource(output_dir, iinfo);
-			err = report->get_error();
-			loss_type = report->get_loss_type();
-			if (iinfo->is_dirty()) {
-				should_rewrite_metadata = true;
-			}
-			if (err == ERR_UNAVAILABLE) {
-				String format_name = report->get_unsupported_format_type();
-				if (format_name.is_empty()) {
-					format_name = src_ext;
-				}
-				report_unsupported_resource(type, format_name, path);
-			}
-		} else if ((opt_bin2text && iinfo->is_auto_converted())
-				//|| (opt_bin2text && iinfo->get_source_file().get_extension() == "tres" && iinfo->get_source_file().get_extension() == "res") ||
-				// (opt_bin2text && iinfo->get_importer() == "scene" && iinfo->get_source_file().get_extension() == "tscn")
-		) {
-			// We don't currently support converting old 2.x xml resources
-			if (src_ext == "xml") {
-				WARN_PRINT_ONCE("Conversion of Godot 2.x xml resource files currently unimplemented");
-				report_unsupported_resource(type, src_ext, path);
-				report->not_converted.push_back(iinfo);
-				not_exported = true;
-			}
-			err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-			// v2-v3 export left the autoconverted resource in the main path, remove it
-			if (get_ver_major() <= 3 && !err) {
-				dir->remove(iinfo->get_path().replace("res://", ""));
-			}
-		} else if (importer == "scene" && !iinfo->is_auto_converted()) {
-			// escn files are scenes exported from a blender plugin in a godot compatible format
-			// These are the only ones we support at the moment
-			if (src_ext == "escn") {
-				err = convert_res_bin_2_txt(output_dir, iinfo->get_path(), iinfo->get_export_dest());
-			} else {
-				if (iinfo->get_ver_major() <= 3) {
-					WARN_PRINT_ONCE("Export of Godot 2/3.x models/imported scenes currently unimplemented");
-					report_unsupported_resource(itos(iinfo->get_ver_major()) + ".x " + type, src_ext, path);
-					report->not_converted.push_back(iinfo);
-					not_exported = true;
-				} else {
-					auto report = scne.export_resource(output_dir, iinfo);
-					err = report->get_error();
-					if (err == OK) {
-						err = ERR_PRINTER_ON_FIRE;
-					}
-				}
-			}
-		} else if (importer == "font_data_dynamic") {
-			err = export_fontfile(output_dir, iinfo);
-		} else if (importer == "csv_translation") {
-			err = export_translation(output_dir, iinfo);
-		} else if (importer == "wavefront_obj") {
-			WARN_PRINT_ONCE("Export of obj meshes currently unimplemented");
-			report_unsupported_resource(type, src_ext, path);
-			report->not_converted.push_back(iinfo);
-			not_exported = true;
+		Ref<ExportReport> ret;
+		if (!exporter_map.has(importer)) {
+			ret = memnew(ExportReport(iinfo));
+			ret->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
+			ret->set_error(ERR_UNAVAILABLE);
 		} else {
-			report_unsupported_resource(type, src_ext, path);
+			ret = exporter_map.get(importer)->export_resource(output_dir, iinfo);
+		}
+		if (ret.is_null()) {
+			ERR_PRINT("Exporter returned null report for " + path);
+			report->failed.push_back(iinfo);
+			continue;
+		}
+		err = ret->get_error();
+		if (err == ERR_SKIP) {
 			report->not_converted.push_back(iinfo);
-			not_exported = true;
+			continue;
+		}
+		if (err == ERR_UNAVAILABLE) {
+			String type = iinfo->get_type();
+			String format_type = src_ext;
+			if (ret->get_unsupported_format_type() != "") {
+				format_type = ret->get_unsupported_format_type();
+			}
+			report_unsupported_resource(type, format_type, path);
+			report->not_converted.push_back(iinfo);
+			continue;
+		}
+		if (importer == "scene" && src_ext != "escn" && src_ext != "tscn") {
+			report->exported_scenes = true;
 		}
 
 		// ****REWRITE METADATA****
-		if (!not_exported && (err == ERR_PRINTER_ON_FIRE || ((err == OK && should_rewrite_metadata) && iinfo->is_import()))) {
+		if (err == OK && iinfo->is_import() && (should_rewrite_metadata || ret->get_source_path() != ret->get_new_source_path())) {
 			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
 				// TODO: handle v2 imports with more than one source, like atlas textures
-				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
+				err = rewrite_import_source(ret->get_new_source_path(), output_dir, iinfo);
 			} else if (iinfo->get_ver_major() >= 3 && opt_rewrite_imd_v3 && (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) != -1)) {
 				// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
 				// But is still in the project structure
-				err = rewrite_import_source(iinfo->get_export_dest(), output_dir, iinfo);
+				err = rewrite_import_source(ret->get_new_source_path(), output_dir, iinfo);
 			} else if (iinfo->is_dirty()) {
 				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 				if (iinfo->get_export_dest() != iinfo->get_source_file()) {
 					// we still report this as unwritten so that we can report to the user that it was saved to a non-original path
 					err = ERR_PRINTER_ON_FIRE;
 				}
+			} else {
+				err = ERR_PRINTER_ON_FIRE;
 			}
 			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
 			// if we failed, it won't be OK
@@ -385,11 +353,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				print_line("Failed to rewrite import metadata for " + iinfo->get_source_file());
 				err = ERR_DATABASE_CANT_WRITE;
 			}
-		}
-
-		// We continue down here so that modified import metadata is saved
-		if (not_exported) {
-			continue;
 		}
 
 		// write md5 files
@@ -424,16 +387,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			report->failed.push_back(iinfo);
 			print_line("Failed to convert " + type + " resource " + path);
 		} else {
-			if (loss_type != ImportInfo::LOSSLESS) {
+			if (ret->get_loss_type() != ImportInfo::LOSSLESS) {
 				report->lossy_imports.push_back(iinfo);
 			}
 			report->success.push_back(iinfo);
 		}
 		// remove remaps
 		if (!err && get_settings()->has_any_remaps()) {
-			if (get_settings()->has_remap(iinfo->get_export_dest(), iinfo->get_path())) {
-				get_settings()->remove_remap(iinfo->get_export_dest(), iinfo->get_path(), output_dir);
-			}
+			remove_remap_and_autoconverted(iinfo->get_export_dest(), iinfo->get_path(), output_dir);
 		}
 	}
 
@@ -598,9 +559,10 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
 			fa->store_string(text);
-			da->remove(f.replace("res://", ""));
-			if (has_remaps && get_settings()->has_remap(f, dest_file)) {
-				get_settings()->remove_remap(f, dest_file);
+			if (has_remaps && get_settings()->has_remap(dest_file, f)) {
+				remove_remap_and_autoconverted(dest_file, f, p_out_dir);
+			} else {
+				handle_auto_converted_file(f, p_out_dir);
 			}
 			// TODO: make "remove_remap" do this instead
 			if (da->file_exists(f.replace(".gdc", ".gd.remap").replace("res://", ""))) {
@@ -832,175 +794,6 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Ve
 	return OK;
 }
 
-Error ImportExporter::export_fontfile(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err;
-	Ref<Resource> fontfile = ResourceCompatLoader::fake_load(iinfo->get_path(), "", &err); //ResourceLoader::load(iinfo->get_path(), "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-	ERR_FAIL_COND_V_MSG(err, err, "Failed to load font file " + iinfo->get_path());
-	PackedByteArray data = fontfile->get("data");
-	ERR_FAIL_COND_V_MSG(data.size() == 0, ERR_FILE_CORRUPT, "Font file " + iinfo->get_path() + " is empty");
-	String out_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
-	err = ensure_dir(out_path.get_base_dir());
-	ERR_FAIL_COND_V(err, err);
-	Ref<FileAccess> f = FileAccess::open(out_path, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V(err, err);
-	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
-	// just get the raw data and write it; TTF files are stored as raw data in the fontdata file
-	f->store_buffer(data.ptr(), data.size());
-	f->flush();
-	return OK;
-}
-
-#define TEST_TR_KEY(key)                          \
-	test = default_translation->get_message(key); \
-	if (test == s) {                              \
-		return key;                               \
-	}                                             \
-	key = key.to_upper();                         \
-	test = default_translation->get_message(key); \
-	if (test == s) {                              \
-		return key;                               \
-	}                                             \
-	key = key.to_lower();                         \
-	test = default_translation->get_message(key); \
-	if (test == s) {                              \
-		return key;                               \
-	}
-
-String guess_key_from_tr(String s, Ref<Translation> default_translation) {
-	static const Vector<String> prefixes = { "$$", "##", "TR_", "KEY_TEXT_" };
-	String key = s;
-	String test;
-	TEST_TR_KEY(key);
-	String str = s;
-	//remove punctuation
-	str = str.replace("\n", "").replace(".", "").replace("…", "").replace("!", "").replace("?", "");
-	str = str.strip_escapes().strip_edges().replace(" ", "_");
-	key = str;
-	TEST_TR_KEY(key);
-	// Try adding prefixes
-	for (String prefix : prefixes) {
-		key = prefix + str;
-		TEST_TR_KEY(key);
-	}
-	// failed
-	return "";
-}
-
-Error ImportExporter::export_translation(const String &output_dir, Ref<ImportInfo> &iinfo) {
-	Error err = OK;
-	// translation files are usually imported from one CSV and converted to multiple "<LOCALE>.translation" files
-	String default_locale = get_settings()->pack_has_project_config() && get_settings()->has_project_setting("locale/fallback")
-			? get_settings()->get_project_setting("locale/fallback")
-			: "en";
-	Vector<Ref<Translation>> translations;
-	Vector<Vector<StringName>> translation_messages;
-	Ref<Translation> default_translation;
-	Vector<StringName> default_messages;
-	String header = "key";
-	Vector<StringName> keys;
-
-	for (String path : iinfo->get_dest_files()) {
-		Ref<Translation> tr = ResourceCompatLoader::real_load(path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load translation file " + iinfo->get_path());
-		ERR_FAIL_COND_V_MSG(!tr.is_valid(), err, "Translation file " + iinfo->get_path() + " was not valid");
-		String locale = tr->get_locale();
-		header += "," + locale;
-		List<StringName> message_list;
-		Vector<StringName> messages;
-		if (tr->get_class_name() == "OptimizedTranslation") {
-			Ref<OptimizedTranslation> otr = tr;
-			Ref<OptimizedTranslationExtractor> ote;
-			ote.instantiate();
-			ote->set("locale", locale);
-			ote->set("hash_table", otr->get("hash_table"));
-			ote->set("bucket_table", otr->get("bucket_table"));
-			ote->set("strings", otr->get("strings"));
-			ote->get_message_value_list(&message_list);
-			for (auto message : message_list) {
-				messages.push_back(message);
-			}
-		} else {
-			// We have a real translation class, get the keys
-			if (locale == default_locale) {
-				List<StringName> key_list;
-				tr->get_message_list(&key_list);
-				for (auto key : key_list) {
-					keys.push_back(key);
-				}
-			}
-			Dictionary msgdict = tr->get("messages");
-			Array values = msgdict.values();
-			for (int i = 0; i < values.size(); i++) {
-				messages.push_back(values[i]);
-			}
-		}
-		if (locale == default_locale) {
-			default_messages = messages;
-			default_translation = tr;
-		}
-		translation_messages.push_back(messages);
-		translations.push_back(tr);
-	}
-	// We can't recover the keys from Optimized translations, we have to guess
-	int missing_keys = 0;
-
-	if (default_translation.is_null()) {
-		if (translations.size() == 1) {
-			// this is one of the rare dynamic translation schemes, which we don't support currently
-			report_unsupported_resource("Translation", "Dynamic multi-csv", iinfo->get_path());
-			return ERR_UNAVAILABLE;
-		}
-		ERR_FAIL_V_MSG(ERR_FILE_MISSING_DEPENDENCIES, "No default translation found for " + iinfo->get_path());
-	}
-	if (keys.size() == 0) {
-		for (const StringName &s : default_messages) {
-			String key = guess_key_from_tr(s, default_translation);
-			if (key.is_empty()) {
-				missing_keys++;
-				keys.push_back("<MISSING KEY " + s + ">");
-			} else {
-				keys.push_back(key);
-			}
-		}
-	}
-	header += "\n";
-	if (missing_keys) {
-		iinfo->set_export_dest("res://.assets/" + iinfo->get_source_file().replace("res://", ""));
-	}
-	String output_path = output_dir.simplify_path().path_join(iinfo->get_export_dest().replace("res://", ""));
-	err = ensure_dir(output_path.get_base_dir());
-	ERR_FAIL_COND_V(err, err);
-	Ref<FileAccess> f = FileAccess::open(output_path, FileAccess::WRITE, &err);
-	ERR_FAIL_COND_V(err, err);
-	ERR_FAIL_COND_V(f.is_null(), ERR_FILE_CANT_WRITE);
-	// Set UTF-8 BOM (required for opening with Excel in UTF-8 format, works with all Godot versions)
-	f->store_8(0xef);
-	f->store_8(0xbb);
-	f->store_8(0xbf);
-	f->store_string(header);
-	for (int i = 0; i < keys.size(); i++) {
-		Vector<String> line_values;
-		line_values.push_back(keys[i]);
-		for (auto messages : translation_messages) {
-			if (i >= messages.size()) {
-				line_values.push_back("");
-			} else {
-				line_values.push_back(messages[i]);
-			}
-		}
-		f->store_csv_line(line_values, ",");
-	}
-	f->flush();
-	f = Ref<FileAccess>();
-	if (missing_keys) {
-		report->translation_export_message += "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
-		report->translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
-		WARN_PRINT("Could not guess all keys in translation.csv");
-	}
-	print_line("Recreated translation.csv");
-	return missing_keys ? ERR_DATABASE_CANT_WRITE : OK;
-}
-
 // Godot v3-v4 import data rewriting
 // TODO: We have to rewrite the resources to remap to the new destination
 // However, we currently only rewrite the import data if the source file was recorded as an absolute file path,
@@ -1010,8 +803,10 @@ Error ImportExporter::rewrite_import_source(const String &rel_dest_path, const S
 	String new_import_file = output_dir.path_join(iinfo->get_import_md_path().replace("res://", ""));
 	String abs_file_path = GDRESettings::get_singleton()->globalize_path(new_source, output_dir);
 	Array new_dest_files;
-	Ref<ImportInfo> new_import = Ref<ImportInfo>(iinfo);
+	Ref<ImportInfo> new_import = ImportInfo::copy(iinfo);
 	new_import->set_source_and_md5(new_source, FileAccess::get_md5(abs_file_path));
+	Error err = ensure_dir(new_import_file.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for import metadata " + new_import_file);
 	return new_import->save_to(new_import_file);
 }
 
@@ -1095,7 +890,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	String dst_path = output_dir.path_join(p_dst.replace("res://", ""));
 	Error err;
 
-	Ref<AudioStreamMP3> sample = ResourceLoader::load(src_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+	Ref<AudioStreamMP3> sample = ResourceCompatLoader::non_global_load(src_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load mp3str file " + p_path);
 
 	err = ensure_dir(dst_path.get_base_dir());
@@ -1280,6 +1075,12 @@ String ImportExporterReport::get_totals_string() {
 	return report;
 }
 
+void add_to_dict(Dictionary &dict, const Vector<Ref<ImportInfo>> &vec) {
+	for (int i = 0; i < vec.size(); i++) {
+		dict[vec[i]->get_path()] = vec[i]->get_export_dest();
+	}
+}
+
 Dictionary ImportExporterReport::get_report_sections() {
 	Dictionary sections;
 	// sections["totals"] = get_totals();
@@ -1299,9 +1100,7 @@ Dictionary ImportExporterReport::get_report_sections() {
 	if (!not_converted.is_empty()) {
 		sections["not_converted"] = Dictionary();
 		Dictionary not_converted_dict = sections["not_converted"];
-		for (int i = 0; i < not_converted.size(); i++) {
-			not_converted_dict[not_converted[i]->get_path()] = not_converted[i]->get_export_dest();
-		}
+		add_to_dict(not_converted_dict, not_converted);
 	}
 	if (!failed_scripts.is_empty()) {
 		sections["failed_scripts"] = Dictionary();
@@ -1313,37 +1112,27 @@ Dictionary ImportExporterReport::get_report_sections() {
 	if (!failed.is_empty()) {
 		sections["failed"] = Dictionary();
 		Dictionary failed_dict = sections["failed"];
-		for (int i = 0; i < failed.size(); i++) {
-			failed_dict[failed[i]->get_path()] = failed[i]->get_export_dest();
-		}
+		add_to_dict(failed_dict, failed);
 	}
 	if (!lossy_imports.is_empty()) {
 		sections["lossy_imports"] = Dictionary();
 		Dictionary lossy_dict = sections["lossy_imports"];
-		for (int i = 0; i < lossy_imports.size(); i++) {
-			lossy_dict[lossy_imports[i]->get_path()] = lossy_imports[i]->get_export_dest();
-		}
+		add_to_dict(lossy_dict, lossy_imports);
 	}
 	if (!rewrote_metadata.is_empty()) {
 		sections["rewrote_metadata"] = Dictionary();
 		Dictionary rewrote_metadata_dict = sections["rewrote_metadata"];
-		for (int i = 0; i < rewrote_metadata.size(); i++) {
-			rewrote_metadata_dict[rewrote_metadata[i]->get_path()] = rewrote_metadata[i]->get_export_dest();
-		}
+		add_to_dict(rewrote_metadata_dict, rewrote_metadata);
 	}
 	if (!failed_rewrite_md.is_empty()) {
 		sections["failed_rewrite_md"] = Dictionary();
 		Dictionary failed_rewrite_md_dict = sections["failed_rewrite_md"];
-		for (int i = 0; i < failed_rewrite_md.size(); i++) {
-			failed_rewrite_md_dict[failed_rewrite_md[i]->get_path()] = failed_rewrite_md[i]->get_export_dest();
-		}
+		add_to_dict(failed_rewrite_md_dict, failed_rewrite_md);
 	}
 	if (!failed_rewrite_md5.is_empty()) {
 		sections["failed_rewrite_md5"] = Dictionary();
 		Dictionary failed_rewrite_md5_dict = sections["failed_rewrite_md5"];
-		for (int i = 0; i < failed_rewrite_md5.size(); i++) {
-			failed_rewrite_md5_dict[failed_rewrite_md5[i]->get_path()] = failed_rewrite_md5[i]->get_export_dest();
-		}
+		add_to_dict(failed_rewrite_md5_dict, failed_rewrite_md5);
 	}
 	// plugins
 	if (!failed_plugin_cfg_create.is_empty()) {
@@ -1363,6 +1152,14 @@ Dictionary ImportExporterReport::get_report_sections() {
 	return sections;
 }
 
+String get_to_string(const Vector<Ref<ImportInfo>> &vec) {
+	String str = "";
+	for (auto &info : vec) {
+		str += info->get_path() + " to " + info->get_export_dest() + String("\n");
+	}
+	return str;
+}
+
 String ImportExporterReport::get_report_string() {
 	String report;
 	report += get_totals_string();
@@ -1371,9 +1168,7 @@ String ImportExporterReport::get_report_string() {
 		if (opt_lossy) {
 			report += "\nThe following files were converted from an import that was stored lossy." + String("\n");
 			report += "You may lose fidelity when re-importing these files upon loading the project." + String("\n");
-			for (int i = 0; i < lossy_imports.size(); i++) {
-				report += lossy_imports[i]->get_path() + " to " + lossy_imports[i]->get_export_dest() + String("\n");
-			}
+			report += get_to_string(lossy_imports);
 		} else {
 			report += "\nThe following files were not converted from a lossy import." + String("\n");
 			for (int i = 0; i < lossy_imports.size(); i++) {
@@ -1400,24 +1195,18 @@ String ImportExporterReport::get_report_string() {
 	if (rewrote_metadata.size() > 0 && ver->get_major() != 2) {
 		report += "------\n";
 		report += "\nThe following files had their import data rewritten:" + String("\n");
-		for (int i = 0; i < rewrote_metadata.size(); i++) {
-			report += rewrote_metadata[i]->get_path() + " to " + rewrote_metadata[i]->get_export_dest() + String("\n");
-		}
+		report += get_to_string(rewrote_metadata);
 	}
 	if (failed_rewrite_md.size() > 0) {
 		report += "------\n";
 		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");
 		report += "These files will not be re-imported when loading the project." + String("\n");
-		for (int i = 0; i < failed_rewrite_md.size(); i++) {
-			report += failed_rewrite_md[i]->get_path() + " to " + failed_rewrite_md[i]->get_export_dest() + String("\n");
-		}
+		report += get_to_string(failed_rewrite_md);
 	}
 	if (not_converted.size() > 0) {
 		report += "------\n";
 		report += "\nThe following files were not converted because support has not been implemented yet:" + String("\n");
-		for (int i = 0; i < not_converted.size(); i++) {
-			report += not_converted[i]->get_path() + String("\n");
-		}
+		report += get_to_string(not_converted);
 	}
 	if (failed.size() > 0) {
 		report += "------\n";

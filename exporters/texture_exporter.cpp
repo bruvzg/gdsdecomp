@@ -63,7 +63,7 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 		return err;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
-	err = ensure_dir(dst_dir);
+	err = gdre::ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
@@ -101,7 +101,7 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 
 	ERR_FAIL_COND_V_MSG(img.is_null(), ERR_PARSE_ERROR, "Failed to load image for texture " + p_path);
 	ERR_FAIL_COND_V_MSG(img->is_empty(), ERR_FILE_EOF, "Image data is empty for texture " + p_path + ", not saving");
-	err = ensure_dir(dst_dir);
+	err = gdre::ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	image_format = Image::get_format_name(img->get_format());
 	if (img->is_compressed()) {
@@ -163,10 +163,10 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 			} else {
 				iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
 				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
-				// disable this for now
 				// save it under .assets, which won't be picked up for import by the godot editor
 				if (false) {
-					iinfo->set_source_file(iinfo->get_export_dest());
+					// disable this for now
+					// iinfo->set_source_file(iinfo->get_export_dest());
 				} else {
 					if (!iinfo->get_export_dest().replace("res://", "").begins_with(".assets")) {
 						String prefix = ".assets";
@@ -179,7 +179,6 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 			}
 		} else { //version 2
 			iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
-			iinfo->set_source_file(iinfo->get_export_dest());
 		}
 	}
 	report->set_new_source_path(iinfo->get_export_dest());
@@ -217,4 +216,17 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 	}
 
 	return report;
+}
+
+void TextureExporter::get_handled_types(List<String> *out) const {
+	out->push_back("Texture2D");
+	out->push_back("ImageTexture");
+	out->push_back("StreamTexture");
+	out->push_back("CompressedTexture2D");
+	out->push_back("BitMap");
+}
+
+void TextureExporter::get_handled_importers(List<String> *out) const {
+	out->push_back("texture");
+	out->push_back("bitmap");
 }
