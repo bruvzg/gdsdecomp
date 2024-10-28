@@ -2,21 +2,22 @@
 #include "compat/variant_decoder_compat.h"
 #include "compat/variant_writer_compat.h"
 
-#include "core/config/engine.h"
-#include "core/input/input_event.h"
-#include "core/io/compression.h"
 #include "core/io/file_access.h"
-#include "core/io/marshalls.h"
-#include "core/os/keyboard.h"
 #include "core/variant/variant_parser.h"
+#include <core/config/project_settings.h>
 #include <core/templates/rb_set.h>
 
 Error ProjectConfigLoader::load_cfb(const String path, const uint32_t ver_major, const uint32_t ver_minor) {
 	cfb_path = path;
+	String ext = path.get_extension().to_lower();
 	Error err = OK;
 	Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ, &err);
 	ERR_FAIL_COND_V_MSG(f.is_null(), err, "Could not open " + path);
-	err = _load_settings_binary(f, path, ver_major);
+	if (ext == "cfg" || ext == "godot") {
+		err = _load_settings_text(f, path, ver_major);
+	} else {
+		err = _load_settings_binary(f, path, ver_major);
+	}
 	ERR_FAIL_COND_V(err, err);
 	loaded = true;
 	return OK;
@@ -96,6 +97,55 @@ Error ProjectConfigLoader::_load_settings_binary(Ref<FileAccess> f, const String
 	}
 	cfb_path = p_path;
 	return OK;
+}
+
+Error ProjectConfigLoader::_load_settings_text(Ref<FileAccess> f, const String &p_path, uint32_t ver_major) {
+	Error err;
+
+	if (f.is_null()) {
+		// FIXME: Above 'err' error code is ERR_FILE_CANT_OPEN if the file is missing
+		// This needs to be streamlined if we want decent error reporting
+		return ERR_FILE_NOT_FOUND;
+	}
+
+	VariantParser::StreamFile stream;
+	stream.f = f;
+
+	String assign;
+	Variant value;
+	VariantParser::Tag next_tag;
+
+	int lines = 0;
+	String error_text;
+	String section;
+	int config_version = 0;
+
+	while (true) {
+		assign = Variant();
+		next_tag.fields.clear();
+		next_tag.name = String();
+
+		err = VariantParserCompat::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
+		if (err == ERR_FILE_EOF) {
+			return OK;
+		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Error parsing " + p_path + " at line " + itos(lines) + ": " + error_text + " File might be corrupted.");
+
+		if (!assign.is_empty()) {
+			if (section.is_empty() && assign == "config_version") {
+				config_version = value;
+				ERR_FAIL_COND_V_MSG(config_version > ProjectSettings::CONFIG_VERSION, ERR_FILE_CANT_OPEN, vformat("Can't open project at '%s', its `config_version` (%d) is from a more recent and incompatible version of the engine. Expected config version: %d.", p_path, config_version, ProjectSettings::CONFIG_VERSION));
+			} else {
+				if (section.is_empty()) {
+					props[assign] = VariantContainer(value, last_builtin_order++, true);
+				} else {
+					props[section + "/" + assign] = VariantContainer(value, last_builtin_order++, true);
+				}
+			}
+		} else if (!next_tag.name.is_empty()) {
+			section = next_tag.name;
+		}
+	}
 }
 
 struct _VCSort {
