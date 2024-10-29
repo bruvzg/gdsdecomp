@@ -1,43 +1,26 @@
 
 #include "import_exporter.h"
-#include "bytecode/bytecode_tester.h"
+
 #include "bytecode/bytecode_versions.h"
 #include "compat/oggstr_loader_compat.h"
-#include "compat/optimized_translation_extractor.h"
 #include "compat/resource_loader_compat.h"
-#include "compat/sample_loader_compat.h"
-#include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
-#include "core/io/resource_loader.h"
 #include "core/object/class_db.h"
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
-#include "exporters/scene_exporter.h"
 #include "exporters/texture_exporter.h"
-#include "gdre_settings.h"
-#include "pcfg_loader.h"
-#include "scene/resources/packed_scene.h"
-#include "util_functions.h"
+#include "utility/gdre_settings.h"
+#include "utility/glob.h"
+#include "utility/util_functions.h"
 
-#include "core/crypto/crypto_core.h"
 #include "core/io/config_file.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
-#include "core/math/audio_frame.h"
 #include "core/os/os.h"
-#include "core/string/optimized_translation.h"
-#include "core/variant/variant_parser.h"
-#include "core/version_generated.gen.h"
-#include "modules/gltf/gltf_document.h"
 #include "modules/minimp3/audio_stream_mp3.h"
-#include "modules/regex/regex.h"
-#include "modules/vorbis/audio_stream_ogg_vorbis.h"
-#include "scene/resources/audio_stream_wav.h"
-#include "scene/resources/font.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
-#include "utility/glob.h"
 
 GDRESettings *get_settings() {
 	return GDRESettings::get_singleton();
@@ -330,7 +313,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		String path = iinfo->get_path();
 		String source = iinfo->get_source_file();
 		String type = iinfo->get_type();
-		auto loss_type = iinfo->get_import_loss_type();
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
 		Ref<ExportReport> ret = token.report;
 		if (ret.is_null()) {
@@ -913,8 +895,9 @@ void ImportExporter::report_unsupported_resource(const String &type, const Strin
 		WARN_PRINT("Conversion for Resource of type " + type + " and format " + format_name + " not implemented");
 		report->unsupported_types.push_back(type_format_str);
 	}
-	if (!suppress_print)
+	if (!suppress_print) {
 		print_line("Did not convert " + type + " resource " + import_path);
+	}
 }
 
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst) {
