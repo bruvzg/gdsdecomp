@@ -111,6 +111,9 @@ class ImportExporter : public RefCounted {
 		Ref<ExportReport> report;
 		String output_dir;
 		bool supports_multithread;
+		bool opt_rewrite_imd_v2;
+		bool opt_rewrite_imd_v3;
+		bool opt_write_md5_files;
 	};
 
 	Ref<ImportExporterReport> report;
@@ -121,12 +124,12 @@ class ImportExporter : public RefCounted {
 	String _get_path(const String &output_dir, const String &p_path);
 	void report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn = false, bool suppress_print = false);
 	Error remove_remap_and_autoconverted(const String &src, const String &dst, const String &output_dir);
+	void rewrite_metadata(ExportToken &token);
 
 protected:
 	static void _bind_methods();
 
 public:
-	static Error ensure_dir(const String &dst_dir);
 	String get_session_notes_string();
 	String get_detected_unsupported_resource_string();
 	Error recreate_plugin_config(const String &output_dir, const String &plugin_dir);
