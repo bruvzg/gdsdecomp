@@ -1,4 +1,5 @@
 #include "pck_dumper.h"
+#include "core/error/error_list.h"
 #include "gdre_settings.h"
 
 #include "core/crypto/crypto_core.h"
@@ -9,6 +10,7 @@
 #include "core/variant/variant_parser.h"
 #include "core/version_generated.gen.h"
 #include "modules/regex/regex.h"
+#include "utility/packed_file_info.h"
 
 const static Vector<uint8_t> empty_md5 = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -28,6 +30,23 @@ Error PckDumper::check_md5_all_files() {
 	return _check_md5_all_files(f, ch, nullptr);
 }
 
+void PckDumper::_do_md5_check(uint32_t i, Ref<PackedFileInfo> *tokens) {
+	// Taken care of in the main thread
+	if (unlikely(cancelled)) {
+		return;
+	}
+	if (tokens[i]->get_md5() == empty_md5) {
+		skipped_cnt++;
+	} else {
+		tokens[i]->set_md5_match(_pck_file_check_md5(tokens[i]));
+		if (!tokens[i]->md5_passed) {
+			print_error("Checksum failed for " + tokens[i]->get_path());
+			broken_cnt++;
+		}
+	}
+	last_completed++;
+}
+
 Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked_files, EditorProgressGDDC *pr) {
 	String ext = GDRESettings::get_singleton()->get_pack_path().get_extension().to_lower();
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
@@ -39,33 +58,81 @@ Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked
 	Error err = OK;
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
 	int skipped_files = 0;
-	for (int i = 0; i < files.size(); i++) {
+	auto fl_sz = files.size();
+	if (opt_multi_thread) {
+		Vector<String> paths_to_check;
 		if (pr) {
-			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
-				last_progress_upd = OS::get_singleton()->get_ticks_usec();
-				bool cancel = pr->step(files[i]->path, i, true);
+			pr->step("Checking MD5 for all files...", 0, true);
+			for (const auto &file : files) {
+				paths_to_check.push_back(file->get_path());
+			}
+		}
+		last_completed = -1;
+		cancelled = false;
+		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(
+				this,
+				&PckDumper::_do_md5_check,
+				files.ptrw(),
+				files.size(), -1, true, SNAME("PckDumper::_check_md5_all_files"));
+		if (pr) {
+			while (!WorkerThreadPool::get_singleton()->is_group_task_completed(group_task)) {
+				OS::get_singleton()->delay_usec(10000);
+				int i = last_completed;
+				if (i < 0) {
+					i = 0;
+				} else if (i >= fl_sz) {
+					i = fl_sz - 1;
+				}
+				bool cancel = pr->step(paths_to_check[i], i, true);
 				if (cancel) {
-					return ERR_PRINTER_ON_FIRE;
+					cancelled = true;
+					WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+					err = ERR_PRINTER_ON_FIRE;
 				}
 			}
 		}
-		if (files[i]->get_md5() == empty_md5) {
-			print_verbose("Skipping MD5 check for " + files[i]->path + " (no MD5 hash found)");
-			skipped_files++;
-			continue;
-		}
-		files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
-		if (files[i]->md5_passed) {
-			print_verbose("Verified " + files[i]->path);
-		} else {
-			print_error("Checksum failed for " + files[i]->path);
-			broken_files.push_back(files[i]->path);
+		// Always wait for completion; otherwise we leak memory.
+		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+		checked_files = last_completed + 1 - skipped_cnt;
+		skipped_files = skipped_cnt;
+		if (broken_cnt > 0) {
 			err = ERR_BUG;
+			for (int i = 0; i < files.size(); i++) {
+				if (files[i]->get_md5() != empty_md5 && !files[i]->md5_passed) {
+					broken_files.push_back(files[i]->get_path());
+				}
+			}
 		}
-		checked_files++;
+	} else {
+		for (int i = 0; i < files.size(); i++) {
+			if (pr) {
+				if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 20000) {
+					last_progress_upd = OS::get_singleton()->get_ticks_usec();
+					bool cancel = pr->step(files[i]->path, i, true);
+					if (cancel) {
+						err = ERR_PRINTER_ON_FIRE;
+					}
+				}
+			}
+			if (files[i]->get_md5() == empty_md5) {
+				print_verbose("Skipping MD5 check for " + files[i]->path + " (no MD5 hash found)");
+				skipped_files++;
+				continue;
+			}
+			files.write[i]->set_md5_match(_pck_file_check_md5(files.write[i]));
+			if (files[i]->md5_passed) {
+				print_verbose("Verified " + files[i]->path);
+			} else {
+				print_error("Checksum failed for " + files[i]->path);
+				broken_files.push_back(files[i]->path);
+				err = ERR_BUG;
+			}
+			checked_files++;
+		}
 	}
-
-	if (err) {
+	if (err == ERR_PRINTER_ON_FIRE) {
+		print_error("Verification cancelled!\n");
+	} else if (err) {
 		print_error("At least one error was detected while verifying files in pack!\n");
 		//show_warning(failed_files, RTR("Read PCK"), RTR("At least one error was detected!"));
 	} else if (skipped_files > 0) {
