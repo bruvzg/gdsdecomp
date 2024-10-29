@@ -10,6 +10,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/resource_loader.h"
+#include "core/object/class_db.h"
 #include "core/string/print_string.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
@@ -128,6 +129,13 @@ Error ImportExporter::remove_remap_and_autoconverted(const String &source_file, 
 	return OK;
 }
 
+void ImportExporter::_do_export(uint32_t i, ExportToken *tokens) {
+	// Taken care of in the main thread
+	if (tokens[i].supports_multithread) {
+		tokens[i].report = Exporter::export_resource(tokens[i].output_dir, tokens[i].iinfo);
+	}
+}
+
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 	ResourceCompatLoader::make_globally_available();
@@ -220,9 +228,71 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			exporter_map[importer] = exporter;
 		}
 	}
-
+	Vector<ExportToken> tokens;
+	Vector<ExportToken> non_multithreaded_tokens;
 	for (int i = 0; i < files.size(); i++) {
+		if (partial_export) {
+			auto dest_files = files[i]->get_dest_files();
+			bool has_path = false;
+			for (auto dest : dest_files) {
+				if (files_to_export.has(dest)) {
+					has_path = true;
+					break;
+				}
+			}
+			if (!has_path) {
+				continue;
+			}
+		}
 		Ref<ImportInfo> iinfo = files[i];
+		String importer = iinfo->get_importer();
+		if (importer == "script_bytecode") {
+			continue;
+		}
+		// ***** Set export destination *****
+		iinfo->set_export_dest(iinfo->get_source_file());
+		// This is a Godot asset that was imported outside of project directory
+		if (!iinfo->get_source_file().begins_with("res://")) {
+			if (get_ver_major() <= 2) {
+				// import_md_path is the resource path in v2
+				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
+			} else {
+				// import_md_path is the .import/.remap path in v3-v4
+				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
+				// If the source_file path was not actually in the project structure, save it elsewhere
+				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
+					iinfo->set_export_dest(iinfo->get_export_dest().replace("res://", "res://.assets"));
+				}
+			}
+		}
+		// opt_multi_thread = false;
+		bool supports_multithreading = opt_multi_thread;
+		if (exporter_map.has(iinfo->get_importer())) {
+			if (!exporter_map.get(iinfo->get_importer())->supports_multithread()) {
+				supports_multithreading = false;
+			}
+		}
+		if (supports_multithreading) {
+			tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
+		} else {
+			non_multithreaded_tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
+		}
+	}
+	// ***** Export resources *****
+	if (opt_multi_thread) {
+		print_line("Exporting resources in parallel...");
+		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(
+				this,
+				&ImportExporter::_do_export,
+				tokens.ptrw(),
+				tokens.size(), -1, true, SNAME("ImportExporter::export_imports"));
+		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+	}
+
+	tokens.append_array(non_multithreaded_tokens);
+	for (int i = 0; i < tokens.size(); i++) {
+		const ExportToken &token = tokens[i];
+		Ref<ImportInfo> iinfo = token.iinfo;
 		String importer = iinfo->get_importer();
 		if (importer == "script_bytecode") {
 			continue;
@@ -261,33 +331,19 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				continue;
 			}
 		}
-		// ***** Set export destination *****
-		iinfo->set_export_dest(iinfo->get_source_file());
-		bool should_rewrite_metadata = false;
-		// This is a Godot asset that was imported outside of project directory
-		if (!iinfo->get_source_file().begins_with("res://")) {
-			if (get_ver_major() <= 2) {
-				// import_md_path is the resource path in v2
-				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
-			} else {
-				// import_md_path is the .import/.remap path in v3-v4
-				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
-				// If the source_file path was not actually in the project structure, save it elsewhere
-				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
-					iinfo->set_export_dest(iinfo->get_export_dest().replace("res://", "res://.assets"));
-				}
-			}
-			should_rewrite_metadata = true;
-		}
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
 		// ***** Export resource *****
 		Ref<ExportReport> ret;
-		if (!exporter_map.has(importer)) {
-			ret = memnew(ExportReport(iinfo));
-			ret->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
-			ret->set_error(ERR_UNAVAILABLE);
+		if (!token.supports_multithread) {
+			if (!exporter_map.has(importer)) {
+				ret = memnew(ExportReport(iinfo));
+				ret->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
+				ret->set_error(ERR_UNAVAILABLE);
+			} else {
+				ret = exporter_map.get(importer)->export_resource(output_dir, iinfo);
+			}
 		} else {
-			ret = exporter_map.get(importer)->export_resource(output_dir, iinfo);
+			ret = token.report;
 		}
 		if (ret.is_null()) {
 			ERR_PRINT("Exporter returned null report for " + path);
@@ -314,6 +370,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 
 		// ****REWRITE METADATA****
+		bool should_rewrite_metadata = !iinfo->get_source_file().begins_with("res://");
 		if (err == OK && iinfo->is_import() && (should_rewrite_metadata || ret->get_source_path() != ret->get_new_source_path())) {
 			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
 				// TODO: handle v2 imports with more than one source, like atlas textures
@@ -910,6 +967,10 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	return OK;
 }
 
+void ImportExporter::set_multi_thread(bool p_enable) {
+	opt_multi_thread = p_enable;
+}
+
 void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("decompile_scripts", "output_dir", "files_to_decompile"), &ImportExporter::decompile_scripts, DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("export_imports"), &ImportExporter::export_imports, DEFVAL(""), DEFVAL(PackedStringArray()));
@@ -920,7 +981,7 @@ void ImportExporter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("convert_oggstr_to_ogg"), &ImportExporter::convert_oggstr_to_ogg);
 	ClassDB::bind_method(D_METHOD("convert_mp3str_to_mp3"), &ImportExporter::convert_mp3str_to_mp3);
 	ClassDB::bind_method(D_METHOD("get_report"), &ImportExporter::get_report);
-
+	ClassDB::bind_method(D_METHOD("set_multi_thread", "p_enable"), &ImportExporter::set_multi_thread);
 	ClassDB::bind_method(D_METHOD("reset"), &ImportExporter::reset);
 }
 

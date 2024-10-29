@@ -2,6 +2,7 @@
 #define IMPORT_EXPORTER_H
 
 #include "compat/resource_import_metadatav2.h"
+#include "exporters/export_report.h"
 #include "import_info.h"
 #include "pcfg_loader.h"
 #include "utility/godotver.h"
@@ -101,8 +102,16 @@ class ImportExporter : public RefCounted {
 	bool opt_decompile = true;
 	bool opt_only_decompile = false;
 	bool opt_write_md5_files = true;
+	bool opt_multi_thread = true;
+	struct ExportToken {
+		Ref<ImportInfo> iinfo;
+		Ref<ExportReport> report;
+		String output_dir;
+		bool supports_multithread;
+	};
 
 	Ref<ImportExporterReport> report;
+	void _do_export(uint32_t i, ExportToken *tokens);
 	Error handle_auto_converted_file(const String &autoconverted_file, const String &output_dir);
 	Error rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	static Vector<String> get_v2_wildcards();
@@ -127,6 +136,8 @@ public:
 	Error convert_oggstr_to_ogg(const String &output_dir, const String &p_path, const String &p_dst);
 	Error convert_mp3str_to_mp3(const String &output_dir, const String &p_path, const String &p_dst);
 	Error decompile_scripts(const String &output_dir, const Vector<String> &files = {});
+
+	void set_multi_thread(bool p_enable);
 
 	Error _export_imports(const String &output_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string);
 	Error export_imports(const String &output_dir = "", const Vector<String> &files_to_export = {});

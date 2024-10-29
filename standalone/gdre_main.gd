@@ -195,6 +195,7 @@ func test_decomp(fname):
 
 func export_imports(output_dir:String, files: PackedStringArray):
 	var importer:ImportExporter = ImportExporter.new()
+	importer.set_multi_thread(true)
 	importer.export_imports(output_dir, files)
 	importer.reset()
 				
@@ -328,6 +329,8 @@ func recovery(  input_file:String,
 	var is_dir:bool = false
 	var err: int = OK
 	var parent_dir = "res://"
+	# get the current time
+	var start_time = Time.get_ticks_msec()
 	input_file = get_cli_abs_path(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
@@ -444,9 +447,18 @@ func recovery(  input_file:String,
 		if (err != OK):
 			print("Error: failed to extract PAK file, not exporting assets")
 			return
+	var end_time;
+	var secs_taken;
 	if (extract_only):
+		end_time = Time.get_ticks_msec()
+		secs_taken = (end_time - start_time) / 1000
+		print("Extraction complete in %02dm%02ds" % [(secs_taken) / 60, (secs_taken) % 60])
 		return
 	export_imports(output_dir, files)
+	end_time = Time.get_ticks_msec()
+	secs_taken = (end_time - start_time) / 1000
+	print("Recovery complete in %02dm%02ds" % [(secs_taken) / 60, (secs_taken) % 60])
+
 
 func print_version():
 	print("Godot RE Tools " + GDRESettings.get_gdre_version())
