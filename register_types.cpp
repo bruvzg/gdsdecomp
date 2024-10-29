@@ -201,6 +201,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<PckDumper>();
 	ClassDB::register_abstract_class<ImportInfo>();
 
+	ClassDB::register_class<Exporter>();
 	ClassDB::register_class<ExportReport>();
 	ClassDB::register_class<ResourceExporter>();
 	ClassDB::register_class<AutoConvertedExporter>();
@@ -212,6 +213,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TextureExporter>();
 	ClassDB::register_class<TranslationExporter>();
 
+	ClassDB::register_class<ResourceCompatLoader>();
 	ClassDB::register_class<CompatFormatLoader>();
 	ClassDB::register_class<ResourceFormatLoaderCompatText>();
 	ClassDB::register_class<ResourceFormatLoaderCompatBinary>();

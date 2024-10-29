@@ -138,3 +138,10 @@ Error Exporter::export_file(const String &out_path, const String &res_path) {
 	}
 	return exporter->export_file(out_path, res_path);
 }
+
+void Exporter::_bind_methods() {
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("add_exporter", "exporter", "at_front"), &Exporter::add_exporter);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("remove_exporter", "exporter"), &Exporter::remove_exporter);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("export_resource", "output_dir", "import_infos"), &Exporter::export_resource);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("export_file", "out_path", "res_path"), &Exporter::export_file);
+}

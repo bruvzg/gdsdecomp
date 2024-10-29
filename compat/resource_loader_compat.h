@@ -13,7 +13,9 @@
 class CompatFormatLoader;
 class CompatFormatSaver;
 class ResourceCompatConverter;
-class ResourceCompatLoader {
+class ResourceCompatLoader : public Object {
+	GDCLASS(ResourceCompatLoader, Object);
+
 	enum {
 		MAX_LOADERS = 64,
 		MAX_CONVERTERS = 8192,
@@ -25,6 +27,15 @@ class ResourceCompatLoader {
 	static int converter_count;
 	static bool doing_gltf_load;
 	static bool globally_available;
+
+protected:
+	static Ref<Resource> _fake_load(const String &p_path, const String &p_type_hint = "");
+	static Ref<Resource> _non_global_load(const String &p_path, const String &p_type_hint = "");
+	static Ref<Resource> _gltf_load(const String &p_path, const String &p_type_hint = "");
+	static Ref<Resource> _real_load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE);
+	static Dictionary _get_resource_info(const String &p_path, const String &p_type_hint = "");
+
+	static void _bind_methods();
 
 public:
 	static Ref<Resource> fake_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
