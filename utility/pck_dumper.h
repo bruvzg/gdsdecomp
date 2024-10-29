@@ -25,6 +25,14 @@ class PckDumper : public RefCounted {
 
 	bool _pck_file_check_md5(Ref<PackedFileInfo> &file);
 	void _do_md5_check(uint32_t i, Ref<PackedFileInfo> *tokens);
+	void reset();
+	struct ExtractToken {
+		Ref<PackedFileInfo> file;
+		String output_dir;
+		Error err = OK;
+	};
+	void _do_extract(uint32_t i, ExtractToken *tokens);
+	Error wait_for_task(WorkerThreadPool::GroupID group_task, const Vector<String> &paths_to_check, EditorProgressGDDC *pr);
 
 protected:
 	static void _bind_methods();
@@ -35,6 +43,8 @@ public:
 
 	Error _pck_dump_to_dir(const String &dir, const Vector<String> &files_to_extract, EditorProgressGDDC *pr, String &error_string);
 	Error pck_dump_to_dir(const String &dir, const Vector<String> &files_to_extract);
+
+	void set_multi_thread(bool multi_thread) { opt_multi_thread = multi_thread; }
 	//Error pck_dump_to_dir(const String &dir, const Vector<String> &files_to_extract);
 };
 
