@@ -402,3 +402,19 @@ String ResourceCompatConverter::get_resource_name(const Ref<Resource> &res, int 
 	}
 	return name;
 }
+
+Ref<Resource> CompatFormatLoader::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
+	if (r_error) {
+		*r_error = ERR_UNAVAILABLE;
+	}
+	ERR_FAIL_V_MSG(Ref<Resource>(), "Not implemented.");
+}
+ResourceInfo CompatFormatLoader::get_resource_info(const String &p_path, Error *r_error) const {
+	if (r_error) {
+		*r_error = ERR_UNAVAILABLE;
+	}
+	ERR_FAIL_V_MSG(ResourceInfo(), "Not implemented.");
+}
+bool CompatFormatLoader::handles_fake_load() const {
+	return false;
+}

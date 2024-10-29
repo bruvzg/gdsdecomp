@@ -139,6 +139,8 @@ public:
 };
 
 class ResourceFormatLoaderCompatBinary : public CompatFormatLoader {
+	GDCLASS(ResourceFormatLoaderCompatBinary, CompatFormatLoader);
+
 public:
 	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) override;
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const override;

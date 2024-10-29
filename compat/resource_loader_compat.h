@@ -52,10 +52,12 @@ public:
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {
+	GDCLASS(CompatFormatLoader, ResourceFormatLoader);
+
 public:
-	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr) = 0;
-	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const = 0;
-	virtual bool handles_fake_load() const { return false; }
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr);
+	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const;
+	virtual bool handles_fake_load() const;
 	static ResourceInfo::LoadType get_default_real_load() {
 		if (ResourceCompatLoader::is_default_gltf_load()) {
 			return ResourceInfo::LoadType::GLTF_LOAD;
