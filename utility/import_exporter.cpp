@@ -131,9 +131,11 @@ Error ImportExporter::remove_remap_and_autoconverted(const String &source_file, 
 
 void ImportExporter::_do_export(uint32_t i, ExportToken *tokens) {
 	// Taken care of in the main thread
-	if (tokens[i].supports_multithread) {
-		tokens[i].report = Exporter::export_resource(tokens[i].output_dir, tokens[i].iinfo);
+	if (unlikely(cancelled)) {
+		return;
 	}
+	tokens[i].report = Exporter::export_resource(tokens[i].output_dir, tokens[i].iinfo);
+	last_completed++;
 }
 
 Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
@@ -151,26 +153,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	}
 	// TODO: make this use "copy"
 	Array _files = get_settings()->get_import_files();
-	Vector<Ref<ImportInfo>> files;
-
-	// Put scene files at the end, otherwise it slows down the export tremendously
-	for (int i = 0; i < _files.size(); i++) {
-		Ref<ImportInfo> thing = _files[i];
-		if (thing->get_importer() != "scene") {
-			files.push_back(_files[i]);
-		}
-	}
-	for (int i = 0; i < _files.size(); i++) {
-		Ref<ImportInfo> thing = _files[i];
-		if (thing->get_importer() == "scene") {
-			files.push_back(_files[i]);
-		}
-	}
-
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 	bool partial_export = files_to_export.size() > 0;
-	report->session_files_total = partial_export ? files_to_export.size() : files.size();
+	report->session_files_total = partial_export ? files_to_export.size() : _files.size();
 	if (opt_decompile) {
+		if (pr) {
+			pr->step("Decompiling scripts...", 0, true);
+		}
 		Vector<String> code_files = get_settings()->get_code_files();
 		Vector<String> to_decompile;
 		if (files_to_export.size() > 0) {
@@ -206,19 +195,11 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			recreate_plugin_configs(output_dir, addon_first_level_dirs);
 		}
 	}
-	if (get_ver_major() >= 4) {
-		// we need to re-save all the iinfo files to the output directory if they are dirty
-		for (int i = 0; i < files.size(); i++) {
-			Ref<ImportInfo> iinfo = files[i];
-			if (iinfo->is_dirty() && (!partial_export || vectors_intersect(iinfo->get_dest_files(), files_to_export))) {
-				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
-				if (err && err != ERR_UNAVAILABLE) {
-					print_line("Failed to save import info " + iinfo->get_path());
-				}
-			}
+	if (pr) {
+		if (pr->step("Exporting resources...", 0, true)) {
+			return ERR_PRINTER_ON_FIRE;
 		}
 	}
-	// files.sort_custom<IInfoComparator>();
 	HashMap<String, Ref<ResourceExporter>> exporter_map;
 	for (int i = 0; i < Exporter::exporter_count; i++) {
 		Ref<ResourceExporter> exporter = Exporter::exporters[i];
@@ -230,9 +211,12 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	}
 	Vector<ExportToken> tokens;
 	Vector<ExportToken> non_multithreaded_tokens;
-	for (int i = 0; i < files.size(); i++) {
+	Vector<String> paths_to_export;
+	paths_to_export.resize(_files.size());
+	for (int i = 0; i < _files.size(); i++) {
+		Ref<ImportInfo> iinfo = _files[i];
 		if (partial_export) {
-			auto dest_files = files[i]->get_dest_files();
+			auto dest_files = iinfo->get_dest_files();
 			bool has_path = false;
 			for (auto dest : dest_files) {
 				if (files_to_export.has(dest)) {
@@ -244,7 +228,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				continue;
 			}
 		}
-		Ref<ImportInfo> iinfo = files[i];
 		String importer = iinfo->get_importer();
 		if (importer == "script_bytecode") {
 			continue;
@@ -265,31 +248,78 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				}
 			}
 		}
-		// opt_multi_thread = false;
 		bool supports_multithreading = opt_multi_thread;
 		if (exporter_map.has(iinfo->get_importer())) {
 			if (!exporter_map.get(iinfo->get_importer())->supports_multithread()) {
 				supports_multithreading = false;
 			}
+		} else {
+			supports_multithreading = false;
 		}
+		paths_to_export.write[i] = iinfo->get_path();
 		if (supports_multithreading) {
 			tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
 		} else {
 			non_multithreaded_tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
 		}
 	}
+	int64_t num_multithreaded_tokens = tokens.size();
+	paths_to_export.resize(tokens.size());
 	// ***** Export resources *****
 	if (opt_multi_thread) {
+		last_completed = -1;
+		cancelled = false;
 		print_line("Exporting resources in parallel...");
 		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(
 				this,
 				&ImportExporter::_do_export,
 				tokens.ptrw(),
 				tokens.size(), -1, true, SNAME("ImportExporter::export_imports"));
+		if (pr) {
+			while (!WorkerThreadPool::get_singleton()->is_group_task_completed(group_task)) {
+				OS::get_singleton()->delay_usec(10000);
+				int i = last_completed;
+				if (i < 0) {
+					i = 0;
+				} else if (i >= num_multithreaded_tokens) {
+					i = num_multithreaded_tokens - 1;
+				}
+				bool cancel = pr->step(paths_to_export[i], i, true);
+				if (cancel) {
+					cancelled = true;
+					WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+					return ERR_PRINTER_ON_FIRE;
+				}
+			}
+		}
+		// Always wait for completion; otherwise we leak memory.
 		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
 	}
-
+	String last_path = tokens[tokens.size() - 1].iinfo->get_path();
+	for (int i = 0; i < non_multithreaded_tokens.size(); i++) {
+		ExportToken &token = non_multithreaded_tokens.write[i];
+		Ref<ImportInfo> iinfo = token.iinfo;
+		if (pr) {
+			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 10000) {
+				last_progress_upd = OS::get_singleton()->get_ticks_usec();
+				if (pr->step(iinfo->get_path(), num_multithreaded_tokens + i, false)) {
+					return ERR_PRINTER_ON_FIRE;
+				}
+			}
+		}
+		String importer = iinfo->get_importer();
+		if (!exporter_map.has(importer)) {
+			token.report = memnew(ExportReport(iinfo));
+			token.report->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
+			token.report->set_error(ERR_UNAVAILABLE);
+		} else {
+			token.report = exporter_map.get(importer)->export_resource(output_dir, iinfo);
+		}
+	}
 	tokens.append_array(non_multithreaded_tokens);
+	if (pr) {
+		pr->step("Finalizing...", tokens.size() - 1, true);
+	}
 	for (int i = 0; i < tokens.size(); i++) {
 		const ExportToken &token = tokens[i];
 		Ref<ImportInfo> iinfo = token.iinfo;
@@ -301,50 +331,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		String source = iinfo->get_source_file();
 		String type = iinfo->get_type();
 		auto loss_type = iinfo->get_import_loss_type();
-		// If files_to_export is empty, then we export everything
-		if (partial_export) {
-			auto dest_files = iinfo->get_dest_files();
-			bool has_path = false;
-			for (auto dest : dest_files) {
-				if (files_to_export.has(dest)) {
-					has_path = true;
-					break;
-				}
-			}
-			if (!has_path) {
-				continue;
-			}
-		}
-		if (pr) {
-			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 10000) {
-				last_progress_upd = OS::get_singleton()->get_ticks_usec();
-				bool cancel = pr->step(path, i, true);
-				if (cancel) {
-					return ERR_PRINTER_ON_FIRE;
-				}
-			}
-		}
-		if (loss_type != ImportInfo::LOSSLESS) {
-			if (!opt_lossy) {
-				report->lossy_imports.push_back(iinfo);
-				print_line("Not converting lossy import " + path);
-				continue;
-			}
-		}
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
-		// ***** Export resource *****
-		Ref<ExportReport> ret;
-		if (!token.supports_multithread) {
-			if (!exporter_map.has(importer)) {
-				ret = memnew(ExportReport(iinfo));
-				ret->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
-				ret->set_error(ERR_UNAVAILABLE);
-			} else {
-				ret = exporter_map.get(importer)->export_resource(output_dir, iinfo);
-			}
-		} else {
-			ret = token.report;
-		}
+		Ref<ExportReport> ret = token.report;
 		if (ret.is_null()) {
 			ERR_PRINT("Exporter returned null report for " + path);
 			report->failed.push_back(iinfo);
@@ -353,6 +341,9 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		err = ret->get_error();
 		if (err == ERR_SKIP) {
 			report->not_converted.push_back(iinfo);
+			if (iinfo->get_ver_major() >= 4 && iinfo->is_dirty()) {
+				iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+			}
 			continue;
 		}
 		if (err == ERR_UNAVAILABLE) {
@@ -360,6 +351,9 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			String format_type = src_ext;
 			if (ret->get_unsupported_format_type() != "") {
 				format_type = ret->get_unsupported_format_type();
+			}
+			if (iinfo->get_ver_major() >= 4 && iinfo->is_dirty()) {
+				iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
 			}
 			report_unsupported_resource(type, format_type, path);
 			report->not_converted.push_back(iinfo);
