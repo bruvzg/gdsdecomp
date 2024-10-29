@@ -18,7 +18,7 @@ class PackedFileInfo : public RefCounted {
 	String raw_path;
 	PackedData::PackedFile pf;
 	bool malformed_path;
-	bool md5_passed;
+	bool md5_passed = false;
 	uint32_t flags;
 
 	void set_md5_match(bool pass) { md5_passed = pass; }

@@ -17,8 +17,14 @@ class PckDumper : public RefCounted {
 	bool skip_malformed_paths = false;
 	bool skip_failed_md5 = false;
 	bool should_check_md5 = false;
+	bool opt_multi_thread = true;
+	std::atomic<bool> cancelled = false;
+	std::atomic<int> last_completed = 0;
+	std::atomic<int> skipped_cnt = 0;
+	std::atomic<int> broken_cnt = 0;
 
 	bool _pck_file_check_md5(Ref<PackedFileInfo> &file);
+	void _do_md5_check(uint32_t i, Ref<PackedFileInfo> *tokens);
 
 protected:
 	static void _bind_methods();
