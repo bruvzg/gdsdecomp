@@ -61,6 +61,8 @@ public:
 };
 
 class ResourceFormatLoaderCompatTexture2D : public CompatFormatLoader {
+	GDCLASS(ResourceFormatLoaderCompatTexture2D, CompatFormatLoader);
+
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
@@ -74,6 +76,8 @@ public:
 };
 
 class ResourceFormatLoaderCompatTexture3D : public CompatFormatLoader {
+	GDCLASS(ResourceFormatLoaderCompatTexture3D, CompatFormatLoader);
+
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;
@@ -87,6 +91,8 @@ public:
 };
 
 class ResourceFormatLoaderCompatTextureLayered : public CompatFormatLoader {
+	GDCLASS(ResourceFormatLoaderCompatTextureLayered, CompatFormatLoader);
+
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) override;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const override;

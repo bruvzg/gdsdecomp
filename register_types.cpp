@@ -200,6 +200,28 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<GodotREEditorStandalone>();
 	ClassDB::register_class<PckDumper>();
 	ClassDB::register_abstract_class<ImportInfo>();
+
+	ClassDB::register_class<ExportReport>();
+	ClassDB::register_class<ResourceExporter>();
+	ClassDB::register_class<AutoConvertedExporter>();
+	ClassDB::register_class<FontFileExporter>();
+	ClassDB::register_class<Mp3StrExporter>();
+	ClassDB::register_class<OggStrExporter>();
+	ClassDB::register_class<SampleExporter>();
+	ClassDB::register_class<SceneExporter>();
+	ClassDB::register_class<TextureExporter>();
+	ClassDB::register_class<TranslationExporter>();
+
+	ClassDB::register_class<CompatFormatLoader>();
+	ClassDB::register_class<ResourceFormatLoaderCompatText>();
+	ClassDB::register_class<ResourceFormatLoaderCompatBinary>();
+	ClassDB::register_class<ResourceFormatLoaderCompatTexture2D>();
+	ClassDB::register_class<ResourceFormatLoaderCompatTexture3D>();
+	ClassDB::register_class<ResourceFormatLoaderCompatTextureLayered>();
+	ClassDB::register_class<SampleConverterCompat>();
+	ClassDB::register_class<ResourceConverterTexture2D>();
+	ClassDB::register_class<OggStreamConverterCompat>();
+
 	ClassDB::register_class<ImportInfoModern>();
 	ClassDB::register_class<ImportInfov2>();
 	ClassDB::register_class<ImportInfoDummy>();

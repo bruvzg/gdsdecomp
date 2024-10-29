@@ -42,6 +42,7 @@ public:
 	void set_unsupported_format_type(const String &p_type) { unsupported_format_type = p_type; }
 	String get_unsupported_format_type() const { return unsupported_format_type; }
 
+	ExportReport() {}
 	ExportReport(Ref<ImportInfo> p_import_info) :
 			import_info(p_import_info), source_path(p_import_info->get_source_file()), new_source_path(import_info->get_export_dest()) {}
 };
