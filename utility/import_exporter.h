@@ -103,6 +103,9 @@ class ImportExporter : public RefCounted {
 	bool opt_only_decompile = false;
 	bool opt_write_md5_files = true;
 	bool opt_multi_thread = true;
+	std::atomic<int> last_completed = 0;
+	std::atomic<bool> cancelled = false;
+
 	struct ExportToken {
 		Ref<ImportInfo> iinfo;
 		Ref<ExportReport> report;
