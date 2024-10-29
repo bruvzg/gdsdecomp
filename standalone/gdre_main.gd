@@ -203,20 +203,20 @@ func export_imports(output_dir:String, files: PackedStringArray):
 func dump_files(output_dir:String, files: PackedStringArray, ignore_checksum_errors: bool = false) -> int:
 	var err:int = OK;
 	var pckdump = PckDumper.new()
-	if err == OK:
-		err = pckdump.check_md5_all_files()
-		if err != OK:
-			if (err != ERR_SKIP and not ignore_checksum_errors):
-				print("MD5 checksum failed, not proceeding...")
-				return err
-			elif (ignore_checksum_errors):
-				print("MD5 checksum failed, but --ignore_checksum_errors specified, proceeding anyway...")
-		err = pckdump.pck_dump_to_dir(output_dir, files)
-		if err != OK:
-			print("error dumping to dir")
+	# var start_time = Time.get_ticks_msec()
+	err = pckdump.check_md5_all_files()
+	if err != OK:
+		if (err != ERR_SKIP and not ignore_checksum_errors):
+			print("MD5 checksum failed, not proceeding...")
 			return err
-	else:
-		print("ERROR: failed to load exe")
+		elif (ignore_checksum_errors):
+			print("MD5 checksum failed, but --ignore_checksum_errors specified, proceeding anyway...")
+	err = pckdump.pck_dump_to_dir(output_dir, files)
+	if err != OK:
+		print("error dumping to dir")
+	# var end_time = Time.get_ticks_msec()
+	# var secs_taken = (end_time - start_time) / 1000
+	# print("Extraction complete in %02dm%02ds" % [(secs_taken) / 60, (secs_taken) % 60])
 	return err;
 
 var MAIN_COMMANDS = ["--recover", "--extract", "--compile", "--list-bytecode-versions"]
@@ -452,7 +452,7 @@ func recovery(  input_file:String,
 	if (extract_only):
 		end_time = Time.get_ticks_msec()
 		secs_taken = (end_time - start_time) / 1000
-		print("Extraction complete in %02dm%02ds" % [(secs_taken) / 60, (secs_taken) % 60])
+		print("Extraction operation complete in %02dm%02ds" % [(secs_taken) / 60, (secs_taken) % 60])
 		return
 	export_imports(output_dir, files)
 	end_time = Time.get_ticks_msec()
