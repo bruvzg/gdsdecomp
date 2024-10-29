@@ -24,7 +24,13 @@ Ref<ExportReport> FontFileExporter::export_resource(const String &output_dir, Re
 }
 
 bool FontFileExporter::handles_import(const String &importer, const String &resource_type) const {
-	return importer == "font_data_dynamic" || resource_type == "FontFile";
+	if (!importer.is_empty()) {
+		if (importer == "font_data_dynamic") {
+			return true;
+		}
+		return false;
+	}
+	return resource_type == "FontFile";
 }
 
 void FontFileExporter::get_handled_types(List<String> *out) const {
