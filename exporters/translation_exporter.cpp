@@ -167,12 +167,10 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	if (missing_keys) {
 		String translation_export_message = "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
 		translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
-		WARN_PRINT("Could not guess all keys in translation.csv");
 		report->set_message(translation_export_message);
 	}
 	report->set_new_source_path(iinfo->get_export_dest());
 	report->set_saved_path(output_path);
-	print_line("Recreated translation.csv");
 	return report;
 }
 

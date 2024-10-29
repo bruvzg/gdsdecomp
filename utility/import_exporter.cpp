@@ -8,6 +8,7 @@
 #include "core/error/error_macros.h"
 #include "core/object/class_db.h"
 #include "core/string/print_string.h"
+#include "exporters/export_report.h"
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
 #include "exporters/texture_exporter.h"
@@ -91,7 +92,7 @@ Error ImportExporter::handle_auto_converted_file(const String &autoconverted_fil
 		String old_path = output_dir.path_join(prefix);
 		if (FileAccess::exists(old_path)) {
 			String new_path = output_dir.path_join(".autoconverted").path_join(prefix);
-			Error err = ensure_dir(new_path.get_base_dir());
+			Error err = gdre::ensure_dir(new_path.get_base_dir());
 			ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for remap " + new_path);
 			Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 			ERR_FAIL_COND_V_MSG(da.is_null(), ERR_CANT_CREATE, "Failed to create directory for remap " + new_path);
@@ -112,12 +113,76 @@ Error ImportExporter::remove_remap_and_autoconverted(const String &source_file, 
 	return OK;
 }
 
+void ImportExporter::rewrite_metadata(ExportToken &token) {
+	auto &report = token.report;
+	const auto &output_dir = token.output_dir;
+	ERR_FAIL_COND_MSG(report.is_null(), "Cannot rewrite metadata for null report");
+	Error err = report->get_error();
+	auto iinfo = report->get_import_info();
+	auto if_err_func = [&]() {
+		if (err != OK) {
+			report->set_rewrote_metadata(ExportReport::FAILED);
+		} else {
+			report->set_rewrote_metadata(ExportReport::REWRITTEN);
+		}
+	};
+	if (err != OK) {
+		if ((err == ERR_UNAVAILABLE) && iinfo->get_ver_major() >= 4 && iinfo->is_dirty()) {
+			iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+			if_err_func();
+		}
+		return;
+	}
+	// ****REWRITE METADATA****
+	bool not_in_res_tree = !iinfo->get_source_file().begins_with("res://");
+	bool export_matches_source = report->get_source_path() == report->get_new_source_path();
+	if (err == OK && iinfo->is_import() && (not_in_res_tree || !export_matches_source)) {
+		if (iinfo->get_ver_major() <= 2 && token.opt_rewrite_imd_v2) {
+			// TODO: handle v2 imports with more than one source, like atlas textures
+			err = rewrite_import_source(report->get_new_source_path(), output_dir, iinfo);
+			if_err_func();
+		} else if (not_in_res_tree && iinfo->get_ver_major() >= 3 && token.opt_rewrite_imd_v3 && (iinfo->get_source_file().find(report->get_new_source_path().replace("res://", "")) != -1)) {
+			// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
+			// But is still in the project structure
+			err = rewrite_import_source(report->get_new_source_path(), output_dir, iinfo);
+			if_err_func();
+		} else if (iinfo->is_dirty()) {
+			err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+			if (err != OK) {
+				report->set_rewrote_metadata(ExportReport::FAILED);
+			} else if (!export_matches_source) {
+				report->set_rewrote_metadata(ExportReport::NOT_IMPORTABLE);
+			}
+		}
+	} else if (iinfo->is_dirty()) {
+		if (err == OK) {
+			err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
+			if_err_func();
+		} else {
+			report->set_rewrote_metadata(ExportReport::NOT_IMPORTABLE);
+		}
+	} else {
+		report->set_rewrote_metadata(ExportReport::NOT_DIRTY);
+	}
+	if (token.opt_write_md5_files && iinfo->is_import() && err == OK && iinfo->get_ver_major() > 2) {
+		err = ERR_LINK_FAILED;
+		Ref<ImportInfoModern> modern_iinfo = iinfo;
+		if (modern_iinfo.is_valid()) {
+			err = modern_iinfo->save_md5_file(output_dir);
+		}
+		if (err) {
+			report->set_rewrote_metadata(ExportReport::MD5_FAILED);
+		}
+	}
+}
+
 void ImportExporter::_do_export(uint32_t i, ExportToken *tokens) {
 	// Taken care of in the main thread
 	if (unlikely(cancelled)) {
 		return;
 	}
 	tokens[i].report = Exporter::export_resource(tokens[i].output_dir, tokens[i].iinfo);
+	rewrite_metadata(tokens[i]);
 	last_completed++;
 }
 
@@ -138,7 +203,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	Array _files = get_settings()->get_import_files();
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 	bool partial_export = files_to_export.size() > 0;
-	report->session_files_total = partial_export ? files_to_export.size() : _files.size();
 	if (opt_decompile) {
 		if (pr) {
 			pr->step("Decompiling scripts...", 0, true);
@@ -216,7 +280,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			continue;
 		}
 		// ***** Set export destination *****
-		iinfo->set_export_dest(iinfo->get_source_file());
 		// This is a Godot asset that was imported outside of project directory
 		if (!iinfo->get_source_file().begins_with("res://")) {
 			if (get_ver_major() <= 2) {
@@ -224,12 +287,15 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 				iinfo->set_export_dest(String("res://.assets").path_join(iinfo->get_import_md_path().get_base_dir().path_join(iinfo->get_source_file().get_file()).replace("res://", "")));
 			} else {
 				// import_md_path is the .import/.remap path in v3-v4
-				iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
 				// If the source_file path was not actually in the project structure, save it elsewhere
 				if (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) == -1) {
 					iinfo->set_export_dest(iinfo->get_export_dest().replace("res://", "res://.assets"));
+				} else {
+					iinfo->set_export_dest(iinfo->get_import_md_path().get_basename());
 				}
 			}
+		} else {
+			iinfo->set_export_dest(iinfo->get_source_file());
 		}
 		bool supports_multithreading = opt_multi_thread;
 		if (exporter_map.has(iinfo->get_importer())) {
@@ -241,13 +307,13 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 		paths_to_export.write[i] = iinfo->get_path();
 		if (supports_multithreading) {
-			tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
+			tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading, opt_rewrite_imd_v2, opt_rewrite_imd_v3, opt_write_md5_files });
 		} else {
-			non_multithreaded_tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading });
+			non_multithreaded_tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading, opt_rewrite_imd_v2, opt_rewrite_imd_v3, opt_write_md5_files });
 		}
 	}
 	int64_t num_multithreaded_tokens = tokens.size();
-	paths_to_export.resize(tokens.size());
+	paths_to_export.resize(num_multithreaded_tokens);
 	// ***** Export resources *****
 	if (opt_multi_thread) {
 		last_completed = -1;
@@ -281,152 +347,73 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	String last_path = tokens[tokens.size() - 1].iinfo->get_path();
 	for (int i = 0; i < non_multithreaded_tokens.size(); i++) {
 		ExportToken &token = non_multithreaded_tokens.write[i];
-		Ref<ImportInfo> iinfo = token.iinfo;
 		if (pr) {
 			if (OS::get_singleton()->get_ticks_usec() - last_progress_upd > 10000) {
 				last_progress_upd = OS::get_singleton()->get_ticks_usec();
-				if (pr->step(iinfo->get_path(), num_multithreaded_tokens + i, false)) {
+				if (pr->step(token.iinfo->get_path(), num_multithreaded_tokens + i, false)) {
 					return ERR_PRINTER_ON_FIRE;
 				}
 			}
 		}
-		String importer = iinfo->get_importer();
-		if (!exporter_map.has(importer)) {
-			token.report = memnew(ExportReport(iinfo));
-			token.report->set_message("No exporter found for importer " + importer + " and type: " + iinfo->get_type());
-			token.report->set_error(ERR_UNAVAILABLE);
-		} else {
-			token.report = exporter_map.get(importer)->export_resource(output_dir, iinfo);
-		}
+		_do_export(i, non_multithreaded_tokens.ptrw());
 	}
 	tokens.append_array(non_multithreaded_tokens);
 	if (pr) {
 		pr->step("Finalizing...", tokens.size() - 1, true);
 	}
+	report->session_files_total = tokens.size();
+	// add to report
 	for (int i = 0; i < tokens.size(); i++) {
 		const ExportToken &token = tokens[i];
 		Ref<ImportInfo> iinfo = token.iinfo;
-		String importer = iinfo->get_importer();
-		if (importer == "script_bytecode") {
+		if (iinfo->get_importer() == "script_bytecode") {
 			continue;
 		}
-		String path = iinfo->get_path();
-		String source = iinfo->get_source_file();
-		String type = iinfo->get_type();
 		String src_ext = iinfo->get_source_file().get_extension().to_lower();
 		Ref<ExportReport> ret = token.report;
 		if (ret.is_null()) {
-			ERR_PRINT("Exporter returned null report for " + path);
+			ERR_PRINT("Exporter returned null report for " + iinfo->get_path());
 			report->failed.push_back(iinfo);
 			continue;
 		}
 		err = ret->get_error();
 		if (err == ERR_SKIP) {
 			report->not_converted.push_back(iinfo);
-			if (iinfo->get_ver_major() >= 4 && iinfo->is_dirty()) {
-				iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
-			}
 			continue;
-		}
-		if (err == ERR_UNAVAILABLE) {
+		} else if (err == ERR_UNAVAILABLE) {
 			String type = iinfo->get_type();
 			String format_type = src_ext;
 			if (ret->get_unsupported_format_type() != "") {
 				format_type = ret->get_unsupported_format_type();
 			}
-			if (iinfo->get_ver_major() >= 4 && iinfo->is_dirty()) {
-				iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
-			}
-			report_unsupported_resource(type, format_type, path);
+			report_unsupported_resource(type, format_type, iinfo->get_path());
 			report->not_converted.push_back(iinfo);
 			continue;
-		}
-		if (importer == "scene" && src_ext != "escn" && src_ext != "tscn") {
-			report->exported_scenes = true;
-		}
-
-		// ****REWRITE METADATA****
-		bool should_rewrite_metadata = !iinfo->get_source_file().begins_with("res://");
-		if (err == OK && iinfo->is_import() && (should_rewrite_metadata || ret->get_source_path() != ret->get_new_source_path())) {
-			if (iinfo->get_ver_major() <= 2 && opt_rewrite_imd_v2) {
-				// TODO: handle v2 imports with more than one source, like atlas textures
-				err = rewrite_import_source(ret->get_new_source_path(), output_dir, iinfo);
-			} else if (iinfo->get_ver_major() >= 3 && opt_rewrite_imd_v3 && (iinfo->get_source_file().find(iinfo->get_export_dest().replace("res://", "")) != -1)) {
-				// Currently, we only rewrite the import data for v3 if the source file was somehow recorded as an absolute file path,
-				// But is still in the project structure
-				err = rewrite_import_source(ret->get_new_source_path(), output_dir, iinfo);
-			} else if (iinfo->is_dirty()) {
-				err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
-				if (iinfo->get_export_dest() != iinfo->get_source_file()) {
-					// we still report this as unwritten so that we can report to the user that it was saved to a non-original path
-					err = ERR_PRINTER_ON_FIRE;
-				}
-			} else {
-				err = ERR_PRINTER_ON_FIRE;
-			}
-			// if we didn't rewrite the metadata, the err will still be ERR_PRINTER_ON_FIRE
-			// if we failed, it won't be OK
-			if (err != OK) {
-				if (err == ERR_PRINTER_ON_FIRE) {
-					print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
-				} else {
-					print_line("Failed to rewrite import metadata for " + iinfo->get_source_file());
-				}
-				err = ERR_DATABASE_CANT_WRITE;
-			} else {
-				// we successfully rewrote the import data
-				err = ERR_PRINTER_ON_FIRE;
-			}
-			// saved to non-original path, but we exporter knows we can't rewrite the metadata
-		} else if (err == ERR_DATABASE_CANT_WRITE) {
-			print_line("Did not rewrite import metadata for " + iinfo->get_source_file());
-		} else if (err == OK && iinfo->is_dirty()) {
-			err = iinfo->save_to(output_dir.path_join(iinfo->get_import_md_path().replace("res://", "")));
-			if (err == OK) {
-				err = ERR_PRINTER_ON_FIRE;
-			} else {
-				print_line("Failed to rewrite import metadata for " + iinfo->get_source_file());
-				err = ERR_DATABASE_CANT_WRITE;
-			}
-		}
-
-		// write md5 files
-		if (opt_write_md5_files && iinfo->is_import() && (err == OK || err == ERR_PRINTER_ON_FIRE) && get_ver_major() > 2) {
-			err = ((Ref<ImportInfoModern>)iinfo)->save_md5_file(output_dir);
-			if (err && err != ERR_PRINTER_ON_FIRE) {
-				err = ERR_LINK_FAILED;
-			} else {
-				err = OK;
-			}
-		}
-		// ***** Record export result *****
-
-		// the following are successful exports, but we failed to rewrite metadata or write md5 files
-		// we had to rewrite the import metadata
-		if (err == ERR_PRINTER_ON_FIRE) {
-			report->rewrote_metadata.push_back(iinfo);
-			err = OK;
-			// necessary to rewrite import metadata but failed
-		} else if (err == ERR_DATABASE_CANT_WRITE) {
-			report->failed_rewrite_md.push_back(iinfo);
-			err = OK;
-		} else if (err == ERR_LINK_FAILED) {
-			report->failed_rewrite_md5.push_back(iinfo);
-			err = OK;
-		}
-
-		if (err == ERR_UNAVAILABLE) {
-			// already reported in exporters below
-			report->not_converted.push_back(iinfo);
 		} else if (err != OK) {
 			report->failed.push_back(iinfo);
-			print_line("Failed to convert " + type + " resource " + path);
-		} else {
-			if (ret->get_loss_type() != ImportInfo::LOSSLESS) {
-				report->lossy_imports.push_back(iinfo);
-			}
-			report->success.push_back(iinfo);
+			print_line("Failed to convert " + iinfo->get_type() + " resource " + iinfo->get_path());
+			continue;
 		}
+		if (iinfo->get_importer() == "scene" && src_ext != "escn" && src_ext != "tscn") {
+			report->exported_scenes = true;
+		} else if (iinfo->get_importer() == "csv_translation") {
+			report->translation_export_message += ret->get_message();
+		}
+		// ***** Record export result *****
+		auto metadata_status = ret->get_rewrote_metadata();
+		// the following are successful exports, but we failed to rewrite metadata or write md5 files
+		if (metadata_status == ExportReport::REWRITTEN) {
+			report->rewrote_metadata.push_back(iinfo);
+		} else if (metadata_status == ExportReport::NOT_IMPORTABLE || metadata_status == ExportReport::FAILED) {
+			// necessary to rewrite import metadata but failed to do so
+			report->failed_rewrite_md.push_back(iinfo);
+		} else if (metadata_status == ExportReport::MD5_FAILED) {
+			report->failed_rewrite_md5.push_back(iinfo);
+		}
+		if (ret->get_loss_type() != ImportInfo::LOSSLESS) {
+			report->lossy_imports.push_back(iinfo);
+		}
+		report->success.push_back(iinfo);
 		// remove remaps
 		if (!err && get_settings()->has_any_remaps()) {
 			remove_remap_and_autoconverted(iinfo->get_export_dest(), iinfo->get_path(), output_dir);
@@ -838,21 +825,10 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Ve
 Error ImportExporter::rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo) {
 	String new_source = rel_dest_path;
 	String new_import_file = output_dir.path_join(iinfo->get_import_md_path().replace("res://", ""));
-	String abs_file_path = GDRESettings::get_singleton()->globalize_path(new_source, output_dir);
-	Array new_dest_files;
+	String abs_file_path = output_dir.path_join(new_source.replace("res://", ""));
 	Ref<ImportInfo> new_import = ImportInfo::copy(iinfo);
 	new_import->set_source_and_md5(new_source, FileAccess::get_md5(abs_file_path));
-	Error err = ensure_dir(new_import_file.get_base_dir());
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create directory for import metadata " + new_import_file);
 	return new_import->save_to(new_import_file);
-}
-
-Error ImportExporter::ensure_dir(const String &dst_dir) {
-	Error err;
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	ERR_FAIL_COND_V(da.is_null(), ERR_FILE_CANT_OPEN);
-	err = da->make_dir_recursive(dst_dir);
-	return err;
 }
 
 Error ImportExporter::convert_res_txt_2_bin(const String &output_dir, const String &p_path, const String &p_dst) {
@@ -931,7 +907,7 @@ Error ImportExporter::convert_mp3str_to_mp3(const String &output_dir, const Stri
 	Ref<AudioStreamMP3> sample = ResourceCompatLoader::non_global_load(src_path, "", &err);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not load mp3str file " + p_path);
 
-	err = ensure_dir(dst_path.get_base_dir());
+	err = gdre::ensure_dir(dst_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dst_path);
 
 	Ref<FileAccess> f = FileAccess::open(dst_path, FileAccess::WRITE);
@@ -1234,11 +1210,11 @@ String ImportExporterReport::get_report_string() {
 		}
 	}
 	// we skip this for version 2 because we have to rewrite the metadata for nearly all the converted resources
-	if (rewrote_metadata.size() > 0 && ver->get_major() != 2) {
-		report += "------\n";
-		report += "\nThe following files had their import data rewritten:" + String("\n");
-		report += get_to_string(rewrote_metadata);
-	}
+	// if (rewrote_metadata.size() > 0 && ver->get_major() != 2) {
+	// 	report += "------\n";
+	// 	report += "\nThe following files had their import data rewritten:" + String("\n");
+	// 	report += get_to_string(rewrote_metadata);
+	// }
 	if (failed_rewrite_md.size() > 0) {
 		report += "------\n";
 		report += "\nThe following files were converted and saved to a non-original path, but did not have their import data rewritten." + String("\n");

@@ -1,17 +1,31 @@
 #pragma once
 #include "core/object/ref_counted.h"
 #include "utility/import_info.h"
+#include <sys/types.h>
 
 class ExportReport : public RefCounted {
 	GDCLASS(ExportReport, RefCounted);
-	String message;
+
+public:
+	enum MetadataStatus {
+		NOT_DIRTY,
+		NOT_IMPORTABLE,
+		DEPENDENCY_CHANGED,
+		REWRITTEN,
+		FAILED,
+		MD5_FAILED
+	};
+
+private:
 	Ref<ImportInfo> import_info;
+	String message;
 	String source_path;
 	String new_source_path;
 	String saved_path;
-	Error error = OK;
 	String unsupported_format_type;
+	Error error = OK;
 	ImportInfo::LossType loss_type = ImportInfo::LossType::LOSSLESS;
+	MetadataStatus rewrote_metadata = NOT_DIRTY;
 
 protected:
 	static void _bind_methods();
@@ -41,6 +55,9 @@ public:
 
 	void set_unsupported_format_type(const String &p_type) { unsupported_format_type = p_type; }
 	String get_unsupported_format_type() const { return unsupported_format_type; }
+
+	void set_rewrote_metadata(MetadataStatus p_status) { rewrote_metadata = p_status; }
+	MetadataStatus get_rewrote_metadata() const { return rewrote_metadata; }
 
 	ExportReport() {}
 	ExportReport(Ref<ImportInfo> p_import_info) :
