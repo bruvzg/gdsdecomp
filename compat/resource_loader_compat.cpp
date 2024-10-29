@@ -3,7 +3,8 @@
 #include "compat/resource_compat_text.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
-#include "core/io/dir_access.h"
+#include "core/io/resource_loader.h"
+#include "core/object/class_db.h"
 #include "utility/common.h"
 #include "utility/gdre_settings.h"
 #include "utility/resource_info.h"
@@ -401,6 +402,46 @@ String ResourceCompatConverter::get_resource_name(const Ref<Resource> &res, int 
 		name = res->get_name();
 	}
 	return name;
+}
+
+Ref<Resource> ResourceCompatLoader::_fake_load(const String &p_path, const String &p_type_hint) {
+	return fake_load(p_path, p_type_hint, nullptr);
+}
+
+Ref<Resource> ResourceCompatLoader::_non_global_load(const String &p_path, const String &p_type_hint) {
+	return non_global_load(p_path, p_type_hint, nullptr);
+}
+
+Ref<Resource> ResourceCompatLoader::_gltf_load(const String &p_path, const String &p_type_hint) {
+	return gltf_load(p_path, p_type_hint, nullptr);
+}
+
+Ref<Resource> ResourceCompatLoader::_real_load(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode) {
+	return real_load(p_path, p_type_hint, p_cache_mode, nullptr);
+}
+
+Dictionary ResourceCompatLoader::_get_resource_info(const String &p_path, const String &p_type_hint) {
+	return get_resource_info(p_path, p_type_hint, nullptr).to_dict();
+}
+
+void ResourceCompatLoader::_bind_methods() {
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("fake_load", "path", "type_hint"), &ResourceCompatLoader::_fake_load, DEFVAL(""));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("non_global_load", "path", "type_hint"), &ResourceCompatLoader::_non_global_load, DEFVAL(""));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("gltf_load", "path", "type_hint"), &ResourceCompatLoader::_gltf_load, DEFVAL(""));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("real_load", "path", "type_hint", "cache_mode"), &ResourceCompatLoader::_real_load, DEFVAL(""), DEFVAL(ResourceFormatLoader::CACHE_MODE_REUSE));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("add_resource_format_loader", "loader", "at_front"), &ResourceCompatLoader::add_resource_format_loader, DEFVAL(false));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("remove_resource_format_loader", "loader"), &ResourceCompatLoader::remove_resource_format_loader);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("add_resource_object_converter", "converter", "at_front"), &ResourceCompatLoader::add_resource_object_converter, DEFVAL(false));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("remove_resource_object_converter", "converter"), &ResourceCompatLoader::remove_resource_object_converter);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("get_resource_info", "path", "type_hint"), &ResourceCompatLoader::_get_resource_info, DEFVAL(""));
+	// ClassDB::bind_static_method(get_class_static(), D_METHOD("get_dependencies", "path", "add_types"), &ResourceCompatLoader::get_dependencies, DEFVAL(false));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("to_text", "path", "dst", "flags"), &ResourceCompatLoader::to_text, DEFVAL(0));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("to_binary", "path", "dst", "flags"), &ResourceCompatLoader::to_binary, DEFVAL(0));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("make_globally_available"), &ResourceCompatLoader::make_globally_available);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("unmake_globally_available"), &ResourceCompatLoader::unmake_globally_available);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("is_globally_available"), &ResourceCompatLoader::is_globally_available);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("set_default_gltf_load", "enable"), &ResourceCompatLoader::set_default_gltf_load);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("is_default_gltf_load"), &ResourceCompatLoader::is_default_gltf_load);
 }
 
 Ref<Resource> CompatFormatLoader::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {

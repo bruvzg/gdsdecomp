@@ -24,13 +24,18 @@ public:
 	virtual bool supports_multithread() const;
 };
 
-class Exporter {
+class Exporter : public Object {
+	GDCLASS(Exporter, Object);
+
 	friend class ImportExporter;
 	enum {
 		MAX_EXPORTERS = 64,
 	};
 	static Ref<ResourceExporter> exporters[MAX_EXPORTERS];
 	static int exporter_count;
+
+protected:
+	static void _bind_methods();
 
 public:
 	static void add_exporter(Ref<ResourceExporter> exporter, bool at_front = false);
