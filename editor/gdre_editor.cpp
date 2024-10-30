@@ -1015,7 +1015,7 @@ void GodotREEditor::_res_stxt_2_png_process() {
 		Error err;
 		TextureExporter tlc;
 		String dst = res_files[i].get_basename() + ".png";
-		err = tlc.export_file(res_files[i], dst);
+		err = tlc.export_file(dst, res_files[i]);
 		if (err != OK) {
 			failed_files += res_files[i] + " (load StreamTexture error)\n";
 			continue;
