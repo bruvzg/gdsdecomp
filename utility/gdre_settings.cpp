@@ -686,7 +686,13 @@ Error GDRESettings::unload_pack() {
 
 void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
 	packs.push_back(packinfo);
-	current_pack = packinfo;
+	if (!current_pack.is_valid()) { // only set if we don't have a current pack
+		current_pack = packinfo;
+	} else {
+		if ((!current_pack->version.is_valid() || !current_pack->version->is_valid_semver()) && packinfo->version.is_valid() && packinfo->version->is_valid_semver()) {
+			current_pack = packinfo;
+		}
+	}
 }
 // PackedSource doesn't pass back useful error information when loading packs,
 // this is a hack so that we can tell if it was an encryption error.
