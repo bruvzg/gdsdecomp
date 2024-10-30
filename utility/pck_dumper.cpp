@@ -227,15 +227,27 @@ Error PckDumper::_pck_dump_to_dir(
 	if (opt_multi_thread) {
 		Vector<ExtractToken> tokens;
 		Vector<String> paths_to_extract;
+		tokens.resize(files_to_extract.is_empty() ? files.size() : files_to_extract.size());
+		paths_to_extract.resize(files_to_extract.is_empty() ? files.size() : files_to_extract.size());
+		int actual = 0;
+		HashSet<String> files_to_extract_set;
+		for (const String &f : files_to_extract) {
+			files_to_extract_set.insert(f);
+		}
 		for (int i = 0; i < files.size(); i++) {
-			if (files_to_extract.size() && !files_to_extract.has(files.get(i)->get_path())) {
+			if (!files_to_extract_set.is_empty() && !files_to_extract_set.has(files.get(i)->get_path())) {
 				continue;
 			}
+			actual++;
 			if (pr) {
-				paths_to_extract.push_back(files.get(i)->get_path());
+				paths_to_extract.write[i] = files.get(i)->get_path();
 			}
-			tokens.push_back({ files[i], dir });
+			tokens.write[i].file = files.get(i);
+			tokens.write[i].output_dir = dir;
+			tokens.write[i].err = OK;
 		}
+		tokens.resize(actual);
+		paths_to_extract.resize(actual);
 		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(
 				this,
 				&PckDumper::_do_extract,
