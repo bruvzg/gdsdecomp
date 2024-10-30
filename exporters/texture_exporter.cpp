@@ -120,6 +120,8 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
+	} else if (dest_ext == "tga") {
+		err = gdre::save_image_as_tga(dest_path, img);
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
 	}
@@ -193,6 +195,8 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 					lossy = true;
 				}
 				report->set_loss_type(ImportInfo::STORED_LOSSY);
+			} else if (source_ext == "tga") {
+				lossy = false;
 			} else {
 				iinfo->set_export_dest(iinfo->get_export_dest().get_basename() + ".png");
 				// If this is version 3-4, we need to rewrite the import metadata to point to the new resource name
