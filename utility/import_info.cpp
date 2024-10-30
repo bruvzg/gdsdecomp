@@ -310,9 +310,32 @@ String ImportInfoModern::get_uid() const {
 Vector<String> ImportInfoModern::get_dest_files() const {
 	return cf->get_value("deps", "dest_files", Vector<String>());
 }
+namespace {
+Vector<String> get_remap_paths(const Ref<ConfigFile> &cf) {
+	Vector<String> remap_paths;
+	List<String> remap_keys;
+	cf->get_section_keys("remap", &remap_keys);
+	// iterate over keys in remap section
+	for (auto E = remap_keys.front(); E; E = E->next()) {
+		// if we find a path key, we have a match
+		if (E->get().begins_with("path.") || E->get() == "path") {
+			auto try_path = cf->get_value("remap", E->get(), "");
+			remap_paths.push_back(try_path);
+		}
+	}
+	return remap_paths;
+}
+Array vec_to_array(const Vector<String> &vec) {
+	Array arr;
+	for (int i = 0; i < vec.size(); i++) {
+		arr.push_back(vec[i]);
+	}
+	return arr;
+}
+} //namespace
 
 void ImportInfoModern::set_dest_files(const Vector<String> p_dest_files) {
-	cf->set_value("deps", "dest_files", p_dest_files);
+	cf->set_value("deps", "dest_files", vec_to_array(p_dest_files));
 	dirty = true;
 	if (!cf->has_section("remap")) {
 		return;
@@ -415,21 +438,11 @@ Error ImportInfoModern::_load(const String &p_path) {
 		// the source file is the import_md path minus ".import"
 		cf->set_value("deps", "source_file", path.substr(0, path.length() - 7));
 		if (!preferred_import_path.is_empty()) {
-			cf->set_value("deps", "dest_files", Vector<String>({ preferred_import_path }));
+			cf->set_value("deps", "dest_files", vec_to_array({ preferred_import_path }));
 		} else {
 			// this is a multi-path import, get all the "path.*" key values
-			List<String> remap_keys;
-			cf->get_section_keys("remap", &remap_keys);
-			ERR_FAIL_COND_V_MSG(remap_keys.size() == 0, ERR_FILE_CORRUPT, "Failed to load remap data from " + path);
-			// iterate over keys in remap section
-			for (auto E = remap_keys.front(); E; E = E->next()) {
-				// if we find a path key, we have a match
-				if (E->get().begins_with("path.")) {
-					auto try_path = cf->get_value("remap", E->get(), "");
-					dest_files.append(try_path);
-				}
-			}
-			cf->set_value("deps", "dest_files", dest_files);
+			dest_files = get_remap_paths(cf);
+			cf->set_value("deps", "dest_files", vec_to_array(dest_files));
 			// No path values at all; may be a translation file
 			if (dest_files.is_empty()) {
 				String importer = cf->get_value("remap", "importer", "");
@@ -452,9 +465,8 @@ Error ImportInfoModern::_load(const String &p_path) {
 				}
 			}
 		}
-	} else {
-		dest_files = get_dest_files();
 	}
+
 	if (!cf->has_section("params")) {
 		dirty = true;
 		cf->set_value("params", "dummy_value_ignore_me", 0);
@@ -463,16 +475,30 @@ Error ImportInfoModern::_load(const String &p_path) {
 	// "remap.path" does not exist if there are two or more destination files
 	if (preferred_import_path.is_empty()) {
 		//check destination files
+		if (dest_files.size() == 0) {
+			dest_files = get_remap_paths(cf);
+			// Reverse the order; we want to get the s3tc textures first if they exist.
+			dest_files.reverse();
+		}
+		if (dest_files.size() == 0) {
+			dest_files = get_dest_files();
+		}
 		ERR_FAIL_COND_V_MSG(dest_files.size() == 0, ERR_FILE_CORRUPT, p_path + ": no destination files found in import data");
 		for (int i = 0; i < dest_files.size(); i++) {
-			if (GDRESettings::get_singleton()->has_res_path(dest_files[i])) {
+			if (FileAccess::exists(dest_files[i])) {
 				preferred_import_path = dest_files[i];
 				break;
 			}
 		}
+		if (preferred_import_path.is_empty()) {
+			// just set it to the first one
+			preferred_import_path = dest_files[0];
+		}
 	}
 	// If we fail to find the import path, throw error
-	ERR_FAIL_COND_V_MSG(preferred_import_path.is_empty() || get_type().is_empty(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
+	if (preferred_import_path.is_empty() || get_type().is_empty()) {
+		ERR_FAIL_COND_V_MSG(preferred_import_path.is_empty() || get_type().is_empty(), ERR_FILE_CORRUPT, p_path + ": file is corrupt");
+	}
 
 	return OK;
 }
