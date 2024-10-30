@@ -100,7 +100,13 @@ private:
 		CharString cs;
 		bool saved_to_cache = false;
 	};
-
+	struct IInfoToken {
+		String path;
+		Ref<ImportInfo> info;
+		int ver_major;
+		int ver_minor;
+	};
+	void _do_import_load(uint32_t i, IInfoToken *tokens);
 	HashMap<ResourceUID::ID, UID_Cache> unique_ids; //unique IDs and utf8 paths (less memory used)
 
 	uint8_t old_key[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

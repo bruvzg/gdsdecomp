@@ -199,6 +199,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 
 	ClassDB::register_class<GodotREEditorStandalone>();
 	ClassDB::register_class<PckDumper>();
+	ClassDB::register_class<ResourceImportMetadatav2>();
 	ClassDB::register_abstract_class<ImportInfo>();
 
 	ClassDB::register_class<Exporter>();
