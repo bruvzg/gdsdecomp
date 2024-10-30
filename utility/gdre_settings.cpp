@@ -558,6 +558,19 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 	}
 
 	if (!has_valid_version()) {
+		// check if this is sonic colors unlimited
+		if (path.get_file().begins_with("sonic")) {
+			// get the other files that are like sonic*.pck
+			Vector<String> sonic_files = Glob::glob(path.get_base_dir().path_join("sonic*.pck"));
+			for (const String &sonic_file : sonic_files) {
+				if (sonic_file.to_lower() != path.to_lower()) {
+					Error err = GDREPackedData::get_singleton()->add_pack(sonic_file, false, 0);
+					if (err) {
+						WARN_PRINT("Failed to load " + sonic_file);
+					}
+				}
+			}
+		}
 		err = get_version_from_bin_resources();
 		// this is a catastrophic failure, unload the pack
 		if (err) {
@@ -600,7 +613,9 @@ Error GDRESettings::get_version_from_bin_resources() {
 		wildcards.push_back("*." + ext);
 	}
 	Vector<String> files = get_file_list(wildcards);
-	for (i = 0; i < files.size(); i++) {
+	uint64_t max = files.size();
+	bool sus_warning = false;
+	for (i = 0; i < max; i++) {
 		bool suspicious = false;
 		uint32_t res_major = 0;
 		uint32_t res_minor = 0;
@@ -608,8 +623,14 @@ Error GDRESettings::get_version_from_bin_resources() {
 		if (err) {
 			continue;
 		}
-		if (suspicious) {
-			WARN_PRINT_ONCE("Warning: Found suspicious major/minor version, probably Sonic Colors Unlimited...");
+		if (!sus_warning && suspicious) {
+			if (res_major == 3 && res_minor == 1) {
+				WARN_PRINT("Warning: Found suspicious major/minor version, probably Sonic Colors Unlimited...");
+				max = 1000;
+			} else {
+				WARN_PRINT("Warning: Found suspicious major/minor version...");
+			}
+			sus_warning = true;
 		}
 		if (consistent_versions == 0) {
 			ver_major = res_major;
