@@ -5,6 +5,7 @@
 #include "core/error/error_macros.h"
 #include "core/io/file_access.h"
 #include "core/object/class_db.h"
+#include "core/object/worker_thread_pool.h"
 #include "core/string/print_string.h"
 #include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
@@ -1216,13 +1217,15 @@ Error GDRESettings::reset_uid_cache() {
 	return ResourceUID::get_singleton()->load_from_cache(true);
 }
 
+void GDRESettings::_do_import_load(uint32_t i, IInfoToken *tokens) {
+	tokens[i].info = ImportInfo::load_from_file(tokens[i].path, tokens[i].ver_major, tokens[i].ver_minor);
+}
+
 Error GDRESettings::load_import_files() {
-	Vector<String> file_names;
+	Vector<String> resource_files;
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_DOES_NOT_EXIST, "pack/dir not loaded!");
 	static const Vector<String> v3wildcards = {
 		"*.import",
-		"*.gdc",
-		"*.gde",
 		"*.remap"
 	};
 	int _ver_major = get_ver_major();
@@ -1239,32 +1242,34 @@ Error GDRESettings::load_import_files() {
 		for (auto &ext : extensions) {
 			v2wildcards.push_back("*." + ext);
 		}
-		v2wildcards.push_back("*.gdc");
-		file_names = get_file_list(v2wildcards);
+		resource_files = get_file_list(v2wildcards);
 	} else if (_ver_major == 3 || _ver_major == 4) {
-		file_names = get_file_list(v3wildcards);
+		resource_files = get_file_list(v3wildcards);
 	} else {
 		ERR_FAIL_V_MSG(ERR_BUG, "Can't determine major version!");
 	}
-	bool should_load_md5 = _ver_major > 2 && get_file_info_list({ "*.md5" }).size() > 0;
-	for (int i = 0; i < file_names.size(); i++) {
-		String ext = file_names[i].get_extension();
-		if (ext == "gdc" || ext == "gde") {
-			code_files.push_back(file_names[i]);
-		} else if (ext == "remap") {
-			Error err = _load_import_file(file_names[i], should_load_md5);
-			if (err && err != ERR_PRINTER_ON_FIRE) {
-				WARN_PRINT("Can't load import file: " + file_names[i]);
-				continue;
-			}
-			Ref<ImportInfoRemap> r_info = (Ref<ImportInfoRemap>)import_files.back();
-			remap_iinfo.insert(file_names[i], r_info);
-		} else {
-			Error err = _load_import_file(file_names[i], should_load_md5);
-			if (err && err != ERR_PRINTER_ON_FIRE) {
-				WARN_PRINT("Can't load import file: " + file_names[i]);
-			}
+	code_files = get_file_list({ "*.gdc", "*.gde" });
+	Vector<IInfoToken> tokens;
+	for (int i = 0; i < resource_files.size(); i++) {
+		tokens.push_back({ resource_files[i], nullptr, (int)get_ver_major(), (int)get_ver_minor() });
+	}
+
+	auto group_id = WorkerThreadPool::get_singleton()->add_template_group_task(
+			this,
+			&GDRESettings::_do_import_load,
+			tokens.ptrw(),
+			tokens.size(), -1, true, SNAME("GDRESettings::load_import_files"));
+
+	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_id);
+	for (int i = 0; i < tokens.size(); i++) {
+		if (tokens[i].info.is_null()) {
+			WARN_PRINT("Can't load import file: " + resource_files[i]);
+			continue;
 		}
+		if (tokens[i].info->get_iitype() == ImportInfo::REMAP) {
+			remap_iinfo.insert(tokens[i].path, tokens[i].info);
+		}
+		import_files.push_back(tokens[i].info);
 	}
 	return OK;
 }

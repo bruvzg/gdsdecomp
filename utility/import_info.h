@@ -70,7 +70,8 @@ enum CompressMode {
 
 class ImportInfo : public RefCounted {
 	GDCLASS(ImportInfo, RefCounted)
-protected:
+
+public:
 	enum IInfoType {
 		BASE,
 		V2,
@@ -78,6 +79,8 @@ protected:
 		DUMMY,
 		REMAP
 	};
+
+protected:
 	String import_md_path; // path to the ".import" file
 	int ver_major = 0; //2, 3, 4
 	int ver_minor = 0;
