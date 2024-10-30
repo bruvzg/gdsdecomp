@@ -299,7 +299,14 @@ uint32_t GDRESettings::get_ver_rev() const {
 	return has_valid_version() ? current_pack->version->get_patch() : 0;
 }
 uint32_t GDRESettings::get_file_count() const {
-	return is_pack_loaded() ? current_pack->file_count : 0;
+	if (!is_pack_loaded()) {
+		return 0;
+	}
+	int count = 0;
+	for (const auto &pack : packs) {
+		count += pack->file_count;
+	}
+	return count;
 }
 
 void GDRESettings::set_ver_rev(uint32_t p_rev) {
