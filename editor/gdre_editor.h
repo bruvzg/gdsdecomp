@@ -130,7 +130,7 @@ private:
 	void _compile_files();
 	void _compile_process();
 
-	void _pck_select_request(const String &p_path);
+	void _pck_select_request(const Vector<String> &p_paths);
 	void _pck_unload();
 	void _pck_extract_files();
 	void _pck_extract_files_process();
@@ -213,7 +213,7 @@ protected:
 
 public:
 	void show_about_dialog();
-	void pck_select_request(const String &p_path);
+	void pck_select_request(const Vector<String> &p_path);
 	void _write_log_message(String p_message);
 	String get_version();
 

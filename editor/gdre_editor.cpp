@@ -235,12 +235,12 @@ void GodotREEditor::init_gui(Control *p_control, HBoxContainer *p_menu, bool p_l
 
 	pck_file_selection = memnew(FileDialog);
 	pck_file_selection->set_access(FileDialog::ACCESS_FILESYSTEM);
-	pck_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILE);
+	pck_file_selection->set_file_mode(FileDialog::FILE_MODE_OPEN_FILES);
 	pck_file_selection->add_filter("*.pck;PCK archive files");
 	pck_file_selection->add_filter("*.exe,*.bin,*.32,*.64;Self contained executable files");
 	pck_file_selection->add_filter("*.apk;Android application files");
 	pck_file_selection->add_filter("*.zip;Zipped Godot project files");
-	pck_file_selection->connect("file_selected", callable_mp(this, &GodotREEditor::_pck_select_request));
+	pck_file_selection->connect("files_selected", callable_mp(this, &GodotREEditor::_pck_select_request));
 	pck_file_selection->set_show_hidden_files(true);
 	p_control->add_child(pck_file_selection);
 
@@ -724,20 +724,20 @@ void GodotREEditor::_compile_process() {
 /* PCK explorer                                                          */
 /*************************************************************************/
 
-void GodotREEditor::_pck_select_request(const String &p_path) {
+void GodotREEditor::_pck_select_request(const Vector<String> &p_paths) {
 	pck_dialog->clear();
 	pck_files.clear();
-	pck_file = p_path;
+	pck_file = p_paths[0];
 	if (key_dialog->get_key().size() > 0) {
 		GDRESettings::get_singleton()->set_encryption_key(key_dialog->get_key());
 	}
 
-	Error err = GDRESettings::get_singleton()->load_pack(p_path);
+	Error err = GDRESettings::get_singleton()->load_project(p_paths);
 	if (err) {
 		if (err == ERR_PRINTER_ON_FIRE) {
-			show_warning(RTR("Error opening encrypted PCK file: ") + p_path + "\nSet correct encryption key and try again.", RTR("Read PCK"));
+			show_warning(RTR("Error opening encrypted PCK file: ") + pck_file + "\nSet correct encryption key and try again.", RTR("Read PCK"));
 		} else {
-			show_warning(RTR("Error opening PCK file: ") + p_path, RTR("Read PCK"));
+			show_warning(RTR("Error opening PCK file: ") + pck_file, RTR("Read PCK"));
 		}
 		return;
 	}
@@ -787,13 +787,13 @@ void GodotREEditor::_pck_select_request(const String &p_path) {
 		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, file->is_malformed(), file->is_encrypted());
 	}
 	String user_desktop = OS::get_singleton()->get_system_dir(OS::SYSTEM_DIR_DESKTOP);
-	String proj_name = p_path.get_file().get_basename();
+	String proj_name = pck_file.get_file().get_basename();
 	pck_dialog->set_target_dir(user_desktop.path_join(proj_name));
 	pck_dialog->popup_centered(Size2(600, 400));
 }
 
 void GodotREEditor::_pck_unload() {
-	GDRESettings::get_singleton()->unload_pack();
+	GDRESettings::get_singleton()->unload_project();
 }
 
 void GodotREEditor::_pck_extract_files() {
@@ -1741,7 +1741,7 @@ String GodotREEditorStandalone::get_version() {
 	return String(GDRE_VERSION);
 }
 
-void GodotREEditorStandalone::pck_select_request(const String &p_path) {
+void GodotREEditorStandalone::pck_select_request(const Vector<String> &p_path) {
 	if (editor_ctx) {
 		editor_ctx->_pck_select_request(p_path);
 	}

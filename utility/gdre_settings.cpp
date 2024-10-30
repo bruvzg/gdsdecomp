@@ -268,35 +268,47 @@ String GDRESettings::get_encryption_key_string() {
 	return enc_key_str;
 }
 bool GDRESettings::is_pack_loaded() const {
-	return current_pack.is_valid();
+	return current_project.is_valid();
 }
 
 void GDRESettings::add_pack_file(const Ref<PackedFileInfo> &f_info) {
 	file_map.insert(f_info->path, f_info);
 }
 bool GDRESettings::has_valid_version() const {
-	return is_pack_loaded() && current_pack->version.is_valid() && current_pack->version->is_valid_semver();
+	return is_pack_loaded() && current_project->version.is_valid() && current_project->version->is_valid_semver();
+}
+
+bool GDRESettings::need_to_check_version() const {
+	if (!is_pack_loaded() || (!has_valid_version())) {
+		return true;
+	}
+	if (current_project->type == PackInfo::DIR) {
+		return true;
+	}
+	auto maj = current_project->version->get_major();
+	auto min = current_project->version->get_minor();
+	if ((maj == 3 || maj == 2) && min == 1) {
+		return true;
+	}
+	return false;
 }
 GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() const {
-	return is_pack_loaded() ? current_pack->type : PackInfo::UNKNOWN;
+	return is_pack_loaded() ? current_project->type : PackInfo::UNKNOWN;
 }
 String GDRESettings::get_pack_path() const {
-	return is_pack_loaded() ? current_pack->pack_file : "";
-}
-uint32_t GDRESettings::get_pack_format() const {
-	return is_pack_loaded() ? current_pack->fmt_version : 0;
+	return is_pack_loaded() ? current_project->pack_file : "";
 }
 String GDRESettings::get_version_string() const {
-	return has_valid_version() ? current_pack->version->as_text() : String();
+	return has_valid_version() ? current_project->version->as_text() : String();
 }
 uint32_t GDRESettings::get_ver_major() const {
-	return has_valid_version() ? current_pack->version->get_major() : 0;
+	return has_valid_version() ? current_project->version->get_major() : 0;
 }
 uint32_t GDRESettings::get_ver_minor() const {
-	return has_valid_version() ? current_pack->version->get_minor() : 0;
+	return has_valid_version() ? current_project->version->get_minor() : 0;
 }
 uint32_t GDRESettings::get_ver_rev() const {
-	return has_valid_version() ? current_pack->version->get_patch() : 0;
+	return has_valid_version() ? current_project->version->get_patch() : 0;
 }
 uint32_t GDRESettings::get_file_count() const {
 	if (!is_pack_loaded()) {
@@ -312,11 +324,11 @@ uint32_t GDRESettings::get_file_count() const {
 void GDRESettings::set_ver_rev(uint32_t p_rev) {
 	if (is_pack_loaded()) {
 		if (!has_valid_version()) {
-			current_pack->version = Ref<GodotVer>(memnew(GodotVer(0, 0, p_rev)));
+			current_project->version = Ref<GodotVer>(memnew(GodotVer(0, 0, p_rev)));
 		} else {
-			current_pack->version->set_patch(p_rev);
-			if (current_pack->version->get_build_metadata() == "x") {
-				current_pack->version->set_build_metadata("");
+			current_project->version->set_patch(p_rev);
+			if (current_project->version->get_build_metadata() == "x") {
+				current_project->version->set_build_metadata("");
 			}
 		}
 	}
@@ -331,12 +343,12 @@ bool GDRESettings::is_project_config_loaded() const {
 	if (!is_pack_loaded()) {
 		return false;
 	}
-	bool is_loaded = current_pack->pcfg->is_loaded();
+	bool is_loaded = current_project->pcfg->is_loaded();
 	return is_loaded;
 }
 
 void GDRESettings::remove_current_pack() {
-	current_pack = Ref<PackInfo>();
+	current_project = Ref<PackInfo>();
 	packs.clear();
 	file_map.clear();
 	import_files.clear();
@@ -394,7 +406,7 @@ Error GDRESettings::fix_patch_number() {
 			set_ver_rev(1);
 			break;
 		case 0x1ca61a3: // 3.1.beta
-			current_pack->version = GodotVer::parse("3.1.0-beta5");
+			current_project->version = GodotVer::parse("3.1.0-beta5");
 			break;
 		default:
 			ERR_FAIL_COND_V_MSG(true, ERR_CANT_RESOLVE, "Could not determine patch number!");
@@ -433,34 +445,11 @@ Error GDRESettings::load_dir(const String &p_path) {
 	pckinfo.instantiate();
 	pckinfo->init(
 			p_path, Ref<GodotVer>(memnew(GodotVer)), 1, 0, 0, pa.size(), PackInfo::DIR);
-	// Need to get version number from binary resources
-
 	add_pack_info(pckinfo);
-	Error err = get_version_from_bin_resources();
-	err = load_import_files();
-	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Could not load imported binary files!");
-	// this is a catastrophic failure, unload the pack
-	if (err) {
-		unload_pack();
-		ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project directory!");
-	}
-	if (!pack_has_project_config()) {
-		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource directory...");
-	} else {
-		err = load_project_config();
-		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
-	}
-	err = fix_patch_number();
-	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
-		unload_pack();
-		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts!");
-	}
-	load_pack_uid_cache();
 	return OK;
 }
 
 Error GDRESettings::unload_dir() {
-	remove_current_pack();
 	ProjectSettings *settings_singleton = ProjectSettings::get_singleton();
 	GDREPackSettings *new_singleton = static_cast<GDREPackSettings *>(settings_singleton);
 	new_singleton->set_resource_path(gdre_resource_path);
@@ -509,12 +498,33 @@ Error check_embedded(String &p_path) {
 	return OK;
 }
 
-Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
+Error GDRESettings::load_pck(const String &p_path) {
+	// Check if the path is already loaded
+	for (const auto &pack : packs) {
+		if (pack->pack_file == p_path) {
+			return ERR_ALREADY_IN_USE;
+		}
+	}
+	print_line("Opening file: " + p_path);
+	Error err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
+	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
+	return OK;
+}
+
+Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_extract) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
-	String path = p_path;
+	if (p_paths.is_empty()) {
+		ERR_FAIL_V_MSG(ERR_FILE_NOT_FOUND, "No valid paths provided!");
+	}
+	String p_path = p_paths[0];
+	Error err = ERR_CANT_OPEN;
 	if (DirAccess::exists(p_path)) {
+		if (p_paths.size() > 1) {
+			ERR_FAIL_V_MSG(ERR_FILE_NOT_FOUND, "Cannot specify multiple directories!");
+		}
 		// This may be a ".app" bundle, so we need to check if it's a valid Godot app
 		// and if so, load the pck from inside the bundle
 		if (p_path.get_extension().to_lower() == "app") {
@@ -522,66 +532,72 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 			if (DirAccess::exists(resources_path)) {
 				auto list = gdreutil::get_recursive_dir_list(resources_path, { "*.pck" }, true);
 				if (!list.is_empty()) {
-					if (list.size() > 1) {
-						WARN_PRINT("Found multiple pck files in bundle, using first one!!!");
-					}
-					return load_pack(list[0]);
+					return load_project(list);
 				} else {
 					ERR_FAIL_V_MSG(ERR_FILE_NOT_FOUND, "Can't find pck file in .app bundle!");
 				}
 			}
 		}
-		return load_dir(p_path);
-	}
-	print_line("Opening file: " + path);
-	Error err = check_embedded(path);
-	if (err != OK) {
-		String parent_path = path.get_base_dir();
-		if (parent_path.is_empty()) {
-			parent_path = GDRESettings::get_exec_dir();
-		}
-		if (parent_path.get_file().to_lower() == "macos") {
-			// we want to get ../Resources
-			parent_path = parent_path.get_base_dir().path_join("Resources");
-			String pck_path = parent_path.path_join(path.get_file().get_basename() + ".pck");
-			if (FileAccess::exists(pck_path)) {
-				path = pck_path;
-				err = OK;
+		err = load_dir(p_path);
+		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project directory!");
+	} else {
+		for (auto path : p_paths) {
+			print_line("Opening file: " + path);
+			if (check_embedded(path) != OK) {
+				String new_path = path;
+				String parent_path = path.get_base_dir();
+				if (parent_path.is_empty()) {
+					parent_path = GDRESettings::get_exec_dir();
+				}
+				if (parent_path.get_file().to_lower() == "macos") {
+					// we want to get ../Resources
+					parent_path = parent_path.get_base_dir().path_join("Resources");
+					String pck_path = parent_path.path_join(path.get_file().get_basename() + ".pck");
+					if (FileAccess::exists(pck_path)) {
+						new_path = pck_path;
+						err = OK;
+					}
+					if (p_paths.has(new_path)) {
+						// we already tried this path
+						WARN_PRINT("EXE does not have an embedded pck, not loading " + path);
+						continue;
+					}
+				}
+				if (err != OK) {
+					String pck_path = path.get_basename() + ".pck";
+					bool only_1_path = p_paths.size() == 1;
+					bool already_has_path = p_paths.has(pck_path);
+					bool exists = FileAccess::exists(pck_path);
+					if (!only_1_path && (already_has_path || !exists)) {
+						// we already tried this path
+						WARN_PRINT("EXE does not have an embedded pck, not loading " + path);
+						continue;
+					}
+					ERR_FAIL_COND_V_MSG(!exists, err, "Can't find embedded pck file in executable and cannot find pck file in same directory!");
+					new_path = pck_path;
+				}
+				path = new_path;
+				WARN_PRINT("Could not find embedded pck in EXE, found pck file, loading from: " + path);
+			}
+			err = load_pck(path);
+			if (err) {
+				unload_project();
+				ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack file: " + path);
 			}
 		}
-		if (err != OK) {
-			String pck_path = path.get_basename() + ".pck";
-			ERR_FAIL_COND_V_MSG(!FileAccess::exists(pck_path), err, "Can't find embedded pck file in executable and cannot find pck file in same directory!");
-			path = pck_path;
-		}
-		WARN_PRINT("Could not find embedded pck in EXE, found pck file, loading from: " + path);
 	}
-	err = GDREPackedData::get_singleton()->add_pack(path, false, 0);
-	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 	if (_cmd_line_extract) {
 		// we don't want to load the imports and project config if we're just extracting.
 		return OK;
 	}
 
-	if (!has_valid_version()) {
-		// check if this is sonic colors unlimited
-		if (path.get_file().begins_with("sonic")) {
-			// get the other files that are like sonic*.pck
-			Vector<String> sonic_files = Glob::glob(path.get_base_dir().path_join("sonic*.pck"));
-			for (const String &sonic_file : sonic_files) {
-				if (sonic_file.to_lower() != path.to_lower()) {
-					Error err = GDREPackedData::get_singleton()->add_pack(sonic_file, false, 0);
-					if (err) {
-						WARN_PRINT("Failed to load " + sonic_file);
-					}
-				}
-			}
-		}
+	if (need_to_check_version()) {
+		// We need to get the version from the binary resources.
 		err = get_version_from_bin_resources();
 		// this is a catastrophic failure, unload the pack
 		if (err) {
-			unload_pack();
+			unload_project();
 			ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project pack!");
 		}
 	}
@@ -598,7 +614,7 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 
 	err = fix_patch_number();
 	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
-		unload_pack();
+		unload_project();
 		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts, please report this on the GitHub page!");
 	}
 	load_pack_uid_cache();
@@ -668,7 +684,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
 	}
 
-	current_pack->version = GodotVer::create(ver_major, ver_minor, 0);
+	current_project->version = GodotVer::create(ver_major, ver_minor, 0);
 	return OK;
 }
 
@@ -678,10 +694,10 @@ Error GDRESettings::load_project_config() {
 	ERR_FAIL_COND_V_MSG(is_project_config_loaded(), ERR_ALREADY_IN_USE, "Project config is already loaded!");
 	ERR_FAIL_COND_V_MSG(!pack_has_project_config(), ERR_FILE_NOT_FOUND, "Could not find project config!");
 	if (get_ver_major() == 2) {
-		err = current_pack->pcfg->load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
+		err = current_project->pcfg->load_cfb("res://engine.cfb", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	} else if (get_ver_major() == 3 || get_ver_major() == 4) {
-		err = current_pack->pcfg->load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
+		err = current_project->pcfg->load_cfb("res://project.binary", get_ver_major(), get_ver_minor());
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to load project config!");
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED,
@@ -695,16 +711,16 @@ Error GDRESettings::save_project_config(const String &p_out_dir = "") {
 	if (output_dir.is_empty()) {
 		output_dir = project_path;
 	}
-	return current_pack->pcfg->save_cfb(output_dir, get_ver_major(), get_ver_minor());
+	return current_project->pcfg->save_cfb(output_dir, get_ver_major(), get_ver_minor());
 }
 
-Error GDRESettings::unload_pack() {
+Error GDRESettings::unload_project() {
 	if (!is_pack_loaded()) {
 		return ERR_DOES_NOT_EXIST;
 	}
 	reset_uid_cache();
 	if (get_pack_type() == PackInfo::DIR) {
-		return unload_dir();
+		unload_dir();
 	}
 
 	remove_current_pack();
@@ -713,12 +729,16 @@ Error GDRESettings::unload_pack() {
 }
 
 void GDRESettings::add_pack_info(Ref<PackInfo> packinfo) {
+	ERR_FAIL_COND_MSG(!packinfo.is_valid(), "Invalid pack info!");
 	packs.push_back(packinfo);
-	if (!current_pack.is_valid()) { // only set if we don't have a current pack
-		current_pack = packinfo;
+	if (!current_project.is_valid()) { // only set if we don't have a current pack
+		current_project = Ref<ProjectInfo>(memnew(ProjectInfo));
+		current_project->version = packinfo->version;
+		current_project->pack_file = packinfo->pack_file;
+		current_project->type = packinfo->type;
 	} else {
-		if ((!current_pack->version.is_valid() || !current_pack->version->is_valid_semver()) && packinfo->version.is_valid() && packinfo->version->is_valid_semver()) {
-			current_pack = packinfo;
+		if (!current_project->version->eq(packinfo->version)) {
+			WARN_PRINT("Warning: Pack version mismatch!");
 		}
 	}
 }
@@ -981,11 +1001,11 @@ bool GDRESettings::has_any_remaps() const {
 			if (remap_iinfo.size() > 0) {
 				return true;
 			}
-			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("path_remap/remapped_paths")) {
+			if (current_project->pcfg->is_loaded() && current_project->pcfg->has_setting("path_remap/remapped_paths")) {
 				return true;
 			}
 		} else { // version 1-2
-			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
+			if (current_project->pcfg->is_loaded() && current_project->pcfg->has_setting("remap/all")) {
 				return true;
 			}
 		}
@@ -1000,15 +1020,15 @@ Dictionary GDRESettings::get_remaps(bool include_imports) const {
 			for (auto E : remap_iinfo) {
 				ret[E.key] = E.value->get_path();
 			}
-			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("path_remap/remapped_paths")) {
-				PackedStringArray v3remaps = current_pack->pcfg->get_setting("path_remap/remapped_paths", PackedStringArray());
+			if (current_project->pcfg->is_loaded() && current_project->pcfg->has_setting("path_remap/remapped_paths")) {
+				PackedStringArray v3remaps = current_project->pcfg->get_setting("path_remap/remapped_paths", PackedStringArray());
 				for (int i = 0; i < v3remaps.size(); i += 2) {
 					ret[v3remaps[i]] = v3remaps[i + 1];
 				}
 			}
 		} else {
-			if (current_pack->pcfg->is_loaded() && current_pack->pcfg->has_setting("remap/all")) {
-				PackedStringArray v2remaps = current_pack->pcfg->get_setting("remap/all", PackedStringArray());
+			if (current_project->pcfg->is_loaded() && current_project->pcfg->has_setting("remap/all")) {
+				PackedStringArray v2remaps = current_project->pcfg->get_setting("remap/all", PackedStringArray());
 				for (int i = 0; i < v2remaps.size(); i += 2) {
 					ret[v2remaps[i]] = v2remaps[i + 1];
 				}
@@ -1065,8 +1085,8 @@ String GDRESettings::get_remap(const String &src) const {
 			}
 		}
 		String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
-		if (is_project_config_loaded() && current_pack->pcfg->has_setting(setting)) {
-			PackedStringArray remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+		if (is_project_config_loaded() && current_project->pcfg->has_setting(setting)) {
+			PackedStringArray remaps = current_project->pcfg->get_setting(setting, PackedStringArray());
 			int idx = remaps.find(local_src);
 			if (idx != -1 && idx + 1 < remaps.size()) {
 				return remaps[idx + 1];
@@ -1091,8 +1111,8 @@ bool GDRESettings::has_remap(const String &src, const String &dst) const {
 			}
 		}
 		String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
-		if (is_project_config_loaded() && current_pack->pcfg->has_setting(setting)) {
-			return has_old_remap(current_pack->pcfg->get_setting(setting, PackedStringArray()), local_src, local_dst);
+		if (is_project_config_loaded() && current_project->pcfg->has_setting(setting)) {
+			return has_old_remap(current_project->pcfg->get_setting(setting, PackedStringArray()), local_src, local_dst);
 		}
 	}
 	return false;
@@ -1106,7 +1126,7 @@ Error GDRESettings::add_remap(const String &src, const String &dst) {
 	}
 	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), ERR_DATABASE_CANT_READ, "project config not loaded!");
 	String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
-	PackedStringArray v2remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+	PackedStringArray v2remaps = current_project->pcfg->get_setting(setting, PackedStringArray());
 	String local_src = localize_path(src);
 	String local_dst = localize_path(dst);
 	int idx = v2remaps.find(local_src);
@@ -1116,7 +1136,7 @@ Error GDRESettings::add_remap(const String &src, const String &dst) {
 		v2remaps.push_back(local_src);
 		v2remaps.push_back(local_dst);
 	}
-	current_pack->pcfg->set_setting(setting, v2remaps);
+	current_project->pcfg->set_setting(setting, v2remaps);
 	return OK;
 }
 
@@ -1148,17 +1168,17 @@ Error GDRESettings::remove_remap(const String &src, const String &dst, const Str
 		ERR_FAIL_V_MSG(ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
 	}
 	String setting = get_ver_major() < 3 ? "remap/all" : "path_remap/remapped_paths";
-	ERR_FAIL_COND_V_MSG(!current_pack->pcfg->has_setting(setting), ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
-	PackedStringArray v2remaps = current_pack->pcfg->get_setting(setting, PackedStringArray());
+	ERR_FAIL_COND_V_MSG(!current_project->pcfg->has_setting(setting), ERR_DOES_NOT_EXIST, "Remap between" + src + " and " + dst + " does not exist!");
+	PackedStringArray v2remaps = current_project->pcfg->get_setting(setting, PackedStringArray());
 	String local_src = localize_path(src);
 	String local_dst = localize_path(dst);
 	if (has_old_remap(v2remaps, local_src, local_dst)) {
 		v2remaps.erase(local_src);
 		v2remaps.erase(local_dst);
 		if (v2remaps.size()) {
-			err = current_pack->pcfg->set_setting("remap/all", v2remaps);
+			err = current_project->pcfg->set_setting("remap/all", v2remaps);
 		} else {
-			err = current_pack->pcfg->remove_setting("remap/all");
+			err = current_project->pcfg->remove_setting("remap/all");
 		}
 		return err;
 	}
@@ -1171,18 +1191,18 @@ bool GDRESettings::has_project_setting(const String &p_setting) {
 		WARN_PRINT("Attempted to check project setting " + p_setting + ", but no project config loaded");
 		return false;
 	}
-	return current_pack->pcfg->has_setting(p_setting);
+	return current_project->pcfg->has_setting(p_setting);
 }
 
 Variant GDRESettings::get_project_setting(const String &p_setting) {
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), Variant(), "Pack not loaded!");
 	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), Variant(), "project config not loaded!");
-	return current_pack->pcfg->get_setting(p_setting, Variant());
+	return current_project->pcfg->get_setting(p_setting, Variant());
 }
 
 String GDRESettings::get_project_config_path() {
 	ERR_FAIL_COND_V_MSG(!is_project_config_loaded(), String(), "project config not loaded!");
-	return current_pack->pcfg->get_cfg_path();
+	return current_project->pcfg->get_cfg_path();
 }
 
 String GDRESettings::get_log_file_path() {
@@ -1248,7 +1268,7 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 	//"application/config/use_hidden_project_data_directory"
 	if (is_project_config_loaded()) {
 		// if this is set, we want to load the cache from the hidden directory
-		cache_file = current_pack->pcfg->get_setting("application/config/use_hidden_project_data_directory", true) ? cache_file : "res://godot/uid_cache.bin";
+		cache_file = current_project->pcfg->get_setting("application/config/use_hidden_project_data_directory", true) ? cache_file : "res://godot/uid_cache.bin";
 	}
 	Ref<FileAccess> f = FileAccess::open(cache_file, FileAccess::READ);
 
@@ -1464,8 +1484,8 @@ String GDRESettings::get_disclaimer_body() {
 }
 
 void GDRESettings::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("load_pack", "p_path", "cmd_line_extract"), &GDRESettings::load_pack, DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("unload_pack"), &GDRESettings::unload_pack);
+	ClassDB::bind_method(D_METHOD("load_project", "p_paths", "cmd_line_extract"), &GDRESettings::load_project, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("unload_project"), &GDRESettings::unload_project);
 	ClassDB::bind_method(D_METHOD("get_gdre_resource_path"), &GDRESettings::get_gdre_resource_path);
 	ClassDB::bind_method(D_METHOD("get_encryption_key"), &GDRESettings::get_encryption_key);
 	ClassDB::bind_method(D_METHOD("get_encryption_key_string"), &GDRESettings::get_encryption_key_string);
@@ -1480,7 +1500,6 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_pack_type"), &GDRESettings::get_pack_type);
 	ClassDB::bind_method(D_METHOD("get_pack_path"), &GDRESettings::get_pack_path);
-	ClassDB::bind_method(D_METHOD("get_pack_format"), &GDRESettings::get_pack_format);
 	ClassDB::bind_method(D_METHOD("get_version_string"), &GDRESettings::get_version_string);
 	ClassDB::bind_method(D_METHOD("get_ver_major"), &GDRESettings::get_ver_major);
 	ClassDB::bind_method(D_METHOD("get_ver_minor"), &GDRESettings::get_ver_minor);
