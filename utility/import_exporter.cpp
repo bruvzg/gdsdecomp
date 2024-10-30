@@ -264,13 +264,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	Vector<ExportToken> non_multithreaded_tokens;
 	Vector<String> paths_to_export;
 	paths_to_export.resize(_files.size());
+	HashSet<String> files_to_export_set = vector_to_hashset(files_to_export);
 	for (int i = 0; i < _files.size(); i++) {
 		Ref<ImportInfo> iinfo = _files[i];
 		if (partial_export) {
 			auto dest_files = iinfo->get_dest_files();
 			bool has_path = false;
 			for (auto dest : dest_files) {
-				if (files_to_export.has(dest)) {
+				if (files_to_export_set.has(dest)) {
 					has_path = true;
 					break;
 				}
