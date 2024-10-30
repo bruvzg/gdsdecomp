@@ -67,8 +67,6 @@ public:
 			// copy the version, or set it to null if it's invalid
 			if (godot_ver.is_valid() && godot_ver->is_valid_semver()) {
 				version = GodotVer::create(godot_ver->get_major(), godot_ver->get_minor(), godot_ver->get_patch(), godot_ver->get_prerelease(), godot_ver->get_build_metadata());
-			} else {
-				version.instantiate();
 			}
 			fmt_version = fver;
 			pack_flags = flags;
@@ -82,12 +80,29 @@ public:
 		}
 		void set_project_config() {
 		}
+		PackInfo() {
+			version.instantiate();
+			pcfg.instantiate();
+		}
+	};
+	class ProjectInfo : public RefCounted {
+		GDCLASS(ProjectInfo, RefCounted);
+
+	public:
+		Ref<GodotVer> version;
+		Ref<ProjectConfigLoader> pcfg;
+		PackInfo::PackType type = PackInfo::PCK;
+		String pack_file;
+		ProjectInfo() {
+			pcfg.instantiate();
+		}
+		// String project_path;
 	};
 
 private:
 	Vector<Ref<PackInfo>> packs;
 	HashMap<String, Ref<PackedFileInfo>> file_map;
-	Ref<PackInfo> current_pack = Ref<PackInfo>();
+	Ref<ProjectInfo> current_project = Ref<ProjectInfo>();
 	GDREPackedData *gdre_packeddata_singleton = nullptr;
 	GDRELogger *logger;
 	Array import_files;
@@ -135,6 +150,7 @@ private:
 	Error unload_dir();
 	Error fix_patch_number();
 	bool has_valid_version() const;
+	bool need_to_check_version() const;
 	Error load_pack_uid_cache(bool p_reset = false);
 	Error reset_uid_cache();
 
@@ -142,8 +158,10 @@ protected:
 	static void _bind_methods();
 
 public:
-	Error load_pack(const String &p_path, bool cmd_line_extract = false);
-	Error unload_pack();
+	Error load_project(const Vector<String> &p_paths, bool cmd_line_extract = false);
+	Error load_pck(const String &p_path);
+
+	Error unload_project();
 	String get_gdre_resource_path() const;
 
 	Vector<uint8_t> get_encryption_key();
@@ -162,7 +180,6 @@ public:
 	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
 	PackInfo::PackType get_pack_type() const;
 	String get_pack_path() const;
-	uint32_t get_pack_format() const;
 	String get_version_string() const;
 	uint32_t get_ver_major() const;
 	uint32_t get_ver_minor() const;

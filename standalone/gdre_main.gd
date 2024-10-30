@@ -16,7 +16,7 @@ func test_text_to_bin(txt_to_bin: String, output_dir: String):
 func _on_re_editor_standalone_dropped_files(files: PackedStringArray):
 	if files.size() == 0:
 		return
-	$re_editor_standalone.pck_select_request(files[0])
+	$re_editor_standalone.pck_select_request(files)
 
 func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
@@ -124,7 +124,7 @@ func save_config():
 
 func handle_quit(save_cfg = true):
 	if GDRESettings.is_pack_loaded():
-		GDRESettings.unload_pack()
+		GDRESettings.unload_project()
 	if save_cfg:
 		var ret = save_config()
 		if ret != OK and ret != ERR_DOES_NOT_EXIST:
@@ -318,20 +318,32 @@ func normalize_cludes(cludes: PackedStringArray, dir = "res://") -> PackedString
 		new_cludes.append(clude.simplify_path())
 	return new_cludes
 
-func recovery(  input_file:String,
+func recovery(  input_files:PackedStringArray,
 				output_dir:String,
 				enc_key:String,
 				extract_only: bool,
 				ignore_checksum_errors: bool = false,
 				excludes: PackedStringArray = [],
 				includes: PackedStringArray = []):
+	var _new_files = []
+	for file in input_files:
+		file = get_cli_abs_path(file)
+		var _files = Glob.rglob(file)
+		if _files.size() > 0:
+			_new_files.append_array(_files)
+		else:
+			print_usage()
+			print("Error: failed to locate " + file)
+			return
+	print("Input files: ", str(_new_files))
+	input_files = _new_files
+	var input_file = input_files[0]
 	var da:DirAccess
 	var is_dir:bool = false
 	var err: int = OK
 	var parent_dir = "res://"
 	# get the current time
 	var start_time = Time.get_ticks_msec()
-	input_file = get_cli_abs_path(input_file)
 	if output_dir == "":
 		output_dir = input_file.get_basename()
 		if output_dir.get_extension():
@@ -348,6 +360,10 @@ func recovery(  input_file:String,
 		return
 	#directory
 	if da.dir_exists(input_file):
+		if input_files.size() > 1:
+			print_usage()
+			print("Error: cannot specify multiple directories")
+			return
 		if input_file.get_extension().to_lower() == "app":
 			is_dir = false
 		elif !da.dir_exists(input_file.path_join(".import")) && !da.dir_exists(input_file.path_join(".godot")):
@@ -371,10 +387,10 @@ func recovery(  input_file:String,
 			print("Error: failed to set key!")
 			return
 	
-	err = GDRESettings.load_pack(input_file, extract_only)
+	err = GDRESettings.load_project(input_files, extract_only)
 	if (err != OK):
 		print_usage()
-		print("Error: failed to open " + input_file)
+		print("Error: failed to open ", (input_files))
 		return
 
 	print("Successfully loaded PCK!") 
@@ -540,8 +556,8 @@ func bin_to_text(files: PackedStringArray, output_dir: String):
 		importer.convert_res_bin_2_txt(output_dir, file, dst_file)
 
 func handle_cli(args: PackedStringArray) -> bool:
-	var input_extract_file:String = ""
-	var input_file: String = ""
+	var input_extract_file:PackedStringArray = []
+	var input_file:PackedStringArray = []
 	var output_dir: String = ""
 	var enc_key: String = ""
 	var txt_to_bin = PackedStringArray()
@@ -578,10 +594,10 @@ func handle_cli(args: PackedStringArray) -> bool:
 			print_version()
 			return true
 		elif arg.begins_with("--extract"):
-			input_extract_file = get_arg_value(arg).simplify_path()
+			input_extract_file.append(get_arg_value(arg).simplify_path())
 			main_args_cnt += 1
 		elif arg.begins_with("--recover"):
-			input_file = get_arg_value(arg).simplify_path()
+			input_file.append(get_arg_value(arg).simplify_path())
 			main_args_cnt += 1
 		elif arg.begins_with("--txt-to-bin"):
 			txt_to_bin.append(get_arg_value(arg).simplify_path())
@@ -627,13 +643,13 @@ func handle_cli(args: PackedStringArray) -> bool:
 		return true
 	if compile_files.size() > 0:
 		compile(compile_files, bytecode_version, output_dir)
-	elif input_file != "":
+	elif not input_file.is_empty():
 		recovery(input_file, output_dir, enc_key, false, ignore_md5, excludes, includes)
-		GDRESettings.unload_pack()
+		GDRESettings.unload_project()
 		close_log()
-	elif input_extract_file != "":
+	elif not input_extract_file.is_empty():
 		recovery(input_extract_file, output_dir, enc_key, true, ignore_md5, excludes, includes)
-		GDRESettings.unload_pack()
+		GDRESettings.unload_project()
 		close_log()
 	elif txt_to_bin.is_empty() == false:
 		text_to_bin(txt_to_bin, output_dir)
