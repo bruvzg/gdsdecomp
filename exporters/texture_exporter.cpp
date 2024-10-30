@@ -3,6 +3,7 @@
 #include "compat/resource_loader_compat.h"
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
+#include "core/io/file_access.h"
 #include "utility/util_functions.h"
 bool TextureExporter::handles_import(const String &importer, const String &resource_type) const {
 	return importer == "texture" || importer == "bitmap" || resource_type == "BitMap" || resource_type == "CompressedTexture2D" || (resource_type == "Texture2D") || resource_type == "ImageTexture" || resource_type == "StreamTexture" || resource_type == "Texture";
@@ -146,6 +147,38 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 	int ver_major = iinfo->get_ver_major();
 	int ver_minor = iinfo->get_ver_minor();
 	Ref<ExportReport> report = memnew(ExportReport(iinfo));
+
+	// Sonic Colors Unlimited specific hack: We don't support atsc and nx-low formats, so we need to set the path to something else
+	if (ver_major == 3 && ver_minor == 1) {
+		String format_type = path.get_basename().get_extension();
+		Vector<String> banned_types = { "atsc", "nx-low", "atsc-low" };
+		if (banned_types.has(format_type)) {
+			bool found = false;
+			Vector<String> dest_files = iinfo->get_dest_files();
+			if (dest_files.size() > 0) {
+				String new_path = path.get_basename().get_basename() + ".s3tc" + path.get_extension();
+				if (FileAccess::exists(new_path)) {
+					path = new_path;
+					found = true;
+				}
+				if (!found) {
+					for (auto &dest : dest_files) {
+						String fmt = dest.get_basename().get_extension();
+						if (!banned_types.has(format_type) && FileAccess::exists(new_path)) {
+							path = dest;
+							found = true;
+							break;
+						}
+					}
+				}
+			}
+			if (!found) {
+				report->set_error(ERR_UNAVAILABLE);
+				report->set_message("Cannot convert custom SCU texture format");
+				report->set_unsupported_format_type(format_type);
+			}
+		}
+	}
 	// for Godot 2.x resources, we can easily rewrite the metadata to point to a renamed file with a different extension,
 	// but this isn't the case for 3.x and greater, so we have to save in the original (lossy) format.
 	String source_ext = source.get_extension().to_lower();

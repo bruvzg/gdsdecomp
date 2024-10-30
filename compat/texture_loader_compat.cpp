@@ -281,7 +281,8 @@ Error TextureLoaderCompat::load_image_from_fileV3(Ref<FileAccess> f, int tw, int
 			// deprecated format
 			ERR_FAIL_COND_V_MSG(v3_fmt > 0 && v3_fmt < V3Image::FORMAT_MAX, ERR_UNAVAILABLE,
 					"Support for deprecated texture format " + ImageEnumCompat::get_v3_format_name(V3Image::Format(v3_fmt)) + " is unimplemented.");
-			ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Texture is in an invalid format");
+			// TODO: check if this is a custom Sonic Colors Unlimited format
+			ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Texture is in an invalid format: " + itos(v3_fmt));
 		}
 
 		bool mipmaps = df & FORMAT_BIT_HAS_MIPMAPS;
