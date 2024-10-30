@@ -201,6 +201,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	}
 	// TODO: make this use "copy"
 	Array _files = get_settings()->get_import_files();
+	if (_files.size() == 0) {
+		WARN_PRINT("No import files found!");
+		return OK;
+	}
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
 	bool partial_export = files_to_export.size() > 0;
 	if (opt_decompile) {
@@ -315,7 +319,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	int64_t num_multithreaded_tokens = tokens.size();
 	paths_to_export.resize(num_multithreaded_tokens);
 	// ***** Export resources *****
-	if (opt_multi_thread) {
+	if (opt_multi_thread && tokens.size() > 0) {
 		last_completed = -1;
 		cancelled = false;
 		print_line("Exporting resources in parallel...");
@@ -344,7 +348,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		// Always wait for completion; otherwise we leak memory.
 		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
 	}
-	String last_path = tokens[tokens.size() - 1].iinfo->get_path();
 	for (int i = 0; i < non_multithreaded_tokens.size(); i++) {
 		ExportToken &token = non_multithreaded_tokens.write[i];
 		if (pr) {
