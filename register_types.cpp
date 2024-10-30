@@ -5,6 +5,7 @@
 #include "register_types.h"
 #include "core/object/class_db.h"
 #include "modules/regex/regex.h"
+#include "utility/file_access_gdre.h"
 #ifdef TOOLS_ENABLED
 #include "editor/editor_node.h"
 #endif
@@ -196,6 +197,8 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 
 	ClassDB::register_abstract_class<GDScriptDecomp>();
 	register_decomp_versions();
+
+	ClassDB::register_class<FileAccessGDRE>();
 
 	ClassDB::register_class<GodotREEditorStandalone>();
 	ClassDB::register_class<PckDumper>();
