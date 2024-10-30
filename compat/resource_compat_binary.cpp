@@ -3117,6 +3117,24 @@ ResourceInfo ResourceLoaderCompatBinary::get_resource_info() {
 		ERR_FAIL_COND_V_MSG(err, ret, msg);          \
 	}
 
+//	static Error get_ver_major_minor(const String &p_path, uint32_t &r_ver_major, uint32_t &r_ver_minor, bool &r_suspicious);
+
+Error ResourceFormatLoaderCompatBinary::get_ver_major_minor(const String &p_path, uint32_t &r_ver_major, uint32_t &r_ver_minor, bool &r_suspicious) {
+	Error err;
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot open file '" + p_path + "'.");
+	ResourceLoaderCompatBinary loader;
+	String path = p_path;
+	loader.use_sub_threads = false;
+	loader.local_path = GDRESettings::get_singleton()->localize_path(path);
+	loader.res_path = loader.local_path;
+	loader.open(f, false, true);
+	r_ver_major = loader.ver_major;
+	r_ver_minor = loader.ver_minor;
+	r_suspicious = loader.suspect_version;
+	return OK;
+}
+
 ResourceInfo ResourceFormatLoaderCompatBinary::get_resource_info(const String &p_path, Error *r_error) const {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;

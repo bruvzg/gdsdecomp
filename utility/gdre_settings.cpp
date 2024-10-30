@@ -1,5 +1,6 @@
 #include "gdre_settings.h"
 #include "bytecode/bytecode_tester.h"
+#include "compat/resource_compat_binary.h"
 #include "compat/resource_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
@@ -146,42 +147,63 @@ int GDRESettings::get_ver_major_from_dir() {
 		return 4;
 	if (check_if_dir_is_v3())
 		return 3;
-	if (!(FileAccess::exists("res://project.binary") || FileAccess::exists("res://project.godot")) && check_if_dir_is_v2())
-		return 2;
+	bool not_v2 = !check_if_dir_is_v2() || FileAccess::exists("res://project.binary") || FileAccess::exists("res://project.godot");
 
 	// deeper checking; we know it's not v2, so we don't need to check that.
+	HashSet<String> v2exts;
 	HashSet<String> v3exts;
 	HashSet<String> v4exts;
-	auto get_exts_func([&](HashSet<String> &ext, int ver_major) {
+	HashSet<String> v2onlyexts;
+	HashSet<String> v3onlyexts;
+	HashSet<String> v4onlyexts;
+
+	auto get_exts_func([&](HashSet<String> &ext, HashSet<String> &ext2, int ver_major) {
 		List<String> exts;
 		ResourceCompatLoader::get_base_extensions(&exts, ver_major);
 		for (const String &extf : exts) {
 			ext.insert(extf);
+			ext2.insert(extf);
 		}
 	});
-	get_exts_func(v3exts, 3);
-	get_exts_func(v4exts, 4);
+	get_exts_func(v2onlyexts, v2exts, 2);
+	get_exts_func(v3onlyexts, v3exts, 3);
+	get_exts_func(v4onlyexts, v4exts, 4);
 	auto check_func([&](HashSet<String> &exts) {
 		Vector<String> wildcards;
 		for (auto &ext : exts) {
-			wildcards.push_back("res://**/*." + ext);
+			wildcards.push_back("*." + ext);
 		}
-		if (Glob::rglob_list(wildcards).size() > 0) {
+		auto list = get_file_list(wildcards);
+		if (list.size() > 0) {
 			return true;
 		}
 		return false;
 	});
-	for (const String &ext : v3exts) {
-		if (v4exts.has(ext)) {
-			v3exts.erase(ext);
-			v4exts.erase(ext);
+
+	for (const String &ext : v2exts) {
+		if (v4exts.has(ext) || v3exts.has(ext)) {
+			v4onlyexts.erase(ext);
+			v3onlyexts.erase(ext);
+			v2onlyexts.erase(ext);
 		}
 	}
-	if (check_func(v4exts)) {
+
+	for (const String &ext : v3exts) {
+		if (v4exts.has(ext)) {
+			v4onlyexts.erase(ext);
+			v3onlyexts.erase(ext);
+		}
+	}
+	if (check_func(v4onlyexts)) {
 		return 4;
 	}
-	if (check_func(v3exts)) {
+	if (check_func(v3onlyexts)) {
 		return 3;
+	}
+	if (!not_v2) {
+		if (check_func(v2onlyexts)) {
+			return 2;
+		}
 	}
 	return 0;
 }
@@ -407,9 +429,9 @@ Error GDRESettings::load_dir(const String &p_path) {
 	// Need to get version number from binary resources
 
 	add_pack_info(pckinfo);
-	Error err = load_import_files();
+	Error err = get_version_from_bin_resources();
+	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Could not load imported binary files!");
-	err = get_version_from_bin_resources();
 	// this is a catastrophic failure, unload the pack
 	if (err) {
 		unload_pack();
@@ -534,14 +556,7 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 		// we don't want to load the imports and project config if we're just extracting.
 		return OK;
 	}
-	if (!pack_has_project_config()) {
-		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
-	} else if (has_valid_version()) {
-		err = load_project_config();
-		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
-	}
-	err = load_import_files();
-	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
+
 	if (!has_valid_version()) {
 		err = get_version_from_bin_resources();
 		// this is a catastrophic failure, unload the pack
@@ -549,10 +564,18 @@ Error GDRESettings::load_pack(const String &p_path, bool _cmd_line_extract) {
 			unload_pack();
 			ERR_FAIL_V_MSG(err, "FATAL ERROR: Can't determine engine version of project pack!");
 		}
-		if (pack_has_project_config()) {
-			ERR_FAIL_COND_V_MSG(load_project_config(), err, "FATAL ERROR: Can't open project config!");
-		}
 	}
+
+	if (!pack_has_project_config()) {
+		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
+	} else {
+		err = load_project_config();
+		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open project config!");
+	}
+
+	err = load_import_files();
+	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
+
 	err = fix_patch_number();
 	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
 		unload_pack();
@@ -569,25 +592,40 @@ Error GDRESettings::get_version_from_bin_resources() {
 	int ver_minor = 0;
 
 	int i;
-	for (i = 0; i < import_files.size(); i++) {
-		Ref<ImportInfo> iinfo = import_files[i];
-		int _res_ver_major = iinfo->get_ver_major();
-		int _res_ver_minor = iinfo->get_ver_minor();
-		if (consistent_versions == 0) {
-			ver_major = _res_ver_major;
-			ver_minor = _res_ver_minor;
+	int version_from_dir = get_ver_major_from_dir();
+	List<String> exts;
+	ResourceCompatLoader::get_base_extensions(&exts, version_from_dir);
+	Vector<String> wildcards;
+	for (const String &ext : exts) {
+		wildcards.push_back("*." + ext);
+	}
+	Vector<String> files = get_file_list(wildcards);
+	for (i = 0; i < files.size(); i++) {
+		bool suspicious = false;
+		uint32_t res_major = 0;
+		uint32_t res_minor = 0;
+		Error err = ResourceFormatLoaderCompatBinary::get_ver_major_minor(files[i], res_major, res_minor, suspicious);
+		if (err) {
+			continue;
 		}
-		if (ver_major == _res_ver_major && _res_ver_minor == ver_minor) {
+		if (suspicious) {
+			WARN_PRINT_ONCE("Warning: Found suspicious major/minor version, probably Sonic Colors Unlimited...");
+		}
+		if (consistent_versions == 0) {
+			ver_major = res_major;
+			ver_minor = res_minor;
+		}
+		if (ver_major == res_major && res_minor == ver_minor) {
 			consistent_versions++;
 		} else {
-			if (ver_major != _res_ver_major) {
+			if (ver_major != res_major) {
 				WARN_PRINT_ONCE("WARNING!!!!! Inconsistent major versions in binary resources!");
-				if (ver_major < _res_ver_major) {
-					ver_major = _res_ver_major;
-					ver_minor = _res_ver_minor;
+				if (ver_major < res_major) {
+					ver_major = res_major;
+					ver_minor = res_minor;
 				}
-			} else if (ver_minor < _res_ver_minor) {
-				ver_minor = _res_ver_minor;
+			} else if (ver_minor < res_minor) {
+				ver_minor = res_minor;
 			}
 			inconsistent_versions++;
 		}
@@ -598,7 +636,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 	// we somehow didn't get a version major??
 	if (ver_major == 0) {
 		WARN_PRINT("Couldn't determine ver major from binary resources?!");
-		ver_major = get_ver_major_from_dir();
+		ver_major = version_from_dir;
 		ERR_FAIL_COND_V_MSG(ver_major == 0, ERR_CANT_ACQUIRE_RESOURCE, "Can't find version from directory!");
 	}
 
@@ -1248,7 +1286,7 @@ Error GDRESettings::load_import_files() {
 	} else {
 		ERR_FAIL_V_MSG(ERR_BUG, "Can't determine major version!");
 	}
-	code_files = get_file_list({ "*.gdc", "*.gde" });
+	code_files.append_array(get_file_list({ "*.gdc", "*.gde" }));
 	Vector<IInfoToken> tokens;
 	for (int i = 0; i < resource_files.size(); i++) {
 		tokens.push_back({ resource_files[i], nullptr, (int)get_ver_major(), (int)get_ver_minor() });
@@ -1364,7 +1402,9 @@ bool GDRESettings::pack_has_project_config() {
 			return true;
 		}
 	} else {
-		WARN_PRINT("Unsupported godot version " + itos(get_ver_major()) + "...");
+		if (has_res_path("res://engine.cfb") || has_res_path("res://project.binary")) {
+			return true;
+		}
 	}
 	return false;
 }
