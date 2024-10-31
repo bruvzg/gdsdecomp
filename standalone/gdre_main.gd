@@ -76,7 +76,7 @@ func _on_version_check_completed(_result, response_code, _headers, body):
 	var prerelease = json["prerelease"]
 	var curr_version = GDRESettings.get_gdre_version()
 	
-	if draft or prerelease or not is_new_version(checked_version):
+	if draft or (prerelease and not ("-" in curr_version)) or not is_new_version(checked_version):
 		return
 	
 	var update_str = "Update available! Click here! " + curr_version
