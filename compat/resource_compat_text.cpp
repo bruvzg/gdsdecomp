@@ -2225,9 +2225,12 @@ void ResourceFormatSaverCompatTextInstance::_find_resources(const Variant &p_var
 		} break;
 		case Variant::PACKED_BYTE_ARRAY: {
 			// Balance between compatibility and performance.
+			// compat: We should only use the newest format if it was explicitly set or it has PackedVector4Arrays.
+#if 0
 			if (use_compat && p_variant.operator PackedByteArray().size() > 64) {
 				use_compat = false;
 			}
+#endif
 		} break;
 		case Variant::PACKED_VECTOR4_ARRAY: {
 			use_compat = false;
@@ -2325,7 +2328,7 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 	}
 
 	// Save resources.
-	use_compat = true; // _find_resources() changes this.
+	use_compat = format_version < 4; // _find_resources() changes this.
 	_find_resources(p_resource, true);
 	if (!use_compat && format_version >= 3) {
 		format_version = 4;
