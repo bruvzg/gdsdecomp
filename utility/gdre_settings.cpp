@@ -340,7 +340,6 @@ void GDRESettings::remove_current_pack() {
 	packs.clear();
 	file_map.clear();
 	import_files.clear();
-	code_files.clear();
 	remap_iinfo.clear();
 	reset_encryption_key();
 }
@@ -376,7 +375,8 @@ Error GDRESettings::fix_patch_number() {
 	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1 && get_ver_rev() == 0)) {
 		return OK;
 	}
-	auto revision = BytecodeTester::test_files(code_files, get_ver_major(), get_ver_minor());
+	auto bytecode_files = get_file_list({ "*.gdc", "*.gde" });
+	auto revision = BytecodeTester::test_files(bytecode_files, get_ver_major(), get_ver_minor());
 	switch (revision) {
 		case 0xed80f45: // 2.1.{3-6}
 			set_ver_rev(6);
@@ -1360,7 +1360,6 @@ Error GDRESettings::load_import_files() {
 	} else {
 		ERR_FAIL_V_MSG(ERR_BUG, "Can't determine major version!");
 	}
-	code_files.append_array(get_file_list({ "*.gdc", "*.gde" }));
 	Vector<IInfoToken> tokens;
 	for (int i = 0; i < resource_files.size(); i++) {
 		tokens.push_back({ resource_files[i], nullptr, (int)get_ver_major(), (int)get_ver_minor() });
@@ -1463,7 +1462,7 @@ Ref<ImportInfo> GDRESettings::get_import_info_by_dest(const String &p_path) {
 }
 
 Vector<String> GDRESettings::get_code_files() {
-	return code_files;
+	return get_file_list({ "*.gdc", "*.gde" });
 }
 
 bool GDRESettings::pack_has_project_config() {
