@@ -150,9 +150,10 @@ private:
 	Error unload_dir();
 	Error fix_patch_number();
 	bool has_valid_version() const;
-	bool need_to_check_version() const;
 	Error load_pack_uid_cache(bool p_reset = false);
 	Error reset_uid_cache();
+
+	static bool need_correct_patch(int ver_major, int ver_minor);
 
 protected:
 	static void _bind_methods();

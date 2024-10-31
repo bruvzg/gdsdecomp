@@ -192,6 +192,7 @@ public:
 	virtual String get_engine_version() const = 0;
 	virtual String get_max_engine_version() const = 0;
 	Ref<GodotVer> get_godot_ver() const;
+	Ref<GodotVer> get_max_godot_ver() const;
 
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);

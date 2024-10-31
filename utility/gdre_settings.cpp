@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+#include "bytecode/bytecode_base.h"
 #include "bytecode/bytecode_tester.h"
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_loader_compat.h"
@@ -25,6 +26,7 @@
 #include "modules/regex/regex.h"
 #include "servers/rendering_server.h"
 #include "utility/glob.h"
+#include <sys/types.h>
 
 #if defined(WINDOWS_ENABLED)
 #include <windows.h>
@@ -278,20 +280,6 @@ bool GDRESettings::has_valid_version() const {
 	return is_pack_loaded() && current_project->version.is_valid() && current_project->version->is_valid_semver();
 }
 
-bool GDRESettings::need_to_check_version() const {
-	if (!is_pack_loaded() || (!has_valid_version())) {
-		return true;
-	}
-	if (current_project->type == PackInfo::DIR) {
-		return true;
-	}
-	auto maj = current_project->version->get_major();
-	auto min = current_project->version->get_minor();
-	if ((maj == 3 || maj == 2) && min == 1) {
-		return true;
-	}
-	return false;
-}
 GDRESettings::PackInfo::PackType GDRESettings::get_pack_type() const {
 	return is_pack_loaded() ? current_project->type : PackInfo::UNKNOWN;
 }
@@ -385,7 +373,7 @@ Error GDRESettings::fix_patch_number() {
 		return OK;
 	}
 	// This is only implemented for 3.1 and 2.1; they started writing the correct patch number to the pck in 3.2
-	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1)) {
+	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1 && get_ver_rev() == 0)) {
 		return OK;
 	}
 	auto revision = BytecodeTester::test_files(code_files, get_ver_major(), get_ver_minor());
@@ -532,7 +520,7 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 			if (DirAccess::exists(resources_path)) {
 				auto list = gdreutil::get_recursive_dir_list(resources_path, { "*.pck" }, true);
 				if (!list.is_empty()) {
-					return load_project(list);
+					return load_project(list, _cmd_line_extract);
 				} else {
 					ERR_FAIL_V_MSG(ERR_FILE_NOT_FOUND, "Can't find pck file in .app bundle!");
 				}
@@ -592,7 +580,7 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 		return OK;
 	}
 
-	if (need_to_check_version()) {
+	if (!has_valid_version()) {
 		// We need to get the version from the binary resources.
 		err = get_version_from_bin_resources();
 		// this is a catastrophic failure, unload the pack
@@ -629,6 +617,38 @@ Error GDRESettings::get_version_from_bin_resources() {
 
 	int i;
 	int version_from_dir = get_ver_major_from_dir();
+
+	// only test the bytecode on non-encrypted 3.x files
+	Vector<String> bytecode_files = get_file_list({ "*.gdc" });
+	Vector<Ref<GDScriptDecomp>> decomps;
+
+	auto check_if_same_minor_major = [&](Ref<GodotVer> version, Ref<GodotVer> max_ver) {
+		if (!(max_ver->get_major() == version->get_major() && max_ver->get_minor() == version->get_minor())) {
+			return false;
+		}
+		return true;
+	};
+
+	auto do_thing = [&]() {
+		if (decomps.size() == 1) {
+			auto version = decomps[0]->get_godot_ver();
+			auto max_version = decomps[0]->get_max_godot_ver();
+			if (version->get_major() != 4 && (max_version.is_null() || check_if_same_minor_major(version, max_version))) {
+				current_project->version = max_version.is_valid() ? max_version : version;
+				return true;
+			}
+		}
+		return false;
+	};
+
+	if (!bytecode_files.is_empty()) {
+		decomps = BytecodeTester::get_possible_decomps(bytecode_files);
+		ERR_FAIL_COND_V_MSG(decomps.is_empty(), ERR_FILE_NOT_FOUND, "Cannot determine version from bin resources: decomp testing failed!");
+		if (do_thing()) {
+			return OK;
+		}
+	}
+
 	List<String> exts;
 	ResourceCompatLoader::get_base_extensions(&exts, version_from_dir);
 	Vector<String> wildcards;
@@ -685,7 +705,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 	}
 
 	current_project->version = GodotVer::create(ver_major, ver_minor, 0);
-	return OK;
+	return fix_patch_number();
 }
 
 Error GDRESettings::load_project_config() {
