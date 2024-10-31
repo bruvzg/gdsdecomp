@@ -106,7 +106,6 @@ private:
 	GDREPackedData *gdre_packeddata_singleton = nullptr;
 	GDRELogger *logger;
 	Array import_files;
-	Vector<String> code_files;
 	HashMap<String, Ref<ImportInfoRemap>> remap_iinfo;
 	String gdre_resource_path = "";
 
