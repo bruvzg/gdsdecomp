@@ -222,14 +222,14 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else {
 			to_decompile = code_files;
 		}
-
+		bool has_non_compiled_scripts = Glob::rglob("res://addons/**/*.gd", true).size() > 0;
 		// check if res://addons exists
 		Ref<DirAccess> res_da = DirAccess::open("res://");
 		Vector<String> addon_first_level_dirs = Glob::glob("res://addons/*", true);
 		if (res_da->dir_exists("res://addons")) {
 			// Only recreate plugin configs if we are exporting files within the addons directory
 			if (files_to_export.size() != 0) {
-				Vector<String> addon_code_files = Glob::rglob_list({ "res://addons/**/*.gdc", "res://addons/**/*.gde", "res://addons/**/*.gd" });
+				Vector<String> addon_code_files = Glob::rglob_list({ "res://addons/**/*.gdc", "res://addons/**/*.gde" });
 				addon_first_level_dirs = Glob::dirs_in_names(files_to_export, addon_first_level_dirs);
 				auto new_code_files = Glob::names_in_dirs(addon_code_files, addon_first_level_dirs);
 				for (auto &code_file : new_code_files) {
@@ -240,7 +240,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 			// we need to copy the addons to the output directory
 		}
-		if (to_decompile.size() > 0) {
+		if (has_non_compiled_scripts || to_decompile.size() > 0) {
 			decompile_scripts(output_dir, to_decompile);
 			// This only works if we decompile the scripts first
 			recreate_plugin_configs(output_dir, addon_first_level_dirs);
