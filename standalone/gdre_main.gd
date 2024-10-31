@@ -60,6 +60,9 @@ func is_new_version(new_version: String):
 	var curr_semver = SemVer.parse_semver(curr_version)
 	var new_semver = SemVer.parse_semver(new_version)
 	if curr_semver == null or new_semver == null:
+		print("Error: invalid semver format")
+		print("Current version: " + curr_version)
+		print("New version: " + new_version)
 		return false
 	if new_semver.gt(curr_semver):
 		return true

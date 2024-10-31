@@ -96,12 +96,10 @@ def write_version_header():
                         prerelease_tag = f"{prerelease_name}.{prerelease_num}"
                     else:
                         prerelease_tag += ".1"
-                    new_version_info = f"{major}.{minor}.{patch}-{prerelease_tag}+{dev_stuff}"
+                    new_version_info = f"{major}.{minor}.{patch}-{prerelease_tag}+{dev_stuff.replace('+', '-')}"
                 else:
                     patch = str(int(patch) + 1) if patch.isdigit() else 0
                     new_version_info = f"{major}.{minor}.{patch}-{dev_stuff}"
-                if build_metadata:
-                    new_version_info += "+" + build_metadata
                 version_info = new_version_info
             else:
                 version_info = res
