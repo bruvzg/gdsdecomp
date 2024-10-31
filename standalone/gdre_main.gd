@@ -565,8 +565,6 @@ func handle_cli(args: PackedStringArray) -> bool:
 	var ignore_md5: bool = false
 	var compile_files = PackedStringArray()
 	var bytecode_version: String = ""
-	var main_args_cnt = 0
-	var compile_cnt = 0
 	var main_cmds = {}
 	var excludes: PackedStringArray = []
 	var includes: PackedStringArray = []
