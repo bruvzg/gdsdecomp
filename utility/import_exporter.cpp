@@ -263,7 +263,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	Vector<ExportToken> tokens;
 	Vector<ExportToken> non_multithreaded_tokens;
 	Vector<String> paths_to_export;
-	paths_to_export.resize(_files.size());
 	HashSet<String> files_to_export_set = vector_to_hashset(files_to_export);
 	for (int i = 0; i < _files.size(); i++) {
 		Ref<ImportInfo> iinfo = _files[i];
@@ -310,7 +309,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		} else {
 			supports_multithreading = false;
 		}
-		paths_to_export.write[i] = iinfo->get_path();
+		paths_to_export.push_back(iinfo->get_path());
 		if (supports_multithreading) {
 			tokens.push_back({ iinfo, nullptr, output_dir, supports_multithreading, opt_rewrite_imd_v2, opt_rewrite_imd_v3, opt_write_md5_files });
 		} else {
@@ -318,7 +317,6 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		}
 	}
 	int64_t num_multithreaded_tokens = tokens.size();
-	paths_to_export.resize(num_multithreaded_tokens);
 	// ***** Export resources *****
 	if (opt_multi_thread && tokens.size() > 0) {
 		last_completed = -1;
