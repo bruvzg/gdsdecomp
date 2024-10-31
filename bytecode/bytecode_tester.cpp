@@ -1,4 +1,5 @@
 #include "bytecode/bytecode_tester.h"
+#include "bytecode/bytecode_base.h"
 #include "bytecode/bytecode_versions.h"
 #include "core/io/file_access.h"
 #include "utility/gdre_settings.h"
@@ -145,72 +146,38 @@ built-in func divergence for bytecode version 13 (3.1.x only)
 // TODO: add this
 */
 
-uint64_t generic_test(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major_hint, int ver_minor_hint, bool include_dev = false) {
-	ERR_FAIL_COND_V_MSG(p_paths.size() == 0, 0, "No files to test");
-	int detected_bytecode_version;
-	if (p_key.size() > 0) {
-		if (ver_major_hint >= 0 && ver_major_hint < 3) {
-			ERR_FAIL_V_MSG(0, "Encrypted scripts were not supported in Godot 1.x or 2.x.");
-		} else {
-			detected_bytecode_version = GDScriptDecomp::read_bytecode_version_encrypted(p_paths[0], ver_major_hint <= 0 ? 3 : ver_major_hint, p_key);
-			ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, 0, "Failed to detect bytecode version for encrypted script (did you set the correct key?):" + p_paths[0]);
-		}
-	} else {
-		detected_bytecode_version = GDScriptDecomp::read_bytecode_version(p_paths[0]);
+int get_bytecode_version(Vector<String> bytecode_files) {
+	int bytecode_version = 0;
+	if (bytecode_files.size() == 0) {
+		ERR_FAIL_V_MSG({}, "No bytecode files provided.");
 	}
-	ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, 0, "Failed to detect bytecode version for script " + p_paths[0]);
-
-	Vector<Ref<GDScriptDecomp>> decomp_versions = get_decomps_for_bytecode_ver(detected_bytecode_version, include_dev);
-	Vector<int> passed_versions;
-	for (String path : p_paths) {
-		Vector<uint8_t> data;
-		Vector<int> failed_version_idxs;
-		if (p_key.size() > 0) {
-			// We should never have scripts with bytecodes of differing versions in the same project.
-			ERR_FAIL_COND_V_MSG(
-					detected_bytecode_version != GDScriptDecomp::read_bytecode_version_encrypted(path, ver_major_hint <= 0 ? 3 : ver_major_hint, p_key),
-					0, "Detected bytecode version mismatch for script " + path);
-			Error err = GDScriptDecomp::get_buffer_encrypted(path, ver_major_hint <= 0 ? 3 : ver_major_hint, p_key, data);
-			ERR_FAIL_COND_V_MSG(err == ERR_UNAUTHORIZED, 0, "Failed to decrypt file " + path + " (Did you set the correct key?)");
-			ERR_FAIL_COND_V_MSG(err != OK, 0, "Failed to read file " + path);
+	for (const String &file : bytecode_files) {
+		int this_ver = 0;
+		if (file.get_extension().to_lower() == "gde") {
+			this_ver = GDScriptDecomp::read_bytecode_version_encrypted(file, 3, GDRESettings::get_singleton()->get_encryption_key());
 		} else {
-			ERR_FAIL_COND_V_MSG(detected_bytecode_version != GDScriptDecomp::read_bytecode_version(path), 0, "Detected bytecode version mismatch for script " + path);
-			data = FileAccess::get_file_as_bytes(path);
+			this_ver = GDScriptDecomp::read_bytecode_version(file);
 		}
-		if (data.size() == 0) {
-			WARN_PRINT("File is empty: " + path);
+		if (this_ver == -1) {
+			WARN_PRINT("Could not read bytecode version from file: " + file);
 			continue;
 		}
-		for (int i = 0; i < decomp_versions.size(); i++) {
-			auto test_result = decomp_versions[i]->test_bytecode(data);
-			switch (test_result) {
-				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_FAIL: {
-					failed_version_idxs.push_back(i);
-				} break;
-				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_PASS: {
-					if (passed_versions.has(i)) {
-						break;
-					}
-					passed_versions.push_back(decomp_versions[i]->get_bytecode_rev());
-				} break;
-				case GDScriptDecomp::BytecodeTestResult::BYTECODE_TEST_CORRUPT: {
-					WARN_PRINT("BYTECODE_TEST_CORRUPT test result for " + vformat("%07x", decomp_versions[i]->get_bytecode_rev()) + ", script " + path);
-					failed_version_idxs.push_back(i);
-				} break;
-				default:
-					break;
-			}
-		}
-		failed_version_idxs.sort();
-		// remove failed versions from the list in reverse order
-		for (int i = failed_version_idxs.size() - 1; i >= 0; i--) {
-			decomp_versions.remove_at(failed_version_idxs[i]);
-		}
-		failed_version_idxs.clear();
-		if (decomp_versions.size() == 0) {
-			break;
+		if (bytecode_version == 0) {
+			bytecode_version = this_ver;
+		} else if (this_ver != bytecode_version) {
+			// Hell no.
+			return -1;
 		}
 	}
+	return bytecode_version;
+}
+
+uint64_t generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool include_dev = false) {
+	int detected_bytecode_version = get_bytecode_version(p_paths);
+	ERR_FAIL_COND_V_MSG(detected_bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
+	ERR_FAIL_COND_V_MSG(detected_bytecode_version == 0, {}, "Could not read bytecode version from files.");
+
+	Vector<Ref<GDScriptDecomp>> decomp_versions = BytecodeTester::get_possible_decomps(p_paths, include_dev);
 	if (decomp_versions.size() == 1) {
 		// easy
 		return decomp_versions[0]->get_bytecode_rev();
@@ -218,74 +185,18 @@ uint64_t generic_test(const Vector<String> &p_paths, const Vector<uint8_t> &p_ke
 	if (decomp_versions.size() == 0) {
 		if (!include_dev) {
 			// try again with the dev versions
-			return generic_test(p_paths, p_key, ver_major_hint, ver_minor_hint, true);
+			return generic_test(p_paths, ver_major_hint, ver_minor_hint, true);
 		}
 		// else fail
 		ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", please report this issue on GitHub.");
 	}
-	// otherwise, we have more than 1.
-	if (passed_versions.size() == 1) {
-		// only one version passed, so we'll use that
-		return passed_versions[0];
-	}
 
 	// otherwise...
-	Vector<int> candidates;
-	if (ver_major_hint > 0 && ver_minor_hint <= 0) {
-		for (int i = 0; i < decomp_versions.size(); i++) {
-			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
-				int rev = decomp_versions[i]->get_bytecode_rev();
-				if (!passed_versions.is_empty()) {
-					if (passed_versions.has(rev)) {
-						candidates.push_back(rev);
-					}
-				} else {
-					candidates.push_back(rev);
-				}
-			}
-		}
-	} else if (ver_major_hint > 0 && ver_minor_hint > 0) {
-		for (int i = 0; i < decomp_versions.size(); i++) {
-			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
-				bool good = false;
-				if (decomp_versions[i]->get_max_engine_version() != "") {
-					Ref<GodotVer> min_ver = GodotVer::parse(decomp_versions[i]->get_engine_version());
-					Ref<GodotVer> max_ver = GodotVer::parse(decomp_versions[i]->get_max_engine_version());
-					if (max_ver->get_minor() >= ver_minor_hint && min_ver->get_minor() <= ver_minor_hint) {
-						good = true;
-					}
-				} else {
-					Ref<GodotVer> ver = memnew(GodotVer(decomp_versions[i]->get_engine_version()));
-					if (ver->get_minor() == ver_minor_hint) {
-						good = true;
-					}
-				}
-				if (good) {
-					int rev = decomp_versions[i]->get_bytecode_rev();
-					if (!passed_versions.is_empty()) {
-						if (passed_versions.has(rev)) {
-							candidates.push_back(rev);
-						}
-					} else {
-						candidates.push_back(rev);
-					}
-				}
-			}
-		}
-	} else {
-		// no version hint
-		for (int i = 0; i < decomp_versions.size(); i++) {
-			candidates.push_back(decomp_versions[i]->get_bytecode_rev());
-		}
-	}
-	ERR_FAIL_COND_V_MSG(candidates.is_empty(), 0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", please report this issue on GitHub.");
-	if (candidates.size() == 1) {
-		return candidates[0];
-	}
+	auto candidates = BytecodeTester::filter_decomps(decomp_versions, ver_major_hint, ver_minor_hint);
 	// otherwise, we have multiple candidates, fail with an error message that contains the candidates
 	String candidates_str;
 	for (int i = 0; i < candidates.size(); i++) {
-		candidates_str += vformat("%07x", candidates[i]);
+		candidates_str += vformat("%07x", candidates[i]->get_bytecode_rev());
 		if (i < candidates.size() - 1) {
 			candidates_str += ", ";
 		}
@@ -404,7 +315,7 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 		}
 		if (rev == 0) {
 			// try it with the dev versions.
-			return generic_test(p_paths, Vector<uint8_t>(), 2, 1, true);
+			return generic_test(p_paths, 2, 1, true);
 		}
 	}
 	return rev;
@@ -533,7 +444,7 @@ uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_
 			rev = 0x1ca61a3;
 		} else {
 			// Try it with the dev versions.
-			return generic_test(p_paths, p_key, 3, 1, true);
+			return generic_test(p_paths, 3, 1, true);
 		}
 	}
 
@@ -553,20 +464,85 @@ uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major
 	} else if (ver_major_hint == 2 && ver_minor_hint == 1) {
 		rev = test_files_2_1(p_paths);
 	} else {
-		rev = generic_test(p_paths, key, ver_major_hint, ver_minor_hint);
+		rev = generic_test(p_paths, ver_major_hint, ver_minor_hint);
 	}
 	return rev;
 }
 
-uint64_t BytecodeTester::test_files_encrypted(const Vector<String> &p_paths, const Vector<uint8_t> &p_key, int ver_major_hint, int ver_minor_hint) {
-	uint64_t rev = 0;
-	if (ver_major_hint > 0 && ver_major_hint <= 2) {
-		// 1-2 didn't have encrypted scripts....???
-		ERR_FAIL_V_MSG(0, "Encrypted scripts were not supported in Godot 1.x or 2.x.");
-	} else if (ver_major_hint == 3 && ver_minor_hint == 1) {
-		return test_files_3_1(p_paths, p_key);
-	} else {
-		return generic_test(p_paths, p_key, ver_major_hint, ver_minor_hint);
+Vector<Ref<GDScriptDecomp>> get_possibles_from_set(const Vector<String> &bytecode_files, const Vector<Ref<GDScriptDecomp>> &decomps) {
+	Vector<Ref<GDScriptDecomp>> passed;
+	for (const auto &decomp : decomps) {
+		bool failed = false;
+		for (const String &file : bytecode_files) {
+			Vector<uint8_t> buffer;
+			if (file.get_extension().to_lower() == "gde") {
+				Error err = GDScriptDecomp::get_buffer_encrypted(file, 3, GDRESettings::get_singleton()->get_encryption_key(), buffer);
+				if (err) {
+					WARN_PRINT("Could not read encrypted bytecode file: " + file);
+					continue;
+				}
+			} else {
+				buffer = FileAccess::get_file_as_bytes(file);
+				if (buffer.size() == 0) {
+					WARN_PRINT("Could not read bytecode file: " + file);
+					continue;
+				}
+			}
+			auto result = decomp->test_bytecode(buffer);
+			if (result == GDScriptDecomp::BYTECODE_TEST_FAIL || result == GDScriptDecomp::BYTECODE_TEST_CORRUPT) {
+				failed = true;
+				break;
+			}
+		}
+		if (!failed) {
+			passed.append(decomp);
+		}
 	}
-	return rev;
+	return passed;
+}
+
+Vector<Ref<GDScriptDecomp>> BytecodeTester::get_possible_decomps(Vector<String> bytecode_files, bool include_dev) {
+	int bytecode_version = get_bytecode_version(bytecode_files);
+	ERR_FAIL_COND_V_MSG(bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
+	ERR_FAIL_COND_V_MSG(bytecode_version == 0, {}, "Could not read bytecode version from files.");
+	auto decomps = get_decomps_for_bytecode_ver(bytecode_version, include_dev);
+	return get_possibles_from_set(bytecode_files, decomps);
+}
+
+Vector<Ref<GDScriptDecomp>> BytecodeTester::filter_decomps(const Vector<Ref<GDScriptDecomp>> &decomp_versions, int ver_major_hint, int ver_minor_hint) {
+	Vector<Ref<GDScriptDecomp>> candidates;
+	if (ver_major_hint > 0 && ver_minor_hint < 0) {
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
+				candidates.push_back(decomp_versions[i]);
+			}
+		}
+	} else if (ver_major_hint > 0 && ver_minor_hint >= 0) {
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			if (decomp_versions[i]->get_engine_ver_major() == ver_major_hint) {
+				bool good = false;
+				if (decomp_versions[i]->get_max_engine_version() != "") {
+					Ref<GodotVer> min_ver = GodotVer::parse(decomp_versions[i]->get_engine_version());
+					Ref<GodotVer> max_ver = GodotVer::parse(decomp_versions[i]->get_max_engine_version());
+					if (max_ver->get_minor() >= ver_minor_hint && min_ver->get_minor() <= ver_minor_hint) {
+						good = true;
+					}
+				} else {
+					Ref<GodotVer> ver = memnew(GodotVer(decomp_versions[i]->get_engine_version()));
+					if (ver->get_minor() == ver_minor_hint) {
+						good = true;
+					}
+				}
+				if (good) {
+					candidates.push_back(decomp_versions[i]);
+				}
+			}
+		}
+	} else {
+		// no version hint
+		for (int i = 0; i < decomp_versions.size(); i++) {
+			candidates.push_back(decomp_versions[i]);
+		}
+	}
+	return candidates;
 }

@@ -1458,6 +1458,13 @@ bool GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens
 Ref<GodotVer> GDScriptDecomp::get_godot_ver() const {
 	return GodotVer::parse(get_engine_version());
 }
+Ref<GodotVer> GDScriptDecomp::get_max_godot_ver() const {
+	auto max_ver = get_max_engine_version();
+	if (max_ver.is_empty()) {
+		return nullptr;
+	}
+	return GodotVer::parse(max_ver);
+}
 
 Vector<String> GDScriptDecomp::get_compile_errors(const Vector<uint8_t> &p_buffer) {
 	Vector<StringName> identifiers;
