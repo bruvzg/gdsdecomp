@@ -567,6 +567,7 @@ func handle_cli(args: PackedStringArray) -> bool:
 	var bytecode_version: String = ""
 	var main_args_cnt = 0
 	var compile_cnt = 0
+	var main_cmds = {}
 	var excludes: PackedStringArray = []
 	var includes: PackedStringArray = []
 	if (args.size() == 0):
@@ -595,14 +596,16 @@ func handle_cli(args: PackedStringArray) -> bool:
 			return true
 		elif arg.begins_with("--extract"):
 			input_extract_file.append(get_arg_value(arg).simplify_path())
-			main_args_cnt += 1
+			main_cmds["extract"] = true
 		elif arg.begins_with("--recover"):
 			input_file.append(get_arg_value(arg).simplify_path())
-			main_args_cnt += 1
+			main_cmds["recover"] = true
 		elif arg.begins_with("--txt-to-bin"):
 			txt_to_bin.append(get_arg_value(arg).simplify_path())
+			main_cmds["txt-to-bin"] = true
 		elif arg.begins_with("--bin-to-txt"):
 			bin_to_txt.append(get_arg_value(arg).simplify_path())
+			main_cmds["bin-to-txt"] = true
 		elif arg.begins_with("--output-dir"):
 			output_dir = get_arg_value(arg).simplify_path()
 		elif arg.begins_with("--scripts-only"):
@@ -622,8 +625,7 @@ func handle_cli(args: PackedStringArray) -> bool:
 		elif arg.begins_with("--bytecode"):
 			bytecode_version = get_arg_value(arg)
 		elif arg.begins_with("--compile"):
-			if compile_files.size() == 0:
-				main_args_cnt += 1
+			main_cmds["compile"] = true
 			compile_files.append(get_arg_value(arg))
 		elif arg.begins_with("--exclude"):
 			excludes.append(get_arg_value(arg))
@@ -637,7 +639,7 @@ func handle_cli(args: PackedStringArray) -> bool:
 			print_usage()
 			print(last_error)
 			return true
-	if main_args_cnt > 1:
+	if main_cmds.size() > 1:
 		print_usage()
 		print("ERROR: invalid option! Must specify only one of " + ", ".join(MAIN_COMMANDS))
 		return true
