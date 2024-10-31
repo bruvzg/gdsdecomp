@@ -90,7 +90,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 			}
 		} else {
 			// We have a real translation class, get the keys
-			if (locale == default_locale) {
+			if (locale.to_lower() == default_locale.to_lower()) {
 				List<StringName> key_list;
 				tr->get_message_list(&key_list);
 				for (auto key : key_list) {
@@ -103,7 +103,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 				messages.push_back(values[i]);
 			}
 		}
-		if (locale == default_locale) {
+		if (locale.to_lower() == default_locale.to_lower()) {
 			default_messages = messages;
 			default_translation = tr;
 		}
