@@ -1,4 +1,5 @@
 #include "utility/common.h"
+#include "core/error/error_list.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/image.h"
@@ -65,13 +66,14 @@ public:
 Error gdre::save_image_as_tga(const String &p_path, const Ref<Image> &p_img) {
 	Vector<uint8_t> buffer;
 	Ref<Image> source_image = p_img->duplicate();
-
+	Error err = OK;
 	if (source_image->is_compressed()) {
-		source_image->decompress();
+		err = source_image->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
 	}
-
-	ERR_FAIL_COND_V(source_image->is_compressed(), FAILED);
-
 	int width = source_image->get_width();
 	int height = source_image->get_height();
 	bool isRGB = true;
@@ -124,4 +126,44 @@ Error gdre::save_image_as_tga(const String &p_path, const Ref<Image> &p_img) {
 	encoder.writeImage(header, tga_image);
 	encoder.writeFooter();
 	return OK;
+}
+
+Error gdre::save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy) {
+	Ref<Image> source_image = p_img->duplicate();
+	Error err = OK;
+	if (source_image->is_compressed()) {
+		err = source_image->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
+	}
+	Vector<uint8_t> buffer;
+	if (lossy) {
+		buffer = Image::webp_lossy_packer(source_image, 1);
+	} else {
+		buffer = Image::webp_lossless_packer(source_image);
+	}
+	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE, &err);
+	ERR_FAIL_COND_V_MSG(err, err, vformat("Can't save WEBP at path: '%s'.", p_path));
+
+	file->store_buffer(buffer.ptr(), buffer.size());
+	if (file->get_error() != OK && file->get_error() != ERR_FILE_EOF) {
+		return ERR_CANT_CREATE;
+	}
+	return OK;
+}
+
+Error gdre::save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
+	Vector<uint8_t> buffer;
+	Ref<Image> source_image = p_img->duplicate();
+	Error err = OK;
+	if (source_image->is_compressed()) {
+		err = source_image->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
+	}
+	return source_image->save_jpg(p_path, 1.0f);
 }
