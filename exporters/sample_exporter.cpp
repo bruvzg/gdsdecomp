@@ -233,7 +233,8 @@ Error SampleExporter::_export_file(const String &out_path, const String &res_pat
 	}
 	err = gdre::ensure_dir(out_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + out_path);
-	err = sample->save_to_wav(out_path);
+	// for some godforsaken reason, if the extension is capitalized, the wav saver will add a '.wav' to the end of the file, so we need to lowercase it
+	err = sample->save_to_wav(out_path.get_basename() + "." + out_path.get_extension().to_lower());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not save " + out_path);
 
 	return converted ? ERR_PRINTER_ON_FIRE : OK;
