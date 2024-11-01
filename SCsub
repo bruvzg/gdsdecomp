@@ -139,5 +139,4 @@ env_gdsdecomp.add_source_files(env.modules_sources, "editor/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "exporters/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "utility/*.cpp")
 
-env_gdsdecomp.add_source_files(env.modules_sources, "external/toojpeg/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "external/tga/*.cpp")

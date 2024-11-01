@@ -802,7 +802,9 @@ Error ImportInfoModern::save_md5_file(const String &output_dir) {
 	if (src_md5.is_empty()) {
 		String src_path = export_dest.is_empty() ? get_source_file() : export_dest;
 		src_md5 = FileAccess::get_md5(output_dir.path_join(src_path.replace_first("res://", "")));
-		ERR_FAIL_COND_V_MSG(src_md5.is_empty(), ERR_FILE_BAD_PATH, "Can't open exported resource to check md5!");
+		if (src_md5.is_empty()) {
+			ERR_FAIL_COND_V_MSG(src_md5.is_empty(), ERR_FILE_BAD_PATH, "Can't open exported resource to check md5!");
+		}
 	}
 	Ref<FileAccess> md5_file = FileAccess::open(md5_file_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(md5_file.is_null(), ERR_FILE_CANT_OPEN, "Can't open exported resource to check md5!");

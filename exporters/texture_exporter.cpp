@@ -68,9 +68,9 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
-		err = gdreutil::save_image_as_jpeg(dest_path, img);
+		err = gdre::save_image_as_jpeg(dest_path, img);
 	} else if (dest_ext == "webp") {
-		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
+		err = gdre::save_image_as_webp(dest_path, img, lossy);
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
 	} else {
@@ -115,9 +115,9 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 	}
 	String dest_ext = dest_path.get_extension().to_lower();
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
-		err = gdreutil::save_image_as_jpeg(dest_path, img);
+		err = gdre::save_image_as_jpeg(dest_path, img);
 	} else if (dest_ext == "webp") {
-		err = gdreutil::save_image_as_webp(dest_path, img, lossy);
+		err = gdre::save_image_as_webp(dest_path, img, lossy);
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
 	} else if (dest_ext == "tga") {
