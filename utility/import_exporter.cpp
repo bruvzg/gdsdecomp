@@ -1,7 +1,7 @@
 
 #include "import_exporter.h"
 
-#include "bytecode/bytecode_versions.h"
+#include "bytecode/bytecode_base.h"
 #include "compat/oggstr_loader_compat.h"
 #include "compat/resource_loader_compat.h"
 #include "core/error/error_list.h"
@@ -437,7 +437,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 }
 
 Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<String> &to_decompile) {
-	GDScriptDecomp *decomp;
+	Ref<GDScriptDecomp> decomp;
 	// we have to remove remaps if they exist
 	bool has_remaps = get_settings()->has_any_remaps();
 	Vector<String> code_files = to_decompile;
@@ -447,111 +447,13 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 	if (code_files.is_empty()) {
 		return OK;
 	}
-	uint64_t revision = 0;
 
-	// we don't consider the dev versions here, only the release/beta versions
-	switch (get_ver_major()) {
-		case 1:
-			switch (get_ver_minor()) {
-				case 0:
-					revision = 0xe82dc40;
-					break;
-				case 1:
-					revision = 0x65d48d6;
-					break;
-			}
-			break;
-		case 2:
-			switch (get_ver_minor()) {
-				case 0:
-					revision = 0x23441ec;
-					break;
-				case 1: {
-					switch (get_settings()->get_ver_rev()) {
-						case 0:
-						case 1:
-							revision = 0x7124599;
-							break;
-						case 2:
-							revision = 0x85585c7;
-							break;
-						case 3:
-						case 4:
-						case 5:
-						case 6:
-							revision = 0xed80f45;
-							break;
-					}
-				} break;
-			}
-			break;
-		case 3:
-			switch (get_ver_minor()) {
-				case 0:
-					revision = 0x54a2ac;
-					break;
-				case 1: {
-					// They broke compatibility for 3.1.x in successive patch releases.
-					if (get_settings()->get_version_string().contains("beta")) {
-						revision = 0x1ca61a3;
-					} else {
-						switch (get_settings()->get_ver_rev()) {
-							case 0:
-								revision = 0x1a36141;
-								break;
-							case 1:
-								revision = 0x514a3fb;
-								break;
-						}
-					}
-				} break;
-				case 2:
-				case 3:
-				case 4:
-					revision = 0x5565f55;
-					break;
-				case 5:
-					revision = 0xa7aad78;
-					break;
-				default:
-					// We do not anticipate further GSScript changes in 3.x because GDScript 2.0 in 4.x can't be backported
-					// but just in case...
-					WARN_PRINT("Unsupported version 3." + itos(get_ver_minor()) + "." + itos(get_ver_rev()) + " of Godot detected");
-					WARN_PRINT("If your scripts are mangled, please report this on the Github issue tracker");
-					revision = 0xa7aad78;
-					break;
-			}
-			break;
-		case 4:
-			switch (get_ver_minor()) {
-				// Compiled mode was removed in 4.0; if this is part of a 4.0 project, might be in one of the pre GDScript 2.0 4.0-dev bytecodes
-				// but we can't really detect which mutually incompatible revision it is (there are several), so we just fail
-				case 0:
-					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.0 pre-release dev GDScript not implemented, failed to decompile");
-					break;
-				case 1: // might be added back in 4.1; if so, this will need to be updated
-					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Support for Godot 4.1 GDScript not yet implemented, failed to decompile");
-					break;
-				case 2:
-				case 3:
-				case 4:
-					revision = 0x77af6ca;
-					break;
-				default:
-					ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unsupported version 4." + itos(get_ver_minor()) + "." + itos(get_ver_rev()) + " of Godot detected, failed to decompile");
-					break;
-			}
-			break;
-		default:
-			ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
-	}
-	if (revision > 0) {
-		decomp = create_decomp_for_commit(revision);
-	} else {
+	decomp = GDScriptDecomp::create_decomp_for_version(get_settings()->get_version_string());
+	if (decomp.is_null()) {
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
 
-	print_line("Script version " + get_settings()->get_version_string() + " (rev 0x" + String::num_int64(revision, 16) + ") detected");
+	print_line("Script version " + get_settings()->get_version_string() + " (rev 0x" + String::num_int64(decomp->get_bytecode_rev(), 16) + ") detected");
 	Error err;
 	for (String f : code_files) {
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
@@ -566,7 +468,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 		}
 		if (err) {
 			String err_string = decomp->get_error_message();
-			memdelete(decomp);
 			report->failed_scripts.push_back(f);
 			// TODO: make it not fail hard on the first script that fails to decompile
 			if (encrypted) {
@@ -581,7 +482,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
 				report->failed_scripts.push_back(f);
-				memdelete(decomp);
 				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
 			}
 			fa->store_string(text);
@@ -598,7 +498,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 			report->decompiled_scripts.push_back(f);
 		}
 	}
-	memdelete(decomp);
 	// save changed config file
 	if (get_settings()->is_project_config_loaded()) { // some game pcks do not have project configs
 		err = get_settings()->save_project_config(p_out_dir);
