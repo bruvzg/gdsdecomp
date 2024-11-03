@@ -768,7 +768,9 @@ void GodotREEditor::_pck_select_request(const Vector<String> &p_paths) {
 		p_check_md5 = false;
 	}
 	auto files = GDRESettings::get_singleton()->get_file_info_list();
-	for (auto file : files) {
+	pck_dialog->start_initial_load();
+	for (int i = 0; i < files.size(); i++) {
+		const auto &file = files[i];
 		Ref<Texture2D> icon;
 		String error_string = "";
 		bool md5_error = !file->is_checksum_validated();
@@ -784,8 +786,12 @@ void GodotREEditor::_pck_select_request(const Vector<String> &p_paths) {
 		} else {
 			icon = icons["REFileOk"];
 		}
+		if (files.size() > 50000 && i % 10000 == 0) {
+			print_line("Loading file " + itos(i) + " of " + itos(files.size()));
+		}
 		pck_dialog->add_file(file->get_path(), file->get_size(), icon, error_string, file->is_malformed(), file->is_encrypted());
 	}
+	pck_dialog->finish_initial_load();
 	String user_desktop = OS::get_singleton()->get_system_dir(OS::SYSTEM_DIR_DESKTOP);
 	String proj_name = pck_file.get_file().get_basename();
 	pck_dialog->set_target_dir(user_desktop.path_join(proj_name));
