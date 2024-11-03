@@ -412,7 +412,6 @@ Error GDRESettings::load_dir(const String &p_path) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
 	}
-	print_line("Opening file: " + p_path);
 	Ref<DirAccess> da = DirAccess::open(p_path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(da.is_null(), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
 	ERR_FAIL_COND_V_MSG(!da->dir_exists(p_path), ERR_FILE_CANT_OPEN, "FATAL ERROR: Can't find folder!");
@@ -495,7 +494,6 @@ Error GDRESettings::load_pck(const String &p_path) {
 			return ERR_ALREADY_IN_USE;
 		}
 	}
-	print_line("Opening file: " + p_path);
 	Error err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
@@ -528,6 +526,7 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 				}
 			}
 		}
+		print_line("Opening file: " + p_path);
 		err = load_dir(p_path);
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project directory!");
 	} else {
