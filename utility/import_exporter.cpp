@@ -156,6 +156,10 @@ void ImportExporter::rewrite_metadata(ExportToken &token) {
 	} else {
 		report->set_rewrote_metadata(ExportReport::NOT_DIRTY);
 	}
+	auto mdat = report->get_rewrote_metadata();
+	if (mdat == ExportReport::FAILED || mdat == ExportReport::NOT_IMPORTABLE) {
+		return;
+	}
 	if (token.opt_write_md5_files && iinfo->is_import() && err == OK && iinfo->get_ver_major() > 2) {
 		err = ERR_LINK_FAILED;
 		Ref<ImportInfoModern> modern_iinfo = iinfo;
