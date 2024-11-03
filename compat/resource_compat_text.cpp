@@ -506,7 +506,6 @@ Error ResourceLoaderCompatText::load() {
 
 		if (!path.contains("://") && path.is_relative_path()) {
 			// path is relative to file being loaded, so convert to a resource path
-			WARN_PRINT("WE SHOULD NEVER GET HERE!!!!!!!!!!");
 			path = GDRESettings::get_singleton()->localize_path(local_path.get_base_dir().path_join(path));
 		}
 
