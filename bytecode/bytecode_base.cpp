@@ -1343,19 +1343,21 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				}
 			} break;
 			case G_TK_CF_PASS: {
-				// next token has to be EOF, semicolon, or newline
-				SIZE_CHECK(1);
+				if (bytecode_version < GDSCRIPT_2_0_VERSION) {
+					// next token has to be EOF, semicolon, or newline
+					SIZE_CHECK(1);
 
-				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
-				if (next_token != G_TK_NEWLINE && next_token != G_TK_SEMICOLON && next_token != G_TK_EOF) {
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
+					if (next_token != G_TK_NEWLINE && next_token != G_TK_SEMICOLON && next_token != G_TK_EOF) {
+						return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					}
 				}
 			} break;
 			case G_TK_PR_STATIC: {
 				SIZE_CHECK(1);
 				// STATIC requires TK_PR_FUNCTION as the next token
 				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
-				if (next_token != G_TK_PR_FUNCTION) {
+				if (next_token != G_TK_PR_FUNCTION && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PR_VAR)) {
 					return BytecodeTestResult::BYTECODE_TEST_FAIL;
 				}
 			} break;
