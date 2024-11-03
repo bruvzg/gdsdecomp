@@ -55,6 +55,7 @@ PackDialog::PackDialog() {
 	file_list->add_theme_constant_override("draw_relationship_lines", 1);
 
 	root = file_list->create_item();
+	fullpath[root] = HashMap<String, TreeItem *>();
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 	root->set_checked(0, true);
 	root->set_editable(0, true);
@@ -117,7 +118,9 @@ PackDialog::~PackDialog() {
 
 void PackDialog::clear() {
 	file_list->clear();
+	fullpath.clear();
 	root = file_list->create_item();
+	fullpath[root] = HashMap<String, TreeItem *>();
 	root->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 	root->set_checked(0, true);
 	root->set_editable(0, true);
@@ -127,6 +130,15 @@ void PackDialog::clear() {
 
 	have_malformed_names = false;
 
+	_validate_selection();
+}
+
+void PackDialog::start_initial_load() {
+	initial_load = true;
+}
+
+void PackDialog::finish_initial_load() {
+	initial_load = false;
 	_validate_selection();
 }
 
@@ -145,7 +157,7 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 	if (pp == -1) {
 		//Add file
 		TreeItem *item = file_list->create_item(p_item);
-
+		fullpath[p_item][p_name] = item;
 		item->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 		item->set_checked(0, true);
 		item->set_editable(0, true);
@@ -164,22 +176,29 @@ void PackDialog::add_file_to_item(TreeItem *p_item, const String &p_fullname, co
 		item->set_tooltip_text(0, p_error);
 		item->set_tooltip_text(1, p_error);
 		item->set_text(2, p_enc ? "Encrypted" : "");
-
-		_validate_selection();
+		if (!initial_load) {
+			_validate_selection();
+		}
 	} else {
 		String fld_name = p_name.substr(0, pp);
 		String path = p_name.substr(pp + 1, p_name.length());
 		//Add folder if any
-		TreeItem *it = p_item->get_first_child();
-		while (it) {
-			if (it->get_text(0) == fld_name) {
-				add_file_to_item(it, p_fullname, path, p_size, p_icon, p_error, false);
-				return;
-			}
-			it = it->get_next();
+		auto &thing = fullpath.get(p_item);
+		if (thing.has(fld_name)) {
+			add_file_to_item(thing[fld_name], p_fullname, path, p_size, p_icon, p_error, p_enc);
+			return;
 		}
+		// TreeItem *it = p_item->get_first_child();
+		// while (it) {
+		// 	if (it->get_text(0) == fld_name) {
+		// 		add_file_to_item(it, p_fullname, path, p_size, p_icon, p_error, false);
+		// 		return;
+		// 	}
+		// 	it = it->get_next();
+		// }
 		TreeItem *item = file_list->create_item(p_item);
-
+		fullpath[p_item][fld_name] = item;
+		fullpath[item] = HashMap<String, TreeItem *>();
 		item->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
 		item->set_checked(0, true);
 		item->set_editable(0, true);

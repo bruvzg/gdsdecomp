@@ -32,6 +32,8 @@ class PackDialog : public AcceptDialog {
 	Label *vernfo;
 	Label *gennfo;
 
+	HashMap<TreeItem *, HashMap<String, TreeItem *>> fullpath;
+
 	Tree *file_list;
 	TreeItem *root;
 
@@ -43,6 +45,8 @@ class PackDialog : public AcceptDialog {
 
 	CheckBox *extract_only;
 	CheckBox *full_recovery;
+
+	bool initial_load = false;
 
 	bool is_full_recovery = true;
 	bool have_malformed_names;
@@ -66,6 +70,8 @@ protected:
 
 public:
 	void clear();
+	void start_initial_load();
+	void finish_initial_load();
 	void set_target_dir(const String &p_dir);
 	void add_file(const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_malformed_name, bool p_enc);
 	void add_file_to_item(TreeItem *p_item, const String &p_fullname, const String &p_name, uint64_t p_size, Ref<Texture2D> p_icon, String p_error, bool p_enc);
