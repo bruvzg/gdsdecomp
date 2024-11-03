@@ -665,6 +665,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	int prev_line_start_column = 1;
 
 	int tab_size = 1;
+	bool use_spaces = false;
 	if (columns.size() > 0) {
 		Vector<int> distinct_col_values;
 		for (int i = 0; i < tokens.size(); i++) {
@@ -676,7 +677,13 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 		distinct_col_values.sort();
 		tab_size = INT_MAX; // minimum distance between columns = tab size
 		for (int i = 1; i < distinct_col_values.size(); i++) {
-			tab_size = MIN(tab_size, distinct_col_values[i] - distinct_col_values[i - 1]);
+			int new_tab_size = distinct_col_values[i] - distinct_col_values[i - 1];
+			if (i != 1 && new_tab_size != tab_size) {
+				tab_size = 1;
+				use_spaces = true;
+				break;
+			}
+			tab_size = MIN(tab_size, new_tab_size);
 		}
 		if (tab_size == INT_MAX) {
 			if (distinct_col_values.size() == 1) {
@@ -689,7 +696,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	auto handle_newline = [&](int i, GlobalToken curr_token, int curr_line, int curr_column) {
 		for (int j = 0; j < indent; j++) {
-			script_text += "\t";
+			script_text += use_spaces ? " " : "\t";
 		}
 		script_text += line;
 		if (curr_line <= prev_line) {
