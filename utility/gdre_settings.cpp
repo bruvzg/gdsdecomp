@@ -637,6 +637,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 			auto max_version = decomps[0]->get_max_godot_ver();
 			if (version->get_major() != 4 && (max_version.is_null() || check_if_same_minor_major(version, max_version))) {
 				current_project->version = max_version.is_valid() ? max_version : version;
+				current_project->version->set_build_metadata("");
 				return true;
 			}
 		}
