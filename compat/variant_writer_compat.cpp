@@ -1,7 +1,7 @@
 #include "variant_writer_compat.h"
+#include "compat/resource_loader_compat.h"
 #include "image_parser_v2.h"
 #include "input_event_parser_v2.h"
-
 static String rtosfix(double p_value) {
 	if (p_value == 0.0)
 		return "0"; // avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
@@ -39,7 +39,7 @@ Error VariantParserCompat::_parse_array(Array &array, Stream *p_stream, int &lin
 		}
 
 		Variant v;
-		err = parse_value(token, v, p_stream, line, r_err_str, p_res_parser);
+		err = VariantParserCompat::parse_value(token, v, p_stream, line, r_err_str, p_res_parser);
 		if (err) {
 			return err;
 		}
@@ -249,7 +249,358 @@ Error VariantParserCompat::parse_value(VariantParser::Token &token, Variant &r_v
 					at_key = true;
 				}
 			}
+		} else if (id == "Resource" || id == "SubResource" || id == "ExtResource") {
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_OPEN) {
+				r_err_str = "Expected '('";
+				return ERR_PARSE_ERROR;
+			}
+
+			if (p_res_parser && id == "Resource" && p_res_parser->func) {
+				Ref<Resource> res;
+				Error err = p_res_parser->func(p_res_parser->userdata, p_stream, res, line, r_err_str);
+				if (err) {
+					return err;
+				}
+
+				r_value = res;
+			} else if (p_res_parser && id == "ExtResource" && p_res_parser->ext_func) {
+				Ref<Resource> res;
+				Error err = p_res_parser->ext_func(p_res_parser->userdata, p_stream, res, line, r_err_str);
+				if (err) {
+					// If the file is missing, the error can be ignored.
+					if (err != ERR_FILE_NOT_FOUND && err != ERR_CANT_OPEN && err != ERR_FILE_CANT_OPEN) {
+						return err;
+					}
+				}
+
+				r_value = res;
+			} else if (p_res_parser && id == "SubResource" && p_res_parser->sub_func) {
+				Ref<Resource> res;
+				Error err = p_res_parser->sub_func(p_res_parser->userdata, p_stream, res, line, r_err_str);
+				if (err) {
+					return err;
+				}
+
+				r_value = res;
+			} else {
+				get_token(p_stream, token, line, r_err_str);
+				if (token.type == TK_STRING) {
+					String path = token.value;
+					// If this is an old-style resource, it's probably going to fail to load anyway,
+					// so just do a fake load.
+					Ref<Resource> res = ResourceCompatLoader::fake_load(path);
+					if (res.is_null()) {
+						r_err_str = "Can't load resource at path: '" + path + "'.";
+						return ERR_PARSE_ERROR;
+					}
+
+					get_token(p_stream, token, line, r_err_str);
+					if (token.type != TK_PARENTHESIS_CLOSE) {
+						r_err_str = "Expected ')'";
+						return ERR_PARSE_ERROR;
+					}
+
+					r_value = res;
+				} else {
+					r_err_str = "Expected string as argument for Resource().";
+					return ERR_PARSE_ERROR;
+				}
+			}
+		} else if (id == "Dictionary") {
+			Error err = OK;
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_BRACKET_OPEN) {
+				r_err_str = "Expected '['";
+				return ERR_PARSE_ERROR;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_IDENTIFIER) {
+				r_err_str = "Expected type identifier for key";
+				return ERR_PARSE_ERROR;
+			}
+
+			static HashMap<StringName, Variant::Type> builtin_types;
+			if (builtin_types.is_empty()) {
+				for (int i = 1; i < Variant::VARIANT_MAX; i++) {
+					builtin_types[Variant::get_type_name((Variant::Type)i)] = (Variant::Type)i;
+				}
+			}
+
+			Dictionary dict;
+			Variant::Type key_type = Variant::NIL;
+			StringName key_class_name;
+			Variant key_script;
+			bool got_comma_token = false;
+			if (builtin_types.has(token.value)) {
+				key_type = builtin_types.get(token.value);
+			} else if (token.value == "Resource" || token.value == "SubResource" || token.value == "ExtResource") {
+				Variant resource;
+				err = parse_value(token, resource, p_stream, line, r_err_str, p_res_parser);
+				if (err) {
+					if (token.value == "Resource" && err == ERR_PARSE_ERROR && r_err_str == "Expected '('" && token.type == TK_COMMA) {
+						err = OK;
+						r_err_str = String();
+						key_type = Variant::OBJECT;
+						key_class_name = token.value;
+						got_comma_token = true;
+					} else {
+						return err;
+					}
+				} else {
+					// Ref<Script> script = resource;
+					// if (script.is_valid() && script->is_valid()) {
+					// 	key_type = Variant::OBJECT;
+					// 	key_class_name = script->get_instance_base_type();
+					// 	key_script = script;
+					// }
+				}
+			} else if (ClassDB::class_exists(token.value)) {
+				key_type = Variant::OBJECT;
+				key_class_name = token.value;
+			}
+
+			if (!got_comma_token) {
+				get_token(p_stream, token, line, r_err_str);
+				if (token.type != TK_COMMA) {
+					r_err_str = "Expected ',' after key type";
+					return ERR_PARSE_ERROR;
+				}
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_IDENTIFIER) {
+				r_err_str = "Expected type identifier for value";
+				return ERR_PARSE_ERROR;
+			}
+
+			Variant::Type value_type = Variant::NIL;
+			StringName value_class_name;
+			Variant value_script;
+			bool got_bracket_token = false;
+			if (builtin_types.has(token.value)) {
+				value_type = builtin_types.get(token.value);
+			} else if (token.value == "Resource" || token.value == "SubResource" || token.value == "ExtResource") {
+				Variant resource;
+				err = parse_value(token, resource, p_stream, line, r_err_str, p_res_parser);
+				if (err) {
+					if (token.value == "Resource" && err == ERR_PARSE_ERROR && r_err_str == "Expected '('" && token.type == TK_BRACKET_CLOSE) {
+						err = OK;
+						r_err_str = String();
+						value_type = Variant::OBJECT;
+						value_class_name = token.value;
+						got_comma_token = true;
+					} else {
+						return err;
+					}
+				} else {
+					// TODO: fix this
+					// Ref<Script> script = resource;
+					// if (script.is_valid() && script->is_valid()) {
+					// 	value_type = Variant::OBJECT;
+					// 	value_class_name = script->get_instance_base_type();
+					// 	value_script = script;
+					// }
+				}
+			} else if (ClassDB::class_exists(token.value)) {
+				value_type = Variant::OBJECT;
+				value_class_name = token.value;
+			}
+
+			// if (key_type != Variant::NIL || value_type != Variant::NIL) {
+			// 	dict.set_typed(key_type, key_class_name, key_script, value_type, value_class_name, value_script);
+			// }
+
+			if (!got_bracket_token) {
+				get_token(p_stream, token, line, r_err_str);
+				if (token.type != TK_BRACKET_CLOSE) {
+					r_err_str = "Expected ']'";
+					return ERR_PARSE_ERROR;
+				}
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_OPEN) {
+				r_err_str = "Expected '('";
+				return ERR_PARSE_ERROR;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_CURLY_BRACKET_OPEN) {
+				r_err_str = "Expected '{'";
+				return ERR_PARSE_ERROR;
+			}
+
+			Dictionary values;
+			err = _parse_dictionary(values, p_stream, line, r_err_str, p_res_parser);
+			if (err) {
+				return err;
+			}
+
+			if (key_type != Variant::NIL || value_type != Variant::NIL) {
+				bool contains_missing_resources = false;
+				if (ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
+					if (key_type == Variant::OBJECT && key_class_name != "MissingResource") {
+						for (const Variant &key : values.keys()) {
+							if (key.get_type() == Variant::OBJECT) {
+								Ref<Resource> res = key;
+								if (res.is_null()) {
+									continue;
+								}
+								if (res->get_class() == "MissingResource") {
+									contains_missing_resources = true;
+									break;
+								}
+							}
+						}
+					}
+					if (value_type == Variant::OBJECT && value_class_name != "MissingResource") {
+						for (const Variant &value : values.values()) {
+							if (value.get_type() == Variant::OBJECT) {
+								Ref<Resource> res = value;
+								if (res.is_null()) {
+									continue;
+								}
+								if (res->get_class() == "MissingResource") {
+									contains_missing_resources = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+				if (!contains_missing_resources) {
+					dict.set_typed(key_type, key_class_name, key_script, value_type, value_class_name, value_script);
+				}
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_CLOSE) {
+				r_err_str = "Expected ')'";
+				return ERR_PARSE_ERROR;
+			}
+
+			dict.assign(values);
+
+			r_value = dict;
+		} else if (id == "Array") {
+			Error err = OK;
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_BRACKET_OPEN) {
+				r_err_str = "Expected '['";
+				return ERR_PARSE_ERROR;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_IDENTIFIER) {
+				r_err_str = "Expected type identifier";
+				return ERR_PARSE_ERROR;
+			}
+
+			static HashMap<String, Variant::Type> builtin_types;
+			if (builtin_types.is_empty()) {
+				for (int i = 1; i < Variant::VARIANT_MAX; i++) {
+					builtin_types[Variant::get_type_name((Variant::Type)i)] = (Variant::Type)i;
+				}
+			}
+
+			Array array = Array();
+			bool got_bracket_token = false;
+			Variant::Type type = Variant::NIL;
+			StringName type_class_name;
+			Variant var_script;
+			if (builtin_types.has(token.value)) {
+				type = builtin_types.get(token.value);
+				// array.set_typed(builtin_types.get(token.value), StringName(), Variant());
+			} else if (token.value == "Resource" || token.value == "SubResource" || token.value == "ExtResource") {
+				Variant resource;
+				err = parse_value(token, resource, p_stream, line, r_err_str, p_res_parser);
+				if (err) {
+					if (token.value == "Resource" && err == ERR_PARSE_ERROR && r_err_str == "Expected '('" && token.type == TK_BRACKET_CLOSE) {
+						err = OK;
+						r_err_str = String();
+						type = Variant::OBJECT;
+						type_class_name = token.value;
+						// array.set_typed(Variant::OBJECT, token.value, Variant());
+						got_bracket_token = true;
+					} else {
+						return err;
+					}
+				} else {
+					// TODO: fix this
+					// Ref<Script> script = resource;
+					// if (script.is_valid() && script->is_valid()) {
+					// 	array.set_typed(Variant::OBJECT, script->get_instance_base_type(), script);
+					// }
+				}
+			} else if (ClassDB::class_exists(token.value)) {
+				type = Variant::OBJECT;
+				type_class_name = token.value;
+				// array.set_typed(Variant::OBJECT, token.value, Variant());
+			}
+
+			if (!got_bracket_token) {
+				get_token(p_stream, token, line, r_err_str);
+				if (token.type != TK_BRACKET_CLOSE) {
+					r_err_str = "Expected ']'";
+					return ERR_PARSE_ERROR;
+				}
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_OPEN) {
+				r_err_str = "Expected '('";
+				return ERR_PARSE_ERROR;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_BRACKET_OPEN) {
+				r_err_str = "Expected '['";
+				return ERR_PARSE_ERROR;
+			}
+
+			Array values;
+			err = _parse_array(values, p_stream, line, r_err_str, p_res_parser);
+			if (err) {
+				return err;
+			}
+
+			get_token(p_stream, token, line, r_err_str);
+			if (token.type != TK_PARENTHESIS_CLOSE) {
+				r_err_str = "Expected ')'";
+				return ERR_PARSE_ERROR;
+			}
+			if (type != Variant::NIL) {
+				bool contains_missing_resources = false;
+				if (ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled() && type == Variant::OBJECT && type_class_name != "MissingResource") {
+					for (int i = 0; i < values.size(); i++) {
+						if (values[i].get_type() == Variant::OBJECT) {
+							Ref<Resource> res = values[i];
+							if (res.is_null()) {
+								continue;
+							}
+							if (res->get_class() == "MissingResource") {
+								contains_missing_resources = true;
+								break;
+							}
+						}
+					}
+				}
+				if (!contains_missing_resources) {
+					array.set_typed(type, type_class_name, var_script);
+				}
+			}
+
+			array.assign(values);
+
+			r_value = array;
+		} else {
+			return VariantParser::parse_value(token, r_value, p_stream, line, r_err_str, p_res_parser);
 		}
+		return OK;
 		// If it's an Object, the above will eventually call return
 	}
 	// If this wasn't an Object or a Variant that can have objects stored inside them...
