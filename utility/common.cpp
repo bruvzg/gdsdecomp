@@ -1,8 +1,10 @@
 #include "utility/common.h"
+#include "bytecode/bytecode_base.h"
 #include "core/error/error_list.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/image.h"
+#include "core/io/missing_resource.h"
 #include "external/tga/tga.h"
 
 Error gdre::ensure_dir(const String &dst_dir) {
@@ -166,4 +168,59 @@ Error gdre::save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
 	}
 	return source_image->save_jpg(p_path, 1.0f);
+}
+
+void gdre::get_strings_from_variant(const Variant &p_var, Vector<String> &r_strings, const String &engine_version) {
+	if (p_var.get_type() == Variant::STRING || p_var.get_type() == Variant::STRING_NAME) {
+		r_strings.push_back(p_var);
+	} else if (p_var.get_type() == Variant::STRING_NAME) {
+		r_strings.push_back(p_var);
+	} else if (p_var.get_type() == Variant::PACKED_STRING_ARRAY) {
+		Vector<String> p_strings = p_var;
+		for (auto &E : p_strings) {
+			r_strings.push_back(E);
+		}
+	} else if (p_var.get_type() == Variant::ARRAY) {
+		Array arr = p_var;
+		for (int i = 0; i < arr.size(); i++) {
+			get_strings_from_variant(arr[i], r_strings, engine_version);
+		}
+	} else if (p_var.get_type() == Variant::DICTIONARY) {
+		Dictionary d = p_var;
+		Array keys = d.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			get_strings_from_variant(keys[i], r_strings, engine_version);
+			get_strings_from_variant(d[keys[i]], r_strings, engine_version);
+		}
+	} else if (p_var.get_type() == Variant::OBJECT) {
+		Object *obj = Object::cast_to<Object>(p_var);
+		if (obj) {
+			List<PropertyInfo> p_list;
+			obj->get_property_list(&p_list);
+			for (List<PropertyInfo>::Element *E = p_list.front(); E; E = E->next()) {
+				auto &p = E->get();
+				get_strings_from_variant(obj->get(p.name), r_strings, engine_version);
+			}
+			Dictionary meta = obj->get_meta(META_MISSING_RESOURCES, Dictionary());
+			Array keys = meta.keys();
+			for (int i = 0; i < meta.size(); i++) {
+				get_strings_from_variant(meta[keys[i]], r_strings, engine_version);
+			}
+			if (!engine_version.is_empty()) {
+				Ref<MissingResource> mr = p_var;
+				if (obj->get_class() == "GDScript" || (mr.is_valid() && mr->get_original_class() == "GDScript")) {
+					String code = obj->get("script/source");
+					if (!code.is_empty()) {
+						auto decomp = GDScriptDecomp::create_decomp_for_version(engine_version, true);
+						if (!decomp.is_null()) {
+							auto buf = decomp->compile_code_string(code);
+							if (!buf.is_empty()) {
+								decomp->get_script_strings_from_buf(buf, r_strings, false);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }

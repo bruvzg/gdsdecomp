@@ -18,6 +18,7 @@
 #include "core/object/class_db.h"
 #include "modules/gdscript/gdscript_tokenizer_buffer.h"
 #include "utility/common.h"
+#include "utility/gdre_settings.h"
 #include "utility/godotver.h"
 
 #include <limits.h>
@@ -67,7 +68,7 @@ void GDScriptDecomp::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_parent"), &GDScriptDecomp::get_parent);
 
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("create_decomp_for_commit", "commit_hash"), &GDScriptDecomp::create_decomp_for_commit);
-	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("create_decomp_for_version", "ver"), &GDScriptDecomp::create_decomp_for_version);
+	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("create_decomp_for_version", "ver", "p_force"), &GDScriptDecomp::create_decomp_for_version, DEFVAL(false));
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("read_bytecode_version", "path"), &GDScriptDecomp::read_bytecode_version);
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("read_bytecode_version_encrypted", "path", "engine_ver_major", "key"), &GDScriptDecomp::read_bytecode_version_encrypted);
 	ClassDB::bind_static_method("GDScriptDecomp", D_METHOD("get_bytecode_versions"), &GDScriptDecomp::get_bytecode_versions);
@@ -99,6 +100,9 @@ Error GDScriptDecomp::decompile_byte_code_encrypted(const String &p_path, Vector
 Error GDScriptDecomp::decompile_byte_code(const String &p_path) {
 	Vector<uint8_t> bytecode;
 
+	if (p_path.get_extension().to_lower() == "gde") {
+		return decompile_byte_code_encrypted(p_path, GDRESettings::get_singleton()->get_encryption_key());
+	}
 	bytecode = FileAccess::get_file_as_bytes(p_path);
 
 	error_message = RTR("No error");
@@ -1465,6 +1469,51 @@ Ref<GodotVer> GDScriptDecomp::get_max_godot_ver() const {
 	}
 	return GodotVer::parse(max_ver);
 }
+//	Error get_script_strings(Vector<String> &r_strings, bool include_identifiers = false);
+//	Error get_script_strings(const Vector<uint8_t> &p_buffer, Vector<String> &r_strings, bool include_identifiers = false);
+
+Error GDScriptDecomp::get_script_strings(const String &p_path, const String &engine_version, Vector<String> &r_strings, bool p_include_identifiers) {
+	Vector<uint8_t> p_buffer;
+	Error err = OK;
+	auto decomp = GDScriptDecomp::create_decomp_for_version(engine_version, true);
+	if (decomp.is_null()) {
+		return ERR_INVALID_PARAMETER;
+	}
+	if (p_path.get_extension().to_lower() == "gde") {
+		err = get_buffer_encrypted(p_path, 3, GDRESettings::get_singleton()->get_encryption_key(), p_buffer);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Error reading encrypted file: " + p_path);
+	} else if (p_path.get_extension().to_lower() == "gd") {
+		String text = FileAccess::get_file_as_string(p_path, &err);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Error reading file: " + p_path);
+		p_buffer = decomp->compile_code_string(text);
+		ERR_FAIL_COND_V_MSG(p_buffer.size() == 0, ERR_PARSE_ERROR, "Error compiling code: " + p_path);
+	} else {
+		p_buffer = FileAccess::get_file_as_bytes(p_path, &err);
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Error reading file: " + p_path);
+	}
+	return decomp->get_script_strings_from_buf(p_buffer, r_strings, p_include_identifiers);
+}
+
+Error GDScriptDecomp::get_script_strings_from_buf(const Vector<uint8_t> &p_buffer, Vector<String> &r_strings, bool p_include_identifiers) {
+	ERR_FAIL_COND_V_MSG(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_PARSE_ERROR, "Corrupt bytecode");
+	int version = decode_uint32(&p_buffer[4]);
+	Vector<StringName> identifiers;
+	Vector<Variant> constants;
+	VMap<uint32_t, uint32_t> lines;
+	VMap<uint32_t, uint32_t> columns;
+	Vector<uint32_t> tokens;
+	Error err = get_ids_consts_tokens(p_buffer, version, identifiers, constants, tokens, lines, columns);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Error parsing bytecode");
+	for (int i = 0; i < constants.size(); i++) {
+		gdre::get_strings_from_variant(constants[i], r_strings, get_engine_version());
+	}
+	if (p_include_identifiers) {
+		for (int i = 0; i < identifiers.size(); i++) {
+			r_strings.push_back(identifiers[i]);
+		}
+	}
+	return OK;
+}
 
 Vector<String> GDScriptDecomp::get_compile_errors(const Vector<uint8_t> &p_buffer) {
 	Vector<StringName> identifiers;
@@ -1715,7 +1764,7 @@ Vector<String> GDScriptDecomp::get_bytecode_versions() {
 }
 
 // static Ref<GDScriptDecomp> create_decomp_for_version(String ver);
-Ref<GDScriptDecomp> GDScriptDecomp::create_decomp_for_version(String str_ver) {
+Ref<GDScriptDecomp> GDScriptDecomp::create_decomp_for_version(String str_ver, bool p_force) {
 	bool include_dev = false;
 	Ref<GodotVer> ver = GodotVer::parse(str_ver);
 	ERR_FAIL_COND_V_MSG(ver.is_null() || ver->get_major() == 0, Ref<GDScriptDecomp>(), "Invalid version: " + str_ver);
@@ -1734,6 +1783,9 @@ Ref<GDScriptDecomp> GDScriptDecomp::create_decomp_for_version(String str_ver) {
 			}
 		}
 		ERR_FAIL_COND_V_MSG(include_dev, Ref<GDScriptDecomp>(), "No version found for: " + str_ver);
+	}
+	if (p_force && ver->get_major() == 4 && ver->get_minor() < 3 && (ver->get_minor() != 0 || !ver->is_prerelease())) {
+		return Ref<GDScriptDecomp>(create_decomp_for_version("4.3.0"));
 	}
 	Ref<GodotVer> prev_ver = nullptr;
 	int prev_ver_commit = 0;

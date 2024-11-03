@@ -9,7 +9,16 @@ Error ensure_dir(const String &dst_dir);
 Error save_image_as_tga(const String &p_path, const Ref<Image> &p_img);
 Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy = false);
 Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img);
-static Ref<FileAccess> _____tmp_file;
+void get_strings_from_variant(const Variant &p_var, Vector<String> &r_strings, const String &engine_version = "");
+template <class T>
+Vector<T> hashset_to_vector(const HashSet<T> &hs) {
+	Vector<T> ret;
+	for (const T &E : hs) {
+		ret.push_back(E);
+	}
+	return ret;
+}
+
 } // namespace gdre
 
 // Can only pass in string literals

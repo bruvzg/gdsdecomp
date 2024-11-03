@@ -91,6 +91,7 @@ public:
 	public:
 		Ref<GodotVer> version;
 		Ref<ProjectConfigLoader> pcfg;
+		HashSet<String> resource_strings; // For translation key recovery
 		PackInfo::PackType type = PackInfo::PCK;
 		String pack_file;
 		ProjectInfo() {
@@ -120,7 +121,16 @@ private:
 		int ver_major;
 		int ver_minor;
 	};
+
+	struct StringLoadToken {
+		String engine_version;
+		String path;
+		Vector<String> strings;
+		Error err = OK;
+	};
+
 	void _do_import_load(uint32_t i, IInfoToken *tokens);
+	void _do_string_load(uint32_t i, StringLoadToken *tokens);
 	HashMap<ResourceUID::ID, UID_Cache> unique_ids; //unique IDs and utf8 paths (less memory used)
 
 	uint8_t old_key[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -227,6 +237,10 @@ public:
 	String get_gdre_version() const;
 	String get_disclaimer_text() const;
 	static String get_disclaimer_body();
+	bool loaded_resource_strings() const;
+	void load_all_resource_strings();
+	void get_resource_strings(HashSet<String> &r_strings) const;
+
 	static GDRESettings *get_singleton();
 	GDRESettings();
 	~GDRESettings();
