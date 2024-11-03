@@ -4,9 +4,11 @@
 #include "compat/texture_loader_compat.h"
 #include "core/error/error_list.h"
 #include "core/io/file_access.h"
-#include "utility/util_functions.h"
+#include "core/io/image_loader.h"
+#include "core/io/resource_loader.h"
+
 bool TextureExporter::handles_import(const String &importer, const String &resource_type) const {
-	return importer == "texture" || importer == "bitmap" || resource_type == "BitMap" || resource_type == "CompressedTexture2D" || (resource_type == "Texture2D") || resource_type == "ImageTexture" || resource_type == "StreamTexture" || resource_type == "Texture";
+	return importer == "image" || importer == "texture" || importer == "bitmap" || resource_type == "BitMap" || resource_type == "CompressedTexture2D" || (resource_type == "Texture2D") || resource_type == "ImageTexture" || resource_type == "StreamTexture" || resource_type == "Texture";
 }
 
 bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
@@ -66,21 +68,39 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to load bitmap " + p_path);
 	err = gdre::ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
+	err = save_image(dest_path, img, lossy);
+	if (err == ERR_UNAVAILABLE) {
+		return err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
+
+	print_verbose("Converted " + p_path + " to " + dest_path);
+	return OK;
+}
+
+Error TextureExporter::save_image(const String &dest_path, const Ref<Image> &img, bool lossy) {
 	String dest_ext = dest_path.get_extension().to_lower();
+	Error err;
+	if (img->is_compressed()) {
+		err = img->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			WARN_PRINT("Decompression not implemented yet for texture format " + Image::get_format_name(img->get_format()));
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + Image::get_format_name(img->get_format()) + " texture " + dest_path);
+	}
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
 		err = gdre::save_image_as_jpeg(dest_path, img);
 	} else if (dest_ext == "webp") {
 		err = gdre::save_image_as_webp(dest_path, img, lossy);
 	} else if (dest_ext == "png") {
 		err = img->save_png(dest_path);
+	} else if (dest_ext == "tga") {
+		err = gdre::save_image_as_tga(dest_path, img);
 	} else {
 		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
 	}
-
-	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
-
-	print_verbose("Converted " + p_path + " to " + dest_path);
-	return OK;
+	return err;
 }
 
 Error TextureExporter::_convert_tex(const String &p_path, const String &dest_path, bool lossy, String &image_format) {
@@ -105,27 +125,10 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 	err = gdre::ensure_dir(dst_dir);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	image_format = Image::get_format_name(img->get_format());
-	if (img->is_compressed()) {
-		err = img->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			WARN_PRINT("Decompression not implemented yet for texture format " + image_format);
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + image_format + " texture " + p_path);
+	err = save_image(dest_path, img, lossy);
+	if (err == ERR_UNAVAILABLE) {
+		return err;
 	}
-	String dest_ext = dest_path.get_extension().to_lower();
-	if (dest_ext == "jpg" || dest_ext == "jpeg") {
-		err = gdre::save_image_as_jpeg(dest_path, img);
-	} else if (dest_ext == "webp") {
-		err = gdre::save_image_as_webp(dest_path, img, lossy);
-	} else if (dest_ext == "png") {
-		err = img->save_png(dest_path);
-	} else if (dest_ext == "tga") {
-		err = gdre::save_image_as_tga(dest_path, img);
-	} else {
-		ERR_FAIL_V_MSG(ERR_FILE_BAD_PATH, "Invalid file name: " + dest_path);
-	}
-
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
 
 	print_verbose("Converted " + p_path + " to " + dest_path);
@@ -223,7 +226,13 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 	Error err;
 	String img_format = "bitmap";
 	String dest_path = output_dir.path_join(iinfo->get_export_dest().replace("res://", ""));
-	if (iinfo->get_importer() == "bitmap") {
+	if (iinfo->get_importer() == "image") {
+		ResourceFormatLoaderImage rli;
+		Ref<Image> img = rli.load(path, "", &err, false, nullptr, ResourceFormatLoader::CACHE_MODE_IGNORE);
+		ERR_FAIL_COND_V_MSG(err != OK || img.is_null(), report, "Failed to load image " + path);
+		img_format = Image::get_format_name(img->get_format());
+		err = save_image(dest_path, img, lossy);
+	} else if (iinfo->get_importer() == "bitmap") {
 		err = _convert_bitmap(path, dest_path, lossy);
 	} else {
 		err = _convert_tex(path, dest_path, lossy, img_format);
@@ -266,4 +275,5 @@ void TextureExporter::get_handled_types(List<String> *out) const {
 void TextureExporter::get_handled_importers(List<String> *out) const {
 	out->push_back("texture");
 	out->push_back("bitmap");
+	out->push_back("image");
 }
