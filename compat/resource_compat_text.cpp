@@ -2197,6 +2197,16 @@ void ResourceFormatSaverCompatTextInstance::_find_resources(const Variant &p_var
 				I = I->next();
 			}
 
+			// COMPAT: get the missing resources too
+			Dictionary missing_resources = res->get_meta(META_MISSING_RESOURCES);
+			if (missing_resources.size()) {
+				List<Variant> keys;
+				missing_resources.get_key_list(&keys);
+				for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
+					_find_resources(missing_resources[E->get()]);
+				}
+			}
+
 			saved_resources.push_back(res); // Saved after, so the children it needs are available when loaded
 
 		} break;
