@@ -194,10 +194,13 @@ public:
 	Ref<GodotVer> get_godot_ver() const;
 	Ref<GodotVer> get_max_godot_ver() const;
 
+	static Error get_script_strings(const String &p_path, const String &engine_version, Vector<String> &r_strings, bool include_identifiers = false);
+
+	Error get_script_strings_from_buf(const Vector<uint8_t> &p_path, Vector<String> &r_strings, bool p_include_identifiers);
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
 	Error decompile_byte_code(const String &p_path);
 	static Ref<GDScriptDecomp> create_decomp_for_commit(uint64_t p_commit_hash);
-	static Ref<GDScriptDecomp> create_decomp_for_version(String ver);
+	static Ref<GDScriptDecomp> create_decomp_for_version(String ver, bool p_force = false);
 	Vector<uint8_t> compile_code_string(const String &p_code);
 	Error debug_print(Vector<uint8_t> p_buffer);
 	static int read_bytecode_version(const String &p_path);

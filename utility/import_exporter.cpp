@@ -67,14 +67,6 @@ HashSet<String> vector_to_hashset(const Vector<String> &vec) {
 	return ret;
 }
 
-Vector<String> hashset_to_vector(const HashSet<String> &hs) {
-	Vector<String> ret;
-	for (auto &s : hs) {
-		ret.push_back(s);
-	}
-	return ret;
-}
-
 bool vectors_intersect(const Vector<String> &a, const Vector<String> &b) {
 	const Vector<String> &bigger = a.size() > b.size() ? a : b;
 	const Vector<String> &smaller = a.size() > b.size() ? b : a;

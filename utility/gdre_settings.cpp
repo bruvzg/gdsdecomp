@@ -16,11 +16,13 @@
 #include "gdre_logger.h"
 #include "gdre_packed_source.h"
 #include "util_functions.h"
+#include "utility/common.h"
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/file_access_zip.h"
+#include "core/io/json.h"
 #include "core/object/script_language.h"
 #include "core/version.h"
 #include "modules/regex/regex.h"
@@ -1500,6 +1502,108 @@ String GDRESettings::get_disclaimer_body() {
 			"the use of this software, and disclaim any liability for use of the software in violation of " +
 			"applicable laws.\n\n" +
 			"This software in an alpha stage. Please report any bugs to the GitHub repository\n");
+}
+
+// bool has_resource_strings() const;
+// void load_all_resource_strings();
+// void get_resource_strings(HashSet<String> &r_strings) const;
+
+bool GDRESettings::loaded_resource_strings() const {
+	return is_pack_loaded() && current_project->resource_strings.size() > 0;
+}
+
+//	void _do_string_load(uint32_t i, StringLoadToken *tokens);
+void GDRESettings::_do_string_load(uint32_t i, StringLoadToken *tokens) {
+	String src_ext = tokens[i].path.get_extension().to_lower();
+	// check if script
+	if (src_ext == "gd" || src_ext == "gdc" || src_ext == "gde") {
+		tokens[i].err = GDScriptDecomp::get_script_strings(tokens[i].path, tokens[i].engine_version, tokens[i].strings);
+		return;
+	} else if (src_ext == "csv") {
+		Ref<FileAccess> f = FileAccess::open(tokens[i].path, FileAccess::READ, &tokens[i].err);
+		ERR_FAIL_COND_MSG(f.is_null(), "Failed to open file " + tokens[i].path);
+		// get the first line
+		String header = f->get_line();
+		String delimiter = ",";
+		if (!header.contains(",")) {
+			if (header.contains(";")) {
+				delimiter = ";";
+			} else if (header.contains("|")) {
+				delimiter = "|";
+			} else if (header.contains("\t")) {
+				delimiter = "\t";
+			}
+		}
+		f->seek(0);
+		while (!f->eof_reached()) {
+			Vector<String> line = f->get_csv_line(delimiter);
+			for (int j = 0; j < line.size(); j++) {
+				if (!line[j].is_numeric()) {
+					tokens[i].strings.append(line[j]);
+				}
+			}
+		}
+		return;
+	} else if (src_ext == "json") {
+		String jstring = FileAccess::get_file_as_string(tokens[i].path, &tokens[i].err);
+		ERR_FAIL_COND_MSG(tokens[i].err, "Failed to open file " + tokens[i].path);
+		Variant var = JSON::parse_string(jstring);
+		gdre::get_strings_from_variant(var, tokens[i].strings, tokens[i].engine_version);
+		return;
+	}
+	auto res = ResourceCompatLoader::fake_load(tokens[i].path, "", &tokens[i].err);
+	ERR_FAIL_COND_MSG(res.is_null(), "Failed to load resource " + tokens[i].path);
+	gdre::get_strings_from_variant(res, tokens[i].strings, tokens[i].engine_version);
+}
+
+void GDRESettings::load_all_resource_strings() {
+	if (!is_pack_loaded()) {
+		return;
+	}
+	current_project->resource_strings.clear();
+	List<String> extensions;
+	ResourceCompatLoader::get_base_extensions(&extensions, get_ver_major());
+	Vector<String> wildcards;
+	for (auto &ext : extensions) {
+		wildcards.push_back("*." + ext);
+	}
+	wildcards.push_back("*.tres");
+	wildcards.push_back("*.tscn");
+	wildcards.push_back("*.gd");
+	wildcards.push_back("*.gdc");
+	wildcards.push_back("*.gde");
+	wildcards.push_back("*.csv");
+	wildcards.push_back("*.json");
+
+	Vector<String> r_files = get_file_list(wildcards);
+	Vector<StringLoadToken> tokens;
+	tokens.resize(r_files.size());
+	for (int i = 0; i < r_files.size(); i++) {
+		tokens.write[i].path = r_files[i];
+		tokens.write[i].engine_version = get_version_string();
+	}
+	print_line("Loading resource strings, this may take a while!!");
+	auto group_task = WorkerThreadPool::get_singleton()->add_template_group_task(
+			this,
+			&GDRESettings::_do_string_load,
+			tokens.ptrw(),
+			tokens.size(), -1, true, SNAME("GDRESettings::load_all_resource_strings"));
+
+	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
+
+	for (int i = 0; i < tokens.size(); i++) {
+		if (tokens[i].err != OK) {
+			WARN_PRINT("Failed to load resource strings for " + tokens[i].path);
+			continue;
+		}
+		for (auto &str : tokens[i].strings) {
+			current_project->resource_strings.insert(str);
+		}
+	}
+}
+
+void GDRESettings::get_resource_strings(HashSet<String> &r_strings) const {
+	r_strings = current_project->resource_strings;
 }
 
 void GDRESettings::_bind_methods() {

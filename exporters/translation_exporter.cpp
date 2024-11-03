@@ -4,6 +4,7 @@
 #include "core/error/error_list.h"
 #include "core/string/optimized_translation.h"
 #include "core/string/translation.h"
+#include "core/string/ustring.h"
 #include "exporters/export_report.h"
 #include "utility/gdre_settings.h"
 
@@ -53,6 +54,47 @@ String guess_key_from_tr(String s, Ref<Translation> default_translation) {
 	return "";
 }
 
+String find_common_prefix(const HashMap<StringName, StringName> &key_to_msg) {
+	// among all the keys in the vector, find the common prefix
+	if (key_to_msg.size() == 0) {
+		return "";
+	}
+	String prefix;
+	auto add_to_prefix_func = [&](int i) {
+		char32_t candidate = 0;
+		for (const auto &E : key_to_msg) {
+			auto &s = E.key;
+			if (!s.is_empty()) {
+				if (s.length() - 1 < i) {
+					return false;
+				}
+				candidate = s[i];
+				break;
+			}
+		}
+		if (candidate == 0) {
+			return false;
+		}
+		for (const auto &E : key_to_msg) {
+			auto &s = E.key;
+			if (!s.is_empty()) {
+				if (s.length() - 1 < i || s[i] != candidate) {
+					return false;
+				}
+			}
+		}
+		prefix += candidate;
+		return true;
+	};
+
+	for (int i = 0; i < 100; i++) {
+		if (!add_to_prefix_func(i)) {
+			break;
+		}
+	}
+	return prefix;
+}
+
 Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir, Ref<ImportInfo> iinfo) {
 	// Implementation for exporting resources related to translations
 	Error err = OK;
@@ -60,6 +102,9 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	String default_locale = GDRESettings::get_singleton()->pack_has_project_config() && GDRESettings::get_singleton()->has_project_setting("locale/fallback")
 			? GDRESettings::get_singleton()->get_project_setting("locale/fallback")
 			: "en";
+	if (iinfo->get_dest_files().size() == 1) {
+		default_locale = iinfo->get_dest_files()[0].get_basename().get_extension();
+	}
 	Vector<Ref<Translation>> translations;
 	Vector<Vector<StringName>> translation_messages;
 	Ref<Translation> default_translation;
@@ -69,7 +114,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	Ref<ExportReport> report = memnew(ExportReport(iinfo));
 	report->set_error(ERR_CANT_ACQUIRE_RESOURCE);
 	for (String path : iinfo->get_dest_files()) {
-		Ref<Translation> tr = ResourceCompatLoader::real_load(path, "", ResourceFormatLoader::CACHE_MODE_IGNORE, &err);
+		Ref<Translation> tr = ResourceCompatLoader::non_global_load(path, "", &err);
 		ERR_FAIL_COND_V_MSG(err != OK, report, "Could not load translation file " + iinfo->get_path());
 		ERR_FAIL_COND_V_MSG(!tr.is_valid(), report, "Translation file " + iinfo->get_path() + " was not valid");
 		String locale = tr->get_locale();
@@ -114,28 +159,78 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	int missing_keys = 0;
 
 	if (default_translation.is_null()) {
-		if (translations.size() == 1) {
-			report->set_error(ERR_UNAVAILABLE);
-			report->set_unsupported_format_type("Dynamic multi-csv");
-			return report;
-		}
 		report->set_error(ERR_FILE_MISSING_DEPENDENCIES);
 		ERR_FAIL_V_MSG(report, "No default translation found for " + iinfo->get_path());
 	}
+	HashMap<StringName, StringName> key_to_message;
+	String prefix;
 	if (keys.size() == 0) {
-		for (const StringName &s : default_messages) {
-			String key = guess_key_from_tr(s, default_translation);
+		for (const StringName &msg : default_messages) {
+			String key = guess_key_from_tr(msg, default_translation);
 			if (key.is_empty()) {
 				missing_keys++;
-				keys.push_back("<MISSING KEY " + s + ">");
 			} else {
-				keys.push_back(key);
+				key_to_message[key] = msg;
+			}
+		}
+		// We need to load all the resource strings in all resources to find the keys
+		if (missing_keys) {
+			HashSet<String> resource_strings;
+			if (!GDRESettings::get_singleton()->loaded_resource_strings()) {
+				GDRESettings::get_singleton()->load_all_resource_strings();
+			}
+			GDRESettings::get_singleton()->get_resource_strings(resource_strings);
+			for (const String &key : resource_strings) {
+				auto msg = default_translation->get_message(key);
+				if (!msg.is_empty()) {
+					key_to_message[key] = msg;
+				}
+			}
+			// We didn't find all the keys; try to find a common prefix
+			if (key_to_message.size() != default_messages.size()) {
+				prefix = find_common_prefix(key_to_message);
+				Ref<RegEx> re;
+				re.instantiate();
+				re->compile("\\b" + prefix + "[\\w\\d\\-\\_\\.]+\\b");
+				for (const String &res_s : resource_strings) {
+					if ((prefix.is_empty() || res_s.contains(prefix)) && !key_to_message.has(res_s)) {
+						auto matches = re->search_all(res_s);
+						for (const Ref<RegExMatch> match : matches) {
+							for (const String &key : match->get_strings()) {
+								auto msg = default_translation->get_message(key);
+								if (!msg.is_empty()) {
+									key_to_message[key] = msg;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		missing_keys = 0;
+		keys.clear();
+		for (int i = 0; i < default_messages.size(); i++) {
+			auto &msg = default_messages[i];
+			bool found = false;
+			for (auto &E : key_to_message) {
+				if (E.value == msg && !keys.has(E.key)) {
+					keys.push_back(E.key);
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				missing_keys++;
+				keys.push_back("<MISSING KEY " + String(msg).split("\n")[0] + ">");
 			}
 		}
 	}
 	header += "\n";
 	String export_dest = iinfo->get_export_dest();
-	if (missing_keys) {
+	// If greater than 15% of the keys are missing, we save the file to the export directory.
+	// The reason for this threshold is that the translations may contain keys that are not currently in use in the project.
+	bool resave = missing_keys > (default_messages.size() * 0.15);
+	if (resave) {
 		iinfo->set_export_dest("res://.assets/" + iinfo->get_export_dest().replace("res://", ""));
 	}
 	String output_path = output_dir.simplify_path().path_join(iinfo->get_export_dest().replace("res://", ""));
@@ -165,8 +260,10 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	f = Ref<FileAccess>();
 	report->set_error(OK);
 	if (missing_keys) {
-		String translation_export_message = "WARNING: Could not recover " + itos(missing_keys) + " keys for translation.csv" + "\n";
-		translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
+		String translation_export_message = "WARNING: Could not recover " + itos(missing_keys) + " keys for " + iinfo->get_source_file() + "\n";
+		if (resave) {
+			translation_export_message += "Saved " + iinfo->get_source_file().get_file() + " to " + iinfo->get_export_dest() + "\n";
+		}
 		report->set_message(translation_export_message);
 	}
 	report->set_new_source_path(iinfo->get_export_dest());

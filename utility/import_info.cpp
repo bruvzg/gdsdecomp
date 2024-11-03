@@ -453,10 +453,10 @@ Error ImportInfoModern::_load(const String &p_path) {
 					String prefix = source_file.get_basename();
 					// TODO: Fix this!
 					preferred_import_path = prefix + ".*.translation";
-					if (GDRESettings::get_singleton()->is_project_config_loaded()) {
-						//internationalization/locale/translations
-						dest_files = GDRESettings::get_singleton()->get_project_setting("internationalization/locale/translations");
-					}
+					// if (GDRESettings::get_singleton()->is_project_config_loaded()) {
+					// 	//internationalization/locale/translations
+					// 	dest_files = GDRESettings::get_singleton()->get_project_setting("internationalization/locale/translations");
+					// }
 					if (dest_files.size() == 0) {
 						dest_files = Glob::glob(preferred_import_path);
 					}
