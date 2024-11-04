@@ -238,13 +238,15 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 		err = _convert_tex(path, dest_path, lossy, img_format);
 	}
 	report->set_error(err);
-	report->set_saved_path(dest_path);
 	if (err == ERR_UNAVAILABLE) {
 		report->set_unsupported_format_type(img_format);
 		report->set_message("Decompression not implemented yet for texture format " + img_format);
 		// Already reported in export functions above
+		return report;
+	} else if (err) {
+		return report;
 	}
-	ERR_FAIL_COND_V(err, report);
+	report->set_saved_path(dest_path);
 	// If lossy, also convert it as a png
 	if (lossy) {
 		String dest = iinfo->get_export_dest().get_basename() + ".png";
