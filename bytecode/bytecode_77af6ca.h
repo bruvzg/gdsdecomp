@@ -18,7 +18,7 @@ protected:
 	static constexpr const char *bytecode_rev_str = "77af6ca";
 	static constexpr const char *engine_version = "4.3.0-stable";
 	static constexpr const char *max_engine_version = "";
-	static constexpr int parent = 0xf3f05dc;
+	static constexpr int parent = 0;
 
 public:
 	virtual String get_function_name(int p_func) const override;
