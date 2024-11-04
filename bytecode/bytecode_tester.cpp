@@ -146,10 +146,10 @@ built-in func divergence for bytecode version 13 (3.1.x only)
 // TODO: add this
 */
 
-int get_bytecode_version(Vector<String> bytecode_files) {
+int BytecodeTester::get_bytecode_version(const Vector<String> &bytecode_files) {
 	int bytecode_version = 0;
 	if (bytecode_files.size() == 0) {
-		ERR_FAIL_V_MSG({}, "No bytecode files provided.");
+		return bytecode_version;
 	}
 	for (const String &file : bytecode_files) {
 		int this_ver = 0;
@@ -158,8 +158,11 @@ int get_bytecode_version(Vector<String> bytecode_files) {
 		} else {
 			this_ver = GDScriptDecomp::read_bytecode_version(file);
 		}
+		if (this_ver == -2) {
+			return -2; // encryption error
+		}
 		if (this_ver == -1) {
-			WARN_PRINT("Could not read bytecode version from file: " + file);
+			// WARN_PRINT("Could not read bytecode version from file: " + file);
 			continue;
 		}
 		if (bytecode_version == 0) {
@@ -172,10 +175,10 @@ int get_bytecode_version(Vector<String> bytecode_files) {
 	return bytecode_version;
 }
 
-uint64_t generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool include_dev = false) {
+uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool include_dev) {
 	int detected_bytecode_version = get_bytecode_version(p_paths);
 	ERR_FAIL_COND_V_MSG(detected_bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
-	ERR_FAIL_COND_V_MSG(detected_bytecode_version == 0, {}, "Could not read bytecode version from files.");
+	ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, {}, "Could not read bytecode version from files.");
 
 	Vector<Ref<GDScriptDecomp>> decomp_versions = BytecodeTester::get_possible_decomps(p_paths, include_dev);
 	if (decomp_versions.size() == 1) {
@@ -205,7 +208,7 @@ uint64_t generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver
 	// TODO: Smarter handling for this
 }
 
-uint64_t test_files_2_1(const Vector<String> &p_paths) {
+uint64_t BytecodeTester::test_files_2_1(const Vector<String> &p_paths) {
 	uint64_t rev = 0;
 	bool ed80f45_failed = false;
 	bool ed80f45_passed = false;
@@ -315,13 +318,13 @@ uint64_t test_files_2_1(const Vector<String> &p_paths) {
 		}
 		if (rev == 0) {
 			// try it with the dev versions.
-			return generic_test(p_paths, 2, 1, true);
+			return BytecodeTester::generic_test(p_paths, 2, 1, true);
 		}
 	}
 	return rev;
 }
 
-uint64_t test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_key = Vector<uint8_t>()) {
+uint64_t BytecodeTester::test_files_3_1(const Vector<String> &p_paths, const Vector<uint8_t> &p_key) {
 	uint64_t rev = 0;
 	bool _514a3fb_failed = false;
 	bool _1a36141_failed = false;
@@ -504,7 +507,7 @@ Vector<Ref<GDScriptDecomp>> get_possibles_from_set(const Vector<String> &bytecod
 Vector<Ref<GDScriptDecomp>> BytecodeTester::get_possible_decomps(Vector<String> bytecode_files, bool include_dev) {
 	int bytecode_version = get_bytecode_version(bytecode_files);
 	ERR_FAIL_COND_V_MSG(bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
-	ERR_FAIL_COND_V_MSG(bytecode_version == 0, {}, "Could not read bytecode version from files.");
+	ERR_FAIL_COND_V_MSG(bytecode_version <= 0, {}, "Could not read bytecode version from files.");
 	auto decomps = get_decomps_for_bytecode_ver(bytecode_version, include_dev);
 	return get_possibles_from_set(bytecode_files, decomps);
 }
