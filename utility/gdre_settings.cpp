@@ -495,6 +495,9 @@ Error GDRESettings::load_pck(const String &p_path) {
 		}
 	}
 	Error err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	if (err) {
+		ERR_FAIL_COND_V_MSG(error_encryption, ERR_UNAUTHORIZED, "FATAL ERROR: Cannot open encrypted pck! (wrong key?)");
+	}
 	ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack!");
 	ERR_FAIL_COND_V_MSG(!is_pack_loaded(), ERR_FILE_CANT_READ, "FATAL ERROR: loaded project pack, but didn't load files from it!");
 	return OK;
