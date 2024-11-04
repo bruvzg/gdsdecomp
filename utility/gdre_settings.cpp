@@ -1321,7 +1321,12 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 	}
 	for (auto E : unique_ids) {
 		if (ResourceUID::get_singleton()->has_id(E.key)) {
-			ResourceUID::get_singleton()->set_id(E.key, String(E.value.cs));
+			String old_path = ResourceUID::get_singleton()->get_id_path(E.key);
+			String new_path = String(E.value.cs);
+			if (old_path != new_path) {
+				WARN_PRINT("Duplicate ID found in cache: " + itos(E.key) + " -> " + old_path + "\nReplacing with: " + new_path);
+			}
+			ResourceUID::get_singleton()->set_id(E.key, new_path);
 		} else {
 			ResourceUID::get_singleton()->add_id(E.key, String(E.value.cs));
 		}
@@ -1331,6 +1336,7 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 
 Error GDRESettings::reset_uid_cache() {
 	unique_ids.clear();
+	ResourceUID::get_singleton()->clear();
 	return ResourceUID::get_singleton()->load_from_cache(true);
 }
 
