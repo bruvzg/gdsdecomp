@@ -2198,7 +2198,7 @@ void ResourceFormatSaverCompatTextInstance::_find_resources(const Variant &p_var
 			}
 
 			// COMPAT: get the missing resources too
-			Dictionary missing_resources = res->get_meta(META_MISSING_RESOURCES);
+			Dictionary missing_resources = res->get_meta(META_MISSING_RESOURCES, Dictionary());
 			if (missing_resources.size()) {
 				List<Variant> keys;
 				missing_resources.get_key_list(&keys);
