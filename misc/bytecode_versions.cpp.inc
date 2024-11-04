@@ -1,5 +1,4 @@
 //_PRELUDE_
-
 // clang-format off
 
 #include "bytecode/bytecode_versions.h"
