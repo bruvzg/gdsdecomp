@@ -1337,8 +1337,9 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				SIZE_CHECK(2);
 				// ignore the next_token because it can be anything
 				// get the one after
+				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
 				GlobalToken nextnext_token = get_global_token(tokens[i + 2] & TOKEN_MASK);
-				if (nextnext_token != G_TK_PARENTHESIS_OPEN) {
+				if (nextnext_token != G_TK_PARENTHESIS_OPEN && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PARENTHESIS_OPEN)) {
 					return BytecodeTestResult::BYTECODE_TEST_FAIL;
 				}
 			} break;
