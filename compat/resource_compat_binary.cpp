@@ -211,11 +211,7 @@ Error ResourceLoaderCompatBinary::parse_variant(Variant &r_v) {
 			r_v = int64_t(f->get_64());
 		} break;
 		case VARIANT_FLOAT: {
-			if (f->real_is_double) {
-				r_v = f->get_double();
-			} else {
-				r_v = f->get_float();
-			}
+			r_v = f->get_real();
 		} break;
 		case VARIANT_DOUBLE: {
 			r_v = f->get_double();
@@ -1761,6 +1757,14 @@ void ResourceFormatSaverCompatBinaryInstance::_pad_buffer(Ref<FileAccess> f, int
 	}
 }
 
+void _store_real(Ref<FileAccess> f, real_t p_real) {
+	if (f->real_is_double) {
+		f->store_double(p_real);
+	} else {
+		f->store_float(p_real);
+	}
+}
+
 void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, const Variant &p_property, HashMap<Ref<Resource>, int> &resource_map, HashMap<Ref<Resource>, int> &external_resources, HashMap<StringName, int> &string_map, const PropertyInfo &p_hint) {
 	switch (p_property.get_type()) {
 		case Variant::NIL: {
@@ -1792,11 +1796,7 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 				f->store_double(d);
 			} else {
 				f->store_32(VARIANT_FLOAT);
-				if (f->real_is_double) {
-					f->store_double(d);
-				} else {
-					f->store_float(fl);
-				}
+				_store_real(f, fl);
 			}
 
 		} break;
@@ -1809,8 +1809,8 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		case Variant::VECTOR2: {
 			f->store_32(VARIANT_VECTOR2);
 			Vector2 val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
+			_store_real(f, val.x);
+			_store_real(f, val.y);
 
 		} break;
 		case Variant::VECTOR2I: {
@@ -1823,10 +1823,10 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		case Variant::RECT2: {
 			f->store_32(VARIANT_RECT2);
 			Rect2 val = p_property;
-			f->store_real(val.position.x);
-			f->store_real(val.position.y);
-			f->store_real(val.size.x);
-			f->store_real(val.size.y);
+			_store_real(f, val.position.x);
+			_store_real(f, val.position.y);
+			_store_real(f, val.size.x);
+			_store_real(f, val.size.y);
 
 		} break;
 		case Variant::RECT2I: {
@@ -1841,9 +1841,9 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		case Variant::VECTOR3: {
 			f->store_32(VARIANT_VECTOR3);
 			Vector3 val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
-			f->store_real(val.z);
+			_store_real(f, val.x);
+			_store_real(f, val.y);
+			_store_real(f, val.z);
 
 		} break;
 		case Variant::VECTOR3I: {
@@ -1857,10 +1857,10 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		case Variant::VECTOR4: {
 			f->store_32(VARIANT_VECTOR4);
 			Vector4 val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
-			f->store_real(val.z);
-			f->store_real(val.w);
+			_store_real(f, val.x);
+			_store_real(f, val.y);
+			_store_real(f, val.z);
+			_store_real(f, val.w);
 
 		} break;
 		case Variant::VECTOR4I: {
@@ -1875,93 +1875,93 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		case Variant::PLANE: {
 			f->store_32(VARIANT_PLANE);
 			Plane val = p_property;
-			f->store_real(val.normal.x);
-			f->store_real(val.normal.y);
-			f->store_real(val.normal.z);
-			f->store_real(val.d);
+			_store_real(f, val.normal.x);
+			_store_real(f, val.normal.y);
+			_store_real(f, val.normal.z);
+			_store_real(f, val.d);
 
 		} break;
 		case Variant::QUATERNION: {
 			f->store_32(VARIANT_QUATERNION);
 			Quaternion val = p_property;
-			f->store_real(val.x);
-			f->store_real(val.y);
-			f->store_real(val.z);
-			f->store_real(val.w);
+			_store_real(f, val.x);
+			_store_real(f, val.y);
+			_store_real(f, val.z);
+			_store_real(f, val.w);
 
 		} break;
 		case Variant::AABB: {
 			f->store_32(VARIANT_AABB);
 			AABB val = p_property;
-			f->store_real(val.position.x);
-			f->store_real(val.position.y);
-			f->store_real(val.position.z);
-			f->store_real(val.size.x);
-			f->store_real(val.size.y);
-			f->store_real(val.size.z);
+			_store_real(f, val.position.x);
+			_store_real(f, val.position.y);
+			_store_real(f, val.position.z);
+			_store_real(f, val.size.x);
+			_store_real(f, val.size.y);
+			_store_real(f, val.size.z);
 
 		} break;
 		case Variant::TRANSFORM2D: {
 			f->store_32(VARIANT_TRANSFORM2D);
 			Transform2D val = p_property;
-			f->store_real(val.columns[0].x);
-			f->store_real(val.columns[0].y);
-			f->store_real(val.columns[1].x);
-			f->store_real(val.columns[1].y);
-			f->store_real(val.columns[2].x);
-			f->store_real(val.columns[2].y);
+			_store_real(f, val.columns[0].x);
+			_store_real(f, val.columns[0].y);
+			_store_real(f, val.columns[1].x);
+			_store_real(f, val.columns[1].y);
+			_store_real(f, val.columns[2].x);
+			_store_real(f, val.columns[2].y);
 
 		} break;
 		case Variant::BASIS: {
 			f->store_32(VARIANT_BASIS);
 			Basis val = p_property;
-			f->store_real(val.rows[0].x);
-			f->store_real(val.rows[0].y);
-			f->store_real(val.rows[0].z);
-			f->store_real(val.rows[1].x);
-			f->store_real(val.rows[1].y);
-			f->store_real(val.rows[1].z);
-			f->store_real(val.rows[2].x);
-			f->store_real(val.rows[2].y);
-			f->store_real(val.rows[2].z);
+			_store_real(f, val.rows[0].x);
+			_store_real(f, val.rows[0].y);
+			_store_real(f, val.rows[0].z);
+			_store_real(f, val.rows[1].x);
+			_store_real(f, val.rows[1].y);
+			_store_real(f, val.rows[1].z);
+			_store_real(f, val.rows[2].x);
+			_store_real(f, val.rows[2].y);
+			_store_real(f, val.rows[2].z);
 
 		} break;
 		case Variant::TRANSFORM3D: {
 			f->store_32(VARIANT_TRANSFORM3D);
 			Transform3D val = p_property;
-			f->store_real(val.basis.rows[0].x);
-			f->store_real(val.basis.rows[0].y);
-			f->store_real(val.basis.rows[0].z);
-			f->store_real(val.basis.rows[1].x);
-			f->store_real(val.basis.rows[1].y);
-			f->store_real(val.basis.rows[1].z);
-			f->store_real(val.basis.rows[2].x);
-			f->store_real(val.basis.rows[2].y);
-			f->store_real(val.basis.rows[2].z);
-			f->store_real(val.origin.x);
-			f->store_real(val.origin.y);
-			f->store_real(val.origin.z);
+			_store_real(f, val.basis.rows[0].x);
+			_store_real(f, val.basis.rows[0].y);
+			_store_real(f, val.basis.rows[0].z);
+			_store_real(f, val.basis.rows[1].x);
+			_store_real(f, val.basis.rows[1].y);
+			_store_real(f, val.basis.rows[1].z);
+			_store_real(f, val.basis.rows[2].x);
+			_store_real(f, val.basis.rows[2].y);
+			_store_real(f, val.basis.rows[2].z);
+			_store_real(f, val.origin.x);
+			_store_real(f, val.origin.y);
+			_store_real(f, val.origin.z);
 
 		} break;
 		case Variant::PROJECTION: {
 			f->store_32(VARIANT_PROJECTION);
 			Projection val = p_property;
-			f->store_real(val.columns[0].x);
-			f->store_real(val.columns[0].y);
-			f->store_real(val.columns[0].z);
-			f->store_real(val.columns[0].w);
-			f->store_real(val.columns[1].x);
-			f->store_real(val.columns[1].y);
-			f->store_real(val.columns[1].z);
-			f->store_real(val.columns[1].w);
-			f->store_real(val.columns[2].x);
-			f->store_real(val.columns[2].y);
-			f->store_real(val.columns[2].z);
-			f->store_real(val.columns[2].w);
-			f->store_real(val.columns[3].x);
-			f->store_real(val.columns[3].y);
-			f->store_real(val.columns[3].z);
-			f->store_real(val.columns[3].w);
+			_store_real(f, val.columns[0].x);
+			_store_real(f, val.columns[0].y);
+			_store_real(f, val.columns[0].z);
+			_store_real(f, val.columns[0].w);
+			_store_real(f, val.columns[1].x);
+			_store_real(f, val.columns[1].y);
+			_store_real(f, val.columns[1].z);
+			_store_real(f, val.columns[1].w);
+			_store_real(f, val.columns[2].x);
+			_store_real(f, val.columns[2].y);
+			_store_real(f, val.columns[2].z);
+			_store_real(f, val.columns[2].w);
+			_store_real(f, val.columns[3].x);
+			_store_real(f, val.columns[3].y);
+			_store_real(f, val.columns[3].z);
+			_store_real(f, val.columns[3].w);
 
 		} break;
 		case Variant::COLOR: {
@@ -2173,8 +2173,8 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 			f->store_32(len);
 			const Vector2 *r = arr.ptr();
 			for (int i = 0; i < len; i++) {
-				f->store_real(r[i].x);
-				f->store_real(r[i].y);
+				_store_real(f, r[i].x);
+				_store_real(f, r[i].y);
 			}
 		} break;
 
@@ -2185,9 +2185,9 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 			f->store_32(len);
 			const Vector3 *r = arr.ptr();
 			for (int i = 0; i < len; i++) {
-				f->store_real(r[i].x);
-				f->store_real(r[i].y);
-				f->store_real(r[i].z);
+				_store_real(f, r[i].x);
+				_store_real(f, r[i].y);
+				_store_real(f, r[i].z);
 			}
 		} break;
 
@@ -2212,10 +2212,10 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 			f->store_32(len);
 			const Vector4 *r = arr.ptr();
 			for (int i = 0; i < len; i++) {
-				f->store_real(r[i].x);
-				f->store_real(r[i].y);
-				f->store_real(r[i].z);
-				f->store_real(r[i].w);
+				_store_real(f, r[i].x);
+				_store_real(f, r[i].y);
+				_store_real(f, r[i].z);
+				_store_real(f, r[i].w);
 			}
 
 		} break;
