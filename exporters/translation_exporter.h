@@ -4,6 +4,8 @@
 class TranslationExporter : public ResourceExporter {
 	GDCLASS(TranslationExporter, ResourceExporter);
 
+	static constexpr float threshold = 0.15;
+
 public:
 	virtual Error export_file(const String &out_path, const String &res_path) override;
 	virtual Ref<ExportReport> export_resource(const String &output_dir, Ref<ImportInfo> import_infos) override;

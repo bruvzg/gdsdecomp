@@ -193,21 +193,23 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 					key_to_message[key] = msg;
 				}
 			}
-			// We didn't find all the keys; try to find a common prefix
-			// Only do this if no keys have spaces; otherwise this is practically useless to do
-			if (key_to_message.size() != default_messages.size() && !keys_have_spaces) {
+			// We didn't find all the keys
+			if (key_to_message.size() != default_messages.size()) {
 				prefix = find_common_prefix(key_to_message);
-				Ref<RegEx> re;
-				re.instantiate();
-				re->compile("\\b" + prefix + "[\\w\\d\\-\\_\\.]+\\b");
-				for (const String &res_s : resource_strings) {
-					if ((prefix.is_empty() || res_s.contains(prefix)) && !key_to_message.has(res_s)) {
-						auto matches = re->search_all(res_s);
-						for (const Ref<RegExMatch> match : matches) {
-							for (const String &key : match->get_strings()) {
-								auto msg = default_translation->get_message(key);
-								if (!msg.is_empty()) {
-									key_to_message[key] = msg;
+				// Only do this if no keys have spaces or they have a common prefix; otherwise this is practically useless to do
+				if (!keys_have_spaces || !prefix.is_empty()) {
+					Ref<RegEx> re;
+					re.instantiate();
+					re->compile("\\b" + prefix + "[\\w\\d\\-\\_\\.]+\\b");
+					for (const String &res_s : resource_strings) {
+						if ((prefix.is_empty() || res_s.contains(prefix)) && !key_to_message.has(res_s)) {
+							auto matches = re->search_all(res_s);
+							for (const Ref<RegExMatch> match : matches) {
+								for (const String &key : match->get_strings()) {
+									auto msg = default_translation->get_message(key);
+									if (!msg.is_empty()) {
+										key_to_message[key] = msg;
+									}
 								}
 							}
 						}
@@ -237,7 +239,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	String export_dest = iinfo->get_export_dest();
 	// If greater than 15% of the keys are missing, we save the file to the export directory.
 	// The reason for this threshold is that the translations may contain keys that are not currently in use in the project.
-	bool resave = missing_keys > (default_messages.size() * 0.15);
+	bool resave = missing_keys > (default_messages.size() * threshold);
 	if (resave) {
 		iinfo->set_export_dest("res://.assets/" + iinfo->get_export_dest().replace("res://", ""));
 	}
