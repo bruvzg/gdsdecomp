@@ -82,10 +82,10 @@ Error PckDumper::wait_for_task(WorkerThreadPool::GroupID group_task, const Vecto
 
 Error PckDumper::_check_md5_all_files(Vector<String> &broken_files, int &checked_files, EditorProgressGDDC *pr) {
 	reset();
-	String ext = GDRESettings::get_singleton()->get_pack_path().get_extension().to_lower();
+	auto ext = GDRESettings::get_singleton()->get_pack_type();
 	uint64_t last_progress_upd = OS::get_singleton()->get_ticks_usec();
 
-	if (ext != "pck" && ext != "exe") {
+	if (ext != GDRESettings::PackInfo::PCK && ext != GDRESettings::PackInfo::EXE) {
 		print_verbose("Not a pack file, skipping MD5 check...");
 		return ERR_SKIP;
 	}
