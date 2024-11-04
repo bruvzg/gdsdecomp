@@ -1547,7 +1547,7 @@ void GDRESettings::_do_string_load(uint32_t i, StringLoadToken *tokens) {
 	} else if (src_ext == "json") {
 		String jstring = FileAccess::get_file_as_string(tokens[i].path, &tokens[i].err);
 		ERR_FAIL_COND_MSG(tokens[i].err, "Failed to open file " + tokens[i].path);
-		if (jstring.is_empty()) {
+		if (jstring.strip_edges().is_empty()) {
 			return;
 		}
 		Variant var = JSON::parse_string(jstring);
