@@ -164,12 +164,16 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	}
 	HashMap<StringName, StringName> key_to_message;
 	String prefix;
+	bool keys_have_spaces = false;
 	if (keys.size() == 0) {
 		for (const StringName &msg : default_messages) {
 			String key = guess_key_from_tr(msg, default_translation);
 			if (key.is_empty()) {
 				missing_keys++;
 			} else {
+				if (!keys_have_spaces && key.contains(" ")) {
+					keys_have_spaces = true;
+				}
 				key_to_message[key] = msg;
 			}
 		}
@@ -183,11 +187,15 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 			for (const String &key : resource_strings) {
 				auto msg = default_translation->get_message(key);
 				if (!msg.is_empty()) {
+					if (!keys_have_spaces && key.contains(" ")) {
+						keys_have_spaces = true;
+					}
 					key_to_message[key] = msg;
 				}
 			}
 			// We didn't find all the keys; try to find a common prefix
-			if (key_to_message.size() != default_messages.size()) {
+			// Only do this if no keys have spaces; otherwise this is practically useless to do
+			if (key_to_message.size() != default_messages.size() && !keys_have_spaces) {
 				prefix = find_common_prefix(key_to_message);
 				Ref<RegEx> re;
 				re.instantiate();

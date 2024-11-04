@@ -1593,7 +1593,7 @@ void GDRESettings::load_all_resource_strings() {
 			tokens.size(), -1, true, SNAME("GDRESettings::load_all_resource_strings"));
 
 	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
-
+	print_line("Resource strings loaded!");
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].err != OK) {
 			WARN_PRINT("Failed to load resource strings for " + tokens[i].path);
