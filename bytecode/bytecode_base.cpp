@@ -377,6 +377,7 @@ int GDScriptDecomp::read_bytecode_version(const String &p_path) {
 int GDScriptDecomp::read_bytecode_version_encrypted(const String &p_path, int engine_ver_major, Vector<uint8_t> p_key) {
 	Vector<uint8_t> p_buffer;
 	Error err = get_buffer_encrypted(p_path, engine_ver_major, p_key, p_buffer);
+	ERR_FAIL_COND_V_MSG(err == ERR_UNAUTHORIZED, -2, "Encryption error!!");
 	ERR_FAIL_COND_V_MSG(err != OK, -1, "Cannot open file!");
 	ERR_FAIL_COND_V_MSG(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', -1, "Invalid gdscript!");
 	const uint8_t *buf = p_buffer.ptr();
