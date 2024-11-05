@@ -75,6 +75,18 @@ public:
 		}
 		return ResourceInfo::LoadType::REAL_LOAD;
 	}
+
+	static void move_script_property_to_top(List<PropertyInfo> *p_properties) {
+		// TODO: remove this when we get proper script loaders
+		ERR_FAIL_COND(!p_properties);
+		for (List<PropertyInfo>::Element *E = p_properties->front(); E; E = E->next()) {
+			if (E->get().name == "script") {
+				p_properties->move_to_front(E);
+				return;
+			}
+		}
+	}
+
 	static Ref<Resource> create_missing_external_resource(const String &path, const String &type, const ResourceUID::ID uid, const String &scene_id = "") {
 		Ref<MissingResource> res{ memnew(MissingResource) };
 		res->set_original_class(type);

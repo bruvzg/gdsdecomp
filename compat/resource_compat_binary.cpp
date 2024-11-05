@@ -2589,6 +2589,8 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 			List<PropertyInfo> property_list;
 			E->get_property_list(&property_list);
 
+			// COMPAT: if the script property isn't at the top, resources that are script instances will have their script properties stripped upon loading in the editor.
+			CompatFormatLoader::move_script_property_to_top(&property_list);
 			for (const PropertyInfo &F : property_list) {
 				if (skip_editor && F.name.begins_with("__editor")) {
 					continue;

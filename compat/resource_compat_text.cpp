@@ -2559,6 +2559,9 @@ Error ResourceFormatSaverCompatTextInstance::save(const String &p_path, const Re
 
 		List<PropertyInfo> property_list;
 		res->get_property_list(&property_list);
+
+		// COMPAT: if the script property isn't at the top, resources that are script instances will have their script properties stripped upon loading in the editor.
+		CompatFormatLoader::move_script_property_to_top(&property_list);
 		for (List<PropertyInfo>::Element *PE = property_list.front(); PE; PE = PE->next()) {
 			if (skip_editor && PE->get().name.begins_with("__editor")) {
 				continue;
