@@ -204,6 +204,15 @@ String ImageEnumCompat::get_v3_format_name(V3Image::Format p_format) {
 	return v3_format_names[p_format];
 }
 
+V3Image::Format ImageEnumCompat::get_v3_format_enum_from_name(String p_format) {
+	for (int i = 0; i < V3Image::FORMAT_MAX; i++) {
+		if (v3_format_names[i] == p_format) {
+			return V3Image::Format(i);
+		}
+	}
+	return V3Image::FORMAT_MAX;
+}
+
 String ImageEnumCompat::get_v3_format_identifier(V3Image::Format p_format) {
 	ERR_FAIL_INDEX_V(p_format, V3Image::FORMAT_MAX, String());
 	return v3_format_identifiers[p_format];

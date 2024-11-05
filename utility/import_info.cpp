@@ -594,6 +594,8 @@ Error ImportInfov2::_load(const String &p_path) {
 			new_ext = "wav";
 		} else if (p_path.get_extension() == "cbm") {
 			new_ext = "cube";
+		} else if (type == "AtlasTexture") {
+			new_ext = "png";
 		} else {
 			new_ext = "fixme";
 		}
@@ -628,6 +630,8 @@ Error ImportInfov2::_load(const String &p_path) {
 			importer = "bitmask";
 		} else if (p_path.get_extension() == "cbm") {
 			importer = "cubemap";
+		} else if (p_path.get_extension() == "atex") {
+			importer = "texture_atlas";
 		} else {
 			importer = "none";
 		}
