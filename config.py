@@ -1,9 +1,28 @@
 def can_build(env, platform):
     return True
 
+import methods
+
+
+# A terrible hack to force-enable the etcpak module being included on non-editor builds.
+# etcpak's can_build function returns False if the editor_build flag is False,
+# and since they come before us in the modules list, we can't monkey patch that.
+# During configure, env.module_list isn't set, and it's not possible to add modules to it.
+# sort_module_list is called right after after env.module_list is set with all the modules.
+def monkey_patch_sort_module_list():
+    old_sort_module_list = methods.sort_module_list
+
+    def sort_module_list(env):
+        env.module_list["etcpak"] = "modules/etcpak"
+        # no need to run configure on etcpak
+        return old_sort_module_list(env)
+
+    methods.sort_module_list = sort_module_list
+
 
 def configure(env):
-    pass
+    if not env.editor_build:
+        monkey_patch_sort_module_list()
 
 
 def get_doc_classes():
