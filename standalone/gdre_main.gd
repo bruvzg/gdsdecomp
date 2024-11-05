@@ -3,6 +3,7 @@ extends Control
 var ver_major = 0
 var ver_minor = 0
 var scripts_only = false
+var disable_multi_threading = false
 var config: ConfigFile = null
 var last_error = ""
 var CONFIG_PATH = "user://gdre_settings.cfg"
@@ -198,7 +199,7 @@ func test_decomp(fname):
 
 func export_imports(output_dir:String, files: PackedStringArray):
 	var importer:ImportExporter = ImportExporter.new()
-	importer.set_multi_thread(true)
+	importer.set_multi_thread(not disable_multi_threading)
 	importer.export_imports(output_dir, files)
 	importer.reset()
 				
@@ -207,6 +208,7 @@ func dump_files(output_dir:String, files: PackedStringArray, ignore_checksum_err
 	var err:int = OK;
 	var pckdump = PckDumper.new()
 	# var start_time = Time.get_ticks_msec()
+	pckdump.set_multi_thread(not disable_multi_threading)
 	err = pckdump.check_md5_all_files()
 	if err != OK:
 		if (err != ERR_SKIP and not ignore_checksum_errors):
@@ -617,6 +619,8 @@ func handle_cli(args: PackedStringArray) -> bool:
 			ignore_md5 = true
 		elif arg.begins_with("--translation-only"):
 			translation_only = true
+		elif arg.begins_with("--disable-multithreading"):
+			disable_multi_threading = true
 		elif arg.begins_with("--list-bytecode-versions"):
 			var versions = GDScriptDecomp.get_bytecode_versions()
 			print("\n--- Available bytecode versions:")
