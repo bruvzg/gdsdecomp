@@ -35,7 +35,7 @@ Ref<Image> TextureExporter::load_image_from_bitmap(const String p_path, Error *r
 	int height;
 
 	// Load the main resource, which should be the ImageTexture
-	name = res->get("resource/name");
+	name = ResourceCompatConverter::get_resource_name(res, 0);
 	data = res->get("data");
 	bitmask = data.get("data", PackedByteArray());
 	size = data.get("size", Vector2());
@@ -123,6 +123,7 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 	if (err == ERR_UNAVAILABLE) {
 		// TODO: Not reporting here because we can't get the deprecated format type yet,
 		// implement functionality to pass it back
+		image_format = "Unknown deprecated image format";
 		print_line("Did not convert deprecated Texture resource " + p_path);
 		return err;
 	}
@@ -154,6 +155,7 @@ Error TextureExporter::_convert_atex(const String &p_path, const String &dest_pa
 	if (err == ERR_UNAVAILABLE) {
 		// TODO: Not reporting here because we can't get the deprecated format type yet,
 		// implement functionality to pass it back
+		image_format = "Unknown deprecated image format";
 		return err;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK || atex.is_null(), err, "Failed to load texture " + p_path);
