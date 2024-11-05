@@ -36,11 +36,6 @@ bool gdre::check_header(const Vector<uint8_t> &p_buffer, const char *p_expected_
 Error gdre::decompress_image(const Ref<Image> &img) {
 	Error err;
 	if (img->is_compressed()) {
-		auto format = img->get_format();
-		if (format >= Image::FORMAT_ETC2_R11 && format <= Image::FORMAT_ETC2_RA_AS_RG && !etcpack_decompressor_supports_format(format)) {
-			WARN_PRINT("*** Unsupported etc decompression format, please report this! " + Image::get_format_name(format) + ".");
-			return ERR_UNAVAILABLE;
-		}
 		err = img->decompress();
 		if (err == ERR_UNAVAILABLE) {
 			return err;
