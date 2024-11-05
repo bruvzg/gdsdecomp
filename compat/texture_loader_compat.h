@@ -9,6 +9,7 @@
 #include "core/object/ref_counted.h"
 #include "core/templates/vector.h"
 #include "scene/resources/compressed_texture.h"
+#include "scene/resources/image_texture.h"
 class TextureLoaderCompat {
 public:
 	enum TextureVersionType {
@@ -18,10 +19,12 @@ public:
 		FORMAT_V2_ATLAS_TEXTURE, //atex
 		FORMAT_V2_LARGE_TEXTURE, //ltex
 		FORMAT_V2_CUBEMAP, //cbm
+		FORMAT_V3_ATLAS_TEXTURE, //res
 		FORMAT_V3_IMAGE_TEXTURE, //tex
 		FORMAT_V3_STREAM_TEXTURE2D, //stex
 		FORMAT_V3_STREAM_TEXTURE3D, //tex3d
 		FORMAT_V3_STREAM_TEXTUREARRAY, //texarr
+		FORMAT_V4_ATLAS_TEXTURE, //res
 		FORMAT_V4_IMAGE_TEXTURE, //tex
 		FORMAT_V4_COMPRESSED_TEXTURE2D, //ctex
 		FORMAT_V4_COMPRESSED_TEXTURE3D, //ctex3d
@@ -34,7 +37,6 @@ public:
 		TEXTURE_TYPE_LAYERED,
 		TEXTURE_TYPE_ATLAS
 	};
-
 	static Error _load_data_ctexlayered_v4(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, int &r_type, bool &r_mipmaps);
 	static Error _load_layered_texture_v3(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps);
 	static ResourceInfo _get_resource_info(TextureLoaderCompat::TextureVersionType t);
@@ -43,6 +45,8 @@ public:
 	static Error _load_data_ctex2d_v4(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, Ref<Image> &image, int p_size_limit = 0);
 	static Error _load_data_stex2d_v3(const String &p_path, int &tw, int &th, int &tw_custom, int &th_custom, int &flags, Ref<Image> &image, int p_size_limit = 0);
 
+	static Ref<ImageTexture> create_image_texture(const String &p_path, ResourceInfo::LoadType p_type, int tw, int th, int tw_custom, int th_custom, bool mipmaps, Ref<Image> image);
+	static bool is_binary_resource(TextureVersionType t);
 	static TextureVersionType recognize(const String &p_path, Error *r_err);
 	static int get_ver_major_from_textype(TextureVersionType type);
 	static TextureType get_type_enum_from_version_type(TextureVersionType type);
@@ -52,6 +56,16 @@ public:
 
 class ResourceConverterTexture2D : public ResourceCompatConverter {
 	GDCLASS(ResourceConverterTexture2D, ResourceCompatConverter);
+
+public:
+	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
+	virtual bool handles_type(const String &p_type, int ver_major) const override;
+
+	// static Ref<CompressedTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
+};
+
+class ImageConverterCompat : public ResourceCompatConverter {
+	GDCLASS(ImageConverterCompat, ResourceCompatConverter);
 
 public:
 	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;

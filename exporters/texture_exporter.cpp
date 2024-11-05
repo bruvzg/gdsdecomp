@@ -6,11 +6,9 @@
 #include "core/io/file_access.h"
 #include "core/io/image_loader.h"
 #include "core/io/resource_loader.h"
+#include "scene/resources/atlas_texture.h"
 
-bool TextureExporter::handles_import(const String &importer, const String &resource_type) const {
-	return importer == "image" || importer == "texture" || importer == "bitmap" || resource_type == "BitMap" || resource_type == "CompressedTexture2D" || (resource_type == "Texture2D") || resource_type == "ImageTexture" || resource_type == "StreamTexture" || resource_type == "Texture";
-}
-
+namespace {
 bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
 	int ofs = width * p_y + p_x;
 	int bbyte = ofs / 8;
@@ -18,6 +16,8 @@ bool get_bit(const Vector<uint8_t> &bitmask, int width, int p_x, int p_y) {
 
 	return (bitmask[bbyte] & (1 << bbit)) != 0;
 }
+} //namespace
+
 // Format is the same on V2 - V4
 Ref<Image> TextureExporter::load_image_from_bitmap(const String p_path, Error *r_err) {
 	Error err;
@@ -78,13 +78,24 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 	return OK;
 }
 
+Error decompress_image(const Ref<Image> &img) {
+	Error err;
+	if (img->is_compressed()) {
+		err = img->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress image.");
+	}
+	return OK;
+}
+
 Error TextureExporter::save_image(const String &dest_path, const Ref<Image> &img, bool lossy) {
 	String dest_ext = dest_path.get_extension().to_lower();
 	Error err;
 	if (img->is_compressed()) {
 		err = img->decompress();
 		if (err == ERR_UNAVAILABLE) {
-			WARN_PRINT("Decompression not implemented yet for texture format " + Image::get_format_name(img->get_format()));
 			return err;
 		}
 		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + Image::get_format_name(img->get_format()) + " texture " + dest_path);
@@ -107,8 +118,7 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 	Error err;
 	String dst_dir = dest_path.get_base_dir();
 	Ref<Texture2D> tex;
-	ResourceFormatLoaderCompatTexture2D rlcb;
-	tex = rlcb.custom_load(p_path, ResourceInfo::LoadType::NON_GLOBAL_LOAD, &err);
+	tex = ResourceCompatLoader::non_global_load(p_path, "", &err);
 	// deprecated format
 	if (err == ERR_UNAVAILABLE) {
 		// TODO: Not reporting here because we can't get the deprecated format type yet,
@@ -126,6 +136,55 @@ Error TextureExporter::_convert_tex(const String &p_path, const String &dest_pat
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
 	image_format = Image::get_format_name(img->get_format());
 	err = save_image(dest_path, img, lossy);
+	if (err == ERR_UNAVAILABLE) {
+		return err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to save image " + dest_path + " from texture " + p_path);
+
+	print_verbose("Converted " + p_path + " to " + dest_path);
+	return OK;
+}
+
+Error TextureExporter::_convert_atex(const String &p_path, const String &dest_path, bool lossy, String &image_format) {
+	Error err;
+	String dst_dir = dest_path.get_base_dir();
+	// TODO: make gltf_load take in a cache mode
+	Ref<AtlasTexture> atex = ResourceCompatLoader::gltf_load(p_path, "", &err);
+	// deprecated format
+	if (err == ERR_UNAVAILABLE) {
+		// TODO: Not reporting here because we can't get the deprecated format type yet,
+		// implement functionality to pass it back
+		return err;
+	}
+	ERR_FAIL_COND_V_MSG(err != OK || atex.is_null(), err, "Failed to load texture " + p_path);
+	Ref<Texture2D> tex = atex->get_atlas();
+	ERR_FAIL_COND_V_MSG(tex.is_null(), ERR_PARSE_ERROR, "Failed to load atlas texture " + p_path);
+	Ref<Image> img = tex->get_image();
+
+	ERR_FAIL_COND_V_MSG(img.is_null(), ERR_PARSE_ERROR, "Failed to load image for texture " + p_path);
+	ERR_FAIL_COND_V_MSG(img->is_empty(), ERR_FILE_EOF, "Image data is empty for texture " + p_path + ", not saving");
+	image_format = Image::get_format_name(img->get_format());
+
+	img = img->duplicate();
+	// resize it according to the properties of the atlas
+	err = decompress_image(img);
+	if (err) {
+		return err;
+	}
+	if (img->get_format() != Image::FORMAT_RGBA8) {
+		img->convert(Image::FORMAT_RGBA8);
+	}
+
+	auto margin = atex->get_margin();
+	auto region = atex->get_region();
+
+	// now we have to add the margin padding
+	Ref<Image> new_img = Image::create_empty(atex->get_width(), atex->get_height(), false, img->get_format());
+	new_img->blit_rect(img, region, Point2i(margin.position.x, margin.position.y));
+
+	err = gdre::ensure_dir(dst_dir);
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to create dirs for " + dest_path);
+	err = save_image(dest_path, new_img, lossy);
 	if (err == ERR_UNAVAILABLE) {
 		return err;
 	}
@@ -229,9 +288,12 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 	if (iinfo->get_importer() == "image") {
 		ResourceFormatLoaderImage rli;
 		Ref<Image> img = rli.load(path, "", &err, false, nullptr, ResourceFormatLoader::CACHE_MODE_IGNORE);
-		ERR_FAIL_COND_V_MSG(err != OK || img.is_null(), report, "Failed to load image " + path);
-		img_format = Image::get_format_name(img->get_format());
-		err = save_image(dest_path, img, lossy);
+		if (!err && !img.is_null()) {
+			img_format = Image::get_format_name(img->get_format());
+			err = save_image(dest_path, img, lossy);
+		}
+	} else if (iinfo->get_importer() == "texture_atlas") {
+		err = _convert_atex(path, dest_path, lossy, img_format);
 	} else if (iinfo->get_importer() == "bitmap") {
 		err = _convert_bitmap(path, dest_path, lossy);
 	} else {
@@ -272,10 +334,12 @@ void TextureExporter::get_handled_types(List<String> *out) const {
 	out->push_back("StreamTexture");
 	out->push_back("CompressedTexture2D");
 	out->push_back("BitMap");
+	out->push_back("AtlasTexture");
 }
 
 void TextureExporter::get_handled_importers(List<String> *out) const {
 	out->push_back("texture");
 	out->push_back("bitmap");
 	out->push_back("image");
+	out->push_back("texture_atlas");
 }

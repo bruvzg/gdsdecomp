@@ -1,6 +1,7 @@
 #include "texture_loader_compat.h"
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_loader_compat.h"
+#include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/missing_resource.h"
 #include "core/variant/dictionary.h"
@@ -100,7 +101,15 @@ TextureLoaderCompat::TextureVersionType TextureLoaderCompat::recognize(const Str
 			}
 			return FORMAT_V4_IMAGE_TEXTURE;
 		} else if (type == "AtlasTexture") {
-			return FORMAT_V2_ATLAS_TEXTURE;
+			switch (i_info.ver_major) {
+				case 1:
+				case 2:
+					return FORMAT_V2_ATLAS_TEXTURE;
+				case 3:
+					return FORMAT_V3_ATLAS_TEXTURE;
+				default:
+					return FORMAT_V4_ATLAS_TEXTURE;
+			}
 		} else if (type == "LargeTexture") {
 			return FORMAT_V2_LARGE_TEXTURE;
 		} else if (type == "CubeMap") {
@@ -119,11 +128,13 @@ int TextureLoaderCompat::get_ver_major_from_textype(TextureVersionType type) {
 		case FORMAT_V2_LARGE_TEXTURE:
 		case FORMAT_V2_CUBEMAP:
 			return 2;
+		case FORMAT_V3_ATLAS_TEXTURE:
 		case FORMAT_V3_IMAGE_TEXTURE:
 		case FORMAT_V3_STREAM_TEXTURE2D:
 		case FORMAT_V3_STREAM_TEXTURE3D:
 		case FORMAT_V3_STREAM_TEXTUREARRAY:
 			return 3;
+		case FORMAT_V4_ATLAS_TEXTURE:
 		case FORMAT_V4_IMAGE_TEXTURE:
 		case FORMAT_V4_COMPRESSED_TEXTURE2D:
 		case FORMAT_V4_COMPRESSED_TEXTURE3D:
@@ -155,9 +166,28 @@ TextureLoaderCompat::TextureType TextureLoaderCompat::get_type_enum_from_version
 		case FORMAT_V4_IMAGE_TEXTURE:
 			return TEXTURE_TYPE_2D;
 		case FORMAT_V2_ATLAS_TEXTURE:
+		case FORMAT_V3_ATLAS_TEXTURE:
+		case FORMAT_V4_ATLAS_TEXTURE:
 			return TEXTURE_TYPE_ATLAS;
 		default:
 			return TEXTURE_TYPE_UNKNOWN;
+	}
+}
+
+bool TextureLoaderCompat::is_binary_resource(TextureVersionType t) {
+	switch (t) {
+		case FORMAT_V2_TEXTURE:
+		case FORMAT_V2_IMAGE_TEXTURE:
+		case FORMAT_V2_ATLAS_TEXTURE:
+		case FORMAT_V2_LARGE_TEXTURE:
+		case FORMAT_V2_CUBEMAP:
+		case FORMAT_V3_IMAGE_TEXTURE:
+		case FORMAT_V4_IMAGE_TEXTURE:
+		case FORMAT_V3_ATLAS_TEXTURE:
+		case FORMAT_V4_ATLAS_TEXTURE:
+			return true;
+		default:
+			return false;
 	}
 }
 
@@ -170,6 +200,8 @@ String TextureLoaderCompat::get_type_name_from_textype(TextureVersionType type) 
 		case FORMAT_V4_IMAGE_TEXTURE:
 			return "ImageTexture";
 		case FORMAT_V2_ATLAS_TEXTURE:
+		case FORMAT_V3_ATLAS_TEXTURE:
+		case FORMAT_V4_ATLAS_TEXTURE:
 			return "AtlasTexture";
 		case FORMAT_V2_LARGE_TEXTURE:
 			return "LargeTexture";
@@ -685,28 +717,42 @@ Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &re
 	int th = 0;
 	int tw_custom = 0;
 	int th_custom = 0;
-	int flags;
+	int flags = 0;
 	Ref<Image> image;
+	Ref<Resource> image_res;
 	Ref<Resource> texture;
 	Dictionary compat_dict = (res->get_meta("compat", Dictionary()));
 	String type = res->get_original_class();
-	if (type == "Texture" || type == "ImageTexture") {
-		name = ver_major == 2 ? res->get("resource/name") : res->get("resource_name");
-		image = res->get("image");
+
+	auto convert_image = [&](const Ref<Resource> &image_res) -> Ref<Image> {
+		Ref<Image> image = image_res;
+		if (image.is_null() && image_res->get_class() == "MissingResource") {
+			ImageConverterCompat ic;
+			if (ic.handles_type("Image", ver_major)) {
+				image = ic.convert(image_res, p_type, ver_major, r_error);
+			}
+		}
+		return image;
+	};
+	if ((type == "Texture" && ver_major == 2) || type == "ImageTexture") {
+		name = get_resource_name(res, ver_major);
+		image = convert_image(res->get("image"));
+		ERR_FAIL_COND_V_MSG(image.is_null(), res, "Cannot load resource '" + name + "'.");
+
 		size = res->get("size");
 		flags = res->get("flags");
+		bool mipmaps = flags & 1 || image->has_mipmaps();
 
-		ERR_FAIL_COND_V_MSG(image.is_null(), Ref<Resource>(), "Cannot load resource '" + name + "'.");
 		image->set_name(name);
 		tw = image->get_width();
 		th = image->get_height();
-		if (tw != size.width) {
+		if (size.width && tw != size.width) {
 			tw_custom = size.width;
 		}
-		if (th != size.height) {
+		if (size.height && th != size.height) {
 			th_custom = size.height;
 		}
-		texture = ResourceFormatLoaderCompatTexture2D::_set_tex(res->get_path(), p_type, tw, th, tw_custom, th_custom, flags, image);
+		texture = TextureLoaderCompat::create_image_texture(res->get_path(), p_type, tw, th, tw_custom, th_custom, mipmaps, image);
 	} else if (ver_major >= 3) {
 		if (p_type == ResourceInfo::LoadType::NON_GLOBAL_LOAD) {
 			return res;
@@ -715,8 +761,12 @@ Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &re
 		String load_path = res->get("load_path");
 		ResourceFormatLoaderCompatTexture2D tlc;
 		texture = tlc.custom_load(load_path, p_type, r_error);
+	} else {
+		ERR_FAIL_V_MSG(res, "Unsupported type: " + type);
 	}
-	texture->set_meta("compat", compat_dict);
+	if (compat_dict.size() > 0) {
+		texture->set_meta("compat", compat_dict);
+	}
 	return texture;
 }
 
@@ -787,7 +837,7 @@ ResourceInfo TextureLoaderCompat::get_resource_info(const String &p_path, Error 
 		return ResourceInfo();
 	}
 	int ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
-	if (ver_major == 2 || t == TextureLoaderCompat::FORMAT_V3_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V4_IMAGE_TEXTURE) {
+	if (TextureLoaderCompat::is_binary_resource(t)) {
 		ResourceFormatLoaderCompatBinary rlcb;
 		return rlcb.get_resource_info(p_path, r_error);
 	}
@@ -813,7 +863,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 	Ref<Resource> texture;
 	Ref<Image> image;
 	bool convert = false;
-	if (t == TextureLoaderCompat::FORMAT_V2_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V2_TEXTURE || t == TextureLoaderCompat::FORMAT_V3_IMAGE_TEXTURE || t == TextureLoaderCompat::FORMAT_V4_IMAGE_TEXTURE) {
+	if (TextureLoaderCompat::is_binary_resource(t)) {
 		convert = true;
 	} else if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D) {
 		err = TextureLoaderCompat::_load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
@@ -1010,5 +1060,96 @@ Ref<Resource> ResourceFormatLoaderCompatTextureLayered::custom_load(const String
 	texture = _set_tex(p_path, p_type, lw, lh, ld, ltype, mipmaps, images);
 	set_res_path(texture, res->get_path(), p_type);
 
+	return texture;
+}
+
+bool ImageConverterCompat::handles_type(const String &p_type, int ver_major) const {
+	return (p_type == "Image") && ver_major == 3;
+}
+
+Ref<Resource> ImageConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
+	String name;
+	Vector2 size;
+	Ref<Image> image;
+	Dictionary compat_dict = (res->get_meta("compat", Dictionary()));
+	String type = res->get_original_class();
+	if (type != "Image") {
+		WARN_PRINT("ImageConverterCompat: Unsupported type: " + type);
+		return res;
+	}
+	name = get_resource_name(res, ver_major);
+	Dictionary data = res->get("data");
+	int tw = data.get("width", 0);
+	int th = data.get("height", 0);
+	String format = data.get("format", "");
+	auto fmt_enum = ImageEnumCompat::convert_image_format_enum_v3_to_v4(ImageEnumCompat::get_v3_format_enum_from_name(format));
+	if (fmt_enum == Image::FORMAT_MAX) {
+		*r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_V_MSG(res, "Deprecated v3 image format: " + format);
+	}
+	bool mipmaps = data.get("mipmaps", false);
+	Vector<uint8_t> img_data = data.get("data", Vector<uint8_t>());
+	image = Image::create_from_data(tw, th, mipmaps, fmt_enum, img_data);
+	image->set_name(name);
+	if (compat_dict.size() > 0) {
+		image->set_meta("compat", compat_dict);
+	}
+	return image;
+}
+
+class OverrideImageTexture : public ImageTexture {
+public:
+	Ref<Image> image;
+	virtual Ref<Image> get_image() const override {
+		// otherwise, call the parent
+		return image;
+	}
+	virtual String get_save_class() const override {
+		return "ImageTexture";
+	}
+};
+
+class fakeimagetex : Texture2D {
+	GDCLASS(fakeimagetex, Texture2D);
+
+public:
+	mutable RID texture;
+	Image::Format format = Image::FORMAT_L8;
+	bool mipmaps = false;
+	int w = 0;
+	int h = 0;
+	Size2 size_override;
+	mutable Ref<BitMap> alpha_cache;
+	bool image_stored = false;
+};
+static_assert(sizeof(fakeimagetex) == sizeof(ImageTexture), "fakeimagetex must be the same size as ImageTexture");
+
+Ref<ImageTexture> TextureLoaderCompat::create_image_texture(const String &p_path, ResourceInfo::LoadType p_type, int tw, int th, int tw_custom, int th_custom, bool mipmaps, Ref<Image> image) {
+	Ref<ImageTexture> texture;
+	Ref<OverrideImageTexture> override_texture;
+	if (p_type != ResourceInfo::LoadType::REAL_LOAD) {
+		override_texture.instantiate();
+		override_texture->image = image;
+		texture = override_texture;
+	} else {
+		texture.instantiate();
+	}
+	fakeimagetex *fake = reinterpret_cast<fakeimagetex *>(texture.ptr());
+	fake->image_stored = true;
+	fake->w = tw;
+	fake->h = th;
+	fake->format = image->get_format();
+	if (tw_custom || th_custom) {
+		fake->size_override = Size2(tw_custom, th_custom);
+	}
+	fake->mipmaps = mipmaps;
+	bool size_override = tw_custom || th_custom;
+	if (p_type == ResourceInfo::LoadType::REAL_LOAD) {
+		RID texture_rid = RS::get_singleton()->texture_2d_create(image);
+		fake->texture = texture_rid;
+		if (size_override) {
+			RS::get_singleton()->texture_set_size_override(texture_rid, fake->w, fake->h);
+		}
+	}
 	return texture;
 }
