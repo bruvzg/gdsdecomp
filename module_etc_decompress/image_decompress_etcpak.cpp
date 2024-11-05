@@ -53,15 +53,10 @@ void image_decompress_etc(Image *p_image) {
 	}
 
 	Image::Format source_format = p_image->get_format();
-	// the decoders always output RGBA8; we need to convert after the fact if it's RGB8
-	constexpr const Image::Format start_format = Image::FORMAT_RGBA8;
 	Image::Format target_format = Image::FORMAT_MAX;
 
 	EtcFormat bcdec_format = EtcFormat::Etc1;
 
-	if (!etcpack_decompressor_supports_format(source_format)) {
-		ERR_FAIL_MSG("etcpak-decompress: Can't decompress unsupported format: " + Image::get_format_name(source_format) + ".");
-	}
 	switch (source_format) {
 		case Image::FORMAT_ETC: {
 			bcdec_format = EtcFormat::Etc1;
@@ -71,6 +66,7 @@ void image_decompress_etc(Image *p_image) {
 			bcdec_format = EtcFormat::Etc2_RGB;
 			target_format = Image::FORMAT_RGB8;
 		} break;
+		case Image::FORMAT_ETC2_RA_AS_RG:
 		case Image::FORMAT_ETC2_RGBA8: {
 			bcdec_format = EtcFormat::Etc2_RGBA;
 			target_format = Image::FORMAT_RGBA8;
@@ -83,22 +79,18 @@ void image_decompress_etc(Image *p_image) {
 			bcdec_format = EtcFormat::Etc2_RG11;
 			target_format = Image::FORMAT_RGBA8;
 		} break;
-			// case Image::FORMAT_ETC2_R11S: {
-			// 	bcdec_format = EtcFormat::Etc2_R11;
-			// 	target_format = Image::FORMAT_RGBA8;
-			// } break;
-			// case Image::FORMAT_ETC2_RG11S: {
-			// 	bcdec_format = EtcFormat::Etc2_RG11;
-			// 	target_format = Image::FORMAT_RGBA8;
-			// } break;
-			// case Image::FORMAT_ETC2_RGB8A1: {
-			// 	bcdec_format = EtcFormat::Etc2_RGBA8;
-			// 	target_format = Image::FORMAT_RGBA8;
-			// } break;
-			// case Image::FORMAT_ETC2_RA_AS_RG: {
-			// 	bcdec_format = EtcFormat::Etc2_RA_AS_RG;
-			// 	target_format = Image::FORMAT_RGBA8;
-			// } break;
+		case Image::FORMAT_ETC2_R11S: {
+			bcdec_format = EtcFormat::Etc2_R11S;
+			target_format = Image::FORMAT_RGBA8;
+		} break;
+		case Image::FORMAT_ETC2_RG11S: {
+			bcdec_format = EtcFormat::Etc2_RG11S;
+			target_format = Image::FORMAT_RGBA8;
+		} break;
+		case Image::FORMAT_ETC2_RGB8A1: {
+			bcdec_format = EtcFormat::Etc2_RGBA1;
+			target_format = Image::FORMAT_RGBA8;
+		} break;
 
 		default:
 			ERR_FAIL_MSG("etcpak-decompress: Can't decompress unsupported format: " + Image::get_format_name(source_format) + ".");
@@ -106,6 +98,8 @@ void image_decompress_etc(Image *p_image) {
 	}
 
 	int mm_count = p_image->get_mipmap_count();
+	// the decoders always output RGBA8; we need to convert after the fact if it's RGB8
+	constexpr const Image::Format start_format = Image::FORMAT_RGBA8;
 	int64_t target_size = Image::get_image_data_size(width, height, start_format, p_image->has_mipmaps());
 
 	// Decompressed data.
@@ -131,22 +125,14 @@ void image_decompress_etc(Image *p_image) {
 
 	// convert to RGB8 if needed.
 	if (target_format == Image::FORMAT_RGB8) {
-		p_image->convert(Image::FORMAT_RGBA8);
+		p_image->convert(Image::FORMAT_RGB8);
+	}
+
+	// Swap channels if the format is using a channel swizzle.
+	if (source_format == Image::FORMAT_ETC2_RA_AS_RG) {
+		p_image->convert_ra_rgba8_to_rg();
 	}
 
 	print_verbose(vformat("etcpak: Decompression of a %dx%d %s image with %d mipmaps took %d ms.",
 			p_image->get_width(), p_image->get_height(), Image::get_format_name(source_format), p_image->get_mipmap_count(), OS::get_singleton()->get_ticks_msec() - start_time));
-}
-
-bool etcpack_decompressor_supports_format(Image::Format p_format) {
-	switch (p_format) {
-		case Image::FORMAT_ETC:
-		case Image::FORMAT_ETC2_RGB8:
-		case Image::FORMAT_ETC2_RGBA8:
-		case Image::FORMAT_ETC2_R11:
-		case Image::FORMAT_ETC2_RG11:
-			return true;
-		default:
-			return false;
-	}
 }

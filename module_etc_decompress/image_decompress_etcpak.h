@@ -36,6 +36,4 @@
 
 void image_decompress_etc(Image *p_image);
 
-bool etcpack_decompressor_supports_format(Image::Format p_format);
-
 #endif // IMAGE_DECOMPRESS_ETCPAK_H

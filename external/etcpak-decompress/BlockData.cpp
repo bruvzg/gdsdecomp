@@ -770,6 +770,212 @@ static etcpak_force_inline void DecodeRGPart( uint64_t r, uint64_t g, uint32_t* 
 }
 
 // GDRE Added
+
+static const int32_t g_table_non_opaque[8][4] = {
+	{ 0, 8, 0, -8 },
+	{ 0, 17, 0, -17 },
+	{ 0, 29, 0, -29 },
+	{ 0, 42, 0, -42 },
+	{ 0, 60, 0, -60 },
+	{ 0, 80, 0, -80 },
+	{ 0, 106, 0, -106 },
+	{ 0, 183, 0, -183 }
+};
+
+static etcpak_force_inline void DecodeRGBA1Part( uint64_t d, uint32_t* dst, uint32_t w )
+{
+    d = ConvertByteOrder( d );
+
+    uint32_t br[2], bg[2], bb[2];
+    uint8_t opaque = d & 0x2;
+    
+    int32_t dr, dg, db;
+
+    uint32_t r0 = ( d & 0xF8000000 ) >> 27;
+    uint32_t g0 = ( d & 0x00F80000 ) >> 19;
+    uint32_t b0 = ( d & 0x0000F800 ) >> 11;
+
+    dr = ( int32_t(d) << 5 ) >> 29;
+    dg = ( int32_t(d) << 13 ) >> 29;
+    db = ( int32_t(d) << 21 ) >> 29;
+
+    int32_t r1 = int32_t(r0) + dr;
+    int32_t g1 = int32_t(g0) + dg;
+    int32_t b1a = int32_t(b0) + db;
+
+    // T mode
+    if ( (r1 < 0) || (r1 > 31) )
+    {
+        DecodeT( d, dst, w );
+        return;
+    }
+
+    // H mode
+    if ((g1 < 0) || (g1 > 31))
+    {
+        DecodeH( d, dst, w );
+        return;
+    }
+
+    // P mode
+    if(opaque && ((b1a < 0) || (b1a > 31)))
+    {
+        DecodePlanar( d, dst, w );
+        return;
+    }
+
+    br[0] = ( r0 << 3 ) | ( r0 >> 2 );
+    br[1] = ( r1 << 3 ) | ( r1 >> 2 );
+    bg[0] = ( g0 << 3 ) | ( g0 >> 2 );
+    bg[1] = ( g1 << 3 ) | ( g1 >> 2 );
+    bb[0] = ( b0 << 3 ) | ( b0 >> 2 );
+    bb[1] = ( b1a << 3 ) | ( b1a >> 2 );
+
+    unsigned int tcw[2];
+    tcw[0] = ( d & 0xE0 ) >> 5;
+    tcw[1] = ( d & 0x1C ) >> 2;
+
+    uint32_t b1 = ( d >> 32 ) & 0xFFFF;
+    uint32_t b2 = ( d >> 48 );
+
+    b1 = ( b1 | ( b1 << 8 ) ) & 0x00FF00FF;
+    b1 = ( b1 | ( b1 << 4 ) ) & 0x0F0F0F0F;
+    b1 = ( b1 | ( b1 << 2 ) ) & 0x33333333;
+    b1 = ( b1 | ( b1 << 1 ) ) & 0x55555555;
+
+    b2 = ( b2 | ( b2 << 8 ) ) & 0x00FF00FF;
+    b2 = ( b2 | ( b2 << 4 ) ) & 0x0F0F0F0F;
+    b2 = ( b2 | ( b2 << 2 ) ) & 0x33333333;
+    b2 = ( b2 | ( b2 << 1 ) ) & 0x55555555;
+
+    uint32_t idx = b1 | ( b2 << 1 );
+
+
+    const auto table = opaque ? g_table : g_table_non_opaque;
+    if( d & 0x1 )
+    {
+        for( int i=0; i<4; i++ )
+        {
+            for( int j=0; j<4; j++ )
+            {   
+                // The alpha component is decoded using the ‘opaque’-bit, which is positioned in bit 33 
+                // (see Table 22.7 part (b)). If the ‘opaque’-bit is set, alpha is always 255. 
+                // However, if the ‘opaque’-bit is zero, the alpha-value depends on the pixel indices; 
+                // if MSB==1 and LSB==0, the alpha value will be zero, otherwise it will be 255. 
+                // Finally, if the alpha value equals 0, the red, green and blue components will also be zero.
+                if ((opaque == 0 && (idx & 0x3) == 2)) {
+                    dst[j*w+i] = 0;
+                } else {
+                    const auto mod = table[tcw[j/2]][idx & 0x3];
+                    const auto r = br[j/2] + mod;
+                    const auto g = bg[j/2] + mod;
+                    const auto b = bb[j/2] + mod;
+                    if( ( ( r | g | b ) & ~0xFF ) == 0 )
+                    {
+                        dst[j*w+i] = r | ( g << 8 ) | ( b << 16 ) | 0xFF000000;
+                    }
+                    else
+                    {
+                        const auto rc = clampu8( r );
+                        const auto gc = clampu8( g );
+                        const auto bc = clampu8( b );
+                        dst[j*w+i] = rc | ( gc << 8 ) | ( bc << 16 ) | 0xFF000000;
+                    }
+                }
+                idx >>= 2;
+            }
+        }
+    }
+    else
+    {
+        for( int i=0; i<4; i++ )
+        {
+            const auto tbl = table[tcw[i/2]];
+            const auto cr = br[i/2];
+            const auto cg = bg[i/2];
+            const auto cb = bb[i/2];
+
+            for( int j=0; j<4; j++ )
+            {
+                if ((opaque == 0 && (idx & 0x3) == 2)) {
+                    dst[j*w+i] = 0;
+                } else {
+                    const auto mod = tbl[idx & 0x3];
+                    const auto r = cr + mod;
+                    const auto g = cg + mod;
+                    const auto b = cb + mod;
+                    if( ( ( r | g | b ) & ~0xFF ) == 0 )
+                    {
+                        dst[j*w+i] = r | ( g << 8 ) | ( b << 16 ) | 0xFF000000;
+                    }
+                    else
+                    {
+                        const auto rc = clampu8( r );
+                        const auto gc = clampu8( g );
+                        const auto bc = clampu8( b );
+                        dst[j*w+i] = rc | ( gc << 8 ) | ( bc << 16 ) | 0xFF000000;
+                    }
+                }
+                idx >>= 2;
+            }
+        }
+    }
+}
+
+static etcpak_force_inline void DecodeRSignedPart( uint64_t r, uint32_t* dst, uint32_t w )
+{
+    r = _bswap64( r );
+
+    // Excerpted from section 22.7 Format Signed R11 EAC:
+    // The base codeword is stored in the first 8 bits as shown in Table 22.5 part (a). It is a two’s-complement value in the range
+    // [-127, 127], and where the value -128 is not allowed; however, if it should occur anyway it must be treated as -127.
+    // The base codeword is then multiplied by 8 by shifting it left three steps.
+    //
+    // This is the only difference between the signed and unsigned R11 EAC formats.
+    const int32_t base = (( r >> 56 ) <= -128 ? -127 : ( r >> 56 )) * 8;
+    const int32_t mul = ( r >> 52 ) & 0xF;
+    const auto atbl = g_alpha[( r >> 48 ) & 0xF];
+
+    for( int i=0; i<4; i++ )
+    {
+        for ( int j=0; j<4; j++ )
+        {
+            const auto amod = atbl[(r >> ( 45 - j*3 - i*12 )) & 0x7];
+            const uint32_t rc = clampu8( ( base + amod * g_alpha11Mul[mul] )/8 );
+            dst[j*w+i] = rc | 0xFF000000;
+        }
+    }
+}
+
+static etcpak_force_inline void DecodeRGSignedPart( uint64_t r, uint64_t g, uint32_t* dst, uint32_t w )
+{
+    r = _bswap64( r );
+    g = _bswap64( g );
+
+    // Both 64-bit integers are decoded in the same way as signed R11 EAC described in Section 22.7
+    const int32_t rbase = (( r >> 56 ) <= -128 ? -127 : ( r >> 56 )) * 8;
+    const int32_t rmul = ( r >> 52 ) & 0xF;
+    const auto rtbl = g_alpha[( r >> 48 ) & 0xF];
+
+    const int32_t gbase = (( g >> 56 ) <= -128 ? -127 : ( g >> 56 )) * 8;
+    const int32_t gmul = ( g >> 52 ) & 0xF;
+    const auto gtbl = g_alpha[( g >> 48 ) & 0xF];
+
+    for( int i=0; i<4; i++ )
+    {
+        for( int j=0; j<4; j++ )
+        {
+            const auto rmod = rtbl[(r >> ( 45 - j*3 - i*12 )) & 0x7];
+            const uint32_t rc = clampu8( ( rbase + rmod * g_alpha11Mul[rmul] )/8 );
+
+            const auto gmod = gtbl[(g >> ( 45 - j*3 - i*12 )) & 0x7];
+            const uint32_t gc = clampu8( ( gbase + gmod * g_alpha11Mul[gmul] )/8 );
+
+            dst[j*w+i] = rc | (gc << 8) | 0xFF000000;
+        }
+    }
+}
+
 void etcpak_decompress::decompress_image(EtcFormat format, const void *dsrc, void *ddst, const uint64_t width, const uint64_t height, const int64_t total_size) {
 	const uint64_t *src = (const uint64_t *)(dsrc);
 	uint32_t *dst = (uint32_t *)ddst;
@@ -781,6 +987,16 @@ void etcpak_decompress::decompress_image(EtcFormat format, const void *dsrc, voi
 				for (int x = 0; x < width / 4; x++) {
 					uint64_t d = *src++;
 					DecodeRGBPart(d, dst, width);
+					dst += 4;
+				}
+				dst += width * 3;
+			}
+		} break;
+        case EtcFormat::Etc2_RGBA1: {
+			for (int y = 0; y < height / 4; y++) {
+				for (int x = 0; x < width / 4; x++) {
+					uint64_t d = *src++;
+					DecodeRGBA1Part(d, dst, width);
 					dst += 4;
 				}
 				dst += width * 3;
@@ -808,6 +1024,17 @@ void etcpak_decompress::decompress_image(EtcFormat format, const void *dsrc, voi
 				dst += width * 3;
 			}
 		} break;
+        case EtcFormat::Etc2_R11S: {
+			for (int y = 0; y < height / 4; y++) {
+				for (int x = 0; x < width / 4; x++) {
+					uint64_t r = *src++;
+					DecodeRSignedPart(r, dst, width);
+					dst += 4;
+				}
+				dst += width * 3;
+			}
+		} break;
+
 		case EtcFormat::Etc2_RG11: {
 			for (int y = 0; y < height / 4; y++) {
 				for (int x = 0; x < width / 4; x++) {
@@ -819,5 +1046,17 @@ void etcpak_decompress::decompress_image(EtcFormat format, const void *dsrc, voi
 				dst += width * 3;
 			}
 		} break;
+        case EtcFormat::Etc2_RG11S: {
+			for (int y = 0; y < height / 4; y++) {
+				for (int x = 0; x < width / 4; x++) {
+					uint64_t r = *src++;
+					uint64_t g = *src++;
+					DecodeRGSignedPart(r, g, dst, width);
+					dst += 4;
+				}
+				dst += width * 3;
+			}
+		} break;
+
 	}
 }
