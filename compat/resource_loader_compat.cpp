@@ -398,6 +398,12 @@ String ResourceCompatConverter::get_resource_name(const Ref<Resource> &res, int 
 	if (n.get_type() == Variant::STRING) {
 		name = n;
 	}
+	if (ver_major == 0) {
+		n = res->get("resource_name");
+		if (n.get_type() == Variant::STRING) {
+			name = n;
+		}
+	}
 	if (name.is_empty()) {
 		name = res->get_name();
 	}
