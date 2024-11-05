@@ -4,17 +4,27 @@ def can_build(env, platform):
 import methods
 
 
-# A terrible hack to force-enable the etcpak module being included on non-editor builds.
-# etcpak's can_build function returns False if the editor_build flag is False,
-# and since they come before us in the modules list, we can't monkey patch that.
+# A terrible hack to force-enable our dependent modules being included on non-editor builds.
+# etcpak has dependencies our decompressor requires,
+# astcenc has the decompression functions.
+# without these, we can't decompress either astc or etc textures.
+#
+# astcenc and etcpak's can_build functions returns False if the editor_build flag is False,
+# and it can't be overridden by any flags. Also, Since they come before us in the modules list,
+# we can't monkey patch that.
+#
 # During configure, env.module_list isn't set, and it's not possible to add modules to it.
-# sort_module_list is called right after after env.module_list is set with all the modules.
+# sort_module_list is called right after after env.module_list is set with all the modules,
+# so we can monkey patch that to add the modules we need.
 def monkey_patch_sort_module_list():
     old_sort_module_list = methods.sort_module_list
 
     def sort_module_list(env):
-        env.module_list["etcpak"] = "modules/etcpak"
-        # no need to run configure on etcpak
+        if not "etcpak" in env.module_list:
+            env.module_list["etcpak"] = "modules/etcpak"
+        if not "astcenc" in env.module_list:
+            env.module_list["astcenc"] = "modules/astcenc"
+            # no need to run configure on etcpak
         return old_sort_module_list(env)
 
     methods.sort_module_list = sort_module_list
