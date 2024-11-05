@@ -204,7 +204,7 @@ uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_maj
 			candidates_str += ", ";
 		}
 	}
-	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + candidates_str + ", please report this issue on GitHub.");
+	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + candidates_str + ".");
 	// TODO: Smarter handling for this
 }
 
@@ -474,23 +474,30 @@ uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major
 
 Vector<Ref<GDScriptDecomp>> get_possibles_from_set(const Vector<String> &bytecode_files, const Vector<Ref<GDScriptDecomp>> &decomps) {
 	Vector<Ref<GDScriptDecomp>> passed;
+	Vector<Vector<uint8_t>> buffers;
+	for (const String &file : bytecode_files) {
+		Vector<uint8_t> buffer;
+		if (file.get_extension().to_lower() == "gde") {
+			Error err = GDScriptDecomp::get_buffer_encrypted(file, 3, GDRESettings::get_singleton()->get_encryption_key(), buffer);
+			if (err) {
+				WARN_PRINT("Could not read encrypted bytecode file: " + file);
+				continue;
+			}
+		} else {
+			buffer = FileAccess::get_file_as_bytes(file);
+			if (buffer.size() == 0) {
+				WARN_PRINT("Could not read bytecode file: " + file);
+				continue;
+			}
+		}
+		buffers.push_back(buffer);
+	}
+	if (buffers.size() == 0) {
+		return passed;
+	}
 	for (const auto &decomp : decomps) {
 		bool failed = false;
-		for (const String &file : bytecode_files) {
-			Vector<uint8_t> buffer;
-			if (file.get_extension().to_lower() == "gde") {
-				Error err = GDScriptDecomp::get_buffer_encrypted(file, 3, GDRESettings::get_singleton()->get_encryption_key(), buffer);
-				if (err) {
-					WARN_PRINT("Could not read encrypted bytecode file: " + file);
-					continue;
-				}
-			} else {
-				buffer = FileAccess::get_file_as_bytes(file);
-				if (buffer.size() == 0) {
-					WARN_PRINT("Could not read bytecode file: " + file);
-					continue;
-				}
-			}
+		for (const auto &buffer : buffers) {
 			auto result = decomp->test_bytecode(buffer);
 			if (result == GDScriptDecomp::BYTECODE_TEST_FAIL || result == GDScriptDecomp::BYTECODE_TEST_CORRUPT) {
 				failed = true;
@@ -506,7 +513,7 @@ Vector<Ref<GDScriptDecomp>> get_possibles_from_set(const Vector<String> &bytecod
 
 Vector<Ref<GDScriptDecomp>> BytecodeTester::get_possible_decomps(Vector<String> bytecode_files, bool include_dev) {
 	int bytecode_version = get_bytecode_version(bytecode_files);
-	ERR_FAIL_COND_V_MSG(bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
+	ERR_FAIL_COND_V_MSG(bytecode_version == -1, {}, "Inconsistent bytecode versions across files!!!");
 	ERR_FAIL_COND_V_MSG(bytecode_version <= 0, {}, "Could not read bytecode version from files.");
 	auto decomps = get_decomps_for_bytecode_ver(bytecode_version, include_dev);
 	return get_possibles_from_set(bytecode_files, decomps);

@@ -444,14 +444,27 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 		return OK;
 	}
 
-	decomp = GDScriptDecomp::create_decomp_for_version(get_settings()->get_version_string());
+	auto add_to_failed = [&](int i) {
+		for (int j = i; j < code_files.size(); j++) {
+			report->failed_scripts.push_back(code_files[j]);
+		}
+	};
+
+	int revision = get_settings()->get_bytecode_revision();
+	if (revision == 0) {
+		add_to_failed(0);
+		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
+	}
+	decomp = GDScriptDecomp::create_decomp_for_commit(revision);
 	if (decomp.is_null()) {
+		add_to_failed(0);
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
 
 	print_line("Script version " + get_settings()->get_version_string() + " (rev 0x" + String::num_int64(decomp->get_bytecode_rev(), 16) + ") detected");
 	Error err;
-	for (String f : code_files) {
+	for (int i = 0; i < code_files.size(); i++) {
+		const String &f = code_files[i];
 		String dest_file = f.replace(".gdc", ".gd").replace(".gde", ".gd");
 		Ref<DirAccess> da = DirAccess::open(p_out_dir);
 		print_verbose("decompiling " + f);
@@ -464,13 +477,14 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 		}
 		if (err) {
 			String err_string = decomp->get_error_message();
-			report->failed_scripts.push_back(f);
 			// TODO: make it not fail hard on the first script that fails to decompile
 			if (encrypted) {
+				add_to_failed(i);
 				report->had_encryption_error = true;
 				ERR_FAIL_V_MSG(err, "error decompiling encrypted script " + f + ": " + err_string);
 			} else {
-				ERR_FAIL_V_MSG(err, "error decompiling " + f + ": " + err_string);
+				report->failed_scripts.push_back(f);
+				WARN_PRINT("error decompiling " + f + ": " + err_string);
 			}
 		} else {
 			String text = decomp->get_script_text();
@@ -478,7 +492,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 			Ref<FileAccess> fa = FileAccess::open(out_path, FileAccess::WRITE);
 			if (fa.is_null()) {
 				report->failed_scripts.push_back(f);
-				ERR_FAIL_V_MSG(ERR_FILE_CANT_WRITE, "error failed to save " + f);
+				continue;
 			}
 			fa->store_string(text);
 			if (has_remaps && get_settings()->has_remap(dest_file, f)) {
