@@ -1,19 +1,16 @@
-#include "texture_loader_compat.h"
+#include "compat/texture_loader_compat.h"
+#include "compat/image_enum_compat.h"
 #include "compat/resource_compat_binary.h"
-#include "compat/resource_loader_compat.h"
+#include "compat/webp_compat.h"
+#include "utility/resource_info.h"
+
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
+#include "core/io/file_access.h"
 #include "core/io/missing_resource.h"
 #include "core/variant/dictionary.h"
-#include "image_enum_compat.h"
 #include "scene/resources/compressed_texture.h"
 #include "scene/resources/texture.h"
-#include "utility/resource_info.h"
-#include "webp_compat.h"
-
-#include "utility/gdre_settings.h"
-
-#include "core/io/file_access.h"
 
 enum FormatBits {
 	FORMAT_MASK_IMAGE_FORMAT = (1 << 20) - 1,
@@ -836,7 +833,6 @@ ResourceInfo TextureLoaderCompat::get_resource_info(const String &p_path, Error 
 		}
 		return ResourceInfo();
 	}
-	int ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
 	if (TextureLoaderCompat::is_binary_resource(t)) {
 		ResourceFormatLoaderCompatBinary rlcb;
 		return rlcb.get_resource_info(p_path, r_error);
