@@ -364,47 +364,6 @@ String get_standalone_pck_path() {
 	return exec_dir.path_join(exec_basename + ".pck");
 }
 
-Error GDRESettings::fix_patch_number() {
-	if (!is_pack_loaded()) {
-		return OK;
-	}
-	if (get_ver_major() == 2 && get_ver_minor() == 0) {
-		// just set it to the latest patch
-		set_ver_rev(4);
-		return OK;
-	}
-	// This is only implemented for 3.1 and 2.1; they started writing the correct patch number to the pck in 3.2
-	if (!((get_ver_major() == 3 || get_ver_major() == 2) && get_ver_minor() == 1 && get_ver_rev() == 0)) {
-		return OK;
-	}
-	auto bytecode_files = get_file_list({ "*.gdc", "*.gde" });
-	auto revision = BytecodeTester::test_files(bytecode_files, get_ver_major(), get_ver_minor());
-	switch (revision) {
-		case 0xed80f45: // 2.1.{3-6}
-			set_ver_rev(6);
-			break;
-		case 0x85585c7: // 2.1.2
-			set_ver_rev(2);
-			break;
-		case 0x7124599: // 2.1.{0-1}
-			set_ver_rev(1);
-			break;
-		case 0x1a36141: // 3.1.0
-			set_ver_rev(0);
-			break;
-		case 0x514a3fb: // 3.1.1
-			set_ver_rev(1);
-			break;
-		case 0x1ca61a3: // 3.1.beta
-			current_project->version = GodotVer::parse("3.1.0-beta5");
-			break;
-		default:
-			ERR_FAIL_COND_V_MSG(true, ERR_CANT_RESOLVE, "Could not determine patch number!");
-			break;
-	}
-	return OK;
-}
-
 // This loads project directories by setting the global resource path to the project directory
 // We have to be very careful about this, this means that any GDRE resources we have loaded
 // could fail to reload if they somehow became unloaded while we were messing with the project.
@@ -594,6 +553,11 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 		}
 	}
 
+	err = detect_bytecode_revision();
+	if (err == ERR_PRINTER_ON_FIRE) {
+		WARN_PRINT("Could not determine bytecode revision, continuing without it...");
+	}
+
 	if (!pack_has_project_config()) {
 		WARN_PRINT("Could not find project configuration in directory, may be a seperate resource pack...");
 	} else {
@@ -604,13 +568,87 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 
-	err = fix_patch_number();
-	if (err) { // this only fails on 2.1 and 3.1, where it's crucial to determine the patch number; if this fails, we can't continue
-		unload_project();
-		ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not determine patch number to decompile scripts, please report this on the GitHub page!");
-	}
 	load_pack_uid_cache();
 	return OK;
+}
+
+constexpr bool GDRESettings::need_correct_patch(int ver_major, int ver_minor) {
+	return ((ver_major == 2 || ver_major == 3) && ver_minor == 1);
+}
+
+Error GDRESettings::detect_bytecode_revision() {
+	if (!is_pack_loaded()) {
+		return ERR_FILE_CANT_OPEN;
+	}
+	if (current_project->bytecode_revision != 0) {
+		return OK;
+	}
+	int ver_major = -1;
+	int ver_minor = -1;
+	if (has_valid_version()) {
+		ver_major = get_ver_major();
+		ver_minor = get_ver_minor();
+	}
+	Vector<String> bytecode_files = get_file_list({ "*.gdc" });
+	Vector<String> encrypted_files = get_file_list({ "*.gde" });
+
+	auto guess_from_version = [&](Error fail_error = ERR_FILE_CANT_OPEN) {
+		if (ver_major > 0 && ver_minor >= 0) {
+			auto decomp = GDScriptDecomp::create_decomp_for_version(current_project->version->as_text(), true);
+			ERR_FAIL_COND_V_MSG(decomp.is_null(), fail_error, "Cannot determine bytecode revision");
+			WARN_PRINT("Guessing bytecode revision from engine version: " + get_version_string() + " (rev 0x" + String::num_int64(decomp->get_bytecode_rev(), 16) + ")");
+			current_project->bytecode_revision = decomp->get_bytecode_rev();
+			return OK;
+		}
+		current_project->bytecode_revision = 0;
+		ERR_FAIL_V_MSG(fail_error, "Cannot determine bytecode revision!");
+	};
+	if (!encrypted_files.is_empty()) {
+		auto file = encrypted_files[0];
+		// test this file to see if it decrypts properly
+		Vector<uint8_t> buffer;
+		Error err = GDScriptDecomp::get_buffer_encrypted(file, ver_major > 0 ? ver_major : 3, enc_key, buffer);
+		ERR_FAIL_COND_V_MSG(err, ERR_PRINTER_ON_FIRE, "Cannot determine bytecode revision: Encryption error (Did you set the correct key?)");
+		bytecode_files.append_array(encrypted_files);
+	}
+	if (bytecode_files.is_empty()) {
+		return guess_from_version(ERR_PARSE_ERROR);
+	}
+	auto revision = BytecodeTester::test_files(bytecode_files, ver_major, ver_minor);
+	if (revision == 0) {
+		ERR_FAIL_COND_V_MSG(need_correct_patch(ver_major, ver_minor), ERR_FILE_CANT_OPEN, "Cannot determine bytecode revision: Need the correct patch version for engine version " + itos(ver_major) + "." + itos(ver_minor) + ".x!");
+		return guess_from_version(ERR_FILE_CANT_OPEN);
+	}
+	current_project->bytecode_revision = revision;
+	auto decomp = GDScriptDecomp::create_decomp_for_commit(revision);
+	ERR_FAIL_COND_V_MSG(decomp.is_null(), ERR_FILE_CANT_OPEN, "Cannot determine bytecode revision!");
+	auto check_if_same_minor_major = [&](Ref<GodotVer> version, Ref<GodotVer> max_ver) {
+		if (!(max_ver->get_major() == version->get_major() && max_ver->get_minor() == version->get_minor())) {
+			return false;
+		}
+		return true;
+	};
+	if (!has_valid_version()) {
+		current_project->version = decomp->get_godot_ver();
+		current_project->version->set_build_metadata("");
+	} else {
+		auto version = decomp->get_godot_ver();
+		if (version->is_prerelease()) {
+			current_project->version = decomp->get_max_engine_version().is_empty() ? version : decomp->get_max_godot_ver();
+		} else {
+			auto max_version = decomp->get_max_godot_ver();
+			if (max_version.is_valid() && (check_if_same_minor_major(current_project->version, max_version))) {
+				current_project->version->set_patch(max_version->get_patch());
+			} else if (check_if_same_minor_major(current_project->version, version)) {
+				current_project->version->set_patch(version->get_patch());
+			}
+		}
+	}
+	return OK;
+}
+
+int GDRESettings::get_bytecode_revision() const {
+	return is_pack_loaded() ? current_project->bytecode_revision : 0;
 }
 
 Error GDRESettings::get_version_from_bin_resources() {
@@ -618,6 +656,10 @@ Error GDRESettings::get_version_from_bin_resources() {
 	int inconsistent_versions = 0;
 	int ver_major = 0;
 	int ver_minor = 0;
+	int min_major = INT_MAX;
+	int max_major = 0;
+	int min_minor = INT_MAX;
+	int max_minor = 0;
 
 	int i;
 	int version_from_dir = get_ver_major_from_dir();
@@ -632,6 +674,12 @@ Error GDRESettings::get_version_from_bin_resources() {
 		}
 		return true;
 	};
+	auto set_min_max = [&](Ref<GodotVer> version) {
+		min_minor = MIN(min_minor, version->get_minor());
+		max_minor = MAX(max_minor, version->get_minor());
+		min_major = MIN(min_major, version->get_major());
+		max_major = MAX(max_major, version->get_major());
+	};
 
 	auto do_thing = [&]() {
 		if (decomps.size() == 1) {
@@ -642,16 +690,36 @@ Error GDRESettings::get_version_from_bin_resources() {
 				current_project->version->set_build_metadata("");
 				return true;
 			}
+		};
+		for (auto decomp : decomps) {
+			auto version = decomp->get_godot_ver();
+			auto max_version = decomp->get_max_godot_ver();
+			set_min_max(version);
+			if (max_version.is_valid()) {
+				set_min_max(max_version);
+			}
 		}
 		return false;
 	};
 
 	if (!bytecode_files.is_empty()) {
 		decomps = BytecodeTester::get_possible_decomps(bytecode_files);
+		if (decomps.is_empty()) {
+			decomps = BytecodeTester::get_possible_decomps(bytecode_files, true);
+		}
 		ERR_FAIL_COND_V_MSG(decomps.is_empty(), ERR_FILE_NOT_FOUND, "Cannot determine version from bin resources: decomp testing failed!");
 		if (do_thing()) {
 			return OK;
 		}
+		if (min_major == max_major && min_minor == max_minor) {
+			current_project->version = GodotVer::create(min_major, min_minor, 0);
+			return OK;
+		}
+	} else {
+		min_minor = 0;
+		max_minor = INT_MAX;
+		min_major = 0;
+		max_major = INT_MAX;
 	}
 
 	List<String> exts;
@@ -710,7 +778,7 @@ Error GDRESettings::get_version_from_bin_resources() {
 	}
 
 	current_project->version = GodotVer::create(ver_major, ver_minor, 0);
-	return fix_patch_number();
+	return OK;
 }
 
 Error GDRESettings::load_project_config() {

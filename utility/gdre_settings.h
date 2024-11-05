@@ -94,6 +94,7 @@ public:
 		HashSet<String> resource_strings; // For translation key recovery
 		PackInfo::PackType type = PackInfo::PCK;
 		String pack_file;
+		int bytecode_revision;
 		ProjectInfo() {
 			pcfg.instantiate();
 		}
@@ -157,12 +158,12 @@ private:
 	Error _load_import_file(const String &p_path, bool should_load_md5);
 	Error load_dir(const String &p_path);
 	Error unload_dir();
-	Error fix_patch_number();
 	bool has_valid_version() const;
 	Error load_pack_uid_cache(bool p_reset = false);
 	Error reset_uid_cache();
+	Error detect_bytecode_revision();
 
-	static bool need_correct_patch(int ver_major, int ver_minor);
+	static constexpr bool need_correct_patch(int ver_major, int ver_minor);
 
 protected:
 	static void _bind_methods();
@@ -240,7 +241,7 @@ public:
 	bool loaded_resource_strings() const;
 	void load_all_resource_strings();
 	void get_resource_strings(HashSet<String> &r_strings) const;
-
+	int get_bytecode_revision() const;
 	static GDRESettings *get_singleton();
 	GDRESettings();
 	~GDRESettings();
