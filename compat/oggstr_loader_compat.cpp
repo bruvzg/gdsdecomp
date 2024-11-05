@@ -2,10 +2,7 @@
 #include "modules/vorbis/resource_importer_ogg_vorbis.h"
 
 Ref<Resource> OggStreamConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
-	String name = ver_major < 3 ? res->get("resource/name") : res->get("resource_name");
-	if (name.is_empty()) {
-		name = res->get_name();
-	}
+	String name = get_resource_name(res, ver_major);
 	Vector<uint8_t> data = res->get("data");
 	bool loop = res->get("loop");
 	double loop_offset = res->get("loop_offset");
