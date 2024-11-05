@@ -35,12 +35,15 @@
 #include "utility/packed_file_info.h"
 #include "utility/pck_dumper.h"
 
+#include "module_etc_decompress/register_types.h"
+
 #ifdef TOOLS_ENABLED
 void gdsdecomp_init_callback() {
 	EditorNode *editor = EditorNode::get_singleton();
 	editor->add_child(memnew(GodotREEditor(editor)));
 };
 #endif
+
 static GDRESettings *gdre_singleton = nullptr;
 // TODO: move this to its own thing
 static Ref<ResourceFormatLoaderCompatText> text_loader = nullptr;
@@ -258,9 +261,11 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 #endif
 	init_loaders();
 	init_exporters();
+	initialize_etcpak_decompress_module(p_level);
 }
 
 void uninitialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
+	uninitialize_etcpak_decompress_module(p_level);
 	deinit_exporters();
 	deinit_loaders();
 	if (gdre_singleton) {

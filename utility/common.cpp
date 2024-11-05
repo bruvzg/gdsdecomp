@@ -6,6 +6,7 @@
 #include "core/io/image.h"
 #include "core/io/missing_resource.h"
 #include "external/tga/tga.h"
+#include "module_etc_decompress/image_decompress_etcpak.h"
 
 Error gdre::ensure_dir(const String &dst_dir) {
 	Error err = OK;
@@ -30,6 +31,23 @@ bool gdre::check_header(const Vector<uint8_t> &p_buffer, const char *p_expected_
 	}
 
 	return true;
+}
+
+Error gdre::decompress_image(const Ref<Image> &img) {
+	Error err;
+	if (img->is_compressed()) {
+		auto format = img->get_format();
+		if (format >= Image::FORMAT_ETC2_R11 && format <= Image::FORMAT_ETC2_RA_AS_RG && !etcpack_decompressor_supports_format(format)) {
+			WARN_PRINT("*** Unsupported etc decompression format, please report this! " + Image::get_format_name(format) + ".");
+			return ERR_UNAVAILABLE;
+		}
+		err = img->decompress();
+		if (err == ERR_UNAVAILABLE) {
+			return err;
+		}
+		ERR_FAIL_COND_V_MSG(err != OK || img.is_null(), err, "Failed to decompress image.");
+	}
+	return OK;
 }
 
 class GodotFileInterface : public tga::FileInterface {
@@ -68,14 +86,7 @@ public:
 Error gdre::save_image_as_tga(const String &p_path, const Ref<Image> &p_img) {
 	Vector<uint8_t> buffer;
 	Ref<Image> source_image = p_img->duplicate();
-	Error err = OK;
-	if (source_image->is_compressed()) {
-		err = source_image->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
-	}
+	GDRE_ERR_DECOMPRESS_OR_FAIL(source_image);
 	int width = source_image->get_width();
 	int height = source_image->get_height();
 	bool isRGB = true;
@@ -121,7 +132,7 @@ Error gdre::save_image_as_tga(const String &p_path, const Ref<Image> &p_img) {
 	tga_image.rowstride = width * tga_image.bytesPerPixel;
 	GodotFileInterface file_interface(p_path, FileAccess::WRITE);
 	if (!file_interface.ok()) {
-		return ERR_FILE_CANT_OPEN;
+		return ERR_FILE_CANT_WRITE;
 	}
 	tga::Encoder encoder(&file_interface);
 	encoder.writeHeader(header);
@@ -133,13 +144,7 @@ Error gdre::save_image_as_tga(const String &p_path, const Ref<Image> &p_img) {
 Error gdre::save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool lossy) {
 	Ref<Image> source_image = p_img->duplicate();
 	Error err = OK;
-	if (source_image->is_compressed()) {
-		err = source_image->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
-	}
+	GDRE_ERR_DECOMPRESS_OR_FAIL(source_image);
 	Vector<uint8_t> buffer;
 	if (lossy) {
 		buffer = Image::webp_lossy_packer(source_image, 1);
@@ -159,14 +164,7 @@ Error gdre::save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bo
 Error gdre::save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img) {
 	Vector<uint8_t> buffer;
 	Ref<Image> source_image = p_img->duplicate();
-	Error err = OK;
-	if (source_image->is_compressed()) {
-		err = source_image->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err, err, "Failed to decompress image.");
-	}
+	GDRE_ERR_DECOMPRESS_OR_FAIL(source_image);
 	return source_image->save_jpg(p_path, 1.0f);
 }
 
