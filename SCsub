@@ -9,6 +9,7 @@ Import("env")
 Import("env_modules")
 
 
+etcpak_dir = "#thirdparty/etcpak/"
 mmp3thirdparty_dir = "#thirdparty/minimp3/"
 liboggthirdparty_dir = "#thirdparty/libogg/"
 webpthirdparty_dir = "#thirdparty/libwebp/"
@@ -117,6 +118,7 @@ def write_version_header():
 write_version_header()
 
 
+env_gdsdecomp.Prepend(CPPPATH=[etcpak_dir])
 if env["builtin_libogg"]:
     env_gdsdecomp.Prepend(CPPPATH=[liboggthirdparty_dir])
 if env["builtin_libvorbis"]:
@@ -140,3 +142,5 @@ env_gdsdecomp.add_source_files(env.modules_sources, "exporters/*.cpp")
 env_gdsdecomp.add_source_files(env.modules_sources, "utility/*.cpp")
 
 env_gdsdecomp.add_source_files(env.modules_sources, "external/tga/*.cpp")
+env_gdsdecomp.add_source_files(env.modules_sources, "external/etcpak-decompress/*.cpp")
+env_gdsdecomp.add_source_files(env.modules_sources, "module_etc_decompress/*.cpp")

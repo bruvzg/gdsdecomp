@@ -1,7 +1,9 @@
 #include "texture_exporter.h"
+
 #include "compat/resource_compat_binary.h"
 #include "compat/resource_loader_compat.h"
 #include "compat/texture_loader_compat.h"
+
 #include "core/error/error_list.h"
 #include "core/io/file_access.h"
 #include "core/io/image_loader.h"
@@ -54,6 +56,7 @@ Ref<Image> TextureExporter::load_image_from_bitmap(const String p_path, Error *r
 	ERR_FAIL_COND_V_MSG(image.is_null() || image->is_empty(), Ref<Image>(), "Failed to load image from " + p_path);
 	return image;
 }
+
 Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_path, bool lossy = true) {
 	String dst_dir = dest_path.get_base_dir();
 	Error err;
@@ -78,28 +81,10 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 	return OK;
 }
 
-Error decompress_image(const Ref<Image> &img) {
-	Error err;
-	if (img->is_compressed()) {
-		err = img->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress image.");
-	}
-	return OK;
-}
-
 Error TextureExporter::save_image(const String &dest_path, const Ref<Image> &img, bool lossy) {
 	String dest_ext = dest_path.get_extension().to_lower();
-	Error err;
-	if (img->is_compressed()) {
-		err = img->decompress();
-		if (err == ERR_UNAVAILABLE) {
-			return err;
-		}
-		ERR_FAIL_COND_V_MSG(err != OK, err, "Failed to decompress " + Image::get_format_name(img->get_format()) + " texture " + dest_path);
-	}
+	Error err = OK;
+	GDRE_ERR_DECOMPRESS_OR_FAIL(img);
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
 		err = gdre::save_image_as_jpeg(dest_path, img);
 	} else if (dest_ext == "webp") {
@@ -169,10 +154,7 @@ Error TextureExporter::_convert_atex(const String &p_path, const String &dest_pa
 
 	img = img->duplicate();
 	// resize it according to the properties of the atlas
-	err = decompress_image(img);
-	if (err) {
-		return err;
-	}
+	GDRE_ERR_DECOMPRESS_OR_FAIL(img);
 	if (img->get_format() != Image::FORMAT_RGBA8) {
 		img->convert(Image::FORMAT_RGBA8);
 	}
