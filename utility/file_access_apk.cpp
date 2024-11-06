@@ -255,18 +255,6 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		files[fname] = f;
 
 		uint8_t md5[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-		PackedData::PackedFile pf;
-		pf.offset = 0;
-		memcpy(pf.md5, md5, 16);
-		pf.size = file_info.uncompressed_size;
-		pf.encrypted = false;
-		pf.pack = pack_path;
-		pf.src = this;
-
-		Ref<PackedFileInfo> pf_info;
-		pf_info.instantiate();
-		pf_info->init(fname, &pf);
-		GDRESettings::get_singleton()->add_pack_file(pf_info);
 		GDREPackedData::get_singleton()->add_path(pack_path, fname, 1, 0, md5, this, p_replace_files, false);
 
 		if ((i + 1) < gi.number_entry) {

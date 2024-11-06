@@ -3,11 +3,11 @@
 //
 
 #include "file_access_gdre.h"
+#include "core/os/os.h"
 #include "file_access_apk.h"
 #include "gdre_packed_source.h"
 #include "gdre_settings.h"
-
-#include "core/os/os.h"
+#include "packed_file_info.h"
 
 bool is_gdre_file(const String &p_path) {
 	return p_path.begins_with("res://") && p_path.get_basename().begins_with("gdre_");
@@ -20,17 +20,35 @@ GDREPackedData::GDREPackedData() {
 	root = memnew(PackedDir);
 }
 
+Vector<Ref<PackedFileInfo>> GDREPackedData::get_file_info_list(const Vector<String> &filters) {
+	Vector<Ref<PackedFileInfo>> ret;
+	bool no_filters = !filters.size();
+	for (auto E : file_map) {
+		if (no_filters) {
+			ret.push_back(E.value);
+			continue;
+		}
+		for (int j = 0; j < filters.size(); j++) {
+			if (E.key.get_file().match(filters[j])) {
+				ret.push_back(E.value);
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+bool GDREPackedData::has_mapped_file(const String &p_path) {
+	return files.has(PathMD5(p_path.md5_buffer()));
+}
+
 void GDREPackedData::add_pack_source(PackSource *p_source) {
 	if (p_source != nullptr) {
 		sources.push_back(p_source);
 	}
 }
 
-void GDREPackedData::add_path(const String &p_pkg_path, const String &p_path, uint64_t p_ofs, uint64_t p_size, const uint8_t *p_md5, PackSource *p_src, bool p_replace_files, bool p_encrypted, bool p_gdre_root) {
-	PathMD5 pmd5(p_path.md5_buffer());
-
-	bool exists = files.has(pmd5);
-
+void GDREPackedData::add_path(const String &p_pkg_path, const String &p_path, uint64_t p_ofs, uint64_t p_size, const uint8_t *p_md5, PackSource *p_src, bool p_replace_files, bool p_encrypted, bool p_pck_src) {
 	PackedData::PackedFile pf;
 	pf.encrypted = p_encrypted;
 	pf.pack = p_pkg_path;
@@ -40,14 +58,25 @@ void GDREPackedData::add_path(const String &p_pkg_path, const String &p_path, ui
 		pf.md5[i] = p_md5[i];
 	}
 	pf.src = p_src;
+	Ref<PackedFileInfo> pf_info;
+	pf_info.instantiate();
+	pf_info->init(p_path, &pf);
+
+	// Get the fixed path if this is from a PCK source
+	String path = p_pck_src ? pf_info->get_path() : p_path;
+
+	PathMD5 pmd5(path.md5_buffer());
+
+	bool exists = files.has(pmd5);
 
 	if (!exists || p_replace_files) {
 		files[pmd5] = pf;
+		file_map[path] = pf_info;
 	}
 
 	if (!exists) {
 		//search for dir
-		String p = p_path.replace_first("res://", "");
+		String p = path.replace_first("res://", "");
 		PackedDir *cd = root;
 
 		if (p.contains("/")) { //in a subdir
@@ -66,7 +95,7 @@ void GDREPackedData::add_path(const String &p_pkg_path, const String &p_path, ui
 				}
 			}
 		}
-		String filename = p_path.get_file();
+		String filename = path.get_file();
 		// Don't add as a file if the path points to a directory
 		if (!filename.is_empty()) {
 			cd->files.insert(filename);
@@ -190,8 +219,10 @@ void GDREPackedData::_clear() {
 	set_disabled(true);
 	_free_packed_dirs(root);
 	root = memnew(PackedDir);
+	file_map.clear();
 	files.clear();
 }
+
 GDREPackedData::~GDREPackedData() {
 	_clear();
 }

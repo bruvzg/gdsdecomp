@@ -92,7 +92,6 @@ public:
 
 private:
 	Vector<Ref<PackInfo>> packs;
-	HashMap<String, Ref<PackedFileInfo>> file_map;
 	Ref<ProjectInfo> current_project;
 	GDREPackedData *gdre_packeddata_singleton = nullptr;
 	GDRELogger *logger;
@@ -173,7 +172,6 @@ public:
 	Error set_encryption_key_string(const String &key);
 	void reset_encryption_key();
 	void add_pack_info(Ref<PackInfo> packinfo);
-	void add_pack_file(const Ref<PackedFileInfo> &f_info);
 
 	Vector<String> get_file_list(const Vector<String> &filters = Vector<String>());
 	Array get_file_info_array(const Vector<String> &filters = Vector<String>());
