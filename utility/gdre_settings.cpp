@@ -15,7 +15,6 @@
 #include "utility/file_access_gdre.h"
 #include "utility/gdre_logger.h"
 #include "utility/gdre_packed_source.h"
-#include "utility/util_functions.h"
 
 #include "core/config/project_settings.h"
 #include "core/io/json.h"
@@ -475,7 +474,7 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 		if (p_path.get_extension().to_lower() == "app") {
 			String resources_path = p_path.path_join("Contents").path_join("Resources");
 			if (DirAccess::exists(resources_path)) {
-				auto list = gdreutil::get_recursive_dir_list(resources_path, { "*.pck" }, true);
+				auto list = gdre::get_recursive_dir_list(resources_path, { "*.pck" }, true);
 				if (!list.is_empty()) {
 					return load_project(list, _cmd_line_extract);
 				} else {
@@ -885,7 +884,7 @@ Error GDRESettings::set_encryption_key(Vector<uint8_t> key) {
 Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 	Vector<String> ret;
 	if (get_pack_type() == PackInfo::DIR) {
-		return gdreutil::get_recursive_dir_list("res://", filters, true);
+		return gdre::get_recursive_dir_list("res://", filters, true);
 	}
 	Vector<Ref<PackedFileInfo>> flist = get_file_info_list(filters);
 	for (int i = 0; i < flist.size(); i++) {
