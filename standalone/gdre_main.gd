@@ -229,6 +229,7 @@ var MAIN_CMD_NOTES = """Main commands:
 --recover=<GAME_PCK/EXE/APK/DIR>   Perform full project recovery on the specified PCK, APK, EXE, or extracted project directory.
 --extract=<GAME_PCK/EXE/APK>       Extract the specified PCK, APK, or EXE.
 --compile=<GD_FILE>                Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
+--decompile=<GDC_FILE>             Decompile GDC files to text (can be repeated and use globs)
 --list-bytecode-versions           List all available bytecode versions
 --txt-to-bin=<FILE>                Convert text-based scene or resource files to binary format (can be repeated)
 --bin-to-txt=<FILE>                Convert binary scene or resource files to text-based format (can be repeated)
@@ -254,20 +255,20 @@ var GLOB_NOTES = """Notes on Include/Exclude globs:
 var RECOVER_OPTS_NOTES = """Recover/Extract Options:
 
 --key=<KEY>                 The Key to use if project is encrypted as a 64-character hex string,
-                            e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
+							e.g.: '000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F'
 --output-dir=<DIR>          Output directory, defaults to <NAME_extracted>, or the project directory if one of specified
 --scripts-only              Only extract/recover scripts
 --include=<GLOB>            Include files matching the glob pattern (can be repeated)
 --exclude=<GLOB>            Exclude files matching the glob pattern (can be repeated)
 --ignore-checksum-errors    Ignore MD5 checksum errors when extracting/recovering
 """
-var COMPILE_OPTS_NOTES = """Compile Options:
-
+# todo: handle --key option
+var COMPILE_OPTS_NOTES = """Decompile/Compile Options:
 --bytecode=<COMMIT_OR_VERSION>          Either the commit hash of the bytecode revision (e.g. 'f3f05dc'),
-                                           or the version of the engine (e.g. '4.3.0')
+										   or the version of the engine (e.g. '4.3.0')
 --output-dir=<DIR>                      Directory where compiled files will be output to. 
-                                          - If not specified, compiled files will be output to the same location 
-                                          (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
+										  - If not specified, compiled files will be output to the same location 
+										  (e.g. '<PROJ_DIR>/main.gd' -> '<PROJ_DIR>/main.gdc')
 """
 func print_usage():
 	print("Godot Reverse Engineering Tools")
@@ -497,13 +498,7 @@ func ensure_dir_exists(dir: String):
 	if !da.dir_exists(dir):
 		da.make_dir_recursive(dir)
 
-func compile(files: PackedStringArray, bytecode_version: String, output_dir: String):
-	if bytecode_version == "":
-		print("Error: --bytecode is required for --compile (use --list-bytecode-versions to see available versions)")
-		print(COMPILE_OPTS_NOTES)
-		return
-	if output_dir == "":
-		output_dir = get_cli_abs_path(".") # default to current directory
+func get_decomp(bytecode_version: String) -> GDScriptDecomp:
 	var decomp: GDScriptDecomp = null
 	if '.' in bytecode_version:
 		decomp = GDScriptDecomp.create_decomp_for_version(bytecode_version)
@@ -511,13 +506,25 @@ func compile(files: PackedStringArray, bytecode_version: String, output_dir: Str
 		decomp = GDScriptDecomp.create_decomp_for_commit(bytecode_version.hex_to_int())
 	if decomp == null:
 		print("Error: failed to create decompiler for commit " + bytecode_version + "!\n(run --list-bytecode-versions to see available versions)")
-		return
+	return decomp
+
+func compile(files: PackedStringArray, bytecode_version: String, output_dir: String):
+	# TODO: handle key
+	if output_dir == "":
+		output_dir = get_cli_abs_path(".") # default to current directory
+	if bytecode_version == "":
+		print("Error: --bytecode is required for --compile (use --list-bytecode-versions to see available versions)")
+		print(COMPILE_OPTS_NOTES)
+		return -1
+	var decomp: GDScriptDecomp = get_decomp(bytecode_version)
+	if decomp == null:
+		return -1
 	print("Compiling to bytecode version %x (%s)" % [decomp.get_bytecode_rev(), decomp.get_engine_version()])
 
 	var new_files = Glob.rglob_list(files)
 	if new_files.size() == 0:
 		print("Error: no files found to compile")
-		return
+		return -1
 	ensure_dir_exists(output_dir)
 	for file in new_files:
 		print("Compiling " + file)
@@ -537,6 +544,58 @@ func compile(files: PackedStringArray, bytecode_version: String, output_dir: Str
 		out_f.close()
 		print("Compiled " + file + " to " + out_file)		
 	print("Compilation complete")
+	return 0
+
+func decompile(files: PackedStringArray, bytecode_version: String, output_dir: String, key: String = ""):
+	if output_dir == "":
+		output_dir = get_cli_abs_path(".") # default to current directory
+	if bytecode_version == "":
+		print("Error: --bytecode is required for --decompile (use --list-bytecode-versions to see available versions)")
+		print(COMPILE_OPTS_NOTES)
+		return -1
+	var decomp: GDScriptDecomp = get_decomp(bytecode_version)
+	if decomp == null:
+		return -1
+	print("Decompiling from bytecode version %x (%s)" % [decomp.get_bytecode_rev(), decomp.get_engine_version()])
+	var new_files = Glob.rglob_list(files)
+	if new_files.size() == 0:
+		print("Error: no files found to decompile")
+		return -1
+	ensure_dir_exists(output_dir)
+
+	var err = OK
+	if key != "":
+		err = GDRESettings.set_encryption_key_string(key)
+		if err != OK:
+			print("Error: failed to set key!")
+			return -1
+	for file in new_files:
+		var src_ext = file.get_extension().to_lower()
+		
+		if src_ext != "gdc" and src_ext != "gde":
+			print("Error: " + file + " is not a GDScript bytecode file")
+			continue
+		print("Decompiling " + file)
+		err = decomp.decompile_byte_code(file)
+		var out_file = file.get_basename() + ".gd"
+		if output_dir:
+			out_file = output_dir.path_join(out_file.get_file())
+		print("Output file: " + out_file)
+
+		if err != OK:
+			print("Error: failed to decompile " + file)
+			print(decomp.get_error_message())
+			continue
+		var text = decomp.get_script_text()
+		var out_f = FileAccess.open(out_file, FileAccess.WRITE)
+		if out_f == null:
+			print("Error: failed to open " + out_file + " for writing")
+			continue
+		out_f.store_string(text)
+		out_f.close()
+		print("Decompiled " + file + " to " + out_file)		
+	print("Decompilation complete")
+	return 0
 
 func get_sanitized_args():
 	var args = OS.get_cmdline_args()
@@ -568,6 +627,7 @@ func handle_cli(args: PackedStringArray) -> bool:
 	var txt_to_bin = PackedStringArray()
 	var bin_to_txt = PackedStringArray()
 	var ignore_md5: bool = false
+	var decompile_files = PackedStringArray()
 	var compile_files = PackedStringArray()
 	var bytecode_version: String = ""
 	var main_cmds = {}
@@ -629,6 +689,9 @@ func handle_cli(args: PackedStringArray) -> bool:
 			return true
 		elif arg.begins_with("--bytecode"):
 			bytecode_version = get_arg_value(arg)
+		elif arg.begins_with("--decompile"):
+			main_cmds["decompile"] = true
+			decompile_files.append(get_arg_value(arg))
 		elif arg.begins_with("--compile"):
 			main_cmds["compile"] = true
 			compile_files.append(get_arg_value(arg))
@@ -650,6 +713,8 @@ func handle_cli(args: PackedStringArray) -> bool:
 		return true
 	if compile_files.size() > 0:
 		compile(compile_files, bytecode_version, output_dir)
+	elif decompile_files.size() > 0:
+		decompile(decompile_files, bytecode_version, output_dir, enc_key)
 	elif not input_file.is_empty():
 		recovery(input_file, output_dir, enc_key, false, ignore_md5, excludes, includes)
 		GDRESettings.unload_project()
