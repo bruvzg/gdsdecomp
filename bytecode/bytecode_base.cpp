@@ -1299,10 +1299,41 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::test_bytecode(Vector<uint8_t>
 	return _test_bytecode(p_buffer, p_token_max, p_func_max, print_verbose);
 }
 
+bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_tokens) {
+	auto curr_token = get_global_token(p_tokens[p_pos] & TOKEN_MASK);
+	// TODO: Handle TK_PR_ASSERT, TK_PR_YIELD, TK_PR_SYNC, TK_PR_MASTER, TK_PR_SLAVE, TK_PR_PUPPET, TK_PR_REMOTESYNC, TK_PR_MASTERSYNC, TK_PR_PUPPETSYNC, TK_PR_SLAVESYNC
+	switch (curr_token) {
+		case G_TK_BUILT_IN_FUNC:
+		case G_TK_PR_ASSERT:
+		case G_TK_PR_YIELD:
+			break;
+		default:
+			return false;
+	}
+	if (curr_token != G_TK_BUILT_IN_FUNC && curr_token != G_TK_PR_PRELOAD) {
+		return false;
+	}
+	// If the previous token is a period, then this is a member function call, not a built-in function call
+	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1] & TOKEN_MASK) == G_TK_PERIOD) {
+		return false;
+	}
+	// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
+	// the same name as a built-in function, so we have to check if the next token is a parenthesis open
+	if (p_pos + 1 >= p_tokens.size() || get_global_token(p_tokens[p_pos + 1] & TOKEN_MASK) != G_TK_PARENTHESIS_OPEN) {
+		return false;
+	}
+	return true;
+}
+
 GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t> p_buffer, int &r_tok_max, int &r_func_max, bool print_verbosely) {
-#define FAILED_PRINT(x)  \
-	if (print_verbosely) \
-		print_failed_verbose_func(x);
+#define FAILED_PRINT(x)               \
+	if (print_verbosely) {            \
+		print_failed_verbose_func(x); \
+	}
+
+#define ERR_FAILED_PRINT(x) \
+	FAILED_PRINT(x);        \
+	return BytecodeTestResult::BYTECODE_TEST_FAIL;
 
 #define SIZE_CHECK(x)                                                  \
 	if (i + x >= tokens.size()) {                                      \
@@ -1322,18 +1353,28 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 	const uint8_t *buf = p_buffer.ptr();
 	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', BYTECODE_TEST_CORRUPT);
 
-	auto print_failed_verbose_func([&](const String &p_str) {
-		String prefix = vformat("Bytecode test for %s (%07x) failed: ", get_engine_version(), get_bytecode_rev());
+	int line = 0;
+	auto print_failed_verbose_func = [&](const String &p_str) {
+		String prefix = vformat("Bytecode test for %s (%07x) failed on line %d: ", get_engine_version(), get_bytecode_rev(), line);
 		print_line(prefix + p_str);
-	});
+	};
+
+	auto get_builtin_name = [&](int p_id) -> String {
+		return p_id == -1 ? "preload" : get_function_name(p_id);
+	};
 
 	int version = decode_uint32(&buf[4]);
 	if (version != bytecode_version) {
-		FAILED_PRINT("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
-		return BytecodeTestResult::BYTECODE_TEST_FAIL;
+		ERR_FAILED_PRINT("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
 	}
 	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
-	ERR_FAIL_COND_V(err != OK, BYTECODE_TEST_CORRUPT);
+	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens");
+	auto get_line_func([&](int i) {
+		if (lines.has(i)) {
+			return lines[i];
+		}
+		return 0U;
+	});
 
 	for (int i = 0; i < tokens.size(); i++) {
 		r_tok_max = MAX(r_tok_max, tokens[i] & TOKEN_MASK);
@@ -1341,6 +1382,10 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 		Pair<int, int> arg_count;
 		bool test_func = false;
 		int func_id = -1;
+		int cur_line = get_line_func(i);
+		if (cur_line != 0) {
+			line = cur_line;
+		}
 		// All of these assumptions should apply for all bytecodes that we have support for
 		switch (curr_token) {
 			// Functions go like:
@@ -1352,8 +1397,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
 				GlobalToken nextnext_token = get_global_token(tokens[i + 2] & TOKEN_MASK);
 				if (nextnext_token != G_TK_PARENTHESIS_OPEN && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PARENTHESIS_OPEN)) {
-					FAILED_PRINT(String("Function declaration error: ") + g_token_str[curr_token] + " " + g_token_str[next_token] + " " + g_token_str[nextnext_token]);
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT(String("Function declaration error: ") + g_token_str[curr_token] + " " + g_token_str[next_token] + " " + g_token_str[nextnext_token]);
 				}
 			} break;
 			case G_TK_CF_PASS: {
@@ -1363,8 +1407,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 					GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
 					if (next_token != G_TK_NEWLINE && next_token != G_TK_SEMICOLON && next_token != G_TK_EOF) {
-						FAILED_PRINT(String("Pass statement error, next token isn't newline, semicolon, or EOF: ") + g_token_str[next_token]);
-						return BytecodeTestResult::BYTECODE_TEST_FAIL;
+						ERR_FAILED_PRINT(String("Pass statement error, next token isn't newline, semicolon, or EOF: ") + g_token_str[next_token]);
 					}
 				}
 			} break;
@@ -1373,8 +1416,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				// STATIC requires TK_PR_FUNCTION as the next token
 				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
 				if (next_token != G_TK_PR_FUNCTION && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PR_VAR)) {
-					FAILED_PRINT(String("Static declaration error, next token isn't function or var: ") + g_token_str[next_token]);
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT(String("Static declaration error, next token isn't function or var: ") + g_token_str[next_token]);
 				}
 			} break;
 			case G_TK_PR_ENUM: { // not added until 2.1.3, but valid for all versions after
@@ -1382,101 +1424,85 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				// ENUM requires TK_IDENTIFIER or TK_CURLY_BRACKET_OPEN as the next token
 				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
 				if (next_token != G_TK_IDENTIFIER && next_token != G_TK_CURLY_BRACKET_OPEN) {
-					FAILED_PRINT(String("Enum declaration error, next token isn't identifier or curly bracket open: ") + g_token_str[next_token]);
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT(String("Enum declaration error, next token isn't identifier or curly bracket open: ") + g_token_str[next_token]);
 				}
 			} break;
 			case G_TK_BUILT_IN_FUNC: {
-				// If the previous token is a period, then this is a member function call, not a built-in function call
-				if (i > 0 && get_global_token(tokens[i - 1] & TOKEN_MASK) == G_TK_PERIOD) {
-					break;
-				}
-				// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
-				// the same name as a built-in function, so we have to check if the next token is a parenthesis open
-				if (i + 1 >= tokens.size() || get_global_token(tokens[i + 1] & TOKEN_MASK) != G_TK_PARENTHESIS_OPEN) {
+				if (!is_token_builtin_func(i, tokens)) {
 					break;
 				}
 
 				func_id = tokens[i] >> TOKEN_BITS;
 				r_func_max = MAX(r_func_max, func_id);
 				if (func_id >= FUNC_MAX) {
-					FAILED_PRINT("Function ID out of range: " + itos(func_id) + " >= " + itos(FUNC_MAX));
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT("Function ID out of range: " + itos(func_id) + " >= " + itos(FUNC_MAX));
 				}
 				arg_count = get_function_arg_count(func_id);
 				test_func = true;
 			} break;
+			// TODO: handle YIELD, ASSERT
 			case G_TK_PR_PRELOAD: // Preload is like a function with 1 argument
+				if (!is_token_builtin_func(i, tokens)) {
+					break;
+				}
 				arg_count = { 1, 1 };
 				test_func = true;
 				break;
 			case G_TK_ERROR: // none of these should have made it into the bytecode
 			case G_TK_CURSOR:
 			case G_TK_MAX:
-				FAILED_PRINT("Invalid token: " + String(g_token_str[curr_token]));
+				ERR_FAILED_PRINT("Invalid token: " + String(g_token_str[curr_token]));
 				return BytecodeTestResult::BYTECODE_TEST_FAIL;
 			case G_TK_EOF: {
 				if (tokens.size() != i + 1) {
-					FAILED_PRINT("Found EOF token not at end of tokens");
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT("Found EOF token not at end of tokens");
 				}
 			} break;
 			default:
 				if (curr_token > G_TK_MAX) {
-					FAILED_PRINT("Token > G_TK_MAX: " + itos(curr_token));
-					return BytecodeTestResult::BYTECODE_TEST_FAIL;
+					ERR_FAILED_PRINT("Token > G_TK_MAX: " + itos(curr_token));
 				}
 				break;
 		}
 		if (test_func) { // we're at the function identifier, so check the argument count
 			if (i + 2 >= tokens.size()) { // should at least have two more tokens for `()` after the function identifier
-				FAILED_PRINT("Built-in call error, not enough tokens following");
-				return BytecodeTestResult::BYTECODE_TEST_FAIL;
+				ERR_FAILED_PRINT(vformat("Built-in call '%s' error, not enough tokens following", get_builtin_name(func_id)));
 			}
-			if (get_global_token(tokens[i + 1] & TOKEN_MASK) != G_TK_PARENTHESIS_OPEN) {
-				FAILED_PRINT("Built-in call error, no open parenthesis after function identifier");
-				return BytecodeTestResult::BYTECODE_TEST_FAIL;
+			if (curr_token == G_TK_PR_PRELOAD || bytecode_version < GDSCRIPT_2_0_VERSION) {
+				int cnt = get_func_arg_count(i, tokens);
+				if (cnt < arg_count.first || cnt > arg_count.second) {
+					ERR_FAILED_PRINT(vformat("Built-in call '%s' error, incorrect number of arguments %d (min: %d, max %d)", get_builtin_name(func_id), cnt, arg_count.first, arg_count.second));
+				}
 			}
-			int cnt = test_built_in_func_arg_count(tokens, arg_count, i + 2);
-			if (cnt < arg_count.first || cnt > arg_count.second) {
-				FAILED_PRINT(vformat("Built-in call error, incorrect number of arguments for '%s()': %d", func_id == -1 ? "preload" : get_function_name(func_id), cnt));
-				return BytecodeTestResult::BYTECODE_TEST_FAIL;
-			};
 		}
 	}
 
 	return BYTECODE_TEST_UNKNOWN;
 #undef SIZE_CHECK
+#undef ERR_FAILED_PRINT
 #undef FAILED_PRINT
 }
 
-// we should be just past the open parenthesis
-int GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int curr_pos) {
-	int pos = curr_pos;
-	int comma_count = 0;
-	int min_args = arg_count.first;
-	int max_args = arg_count.second;
-	GlobalToken t = get_global_token(tokens[pos] & TOKEN_MASK);
-	int bracket_open = 0;
-
-	if (min_args == 0 && max_args == 0) {
-		for (; pos < tokens.size(); pos++, t = get_global_token(tokens[pos] & TOKEN_MASK)) {
-			if (t == G_TK_PARENTHESIS_CLOSE) {
-				break;
-			} else if (t != G_TK_NEWLINE) {
-				return -1;
-			}
-		}
-		// if we didn't find a close parenthesis, then we have an error
-		if (pos == tokens.size()) {
-			return -1;
-		}
-		return 0;
+// We're at the identifier token
+int GDScriptDecomp::get_func_arg_count(int curr_pos, const Vector<uint32_t> &tokens) {
+	if (curr_pos + 2 >= tokens.size()) {
+		return -1;
 	}
+	int comma_count = 0;
+	GlobalToken t = get_global_token(tokens[curr_pos + 1] & TOKEN_MASK);
+	if (t != G_TK_PARENTHESIS_OPEN) {
+		return -1;
+	}
+	int bracket_open = 0;
+	bool anything = false;
+	// we should be just past the open parenthesis
+	int pos = curr_pos + 2;
+
 	// count the commas
 	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
 	// This test is not applicable to GDScript 2.0 versions, as there are no bytecode-specific built-in functions.
-	for (; pos < tokens.size(); pos++, t = get_global_token(tokens[pos] & TOKEN_MASK)) {
+	for (; pos < tokens.size(); pos++) {
+		t = get_global_token(tokens[pos] & TOKEN_MASK);
 		switch (t) {
 			case G_TK_BRACKET_OPEN:
 			case G_TK_CURLY_BRACKET_OPEN:
@@ -1496,15 +1522,20 @@ int GDScriptDecomp::test_built_in_func_arg_count(const Vector<uint32_t> &tokens,
 			default:
 				break;
 		}
+		if (t != G_TK_NEWLINE && t != G_TK_PARENTHESIS_CLOSE) {
+			// anything other than a newline or a close bracket
+			anything = true;
+		}
 		if (bracket_open == -1) {
 			break;
 		}
 	}
 	// trailing commas are not allowed after the last argument
 	if (pos == tokens.size() || t != G_TK_PARENTHESIS_CLOSE) {
+		error_message = "Did not find close parenthesis before EOF";
 		return -1;
 	}
-	return comma_count + 1;
+	return anything ? comma_count + 1 : 0;
 }
 Ref<GodotVer> GDScriptDecomp::get_godot_ver() const {
 	return GodotVer::parse(get_engine_version());

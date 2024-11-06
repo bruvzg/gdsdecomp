@@ -19,7 +19,7 @@ protected:
 	String script_text;
 	String error_message;
 
-	int test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int curr_pos);
+	int get_func_arg_count(int curr_pos, const Vector<uint32_t> &tokens);
 
 public:
 	enum GlobalToken {
@@ -166,6 +166,7 @@ protected:
 	virtual Vector<String> get_removed_functions() const { return {}; }
 	virtual Vector<String> get_function_arg_count_changed() const { return {}; }
 	bool check_compile_errors(const Vector<uint8_t> &p_buffer);
+	bool is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_tokens);
 
 public:
 	static Vector<String> get_bytecode_versions();
