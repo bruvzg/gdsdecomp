@@ -162,6 +162,21 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_ABOUT:
 		$re_editor_standalone.show_about_dialog()
 	
+
+
+func get_glob_files(glob: String) -> PackedStringArray:
+	var files: PackedStringArray = Glob.rglob(glob)
+	# doing this because non-windows platforms can have '?' and '[' in filenames
+	if files.size() == 0 and FileAccess.file_exists(glob):
+		files.append(glob)
+	return files
+
+func get_globs_files(globs: PackedStringArray) -> PackedStringArray:
+	var files: PackedStringArray = []
+	for glob in globs:
+		files.append_array(get_glob_files(glob))
+	return files
+
 func get_arg_value(arg):
 	var split_args = arg.split("=")
 	if split_args.size() < 2:
@@ -324,6 +339,7 @@ func normalize_cludes(cludes: PackedStringArray, dir = "res://") -> PackedString
 		new_cludes.append(clude.simplify_path())
 	return new_cludes
 
+
 func recovery(  input_files:PackedStringArray,
 				output_dir:String,
 				enc_key:String,
@@ -334,7 +350,7 @@ func recovery(  input_files:PackedStringArray,
 	var _new_files = []
 	for file in input_files:
 		file = get_cli_abs_path(file)
-		var _files = Glob.rglob(file)
+		var _files = get_glob_files(file)
 		if _files.size() > 0:
 			_new_files.append_array(_files)
 		else:
@@ -430,7 +446,7 @@ func recovery(  input_files:PackedStringArray,
 	else:
 		if includes.size() > 0:
 			includes = normalize_cludes(includes, parent_dir)
-			files = Glob.rglob_list(includes)
+			files = get_globs_files(includes)
 			if len(files) == 0:
 				print("Error: no files found that match includes")
 				print("Includes: " + str(includes))
@@ -521,7 +537,7 @@ func compile(files: PackedStringArray, bytecode_version: String, output_dir: Str
 		return -1
 	print("Compiling to bytecode version %x (%s)" % [decomp.get_bytecode_rev(), decomp.get_engine_version()])
 
-	var new_files = Glob.rglob_list(files)
+	var new_files = get_globs_files(files)
 	if new_files.size() == 0:
 		print("Error: no files found to compile")
 		return -1
@@ -557,7 +573,7 @@ func decompile(files: PackedStringArray, bytecode_version: String, output_dir: S
 	if decomp == null:
 		return -1
 	print("Decompiling from bytecode version %x (%s)" % [decomp.get_bytecode_rev(), decomp.get_engine_version()])
-	var new_files = Glob.rglob_list(files)
+	var new_files = get_globs_files(files)
 	if new_files.size() == 0:
 		print("Error: no files found to decompile")
 		return -1
