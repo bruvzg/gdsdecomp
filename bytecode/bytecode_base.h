@@ -19,7 +19,7 @@ protected:
 	String script_text;
 	String error_message;
 
-	bool test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int curr_pos);
+	int test_built_in_func_arg_count(const Vector<uint32_t> &tokens, Pair<int, int> arg_count, int curr_pos);
 
 public:
 	enum GlobalToken {
@@ -171,8 +171,8 @@ public:
 	static Vector<String> get_bytecode_versions();
 
 	virtual Error decompile_buffer(Vector<uint8_t> p_buffer);
-	virtual BytecodeTestResult _test_bytecode(Vector<uint8_t> p_buffer, int &p_token_max, int &p_func_max);
-	BytecodeTestResult test_bytecode(Vector<uint8_t> p_buffer);
+	virtual BytecodeTestResult _test_bytecode(Vector<uint8_t> p_buffer, int &p_token_max, int &p_func_max, bool print_verbose = false);
+	BytecodeTestResult test_bytecode(Vector<uint8_t> p_buffer, bool print_verbose = false);
 
 	virtual String get_function_name(int p_func) const = 0;
 	virtual int get_function_count() const = 0;
