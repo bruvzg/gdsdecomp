@@ -16,7 +16,6 @@
 #include "utility/common.h"
 #include "utility/gdre_settings.h"
 #include "utility/glob.h"
-#include "utility/util_functions.h"
 
 #include "core/io/config_file.h"
 #include "core/io/dir_access.h"
@@ -24,6 +23,8 @@
 #include "core/os/os.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "thirdparty/minimp3/minimp3_ex.h"
+
+using namespace gdre;
 
 GDRESettings *get_settings() {
 	return GDRESettings::get_singleton();
@@ -60,46 +61,6 @@ struct IInfoComparator {
 		return is_glb_scene(a) < is_glb_scene(b);
 	}
 };
-
-HashSet<String> vector_to_hashset(const Vector<String> &vec) {
-	HashSet<String> ret;
-	for (int i = 0; i < vec.size(); i++) {
-		ret.insert(vec[i]);
-	}
-	return ret;
-}
-
-bool vectors_intersect(const Vector<String> &a, const Vector<String> &b) {
-	const Vector<String> &bigger = a.size() > b.size() ? a : b;
-	const Vector<String> &smaller = a.size() > b.size() ? b : a;
-	for (int i = 0; i < smaller.size(); i++) {
-		if (bigger.has(smaller[i])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-bool hashset_intersects_vector(const HashSet<String> &a, const Vector<String> &b) {
-	for (int i = 0; i < b.size(); i++) {
-		if (a.has(b[i])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-Vector<String> get_vector_intersection(const Vector<String> &a, const Vector<String> &b) {
-	Vector<String> ret;
-	const Vector<String> &bigger = a.size() > b.size() ? a : b;
-	const Vector<String> &smaller = a.size() > b.size() ? b : a;
-	for (int i = 0; i < smaller.size(); i++) {
-		if (bigger.has(smaller[i])) {
-			ret.push_back(smaller[i]);
-		}
-	}
-	return ret;
-}
 
 // Error remove_remap(const String &src, const String &dst, const String &output_dir);
 Error ImportExporter::handle_auto_converted_file(const String &autoconverted_file, const String &output_dir) {
@@ -527,7 +488,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	static const Vector<String> wildcards = { "*.gd" };
 	String rel_plugin_path = String("addons").path_join(plugin_dir);
 	String abs_plugin_path = output_dir.path_join(rel_plugin_path);
-	auto gd_scripts = gdreutil::get_recursive_dir_list(abs_plugin_path, wildcards, false);
+	auto gd_scripts = gdre::get_recursive_dir_list(abs_plugin_path, wildcards, false);
 	String main_script;
 
 	auto copy_gdext_dll_func = [&](String gdextension_path) -> Error {
@@ -604,7 +565,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 		}
 		// search for the libraries
 		Vector<String> lib_paths;
-		// auto paths = gdreutil::get_recursive_dir_list(parent_dir, libs_to_find, true);
+		// auto paths = gdre::get_recursive_dir_list(parent_dir, libs_to_find, true);
 
 		// get a non-recursive dir listing
 		{
@@ -625,7 +586,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 			// if we're on MacOS, try one path up
 			if (parent_dir.get_file() == "Resources") {
 				parent_dir = parent_dir.get_base_dir();
-				lib_paths = gdreutil::get_recursive_dir_list(parent_dir, libs_to_find, true);
+				lib_paths = gdre::get_recursive_dir_list(parent_dir, libs_to_find, true);
 			}
 			if (lib_paths.size() == 0) {
 				WARN_PRINT("Failed to find gdextension libraries for plugin " + plugin_dir);
@@ -657,7 +618,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	if (get_ver_major() >= 3) {
 		// check if this is a gdextension/gdnative plugin
 		static const Vector<String> gdext_wildcards = { "*.gdextension", "*.gdnlib" };
-		auto gdexts = gdreutil::get_recursive_dir_list(abs_plugin_path, gdext_wildcards, true);
+		auto gdexts = gdre::get_recursive_dir_list(abs_plugin_path, gdext_wildcards, true);
 		for (String gdext : gdexts) {
 			err = copy_gdext_dll_func(gdext);
 			if (err) {

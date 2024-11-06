@@ -4,6 +4,7 @@
 
 class Image;
 namespace gdre {
+Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = "", const bool &res = false);
 bool check_header(const Vector<uint8_t> &p_buffer, const char *p_expected_header, int p_expected_len);
 Error ensure_dir(const String &dst_dir);
 Error save_image_as_tga(const String &p_path, const Ref<Image> &p_img);
@@ -16,6 +17,50 @@ Vector<T> hashset_to_vector(const HashSet<T> &hs) {
 	Vector<T> ret;
 	for (const T &E : hs) {
 		ret.push_back(E);
+	}
+	return ret;
+}
+
+template <class T>
+HashSet<T> vector_to_hashset(const Vector<T> &vec) {
+	HashSet<T> ret;
+	for (int i = 0; i < vec.size(); i++) {
+		ret.insert(vec[i]);
+	}
+	return ret;
+}
+
+template <class T>
+bool vectors_intersect(const Vector<T> &a, const Vector<T> &b) {
+	const Vector<T> &bigger = a.size() > b.size() ? a : b;
+	const Vector<T> &smaller = a.size() > b.size() ? b : a;
+	for (int i = 0; i < smaller.size(); i++) {
+		if (bigger.has(smaller[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+template <class T>
+bool hashset_intersects_vector(const HashSet<T> &a, const Vector<T> &b) {
+	for (int i = 0; i < b.size(); i++) {
+		if (a.has(b[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+template <class T>
+Vector<T> get_vector_intersection(const Vector<T> &a, const Vector<T> &b) {
+	Vector<T> ret;
+	const Vector<T> &bigger = a.size() > b.size() ? a : b;
+	const Vector<T> &smaller = a.size() > b.size() ? b : a;
+	for (int i = 0; i < smaller.size(); i++) {
+		if (bigger.has(smaller[i])) {
+			ret.push_back(smaller[i]);
+		}
 	}
 	return ret;
 }
