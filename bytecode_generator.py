@@ -360,6 +360,7 @@ def generate_class_cpp(dir: Path, bytecode_class: BytecodeClass) -> None:
 
         # 6) the `get_global_token` function:
         f.write("GDScriptDecomp::GlobalToken " + class_name + "::get_global_token(int p_token) const {\n")
+        f.write("\tp_token = p_token & TOKEN_MASK;\n")
         f.write("\tif (p_token < 0 || p_token >= TK_MAX) {\n")
         f.write("\t\treturn GDScriptDecomp::GlobalToken::G_TK_MAX;\n")
         f.write("\t}\n")
