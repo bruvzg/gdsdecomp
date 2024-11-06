@@ -726,6 +726,7 @@ Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &re
 	} else if (p_type == ResourceInfo::REAL_LOAD) {
 		texture = ResourceCompatLoader::real_load(load_path, type, ResourceFormatLoader::CACHE_MODE_IGNORE, r_error);
 	}
+	ERR_FAIL_COND_V_MSG(texture.is_null(), res, "Failed to load texture " + load_path);
 	if (compat_dict.size() > 0) {
 		texture->set_meta("compat", compat_dict);
 	}
@@ -1040,28 +1041,25 @@ Ref<Resource> ImageTextureConverterCompat::convert(const Ref<MissingResource> &r
 		}
 		return image;
 	};
-	if (type == "ImageTexture") {
-		name = get_resource_name(res, ver_major);
-		image = convert_image(res->get("image"));
-		ERR_FAIL_COND_V_MSG(image.is_null(), res, "Cannot load resource '" + name + "'.");
+	ERR_FAIL_COND_V_MSG(type != "ImageTexture", res, "Unsupported type: " + type);
+	name = get_resource_name(res, ver_major);
+	image = convert_image(res->get("image"));
+	ERR_FAIL_COND_V_MSG(image.is_null(), res, "Cannot load image from ImageTexture resource '" + name + "'.");
 
-		size = res->get("size");
-		flags = res->get("flags");
-		bool mipmaps = flags & 1 || image->has_mipmaps();
+	size = res->get("size");
+	flags = res->get("flags");
+	bool mipmaps = flags & 1 || image->has_mipmaps();
 
-		image->set_name(name);
-		tw = image->get_width();
-		th = image->get_height();
-		if (size.width && tw != size.width) {
-			tw_custom = size.width;
-		}
-		if (size.height && th != size.height) {
-			th_custom = size.height;
-		}
-		texture = TextureLoaderCompat::create_image_texture(res->get_path(), p_type, tw, th, tw_custom, th_custom, mipmaps, image);
-	} else {
-		ERR_FAIL_V_MSG(res, "Unsupported type: " + type);
+	image->set_name(name);
+	tw = image->get_width();
+	th = image->get_height();
+	if (size.width && tw != size.width) {
+		tw_custom = size.width;
 	}
+	if (size.height && th != size.height) {
+		th_custom = size.height;
+	}
+	texture = TextureLoaderCompat::create_image_texture(res->get_path(), p_type, tw, th, tw_custom, th_custom, mipmaps, image);
 	if (compat_dict.size() > 0) {
 		texture->set_meta("compat", compat_dict);
 	}
