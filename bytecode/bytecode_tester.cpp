@@ -195,16 +195,26 @@ uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_maj
 	}
 
 	// otherwise...
-	auto candidates = BytecodeTester::filter_decomps(decomp_versions, ver_major_hint, ver_minor_hint);
-	// otherwise, we have multiple candidates, fail with an error message that contains the candidates
-	String candidates_str;
-	for (int i = 0; i < candidates.size(); i++) {
-		candidates_str += vformat("%07x", candidates[i]->get_bytecode_rev());
-		if (i < candidates.size() - 1) {
-			candidates_str += ", ";
+	auto get_candidate_string = [&](const Ref<GDScriptDecomp> &decomp) -> String {
+		return vformat("%s (%07x)", decomp->get_engine_version().utf8().get_data(), decomp->get_bytecode_rev());
+	};
+	auto get_candidates_string = [&](const Vector<Ref<GDScriptDecomp>> &decomps) -> String {
+		String candidates_str;
+		for (int i = 0; i < decomps.size(); i++) {
+			candidates_str += get_candidate_string(decomps[i]);
+			if (i < decomps.size() - 1) {
+				candidates_str += ", ";
+			}
 		}
+		return candidates_str;
+	};
+	auto candidates = BytecodeTester::filter_decomps(decomp_versions, ver_major_hint, ver_minor_hint);
+
+	if (candidates.size() == 1) {
+		WARN_PRINT("Multiple candidates for bytecode version " + vformat("%d", detected_bytecode_version) + ":\n" + get_candidates_string(decomp_versions) + "\nChoosing only one that matches engine version: " + get_candidate_string(candidates[0]) + ".");
+		return candidates[0]->get_bytecode_rev();
 	}
-	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + candidates_str + ".");
+	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + get_candidates_string(decomp_versions) + ".");
 	// TODO: Smarter handling for this
 }
 
