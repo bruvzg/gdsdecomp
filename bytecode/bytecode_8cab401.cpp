@@ -175,6 +175,7 @@ int GDScriptDecomp_8cab401::get_function_index(const String &p_func) const {
 }
 
 GDScriptDecomp::GlobalToken GDScriptDecomp_8cab401::get_global_token(int p_token) const {
+	p_token = p_token & TOKEN_MASK;
 	if (p_token < 0 || p_token >= TK_MAX) {
 		return GDScriptDecomp::GlobalToken::G_TK_MAX;
 	}

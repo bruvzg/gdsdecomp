@@ -606,7 +606,7 @@ Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 
 	print_line("Tokens:");
 	for (int i = 0; i < tokens.size(); i++) {
-		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		GlobalToken curr_token = get_global_token(tokens[i]);
 		int curr_line = lines[i];
 		int curr_column = columns.size() > 0 ? columns[i] : 0;
 		String tok_str = g_token_str[curr_token];
@@ -744,7 +744,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	auto ensure_ending_space_func([&](int idx) {
 		if (
 				!line.ends_with(" ") && idx < tokens.size() - 1 &&
-				(get_global_token(tokens[idx + 1] & TOKEN_MASK) != G_TK_NEWLINE &&
+				(get_global_token(tokens[idx + 1]) != G_TK_NEWLINE &&
 						!check_new_line(idx + 1))) {
 			line += " ";
 		}
@@ -1236,8 +1236,8 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 		for (int i = 0; i < old_tokens_size; i++) {
 			auto old_token = tokens[i];
 			auto new_token = newtokens[i];
-			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token & TOKEN_MASK));
-			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token & TOKEN_MASK));
+			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token));
+			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token));
 			if (old_token_name != new_token_name) {
 				print_verbose(String("Different Tokens: ") + old_token_name + String(" != ") + new_token_name);
 			} else {
@@ -1257,8 +1257,8 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 		while (discontinuity < tokens.size() && discontinuity < newtokens.size() && discontinuity != -1) {
 			auto old_token = tokens[discontinuity];
 			auto new_token = newtokens[discontinuity];
-			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token & TOKEN_MASK));
-			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token & TOKEN_MASK));
+			String old_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(old_token));
+			String new_token_name = GDScriptTokenizerTextCompat::get_token_name(get_global_token(new_token));
 			if (old_token_name != new_token_name) {
 				WARN_PRINT(String("Different Tokens: ") + old_token_name + String(" != ") + new_token_name);
 			} else {
@@ -1300,7 +1300,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::test_bytecode(Vector<uint8_t>
 }
 
 bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_tokens) {
-	auto curr_token = get_global_token(p_tokens[p_pos] & TOKEN_MASK);
+	auto curr_token = get_global_token(p_tokens[p_pos]);
 	// TODO: Handle TK_PR_ASSERT, TK_PR_YIELD, TK_PR_SYNC, TK_PR_MASTER, TK_PR_SLAVE, TK_PR_PUPPET, TK_PR_REMOTESYNC, TK_PR_MASTERSYNC, TK_PR_PUPPETSYNC, TK_PR_SLAVESYNC
 	switch (curr_token) {
 		case G_TK_BUILT_IN_FUNC:
@@ -1314,12 +1314,12 @@ bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_
 		return false;
 	}
 	// If the previous token is a period, then this is a member function call, not a built-in function call
-	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1] & TOKEN_MASK) == G_TK_PERIOD) {
+	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1]) == G_TK_PERIOD) {
 		return false;
 	}
 	// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
 	// the same name as a built-in function, so we have to check if the next token is a parenthesis open
-	if (p_pos + 1 >= p_tokens.size() || get_global_token(p_tokens[p_pos + 1] & TOKEN_MASK) != G_TK_PARENTHESIS_OPEN) {
+	if (p_pos + 1 >= p_tokens.size() || get_global_token(p_tokens[p_pos + 1]) != G_TK_PARENTHESIS_OPEN) {
 		return false;
 	}
 	return true;
@@ -1378,7 +1378,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 	for (int i = 0; i < tokens.size(); i++) {
 		r_tok_max = MAX(r_tok_max, tokens[i] & TOKEN_MASK);
-		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		GlobalToken curr_token = get_global_token(tokens[i]);
 		Pair<int, int> arg_count;
 		bool test_func = false;
 		int func_id = -1;
@@ -1394,8 +1394,8 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				SIZE_CHECK(2);
 				// ignore the next_token because it can be anything
 				// get the one after
-				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
-				GlobalToken nextnext_token = get_global_token(tokens[i + 2] & TOKEN_MASK);
+				GlobalToken next_token = get_global_token(tokens[i + 1]);
+				GlobalToken nextnext_token = get_global_token(tokens[i + 2]);
 				if (nextnext_token != G_TK_PARENTHESIS_OPEN && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PARENTHESIS_OPEN)) {
 					ERR_FAILED_PRINT(String("Function declaration error: ") + g_token_str[curr_token] + " " + g_token_str[next_token] + " " + g_token_str[nextnext_token]);
 				}
@@ -1405,7 +1405,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 					// next token has to be EOF, semicolon, or newline
 					SIZE_CHECK(1);
 
-					GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
+					GlobalToken next_token = get_global_token(tokens[i + 1]);
 					if (next_token != G_TK_NEWLINE && next_token != G_TK_SEMICOLON && next_token != G_TK_EOF) {
 						ERR_FAILED_PRINT(String("Pass statement error, next token isn't newline, semicolon, or EOF: ") + g_token_str[next_token]);
 					}
@@ -1414,7 +1414,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 			case G_TK_PR_STATIC: {
 				SIZE_CHECK(1);
 				// STATIC requires TK_PR_FUNCTION as the next token
-				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
+				GlobalToken next_token = get_global_token(tokens[i + 1]);
 				if (next_token != G_TK_PR_FUNCTION && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PR_VAR)) {
 					ERR_FAILED_PRINT(String("Static declaration error, next token isn't function or var: ") + g_token_str[next_token]);
 				}
@@ -1422,7 +1422,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 			case G_TK_PR_ENUM: { // not added until 2.1.3, but valid for all versions after
 				SIZE_CHECK(1);
 				// ENUM requires TK_IDENTIFIER or TK_CURLY_BRACKET_OPEN as the next token
-				GlobalToken next_token = get_global_token(tokens[i + 1] & TOKEN_MASK);
+				GlobalToken next_token = get_global_token(tokens[i + 1]);
 				if (next_token != G_TK_IDENTIFIER && next_token != G_TK_CURLY_BRACKET_OPEN) {
 					ERR_FAILED_PRINT(String("Enum declaration error, next token isn't identifier or curly bracket open: ") + g_token_str[next_token]);
 				}
@@ -1489,7 +1489,7 @@ int GDScriptDecomp::get_func_arg_count(int curr_pos, const Vector<uint32_t> &tok
 		return -1;
 	}
 	int comma_count = 0;
-	GlobalToken t = get_global_token(tokens[curr_pos + 1] & TOKEN_MASK);
+	GlobalToken t = get_global_token(tokens[curr_pos + 1]);
 	if (t != G_TK_PARENTHESIS_OPEN) {
 		return -1;
 	}
@@ -1502,7 +1502,7 @@ int GDScriptDecomp::get_func_arg_count(int curr_pos, const Vector<uint32_t> &tok
 	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
 	// This test is not applicable to GDScript 2.0 versions, as there are no bytecode-specific built-in functions.
 	for (; pos < tokens.size(); pos++) {
-		t = get_global_token(tokens[pos] & TOKEN_MASK);
+		t = get_global_token(tokens[pos]);
 		switch (t) {
 			case G_TK_BRACKET_OPEN:
 			case G_TK_CURLY_BRACKET_OPEN:
@@ -1614,7 +1614,7 @@ Vector<String> GDScriptDecomp::get_compile_errors(const Vector<uint8_t> &p_buffe
 	});
 
 	for (int i = 0; i < tokens.size(); i++) {
-		GlobalToken curr_token = get_global_token(tokens[i] & TOKEN_MASK);
+		GlobalToken curr_token = get_global_token(tokens[i]);
 		if (lines.has(i)) {
 			if (lines[i] != prev_line && lines[i] != 0) {
 				prev_line = lines[i];
