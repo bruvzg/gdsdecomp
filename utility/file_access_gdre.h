@@ -3,6 +3,7 @@
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_pack.h"
+#include "utility/packed_file_info.h"
 
 class GDREPackedData {
 	friend class FileAccessPack;
@@ -39,6 +40,7 @@ public:
 
 private:
 	HashMap<PathMD5, PackedData::PackedFile, PathMD5> files;
+	HashMap<String, Ref<PackedFileInfo>> file_map;
 
 	Vector<PackSource *> sources;
 
@@ -53,8 +55,12 @@ private:
 	void _clear();
 
 public:
+	Vector<Ref<PackedFileInfo>> get_file_info_list(const Vector<String> &filters = Vector<String>());
+
 	void add_pack_source(PackSource *p_source);
-	void add_path(const String &p_pkg_path, const String &p_path, uint64_t p_ofs, uint64_t p_size, const uint8_t *p_md5, PackSource *p_src, bool p_replace_files, bool p_encrypted = false, bool p_gdre_root = false); // for PackSource
+	void add_path(const String &p_pkg_path, const String &p_path, uint64_t p_ofs, uint64_t p_size, const uint8_t *p_md5, PackSource *p_src, bool p_replace_files, bool p_encrypted = false, bool p_pck_src = false); // for PackSource
+
+	bool has_mapped_file(const String &p_path);
 
 	void clear();
 	void set_disabled(bool p_disabled);
@@ -174,6 +180,7 @@ public:
 
 class PathFinder {
 public:
+	static bool gdre_packed_data_valid_path(const String &p_path);
 	static String _fix_path_file_access(const String &p_path);
 };
 

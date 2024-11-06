@@ -269,9 +269,6 @@ bool GDRESettings::is_pack_loaded() const {
 	return current_project.is_valid();
 }
 
-void GDRESettings::add_pack_file(const Ref<PackedFileInfo> &f_info) {
-	file_map.insert(f_info->path, f_info);
-}
 bool GDRESettings::has_valid_version() const {
 	return is_pack_loaded() && current_project->version.is_valid() && current_project->version->is_valid_semver();
 }
@@ -334,7 +331,6 @@ bool GDRESettings::is_project_config_loaded() const {
 void GDRESettings::remove_current_pack() {
 	current_project = Ref<PackInfo>();
 	packs.clear();
-	file_map.clear();
 	import_files.clear();
 	remap_iinfo.clear();
 	reset_encryption_key();
@@ -447,7 +443,7 @@ Error GDRESettings::load_pck(const String &p_path) {
 			return ERR_ALREADY_IN_USE;
 		}
 	}
-	Error err = GDREPackedData::get_singleton()->add_pack(p_path, false, 0);
+	Error err = GDREPackedData::get_singleton()->add_pack(p_path, true, 0);
 	if (err) {
 		ERR_FAIL_COND_V_MSG(error_encryption, ERR_PRINTER_ON_FIRE, "FATAL ERROR: Cannot open encrypted pck! (wrong key?)");
 	}
@@ -895,38 +891,14 @@ Vector<String> GDRESettings::get_file_list(const Vector<String> &filters) {
 
 Array GDRESettings::get_file_info_array(const Vector<String> &filters) {
 	Array ret;
-	bool no_filters = !filters.size();
-	for (auto E : file_map) {
-		if (no_filters) {
-			ret.push_back(E.value);
-			continue;
-		}
-		for (int j = 0; j < filters.size(); j++) {
-			if (E.key.get_file().match(filters[j])) {
-				ret.push_back(E.value);
-				break;
-			}
-		}
+	for (auto file_info : GDREPackedData::get_singleton()->get_file_info_list(filters)) {
+		ret.push_back(file_info);
 	}
 	return ret;
 }
 
 Vector<Ref<PackedFileInfo>> GDRESettings::get_file_info_list(const Vector<String> &filters) {
-	Vector<Ref<PackedFileInfo>> ret;
-	bool no_filters = !filters.size();
-	for (auto E : file_map) {
-		if (no_filters) {
-			ret.push_back(E.value);
-			continue;
-		}
-		for (int j = 0; j < filters.size(); j++) {
-			if (E.key.get_file().match(filters[j])) {
-				ret.push_back(E.value);
-				break;
-			}
-		}
-	}
-	return ret;
+	return GDREPackedData::get_singleton()->get_file_info_list(filters);
 }
 // TODO: Overhaul all these pathing functions
 String GDRESettings::localize_path(const String &p_path, const String &resource_dir) const {
@@ -1348,7 +1320,7 @@ Array GDRESettings::get_import_files(bool copy) {
 }
 
 bool GDRESettings::has_file(const String &p_path) {
-	return file_map.has(p_path);
+	return GDREPackedData::get_singleton()->has_mapped_file(p_path);
 }
 
 Error GDRESettings::load_pack_uid_cache(bool p_reset) {
@@ -1475,7 +1447,7 @@ Error GDRESettings::_load_import_file(const String &p_path, bool should_load_md5
 			// sound.wav-<pathmd5>.smp -> sound.wav-<pathmd5>.md5
 			String md5 = src.get_basename() + ".md5";
 			while (true) {
-				if (file_map.has(md5)) {
+				if (GDREPackedData::get_singleton()->has_mapped_file(md5)) {
 					break;
 				}
 
@@ -1543,6 +1515,9 @@ Vector<String> GDRESettings::get_code_files() {
 }
 
 bool GDRESettings::pack_has_project_config() {
+	if (!is_pack_loaded()) {
+		return false;
+	}
 	if (get_ver_major() == 2) {
 		if (has_res_path("res://engine.cfb")) {
 			return true;
@@ -1696,7 +1671,6 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_encryption_key", "key"), &GDRESettings::set_encryption_key);
 	ClassDB::bind_method(D_METHOD("reset_encryption_key"), &GDRESettings::reset_encryption_key);
 	ClassDB::bind_method(D_METHOD("add_pack_info", "packinfo"), &GDRESettings::add_pack_info);
-	ClassDB::bind_method(D_METHOD("add_pack_file", "f_info"), &GDRESettings::add_pack_file);
 	ClassDB::bind_method(D_METHOD("get_file_list", "filters"), &GDRESettings::get_file_list, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_pack_type"), &GDRESettings::get_pack_type);

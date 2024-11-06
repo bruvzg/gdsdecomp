@@ -345,21 +345,8 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		if (version == 2) {
 			flags = f->get_32();
 		}
-		// add the file info to settings
-		PackedData::PackedFile pf;
-		pf.offset = ofs + p_offset;
-		memcpy(pf.md5, md5, 16);
-		pf.size = size;
-		pf.encrypted = flags & PACK_FILE_ENCRYPTED;
-		pf.pack = p_path;
-		pf.src = this;
-		Ref<PackedFileInfo> pf_info;
-		pf_info.instantiate();
-		pf_info->init(path, &pf);
-		GDRESettings::get_singleton()->add_pack_file(pf_info);
-		// use the corrected path, not the raw path
-		path = pf_info->get_path();
-		GDREPackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED));
+
+		GDREPackedData::get_singleton()->add_path(pck_path, path, ofs + p_offset, size, md5, this, p_replace_files, (flags & PACK_FILE_ENCRYPTED), true);
 	}
 
 	return true;
