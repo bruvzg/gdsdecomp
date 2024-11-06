@@ -1,7 +1,9 @@
 #include "compat/texture_loader_compat.h"
 #include "compat/image_enum_compat.h"
 #include "compat/resource_compat_binary.h"
+#include "compat/resource_loader_compat.h"
 #include "compat/webp_compat.h"
+#include "core/io/resource_loader.h"
 #include "utility/resource_info.h"
 
 #include "core/error/error_list.h"
@@ -704,62 +706,25 @@ Vector<Ref<Image>> TextureLoaderCompat::load_images_from_layered_tex(const Strin
 }
 
 bool ResourceConverterTexture2D::handles_type(const String &p_type, int ver_major) const {
-	return (p_type == "Texture" && ver_major == 2) || (p_type == "Texture2D") || (p_type == "ImageTexture") || (p_type == "StreamTexture") || (p_type == "CompressedTexture2D");
+	return (p_type == "Texture" && ver_major <= 3) || (p_type == "Texture2D") || (p_type == "StreamTexture") || (p_type == "CompressedTexture2D");
 }
 
 Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
 	String name;
 	Vector2 size;
-	int tw = 0;
-	int th = 0;
-	int tw_custom = 0;
-	int th_custom = 0;
-	int flags = 0;
-	Ref<Image> image;
-	Ref<Resource> image_res;
 	Ref<Resource> texture;
+
+	if (p_type == ResourceInfo::LoadType::NON_GLOBAL_LOAD) {
+		return res;
+	}
 	Dictionary compat_dict = (res->get_meta("compat", Dictionary()));
 	String type = res->get_original_class();
-
-	auto convert_image = [&](const Ref<Resource> &image_res) -> Ref<Image> {
-		Ref<Image> image = image_res;
-		if (image.is_null() && image_res->get_class() == "MissingResource") {
-			ImageConverterCompat ic;
-			if (ic.handles_type("Image", ver_major)) {
-				image = ic.convert(image_res, p_type, ver_major, r_error);
-			}
-		}
-		return image;
-	};
-	if ((type == "Texture" && ver_major == 2) || type == "ImageTexture") {
-		name = get_resource_name(res, ver_major);
-		image = convert_image(res->get("image"));
-		ERR_FAIL_COND_V_MSG(image.is_null(), res, "Cannot load resource '" + name + "'.");
-
-		size = res->get("size");
-		flags = res->get("flags");
-		bool mipmaps = flags & 1 || image->has_mipmaps();
-
-		image->set_name(name);
-		tw = image->get_width();
-		th = image->get_height();
-		if (size.width && tw != size.width) {
-			tw_custom = size.width;
-		}
-		if (size.height && th != size.height) {
-			th_custom = size.height;
-		}
-		texture = TextureLoaderCompat::create_image_texture(res->get_path(), p_type, tw, th, tw_custom, th_custom, mipmaps, image);
-	} else if (ver_major >= 3) {
-		if (p_type == ResourceInfo::LoadType::NON_GLOBAL_LOAD) {
-			return res;
-		}
-		flags = res->get("flags");
-		String load_path = res->get("load_path");
-		ResourceFormatLoaderCompatTexture2D tlc;
-		texture = tlc.custom_load(load_path, p_type, r_error);
-	} else {
-		ERR_FAIL_V_MSG(res, "Unsupported type: " + type);
+	int flags = res->get("flags");
+	String load_path = res->get("load_path");
+	if (p_type == ResourceInfo::GLTF_LOAD) {
+		texture = ResourceCompatLoader::gltf_load(load_path, type, r_error);
+	} else if (p_type == ResourceInfo::REAL_LOAD) {
+		texture = ResourceCompatLoader::real_load(load_path, type, ResourceFormatLoader::CACHE_MODE_IGNORE, r_error);
 	}
 	if (compat_dict.size() > 0) {
 		texture->set_meta("compat", compat_dict);
@@ -771,12 +736,11 @@ Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &re
 void ResourceFormatLoaderCompatTexture2D::get_recognized_extensions(List<String> *p_extensions) const {
 	p_extensions->push_back("stex");
 	p_extensions->push_back("ctex");
-	p_extensions->push_back("tex");
 }
 
 // handles type
 bool ResourceFormatLoaderCompatTexture2D::handles_type(const String &p_type) const {
-	return p_type == "CompressedTexture2D" || (p_type == "Texture2D") || p_type == "ImageTexture" || p_type == "StreamTexture" || p_type == "Texture";
+	return p_type == "CompressedTexture2D" || p_type == "StreamTexture";
 }
 
 // get resource type
@@ -855,13 +819,9 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 		return Ref<Resource>();
 	}
 	int lw, lh, lwc, lhc, lflags;
-	int ver_major = TextureLoaderCompat::get_ver_major_from_textype(t);
 	Ref<Resource> texture;
 	Ref<Image> image;
-	bool convert = false;
-	if (TextureLoaderCompat::is_binary_resource(t)) {
-		convert = true;
-	} else if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D) {
+	if (t == TextureLoaderCompat::FORMAT_V3_STREAM_TEXTURE2D) {
 		err = TextureLoaderCompat::_load_data_stex2d_v3(p_path, lw, lh, lwc, lhc, lflags, image);
 	} else if (t == TextureLoaderCompat::FORMAT_V4_COMPRESSED_TEXTURE2D) {
 		err = TextureLoaderCompat::_load_data_ctex2d_v4(p_path, lw, lh, lwc, lhc, image);
@@ -872,14 +832,7 @@ Ref<Resource> ResourceFormatLoaderCompatTexture2D::custom_load(const String &p_p
 		*r_error = err;
 	}
 	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Failed to load texture " + p_path);
-	if (!convert) {
-		texture = _set_tex(p_path, p_type, lw, lh, lwc, lhc, lflags, image);
-	} else {
-		ResourceFormatLoaderCompatBinary rlcb;
-		Ref<Resource> res = rlcb.custom_load(p_path, ResourceInfo::LoadType::FAKE_LOAD, &err);
-		ResourceConverterTexture2D rc;
-		texture = rc.convert(res, p_type, ver_major, &err);
-	}
+	texture = _set_tex(p_path, p_type, lw, lh, lwc, lhc, lflags, image);
 	// TODO: Take care of the cache mode
 	set_res_path(texture, p_path, p_type);
 	auto info = TextureLoaderCompat::_get_resource_info(t);
@@ -1056,6 +1009,62 @@ Ref<Resource> ResourceFormatLoaderCompatTextureLayered::custom_load(const String
 	texture = _set_tex(p_path, p_type, lw, lh, ld, ltype, mipmaps, images);
 	set_res_path(texture, res->get_path(), p_type);
 
+	return texture;
+}
+
+bool ImageTextureConverterCompat::handles_type(const String &p_type, int ver_major) const {
+	return p_type == "ImageTexture";
+}
+
+Ref<Resource> ImageTextureConverterCompat::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
+	String name;
+	Vector2 size;
+	int tw = 0;
+	int th = 0;
+	int tw_custom = 0;
+	int th_custom = 0;
+	int flags = 0;
+	Ref<Image> image;
+	Ref<Resource> image_res;
+	Ref<Resource> texture;
+	Dictionary compat_dict = (res->get_meta("compat", Dictionary()));
+	String type = res->get_original_class();
+
+	auto convert_image = [&](const Ref<Resource> &image_res) -> Ref<Image> {
+		Ref<Image> image = image_res;
+		if (image.is_null() && image_res->get_class() == "MissingResource") {
+			ImageConverterCompat ic;
+			if (ic.handles_type("Image", ver_major)) {
+				image = ic.convert(image_res, p_type, ver_major, r_error);
+			}
+		}
+		return image;
+	};
+	if (type == "ImageTexture") {
+		name = get_resource_name(res, ver_major);
+		image = convert_image(res->get("image"));
+		ERR_FAIL_COND_V_MSG(image.is_null(), res, "Cannot load resource '" + name + "'.");
+
+		size = res->get("size");
+		flags = res->get("flags");
+		bool mipmaps = flags & 1 || image->has_mipmaps();
+
+		image->set_name(name);
+		tw = image->get_width();
+		th = image->get_height();
+		if (size.width && tw != size.width) {
+			tw_custom = size.width;
+		}
+		if (size.height && th != size.height) {
+			th_custom = size.height;
+		}
+		texture = TextureLoaderCompat::create_image_texture(res->get_path(), p_type, tw, th, tw_custom, th_custom, mipmaps, image);
+	} else {
+		ERR_FAIL_V_MSG(res, "Unsupported type: " + type);
+	}
+	if (compat_dict.size() > 0) {
+		texture->set_meta("compat", compat_dict);
+	}
 	return texture;
 }
 
