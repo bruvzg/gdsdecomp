@@ -55,6 +55,7 @@ static Ref<ResourceFormatLoaderCompatTextureLayered> texture_layered_loader = nu
 static Ref<SampleConverterCompat> sample_converter = nullptr;
 static Ref<ResourceConverterTexture2D> texture_converter = nullptr;
 static Ref<ImageConverterCompat> image_converter = nullptr;
+static Ref<ImageTextureConverterCompat> image_texture_converter = nullptr;
 static Ref<OggStreamConverterCompat> ogg_converter = nullptr;
 
 //exporters
@@ -90,6 +91,7 @@ void init_loaders() {
 	sample_converter = memnew(SampleConverterCompat);
 	texture_converter = memnew(ResourceConverterTexture2D);
 	image_converter = memnew(ImageConverterCompat);
+	image_texture_converter = memnew(ImageTextureConverterCompat);
 	ogg_converter = memnew(OggStreamConverterCompat);
 	ResourceCompatLoader::add_resource_format_loader(binary_loader, true);
 	ResourceCompatLoader::add_resource_format_loader(text_loader, true);
@@ -99,6 +101,7 @@ void init_loaders() {
 	ResourceCompatLoader::add_resource_object_converter(sample_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(texture_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(image_converter, true);
+	ResourceCompatLoader::add_resource_object_converter(image_texture_converter, true);
 	ResourceCompatLoader::add_resource_object_converter(ogg_converter, true);
 }
 
@@ -181,6 +184,9 @@ void deinit_loaders() {
 	if (image_converter.is_valid()) {
 		ResourceCompatLoader::remove_resource_object_converter(image_converter);
 	}
+	if (image_texture_converter.is_valid()) {
+		ResourceCompatLoader::remove_resource_object_converter(image_texture_converter);
+	}
 	if (ogg_converter.is_valid()) {
 		ResourceCompatLoader::remove_resource_object_converter(ogg_converter);
 	}
@@ -192,6 +198,7 @@ void deinit_loaders() {
 	sample_converter = nullptr;
 	texture_converter = nullptr;
 	image_converter = nullptr;
+	image_texture_converter = nullptr;
 	ogg_converter = nullptr;
 }
 
@@ -237,6 +244,7 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<SampleConverterCompat>();
 	ClassDB::register_class<ResourceConverterTexture2D>();
 	ClassDB::register_class<ImageConverterCompat>();
+	ClassDB::register_class<ImageTextureConverterCompat>();
 	ClassDB::register_class<OggStreamConverterCompat>();
 
 	ClassDB::register_class<ImportInfoModern>();

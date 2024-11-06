@@ -181,11 +181,17 @@ Error TextureExporter::_convert_atex(const String &p_path, const String &dest_pa
 
 Error TextureExporter::export_file(const String &out_path, const String &res_path) {
 	Error err;
-	auto recognized = TextureLoaderCompat::recognize(res_path, &err);
-	if (recognized == TextureLoaderCompat::FORMAT_NOT_TEXTURE) {
+	auto res_info = ResourceCompatLoader::get_resource_info(res_path, "", &err);
+	if (!handles_import("", res_info.type)) {
+		return ERR_FILE_UNRECOGNIZED;
+	}
+	if (res_info.type == "BitMap") {
 		return _convert_bitmap(res_path, out_path);
 	}
 	String fmt_name;
+	if (res_info.type == "AtlasTexture") {
+		return _convert_atex(res_path, out_path, false, fmt_name);
+	}
 	return _convert_tex(res_path, out_path, false, fmt_name);
 }
 
@@ -314,6 +320,7 @@ Ref<ExportReport> TextureExporter::export_resource(const String &output_dir, Ref
 }
 
 void TextureExporter::get_handled_types(List<String> *out) const {
+	out->push_back("Texture");
 	out->push_back("Texture2D");
 	out->push_back("ImageTexture");
 	out->push_back("StreamTexture");

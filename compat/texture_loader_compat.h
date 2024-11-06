@@ -60,8 +60,6 @@ class ResourceConverterTexture2D : public ResourceCompatConverter {
 public:
 	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
 	virtual bool handles_type(const String &p_type, int ver_major) const override;
-
-	// static Ref<CompressedTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
 };
 
 class ImageConverterCompat : public ResourceCompatConverter {
@@ -70,8 +68,14 @@ class ImageConverterCompat : public ResourceCompatConverter {
 public:
 	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
 	virtual bool handles_type(const String &p_type, int ver_major) const override;
+};
 
-	// static Ref<CompressedTexture2D> _load_texture2d(const String &p_path, Ref<Image> &image, bool &size_override, int ver_major, Error *r_err) const;
+class ImageTextureConverterCompat : public ResourceCompatConverter {
+	GDCLASS(ImageTextureConverterCompat, ResourceCompatConverter);
+
+public:
+	virtual Ref<Resource> convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error = nullptr) override;
+	virtual bool handles_type(const String &p_type, int ver_major) const override;
 };
 
 class ResourceFormatLoaderCompatTexture2D : public CompatFormatLoader {
