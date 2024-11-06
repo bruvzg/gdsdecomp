@@ -73,12 +73,34 @@ bool vectors_intersect(const Vector<String> &a, const Vector<String> &b) {
 	const Vector<String> &bigger = a.size() > b.size() ? a : b;
 	const Vector<String> &smaller = a.size() > b.size() ? b : a;
 	for (int i = 0; i < smaller.size(); i++) {
-		if (bigger.has(a[i])) {
+		if (bigger.has(smaller[i])) {
 			return true;
 		}
 	}
 	return false;
 }
+
+bool hashset_intersects_vector(const HashSet<String> &a, const Vector<String> &b) {
+	for (int i = 0; i < b.size(); i++) {
+		if (a.has(b[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+Vector<String> get_vector_intersection(const Vector<String> &a, const Vector<String> &b) {
+	Vector<String> ret;
+	const Vector<String> &bigger = a.size() > b.size() ? a : b;
+	const Vector<String> &smaller = a.size() > b.size() ? b : a;
+	for (int i = 0; i < smaller.size(); i++) {
+		if (bigger.has(smaller[i])) {
+			ret.push_back(smaller[i]);
+		}
+	}
+	return ret;
+}
+
 // Error remove_remap(const String &src, const String &dst, const String &output_dir);
 Error ImportExporter::handle_auto_converted_file(const String &autoconverted_file, const String &output_dir) {
 	String prefix = autoconverted_file.replace_first("res://", "");
@@ -184,7 +206,7 @@ void ImportExporter::_do_export(uint32_t i, ExportToken *tokens) {
 	last_completed++;
 }
 
-Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &files_to_export, EditorProgressGDDC *pr, String &error_string) {
+Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<String> &_files_to_export, EditorProgressGDDC *pr, String &error_string) {
 	reset_log();
 	ResourceCompatLoader::make_globally_available();
 	ResourceCompatLoader::set_default_gltf_load(true);
@@ -203,30 +225,23 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 		WARN_PRINT("No import files found!");
 		return OK;
 	}
+	bool partial_export = (_files_to_export.size() > 0 && _files_to_export.size() != get_settings()->get_file_count());
+	const Vector<String> files_to_export = partial_export ? _files_to_export : get_settings()->get_file_list();
+
 	Ref<DirAccess> dir = DirAccess::open(output_dir);
-	bool partial_export = files_to_export.size() > 0;
 	if (opt_decompile) {
 		if (pr) {
 			pr->step("Decompiling scripts...", 0, true);
 		}
-		Vector<String> code_files = get_settings()->get_code_files();
-		Vector<String> to_decompile;
-		if (files_to_export.size() > 0) {
-			for (int i = 0; i < code_files.size(); i++) {
-				if (files_to_export.has(code_files[i])) {
-					to_decompile.append(code_files[i]);
-				}
-			}
-		} else {
-			to_decompile = code_files;
-		}
+		Vector<String> to_decompile = partial_export ? get_vector_intersection(get_settings()->get_code_files(), files_to_export) : get_settings()->get_code_files();
 		bool has_non_compiled_scripts = Glob::rglob("res://addons/**/*.gd", true).size() > 0;
 		// check if res://addons exists
 		Ref<DirAccess> res_da = DirAccess::open("res://");
 		Vector<String> addon_first_level_dirs = Glob::glob("res://addons/*", true);
 		if (res_da->dir_exists("res://addons")) {
 			// Only recreate plugin configs if we are exporting files within the addons directory
-			if (files_to_export.size() != 0) {
+			if (partial_export) {
+				// TODO: This doesn't handle '[' and '?' in the path
 				Vector<String> addon_code_files = Glob::rglob_list({ "res://addons/**/*.gdc", "res://addons/**/*.gde" });
 				addon_first_level_dirs = Glob::dirs_in_names(files_to_export, addon_first_level_dirs);
 				auto new_code_files = Glob::names_in_dirs(addon_code_files, addon_first_level_dirs);
@@ -238,8 +253,10 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			}
 			// we need to copy the addons to the output directory
 		}
-		if (has_non_compiled_scripts || to_decompile.size() > 0) {
+		if (to_decompile.size() > 0) {
 			decompile_scripts(output_dir, to_decompile);
+		}
+		if (has_non_compiled_scripts || to_decompile.size() > 0) {
 			// This only works if we decompile the scripts first
 			recreate_plugin_configs(output_dir, addon_first_level_dirs);
 		}
@@ -264,18 +281,8 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 	HashSet<String> files_to_export_set = vector_to_hashset(files_to_export);
 	for (int i = 0; i < _files.size(); i++) {
 		Ref<ImportInfo> iinfo = _files[i];
-		if (partial_export) {
-			auto dest_files = iinfo->get_dest_files();
-			bool has_path = false;
-			for (auto dest : dest_files) {
-				if (files_to_export_set.has(dest)) {
-					has_path = true;
-					break;
-				}
-			}
-			if (!has_path) {
-				continue;
-			}
+		if (partial_export && !hashset_intersects_vector(files_to_export_set, iinfo->get_dest_files())) {
+			continue;
 		}
 		String importer = iinfo->get_importer();
 		if (importer == "script_bytecode") {
