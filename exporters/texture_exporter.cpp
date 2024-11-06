@@ -85,6 +85,9 @@ Error TextureExporter::_convert_bitmap(const String &p_path, const String &dest_
 Error TextureExporter::save_image(const String &dest_path, const Ref<Image> &img, bool lossy) {
 	String dest_ext = dest_path.get_extension().to_lower();
 	Error err = OK;
+	if (img->is_compressed() && img->has_mipmaps()) {
+		img->clear_mipmaps();
+	}
 	GDRE_ERR_DECOMPRESS_OR_FAIL(img);
 	if (dest_ext == "jpg" || dest_ext == "jpeg") {
 		err = gdre::save_image_as_jpeg(dest_path, img);
@@ -154,6 +157,10 @@ Error TextureExporter::_convert_atex(const String &p_path, const String &dest_pa
 	image_format = Image::get_format_name(img->get_format());
 
 	img = img->duplicate();
+	if (img->is_compressed() && img->has_mipmaps()) {
+		img->clear_mipmaps();
+	}
+
 	// resize it according to the properties of the atlas
 	GDRE_ERR_DECOMPRESS_OR_FAIL(img);
 	if (img->get_format() != Image::FORMAT_RGBA8) {
