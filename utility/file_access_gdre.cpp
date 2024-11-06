@@ -38,10 +38,6 @@ Vector<Ref<PackedFileInfo>> GDREPackedData::get_file_info_list(const Vector<Stri
 	return ret;
 }
 
-bool GDREPackedData::has_mapped_file(const String &p_path) {
-	return files.has(PathMD5(p_path.md5_buffer()));
-}
-
 void GDREPackedData::add_pack_source(PackSource *p_source) {
 	if (p_source != nullptr) {
 		sources.push_back(p_source);
@@ -145,35 +141,23 @@ Error GDREPackedData::add_pack(const String &p_path, bool p_replace_files, uint6
 }
 
 Ref<FileAccess> GDREPackedData::try_open_path(const String &p_path) {
-	PathMD5 pmd5(p_path.md5_buffer());
+	String simplified_path = p_path.simplify_path();
+	PathMD5 pmd5(simplified_path.md5_buffer());
 	HashMap<PathMD5, PackedData::PackedFile, PathMD5>::Iterator E = files.find(pmd5);
-	if (!E || E->value.offset == 0) {
-		if (is_gdre_file(p_path)) {
-			WARN_PRINT("Attempted to load a GDRE resource while another pack is loaded...");
-			if (PackedData::get_singleton()) {
-				// This works even when PackedData is disabled
-				return PackedData::get_singleton()->try_open_path(p_path);
-			}
-		}
-		return Ref<FileAccess>();
+	if (!E) {
+		return nullptr; //not found
 	}
+	if (E->value.offset == 0) {
+		return nullptr; //was erased
+	}
+
 	return E->value.src->get_file(p_path, &E->value);
 }
 
 bool GDREPackedData::has_path(const String &p_path) {
-	bool ret = files.has(PathMD5(p_path.md5_buffer()));
-	if (!ret) {
-		// We return true if the path is a GDRE resource to ensure that this will be used to load it
-		if (is_gdre_file(p_path)) {
-			WARN_PRINT("Attempted to check for existence of GDRE resource while another pack is loaded...");
-			if (PackedData::get_singleton()) {
-				// This works even when PackedData is disabled
-				return PackedData::get_singleton()->has_path(p_path);
-			}
-		}
-	}
-	return ret;
+	return files.has(PathMD5(p_path.simplify_path().md5_buffer()));
 }
+
 Ref<DirAccess> GDREPackedData::try_open_directory(const String &p_path) {
 	Ref<DirAccess> da = memnew(DirAccessGDRE());
 	if (da->change_dir(p_path) != OK) {
@@ -232,13 +216,17 @@ Error FileAccessGDRE::open_internal(const String &p_path, int p_mode_flags) {
 	if (!(p_mode_flags & WRITE) && GDREPackedData::get_singleton() && !GDREPackedData::get_singleton()->is_disabled()) {
 		proxy = GDREPackedData::get_singleton()->try_open_path(p_path);
 		if (proxy.is_valid()) {
+			if (is_gdre_file(p_path)) {
+				WARN_PRINT(vformat("Opening gdre file %s from a loaded external pack???? PLEASE REPORT THIS!!!!", p_path));
+			};
 			return OK;
 		}
 	}
 	String path = p_path;
-	if (is_gdre_file(p_path)) {
-		WARN_PRINT("Attempted to open a gdre file while we have a pack loaded...");
-		if (GDREPackedData::real_packed_data_has_pack_loaded() && !PackedData::get_singleton()->is_disabled()) {
+	if (!(p_mode_flags & WRITE) && is_gdre_file(p_path)) {
+		WARN_PRINT(vformat("Attempted to open a gdre file %s while we have a pack loaded...", p_path));
+		if (PathFinder::real_packed_data_has_path(p_path)) {
+			// this works even when PackedData is disabled
 			proxy = PackedData::get_singleton()->try_open_path(p_path);
 			if (proxy.is_valid()) {
 				return OK;
@@ -246,7 +234,7 @@ Error FileAccessGDRE::open_internal(const String &p_path, int p_mode_flags) {
 		}
 	}
 	// Otherwise, it's on the file system.
-	path = PathFinder::_fix_path_file_access(p_path);
+	path = PathFinder::_fix_path_file_access(p_path, p_mode_flags);
 	Error err;
 	proxy = _open_filesystem(path, p_mode_flags, &err);
 	if (err != OK) {
@@ -323,12 +311,17 @@ void FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 }
 
 bool FileAccessGDRE::file_exists(const String &p_name) {
-	if (GDREPackedData::get_singleton() && !GDREPackedData::get_singleton()->is_disabled() && GDREPackedData::get_singleton()->has_path(p_name)) {
+	if (PathFinder::gdre_packed_data_valid_path(p_name)) {
 		return true;
 	}
 	if (proxy.is_valid()) {
 		return proxy->file_exists(p_name);
 	}
+	// TODO: I don't think this is necessary and may screw things up; revisit this
+	// After proxy, check if it's in the real packed data
+	// if (PathFinder::real_packed_data_has_path(p_name)) {
+	// 	return true;
+	// }
 
 	return false;
 }
@@ -804,10 +797,28 @@ Ref<FileAccess> FileAccessGDRE::_open_filesystem(const String &p_path, int p_mod
 	return file_proxy;
 }
 
-String PathFinder::_fix_path_file_access(const String &p_path) {
+bool PathFinder::real_packed_data_has_path(const String &p_path, bool check_disabled) {
+	return PackedData::get_singleton() && (!check_disabled || !PackedData::get_singleton()->is_disabled()) && PackedData::get_singleton()->has_path(p_path);
+}
+
+bool PathFinder::gdre_packed_data_valid_path(const String &p_path) {
+	return GDREPackedData::get_singleton() && !GDREPackedData::get_singleton()->is_disabled() && GDREPackedData::get_singleton()->has_path(p_path);
+}
+
+String PathFinder::_fix_path_file_access(const String &p_path, int p_mode_flags) {
 	if (p_path.begins_with("res://")) {
-		if (p_path.get_file().begins_with("gdre_")) {
+		if (is_gdre_file(p_path)) {
 			WARN_PRINT("WARNING: Calling fix_path on a gdre file...");
+			if (!(p_mode_flags & FileAccess::WRITE)) {
+				if (gdre_packed_data_valid_path(p_path)) {
+					WARN_PRINT("WARNING: fix_path: gdre file is in a loaded external pack???? PLEASE REPORT THIS!!!!");
+					return p_path.replace_first("res://", "");
+				};
+				// PackedData is disabled if an external pack is loaded, so we don't check if it's disabled here
+				if (real_packed_data_has_path(p_path)) {
+					return p_path.replace_first("res://", "");
+				}
+			}
 			String res_path = GDRESettings::get_singleton()->get_gdre_resource_path();
 			if (res_path != "") {
 				return p_path.replace("res:/", res_path);
@@ -820,12 +831,17 @@ String PathFinder::_fix_path_file_access(const String &p_path) {
 		return p_path.replace_first("res://", "");
 	} else if (p_path.begins_with("user://")) { // Some packs have user files in them, so we need to check for those
 		if (p_path.get_file().begins_with("gdre_")) {
-			WARN_PRINT("WARNING: Calling fix_path on a gdre file...");
-			// TODO: Once we start adding user files, we'll have to handle this; for right now, it doesn't particularly matter
+			WARN_PRINT(vformat("WARNING: Calling fix_path on a gdre file %s...", p_path));
+			if (!(p_mode_flags & FileAccess::WRITE)) {
+				if (gdre_packed_data_valid_path(p_path)) {
+					WARN_PRINT(vformat("WARNING: fix_path: gdre file %s is in a loaded external pack???? PLEASE REPORT THIS!!!!", p_path));
+					return p_path.replace_first("user://", "");
+				};
+			}
 		}
 
 		// check if the file is in the PackedData first
-		if (GDREPackedData::get_singleton() && !GDREPackedData::get_singleton()->is_disabled() && GDREPackedData::get_singleton()->has_path(p_path)) {
+		if (!(p_mode_flags & FileAccess::WRITE) && gdre_packed_data_valid_path(p_path)) {
 			return p_path.replace_first("user://", "");
 		}
 		String data_dir = OS::get_singleton()->get_user_data_dir();

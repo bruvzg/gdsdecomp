@@ -60,8 +60,6 @@ public:
 	void add_pack_source(PackSource *p_source);
 	void add_path(const String &p_pkg_path, const String &p_path, uint64_t p_ofs, uint64_t p_size, const uint8_t *p_md5, PackSource *p_src, bool p_replace_files, bool p_encrypted = false, bool p_pck_src = false); // for PackSource
 
-	bool has_mapped_file(const String &p_path);
-
 	void clear();
 	void set_disabled(bool p_disabled);
 	_FORCE_INLINE_ bool is_disabled() const;
@@ -180,19 +178,23 @@ public:
 
 class PathFinder {
 public:
+	static bool real_packed_data_has_path(const String &p_path, bool check_disabled = false);
 	static bool gdre_packed_data_valid_path(const String &p_path);
-	static String _fix_path_file_access(const String &p_path);
+	static String _fix_path_file_access(const String &p_path, int p_mode_flags = 0);
 };
 
 template <class T>
 class FileAccessProxy : public T {
 	static_assert(std::is_base_of<FileAccess, T>::value, "T must derive from FileAccess");
 
+	int mode_flags;
+
 public:
 	virtual String fix_path(const String &p_path) const override {
-		return PathFinder::_fix_path_file_access(p_path.replace("\\", "/"));
+		return PathFinder::_fix_path_file_access(p_path.replace("\\", "/"), mode_flags);
 	}
 	virtual Error open_internal(const String &p_path, int p_mode_flags) override {
+		mode_flags = p_mode_flags;
 		return T::open_internal(p_path, p_mode_flags);
 	}
 };

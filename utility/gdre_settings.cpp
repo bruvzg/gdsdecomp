@@ -1320,7 +1320,7 @@ Array GDRESettings::get_import_files(bool copy) {
 }
 
 bool GDRESettings::has_file(const String &p_path) {
-	return GDREPackedData::get_singleton()->has_mapped_file(p_path);
+	return GDREPackedData::get_singleton()->has_path(p_path);
 }
 
 Error GDRESettings::load_pack_uid_cache(bool p_reset) {
@@ -1447,7 +1447,7 @@ Error GDRESettings::_load_import_file(const String &p_path, bool should_load_md5
 			// sound.wav-<pathmd5>.smp -> sound.wav-<pathmd5>.md5
 			String md5 = src.get_basename() + ".md5";
 			while (true) {
-				if (GDREPackedData::get_singleton()->has_mapped_file(md5)) {
+				if (GDREPackedData::get_singleton()->has_path(md5)) {
 					break;
 				}
 
