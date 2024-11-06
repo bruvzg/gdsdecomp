@@ -2,8 +2,7 @@
 #define GDRE_UTIL_FUNCTIONS_H
 
 #include "core/io/dir_access.h"
-#include "core/io/file_access.h"
-#include "core/io/resource.h"
+
 namespace gdreutil {
 static Vector<String> get_recursive_dir_list(const String dir, const Vector<String> &wildcards = Vector<String>(), const bool absolute = true, const String rel = "", const bool &res = false) {
 	Vector<String> ret;

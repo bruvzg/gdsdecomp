@@ -1,5 +1,6 @@
 #pragma once
 #include "exporters/resource_exporter.h"
+
 class AudioStreamOggVorbis;
 class OggStrExporter : public ResourceExporter {
 	GDCLASS(OggStrExporter, ResourceExporter);

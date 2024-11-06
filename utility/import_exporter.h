@@ -4,17 +4,12 @@
 #include "compat/resource_import_metadatav2.h"
 #include "exporters/export_report.h"
 #include "import_info.h"
-#include "pcfg_loader.h"
 #include "utility/godotver.h"
 
 #include "editor/gdre_progress.h"
 
-#include "core/io/file_access.h"
-#include "core/io/resource.h"
-#include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/templates/rb_map.h"
 
 class ImportExporter;
 

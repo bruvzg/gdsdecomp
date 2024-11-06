@@ -1,13 +1,9 @@
 #ifndef PCK_DUMPER_H
 #define PCK_DUMPER_H
 
-#include "core/io/file_access.h"
-#include "core/io/file_access_pack.h"
-#include "core/io/resource.h"
-#include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/templates/rb_map.h"
+#include "core/object/worker_thread_pool.h"
 
 #include "editor/gdre_progress.h"
 

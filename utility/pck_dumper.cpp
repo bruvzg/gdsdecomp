@@ -2,14 +2,9 @@
 #include "core/error/error_list.h"
 #include "gdre_settings.h"
 
-#include "core/crypto/crypto_core.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
-#include "core/io/file_access_encrypted.h"
 #include "core/os/os.h"
-#include "core/variant/variant_parser.h"
-#include "core/version_generated.gen.h"
-#include "modules/regex/regex.h"
 #include "utility/common.h"
 #include "utility/packed_file_info.h"
 

@@ -36,7 +36,6 @@
 #include "core/string/ustring.h"
 #include "core/templates/pair.h"
 #include "core/templates/rb_set.h"
-#include "core/templates/vmap.h"
 #include "core/variant/variant.h"
 
 #include "utility/godotver.h"

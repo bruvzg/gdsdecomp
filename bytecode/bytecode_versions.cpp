@@ -5,7 +5,6 @@
 // clang-format off
 
 #include "bytecode/bytecode_versions.h"
-#include "utility/godotver.h"
 
 void register_decomp_versions() {
 	ClassDB::register_class<GDScriptDecomp_77af6ca>();

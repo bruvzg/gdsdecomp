@@ -1,7 +1,10 @@
 #include "sample_exporter.h"
+
 #include "compat/resource_loader_compat.h"
-#include "scene/resources/audio_stream_wav.h"
+#include "utility/common.h"
 #include "utility/import_info.h"
+
+#include "scene/resources/audio_stream_wav.h"
 
 struct IMA_ADPCM_State {
 	int16_t step_index = 0;

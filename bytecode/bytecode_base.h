@@ -3,14 +3,11 @@
 /*************************************************************************/
 #pragma once
 
-#include "compat/variant_decoder_compat.h"
+#include "utility/godotver.h"
 
-#include "core/object/class_db.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/templates/rb_map.h"
 #include "core/templates/vmap.h"
-#include "utility/godotver.h"
 
 class GDScriptDecomp : public RefCounted {
 	GDCLASS(GDScriptDecomp, RefCounted);

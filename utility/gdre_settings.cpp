@@ -1,4 +1,5 @@
 #include "gdre_settings.h"
+
 #include "bytecode/bytecode_base.h"
 #include "bytecode/bytecode_tester.h"
 #include "compat/resource_compat_binary.h"
@@ -9,25 +10,19 @@
 #include "core/object/class_db.h"
 #include "core/object/worker_thread_pool.h"
 #include "core/string/print_string.h"
-#include "editor/gdre_editor.h"
 #include "editor/gdre_version.gen.h"
-#include "file_access_apk.h"
-#include "file_access_gdre.h"
-#include "gdre_logger.h"
-#include "gdre_packed_source.h"
-#include "util_functions.h"
 #include "utility/common.h"
+#include "utility/file_access_gdre.h"
+#include "utility/gdre_logger.h"
+#include "utility/gdre_packed_source.h"
+#include "utility/util_functions.h"
 
-#include "core/config/engine.h"
 #include "core/config/project_settings.h"
-#include "core/io/file_access_encrypted.h"
-#include "core/io/file_access_zip.h"
 #include "core/io/json.h"
 #include "core/object/script_language.h"
-#include "core/version.h"
 #include "modules/regex/regex.h"
 #include "servers/rendering_server.h"
-#include "utility/glob.h"
+
 #include <sys/types.h>
 
 #if defined(WINDOWS_ENABLED)

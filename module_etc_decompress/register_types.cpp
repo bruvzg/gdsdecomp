@@ -1,6 +1,8 @@
 #include "register_types.h"
-#include "core/io/image.h"
+
 #include "image_decompress_etcpak.h"
+
+#include "core/io/image.h"
 
 void initialize_etcpak_decompress_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {

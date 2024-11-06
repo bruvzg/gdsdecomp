@@ -30,9 +30,10 @@
 
 #include "image_decompress_etcpak.h"
 
+#include "external/etcpak-decompress/BlockData.hpp"
+
 #include "core/os/os.h"
 #include "core/string/print_string.h"
-#include "external/etcpak-decompress/BlockData.hpp"
 
 void image_decompress_etc(Image *p_image) {
 	uint64_t start_time = OS::get_singleton()->get_ticks_msec();

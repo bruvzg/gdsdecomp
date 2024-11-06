@@ -1,8 +1,9 @@
 #include "resource_exporter.h"
 #include "compat/resource_loader_compat.h"
+#include "utility/common.h"
+
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
-#include "core/io/dir_access.h"
 
 Ref<ResourceExporter> Exporter::exporters[MAX_EXPORTERS];
 int Exporter::exporter_count = 0;

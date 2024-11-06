@@ -1,9 +1,7 @@
 #pragma once
 #include "core/error/error_list.h"
-#include "core/io/resource.h"
 #include "core/object/ref_counted.h"
 #include "exporters/export_report.h"
-#include "utility/common.h"
 #include "utility/import_exporter.h"
 #include "utility/import_info.h"
 
