@@ -93,7 +93,7 @@ builtin_func_arg_elements = [
     ("parse_json", (1, 1)),
     ("to_json", (1, 1)),
     ("hash", (1, 1)),
-    ("Color8", (3, 3)),
+    ("Color8", (3, 4)),
     ("ColorN", (1, 2)),
     ("print_stack", (0, 0)),
     ("get_stack", (0, 0)),

@@ -89,7 +89,7 @@ static const Pair<String, Pair<int, int>> funcs[] = {
 	{ "parse_json", Pair<int, int>(1, 1) },
 	{ "to_json", Pair<int, int>(1, 1) },
 	{ "hash", Pair<int, int>(1, 1) },
-	{ "Color8", Pair<int, int>(3, 3) },
+	{ "Color8", Pair<int, int>(3, 4) },
 	{ "ColorN", Pair<int, int>(1, 2) },
 	{ "print_stack", Pair<int, int>(0, 0) },
 	{ "get_stack", Pair<int, int>(0, 0) },
