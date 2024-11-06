@@ -593,7 +593,7 @@ Error ResourceLoaderCompatText::load() {
 		MissingResource *missing_resource = nullptr;
 		Ref<ResourceCompatConverter> converter;
 
-		if (!is_real_load()) {
+		if (load_type == ResourceInfo::FAKE_LOAD) {
 			missing_resource = CompatFormatLoader::create_missing_internal_resource(path, type, id);
 			res = Ref<Resource>(missing_resource);
 		} else if (res.is_null()) {
@@ -790,10 +790,10 @@ Error ResourceLoaderCompatText::load() {
 			}
 			}
 			// clang-format on
-			if (!is_real_load()) {
+			if (load_type == ResourceInfo::FAKE_LOAD) {
 				missing_resource = CompatFormatLoader::create_missing_main_resource(local_path, res_type, res_uid);
 				resource = Ref<Resource>(missing_resource);
-			} else {
+			} else if (resource.is_null()) {
 				converter = ResourceCompatLoader::get_converter_for_type(res_type, ver_major);
 				if (converter.is_valid()) {
 					missing_resource = CompatFormatLoader::create_missing_main_resource(local_path, res_type, res_uid);
@@ -802,9 +802,6 @@ Error ResourceLoaderCompatText::load() {
 			}
 
 			if (!resource.is_valid()) {
-				if (!is_real_load()) {
-					WARN_PRINT("WE SHOULD NEVER GET HERE!!!!!!!!!!");
-				}
 				Object *obj = ClassDB::instantiate(res_type);
 				if (!obj) {
 					if (ResourceLoader::is_creating_missing_resources_if_class_unavailable_enabled()) {
@@ -2990,7 +2987,6 @@ ResourceInfo ResourceFormatLoaderCompatText::get_resource_info(const String &p_p
 	loader.progress = nullptr;
 	loader.res_path = loader.local_path;
 	loader.open(f);
-	err = loader.load();
 	_SET_R_ERR(err, r_error);
 	ERR_FAIL_COND_V_MSG(err, ResourceInfo(), "Cannot load file '" + p_path + "'.");
 	return loader.get_resource_info();
