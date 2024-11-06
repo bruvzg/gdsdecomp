@@ -1,4 +1,5 @@
 #include "variant_decoder_compat.h"
+#include "core/error/error_list.h"
 #include "input_event_parser_v2.h"
 
 #include "core/io/image.h"
@@ -31,7 +32,16 @@ static Error _decode_string(const uint8_t *&buf, int &len, int *r_len, String &r
 	ERR_FAIL_COND_V(strlen < 0 || strlen + pad > len, ERR_FILE_EOF);
 
 	String str;
-	ERR_FAIL_COND_V(str.parse_utf8((const char *)buf, strlen), ERR_INVALID_DATA);
+	// COMPAT: certain hacked Godot games have invalid utf-8 strings that parse valid on their version of Godot, so we need to handle them.
+	Error err = str.parse_utf8((const char *)buf, strlen);
+	if (err) {
+		// ERR_INVALID_DATA means that certain characters are not valid UTF-8 and were replaced with 0xFFFD; we can continue on after this error.
+		if (err == ERR_INVALID_DATA && !str.is_empty()) {
+			WARN_PRINT("Ignoring utf-8 parse error for string '" + str + "'...");
+		} else {
+			ERR_FAIL_V(ERR_INVALID_DATA);
+		}
+	}
 	r_string = str;
 
 	// Add padding
