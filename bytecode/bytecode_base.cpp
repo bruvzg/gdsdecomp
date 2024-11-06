@@ -1387,6 +1387,16 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				}
 			} break;
 			case G_TK_BUILT_IN_FUNC: {
+				// If the previous token is a period, then this is a member function call, not a built-in function call
+				if (i > 0 && get_global_token(tokens[i - 1] & TOKEN_MASK) == G_TK_PERIOD) {
+					break;
+				}
+				// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
+				// the same name as a built-in function, so we have to check if the next token is a parenthesis open
+				if (i + 1 >= tokens.size() || get_global_token(tokens[i + 1] & TOKEN_MASK) != G_TK_PARENTHESIS_OPEN) {
+					break;
+				}
+
 				func_id = tokens[i] >> TOKEN_BITS;
 				r_func_max = MAX(r_func_max, func_id);
 				if (func_id >= FUNC_MAX) {
@@ -1419,7 +1429,6 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				break;
 		}
 		if (test_func) { // we're at the function identifier, so check the argument count
-			SIZE_CHECK(2);
 			if (i + 2 >= tokens.size()) { // should at least have two more tokens for `()` after the function identifier
 				FAILED_PRINT("Built-in call error, not enough tokens following");
 				return BytecodeTestResult::BYTECODE_TEST_FAIL;
