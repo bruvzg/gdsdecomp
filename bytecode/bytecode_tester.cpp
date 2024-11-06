@@ -175,7 +175,7 @@ int BytecodeTester::get_bytecode_version(const Vector<String> &bytecode_files) {
 	return bytecode_version;
 }
 
-uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool include_dev) {
+uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool include_dev, bool print_log_on_fail) {
 	int detected_bytecode_version = get_bytecode_version(p_paths);
 	ERR_FAIL_COND_V_MSG(detected_bytecode_version == -1, {}, "Inconsistent byecode versions across files!!!");
 	ERR_FAIL_COND_V_MSG(detected_bytecode_version <= 0, {}, "Could not read bytecode version from files.");
@@ -188,11 +188,13 @@ uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_maj
 	if (decomp_versions.size() == 0) {
 		if (!include_dev) {
 			// try again with the dev versions
-			return generic_test(p_paths, ver_major_hint, ver_minor_hint, true);
+			return generic_test(p_paths, ver_major_hint, ver_minor_hint, true, print_log_on_fail);
 		}
 		// else fail
-		// first, run the tests with print_verbose = true to put out a decent error log of what happened.
-		BytecodeTester::get_possible_decomps(p_paths, include_dev, true);
+		if (print_log_on_fail) {
+			// run the tests with print_verbose = true to put out a decent error log of what happened.
+			BytecodeTester::get_possible_decomps(p_paths, include_dev, true);
+		}
 		ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", please report this issue on GitHub.");
 	}
 
@@ -213,7 +215,9 @@ uint64_t BytecodeTester::generic_test(const Vector<String> &p_paths, int ver_maj
 	auto candidates = BytecodeTester::filter_decomps(decomp_versions, ver_major_hint, ver_minor_hint);
 
 	if (candidates.size() == 1) {
-		WARN_PRINT("Multiple passing candidates for bytecode version " + vformat("%d", detected_bytecode_version) + ":\n" + get_candidates_string(decomp_versions) + "\nChoosing only one that matches engine version: " + get_candidate_string(candidates[0]) + ".");
+		if (print_log_on_fail) {
+			WARN_PRINT("Multiple passing candidates for bytecode version " + vformat("%d", detected_bytecode_version) + ":\n" + get_candidates_string(decomp_versions) + "\nChoosing only one that matches engine version: " + get_candidate_string(candidates[0]) + ".");
+		}
 		return candidates[0]->get_bytecode_rev();
 	}
 	ERR_FAIL_V_MSG(0, "Failed to detect GDScript revision for bytecode version " + vformat("%d", detected_bytecode_version) + ", engine version " + vformat("%d.%d", ver_major_hint, ver_minor_hint) + ", candidates: " + get_candidates_string(decomp_versions) + ".");
@@ -330,7 +334,7 @@ uint64_t BytecodeTester::test_files_2_1(const Vector<String> &p_paths) {
 		}
 		if (rev == 0) {
 			// try it with the dev versions.
-			return BytecodeTester::generic_test(p_paths, 2, 1, true);
+			return BytecodeTester::generic_test(p_paths, 2, 1, true, true);
 		}
 	}
 	return rev;
@@ -459,14 +463,14 @@ uint64_t BytecodeTester::test_files_3_1(const Vector<String> &p_paths, const Vec
 			rev = 0x1ca61a3;
 		} else {
 			// Try it with the dev versions.
-			return generic_test(p_paths, 3, 1, true);
+			return generic_test(p_paths, 3, 1, true, true);
 		}
 	}
 
 	return rev;
 }
 
-uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint) {
+uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major_hint, int ver_minor_hint, bool print_log_on_fail) {
 	uint64_t rev = 0;
 	ERR_FAIL_COND_V_MSG(p_paths.size() == 0, 0, "No files to test");
 	Vector<uint8_t> key;
@@ -479,7 +483,7 @@ uint64_t BytecodeTester::test_files(const Vector<String> &p_paths, int ver_major
 	} else if (ver_major_hint == 2 && ver_minor_hint == 1) {
 		rev = test_files_2_1(p_paths);
 	} else {
-		rev = generic_test(p_paths, ver_major_hint, ver_minor_hint);
+		rev = generic_test(p_paths, ver_major_hint, ver_minor_hint, false, print_log_on_fail);
 	}
 	return rev;
 }

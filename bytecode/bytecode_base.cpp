@@ -1326,20 +1326,19 @@ bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_
 }
 
 GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t> p_buffer, int &r_tok_max, int &r_func_max, bool print_verbosely) {
-#define FAILED_PRINT(x)               \
+#define ERR_TEST_FAILED(x)            \
+	error_message = x;                \
 	if (print_verbosely) {            \
 		print_failed_verbose_func(x); \
-	}
-
-#define ERR_FAILED_PRINT(x) \
-	FAILED_PRINT(x);        \
+	}                                 \
 	return BytecodeTestResult::BYTECODE_TEST_FAIL;
 
-#define SIZE_CHECK(x)                                                  \
-	if (i + x >= tokens.size()) {                                      \
-		FAILED_PRINT("Size check failed: " + itos(i) + " " + itos(x)); \
-		return BytecodeTestResult::BYTECODE_TEST_FAIL;                 \
+#define SIZE_CHECK(x)                                                     \
+	if (i + x >= tokens.size()) {                                         \
+		ERR_TEST_FAILED("Size check failed: " + itos(i) + " " + itos(x)); \
 	}
+
+	error_message = "";
 
 	//Load bytecode
 	Vector<StringName> identifiers;
@@ -1365,7 +1364,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 	int version = decode_uint32(&buf[4]);
 	if (version != bytecode_version) {
-		ERR_FAILED_PRINT("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
+		ERR_TEST_FAILED("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
 	}
 	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens");
@@ -1397,7 +1396,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				GlobalToken next_token = get_global_token(tokens[i + 1]);
 				GlobalToken nextnext_token = get_global_token(tokens[i + 2]);
 				if (nextnext_token != G_TK_PARENTHESIS_OPEN && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PARENTHESIS_OPEN)) {
-					ERR_FAILED_PRINT(String("Function declaration error: ") + g_token_str[curr_token] + " " + g_token_str[next_token] + " " + g_token_str[nextnext_token]);
+					ERR_TEST_FAILED(String("Function declaration error: ") + g_token_str[curr_token] + " " + g_token_str[next_token] + " " + g_token_str[nextnext_token]);
 				}
 			} break;
 			case G_TK_CF_PASS: {
@@ -1407,7 +1406,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 					GlobalToken next_token = get_global_token(tokens[i + 1]);
 					if (next_token != G_TK_NEWLINE && next_token != G_TK_SEMICOLON && next_token != G_TK_EOF) {
-						ERR_FAILED_PRINT(String("Pass statement error, next token isn't newline, semicolon, or EOF: ") + g_token_str[next_token]);
+						ERR_TEST_FAILED(String("Pass statement error, next token isn't newline, semicolon, or EOF: ") + g_token_str[next_token]);
 					}
 				}
 			} break;
@@ -1416,7 +1415,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				// STATIC requires TK_PR_FUNCTION as the next token
 				GlobalToken next_token = get_global_token(tokens[i + 1]);
 				if (next_token != G_TK_PR_FUNCTION && (bytecode_version < GDSCRIPT_2_0_VERSION || next_token != G_TK_PR_VAR)) {
-					ERR_FAILED_PRINT(String("Static declaration error, next token isn't function or var: ") + g_token_str[next_token]);
+					ERR_TEST_FAILED(String("Static declaration error, next token isn't function or var: ") + g_token_str[next_token]);
 				}
 			} break;
 			case G_TK_PR_ENUM: { // not added until 2.1.3, but valid for all versions after
@@ -1424,7 +1423,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				// ENUM requires TK_IDENTIFIER or TK_CURLY_BRACKET_OPEN as the next token
 				GlobalToken next_token = get_global_token(tokens[i + 1]);
 				if (next_token != G_TK_IDENTIFIER && next_token != G_TK_CURLY_BRACKET_OPEN) {
-					ERR_FAILED_PRINT(String("Enum declaration error, next token isn't identifier or curly bracket open: ") + g_token_str[next_token]);
+					ERR_TEST_FAILED(String("Enum declaration error, next token isn't identifier or curly bracket open: ") + g_token_str[next_token]);
 				}
 			} break;
 			case G_TK_BUILT_IN_FUNC: {
@@ -1435,7 +1434,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				func_id = tokens[i] >> TOKEN_BITS;
 				r_func_max = MAX(r_func_max, func_id);
 				if (func_id >= FUNC_MAX) {
-					ERR_FAILED_PRINT("Function ID out of range: " + itos(func_id) + " >= " + itos(FUNC_MAX));
+					ERR_TEST_FAILED("Function ID out of range: " + itos(func_id) + " >= " + itos(FUNC_MAX));
 				}
 				arg_count = get_function_arg_count(func_id);
 				test_func = true;
@@ -1451,27 +1450,27 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 			case G_TK_ERROR: // none of these should have made it into the bytecode
 			case G_TK_CURSOR:
 			case G_TK_MAX:
-				ERR_FAILED_PRINT("Invalid token: " + String(g_token_str[curr_token]));
+				ERR_TEST_FAILED("Invalid token: " + String(g_token_str[curr_token]));
 				return BytecodeTestResult::BYTECODE_TEST_FAIL;
 			case G_TK_EOF: {
 				if (tokens.size() != i + 1) {
-					ERR_FAILED_PRINT("Found EOF token not at end of tokens");
+					ERR_TEST_FAILED("Found EOF token not at end of tokens");
 				}
 			} break;
 			default:
 				if (curr_token > G_TK_MAX) {
-					ERR_FAILED_PRINT("Token > G_TK_MAX: " + itos(curr_token));
+					ERR_TEST_FAILED("Token > G_TK_MAX: " + itos(curr_token));
 				}
 				break;
 		}
 		if (test_func) { // we're at the function identifier, so check the argument count
 			if (i + 2 >= tokens.size()) { // should at least have two more tokens for `()` after the function identifier
-				ERR_FAILED_PRINT(vformat("Built-in call '%s' error, not enough tokens following", get_builtin_name(func_id)));
+				ERR_TEST_FAILED(vformat("Built-in call '%s' error, not enough tokens following", get_builtin_name(func_id)));
 			}
 			if (curr_token == G_TK_PR_PRELOAD || bytecode_version < GDSCRIPT_2_0_VERSION) {
 				int cnt = get_func_arg_count(i, tokens);
 				if (cnt < arg_count.first || cnt > arg_count.second) {
-					ERR_FAILED_PRINT(vformat("Built-in call '%s' error, incorrect number of arguments %d (min: %d, max %d)", get_builtin_name(func_id), cnt, arg_count.first, arg_count.second));
+					ERR_TEST_FAILED(vformat("Built-in call '%s' error, incorrect number of arguments %d (min: %d, max %d)", get_builtin_name(func_id), cnt, arg_count.first, arg_count.second));
 				}
 			}
 		}
@@ -1479,7 +1478,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 	return BYTECODE_TEST_UNKNOWN;
 #undef SIZE_CHECK
-#undef ERR_FAILED_PRINT
+#undef ERR_TEST_FAILED
 #undef FAILED_PRINT
 }
 
