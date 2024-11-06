@@ -519,14 +519,6 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 			report->decompiled_scripts.push_back(f);
 		}
 	}
-	// save changed config file
-	if (get_settings()->is_project_config_loaded()) { // some game pcks do not have project configs
-		err = get_settings()->save_project_config(p_out_dir);
-	}
-
-	if (err) {
-		WARN_PRINT("Failed to save changed project config!");
-	}
 	return OK;
 }
 
