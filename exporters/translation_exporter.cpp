@@ -1,12 +1,15 @@
 #include "translation_exporter.h"
+
 #include "compat/optimized_translation_extractor.h"
 #include "compat/resource_loader_compat.h"
+#include "exporters/export_report.h"
+#include "utility/common.h"
+#include "utility/gdre_settings.h"
+
 #include "core/error/error_list.h"
 #include "core/string/optimized_translation.h"
 #include "core/string/translation.h"
 #include "core/string/ustring.h"
-#include "exporters/export_report.h"
-#include "utility/gdre_settings.h"
 
 Error TranslationExporter::export_file(const String &out_path, const String &res_path) {
 	// Implementation for exporting translation files

@@ -5,6 +5,7 @@
 #include "core/io/file_access.h"
 #include "core/variant/variant.h"
 #include "modules/vorbis/audio_stream_ogg_vorbis.h"
+#include "utility/common.h"
 
 bool OggStrExporter::handles_import(const String &importer, const String &resource_type) const {
 	// Check if the importer can handle the specified resource type

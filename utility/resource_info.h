@@ -1,6 +1,6 @@
 #pragma once
 #include "compat/resource_import_metadatav2.h"
-#include "core/io/resource_loader.h"
+
 #include "core/variant/dictionary.h"
 
 struct ResourceInfo {

@@ -2,24 +2,24 @@
 /*  bytecode_base.cpp                                                    */
 /*************************************************************************/
 
-#include "bytecode/bytecode_base.h"
+#include "bytecode_base.h"
+
 #include "bytecode/bytecode_versions.h"
 #include "bytecode/gdscript_tokenizer_compat.h"
 #include "compat/file_access_encrypted_v3.h"
+#include "compat/variant_decoder_compat.h"
 #include "compat/variant_writer_compat.h"
+#include "utility/common.h"
+#include "utility/gdre_settings.h"
+#include "utility/godotver.h"
 
-#include "core/config/engine.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
-
 #include "core/object/class_db.h"
 #include "modules/gdscript/gdscript_tokenizer_buffer.h"
-#include "utility/common.h"
-#include "utility/gdre_settings.h"
-#include "utility/godotver.h"
 
 #include <limits.h>
 

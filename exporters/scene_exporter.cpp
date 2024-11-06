@@ -1,11 +1,14 @@
 #include "scene_exporter.h"
+
 #include "compat/resource_loader_compat.h"
-#include "core/error/error_list.h"
-#include "core/error/error_macros.h"
 #include "exporters/export_report.h"
 #include "modules/gltf/gltf_document.h"
-#include "scene/resources/packed_scene.h"
+#include "utility/common.h"
 #include "utility/gdre_settings.h"
+
+#include "core/error/error_list.h"
+#include "core/error/error_macros.h"
+#include "scene/resources/packed_scene.h"
 
 struct dep_info {
 	ResourceUID::ID uid = ResourceUID::INVALID_ID;
@@ -16,7 +19,6 @@ struct dep_info {
 
 String get_remapped_path(const String &dep, const String &p_src_path) {
 	String dep_path;
-	Error err;
 	Ref<ImportInfo> tex_iinfo;
 	if (GDRESettings::get_singleton()->is_pack_loaded()) {
 		tex_iinfo = GDRESettings::get_singleton()->get_import_info_by_source(dep);

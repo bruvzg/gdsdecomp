@@ -6,7 +6,6 @@
 #include "core/io/image.h"
 #include "core/io/missing_resource.h"
 #include "external/tga/tga.h"
-#include "module_etc_decompress/image_decompress_etcpak.h"
 
 Error gdre::ensure_dir(const String &dst_dir) {
 	Error err = OK;

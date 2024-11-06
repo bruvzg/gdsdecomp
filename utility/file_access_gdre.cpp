@@ -7,6 +7,8 @@
 #include "gdre_packed_source.h"
 #include "gdre_settings.h"
 
+#include "core/os/os.h"
+
 bool is_gdre_file(const String &p_path) {
 	return p_path.begins_with("res://") && p_path.get_basename().begins_with("gdre_");
 }

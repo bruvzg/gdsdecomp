@@ -32,7 +32,6 @@
 #define IMAGE_DECOMPRESS_ETCPAK_H
 
 #include "core/io/image.h"
-#include "external/etcpak-decompress/etc_format.h"
 
 void image_decompress_etc(Image *p_image);
 

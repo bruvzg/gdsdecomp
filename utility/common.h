@@ -1,6 +1,6 @@
 #pragma once
-#include "core/io/file_access.h"
-#include "core/io/marshalls.h"
+#include "core/templates/hash_set.h"
+#include "core/variant/variant.h"
 
 class Image;
 namespace gdre {

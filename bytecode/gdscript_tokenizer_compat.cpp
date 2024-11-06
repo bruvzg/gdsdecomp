@@ -32,9 +32,6 @@
 #include "gdscript_tokenizer_compat.h"
 
 #include "compat/variant_decoder_compat.h"
-#include "compat/variant_writer_compat.h"
-#include "core/string/print_string.h"
-#include "core/templates/rb_map.h"
 
 const char *GDScriptTokenizerTextCompat::token_names[T::G_TK_MAX] = {
 	"Empty",

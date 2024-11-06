@@ -6,24 +6,13 @@
 #include "utility/godotver.h"
 
 #include "core/config/project_settings.h"
-#include "core/io/logger.h"
-#include "core/object/class_db.h"
 #include "core/object/object.h"
-#include "core/os/os.h"
 #include "core/os/thread_safe.h"
-#include "core/templates/rb_set.h"
 
 class GDREPackSettings : public ProjectSettings {
 	GDCLASS(GDREPackSettings, ProjectSettings);
-	// So this can't be instantiated, only derived from current project settings
-	// private:
-	// 	GDREPackSettings(){};
-	// 	~GDREPackSettings(){};
 
 public:
-	// void set_singleton() {
-	// 	singleton = this;
-	// }
 	void set_resource_path(const String &p_path) {
 		resource_path = p_path;
 	}
@@ -94,7 +83,7 @@ public:
 		HashSet<String> resource_strings; // For translation key recovery
 		PackInfo::PackType type = PackInfo::PCK;
 		String pack_file;
-		int bytecode_revision;
+		int bytecode_revision = 0;
 		ProjectInfo() {
 			pcfg.instantiate();
 		}
@@ -104,7 +93,7 @@ public:
 private:
 	Vector<Ref<PackInfo>> packs;
 	HashMap<String, Ref<PackedFileInfo>> file_map;
-	Ref<ProjectInfo> current_project = Ref<ProjectInfo>();
+	Ref<ProjectInfo> current_project;
 	GDREPackedData *gdre_packeddata_singleton = nullptr;
 	GDRELogger *logger;
 	Array import_files;

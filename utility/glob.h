@@ -24,11 +24,11 @@
  */
 
 #pragma once
-#include "core/object/class_db.h"
 #include "core/object/object.h"
 #include "core/string/ustring.h"
 #include "core/templates/vector.h"
 #include "modules/regex/regex.h"
+
 class Glob : public Object {
 	GDCLASS(Glob, Object);
 

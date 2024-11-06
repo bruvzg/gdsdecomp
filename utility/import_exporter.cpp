@@ -12,6 +12,7 @@
 #include "exporters/oggstr_exporter.h"
 #include "exporters/sample_exporter.h"
 #include "exporters/texture_exporter.h"
+#include "utility/common.h"
 #include "utility/gdre_settings.h"
 #include "utility/glob.h"
 #include "utility/util_functions.h"

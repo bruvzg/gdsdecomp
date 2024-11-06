@@ -4,11 +4,8 @@
 #include "compat/resource_import_metadatav2.h"
 
 #include "core/io/config_file.h"
-#include "core/io/resource.h"
-#include "core/io/resource_importer.h"
 #include "core/object/object.h"
 #include "core/object/ref_counted.h"
-#include "core/templates/rb_map.h"
 #include "utility/resource_info.h"
 namespace V2ImportEnums {
 enum TextureFormat {
