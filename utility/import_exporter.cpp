@@ -359,7 +359,7 @@ Error ImportExporter::_export_imports(const String &p_out_dir, const Vector<Stri
 			continue;
 		} else if (err != OK) {
 			report->failed.push_back(iinfo);
-			print_line("Failed to convert " + iinfo->get_type() + " resource " + iinfo->get_path());
+			print_verbose("Failed to convert " + iinfo->get_type() + " resource " + iinfo->get_path());
 			continue;
 		}
 		if (iinfo->get_importer() == "scene" && src_ext != "escn" && src_ext != "tscn") {
@@ -433,7 +433,7 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
 
-	print_line("Script version " + get_settings()->get_version_string() + " (rev 0x" + String::num_int64(decomp->get_bytecode_rev(), 16) + ") detected");
+	print_line("Script version " + decomp->get_engine_version() + " (rev 0x" + String::num_int64(decomp->get_bytecode_rev(), 16) + ") detected");
 	Error err;
 	for (int i = 0; i < code_files.size(); i++) {
 		const String &f = code_files[i];
@@ -650,7 +650,7 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 	Ref<FileAccess> f = FileAccess::open(abs_plugin_path.path_join("plugin.cfg"), FileAccess::WRITE, &err);
 	ERR_FAIL_COND_V_MSG(err, err, "can't open plugin.cfg for writing");
 	f->store_string(plugin_cfg_text);
-	print_line("Recreated plugin config for " + plugin_dir);
+	print_verbose("Recreated plugin config for " + plugin_dir);
 	return found_our_platform ? OK : ERR_PRINTER_ON_FIRE;
 }
 
@@ -660,6 +660,7 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Ve
 	if (!DirAccess::exists(output_dir.path_join("addons"))) {
 		return OK;
 	}
+	print_line("Recreating plugin configs...");
 	Vector<String> dirs;
 	if (plugin_dirs.is_empty()) {
 		dirs = Glob::glob("res://addons/*", true);
@@ -740,15 +741,13 @@ String ImportExporter::_get_path(const String &output_dir, const String &p_path)
 	}
 }
 
-void ImportExporter::report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn, bool suppress_print) {
+void ImportExporter::report_unsupported_resource(const String &type, const String &format_name, const String &import_path) {
 	String type_format_str = type + "%" + format_name.to_lower();
 	if (report->unsupported_types.find(type_format_str) == -1) {
 		WARN_PRINT("Conversion for Resource of type " + type + " and format " + format_name + " not implemented");
 		report->unsupported_types.push_back(type_format_str);
 	}
-	if (!suppress_print) {
-		print_line("Did not convert " + type + " resource " + import_path);
-	}
+	print_verbose("Did not convert " + type + " resource " + import_path);
 }
 
 Error ImportExporter::convert_sample_to_wav(const String &output_dir, const String &p_path, const String &p_dst) {

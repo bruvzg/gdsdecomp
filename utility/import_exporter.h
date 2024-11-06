@@ -117,7 +117,7 @@ class ImportExporter : public RefCounted {
 	Error rewrite_import_source(const String &rel_dest_path, const String &output_dir, const Ref<ImportInfo> &iinfo);
 	static Vector<String> get_v2_wildcards();
 	String _get_path(const String &output_dir, const String &p_path);
-	void report_unsupported_resource(const String &type, const String &format_name, const String &import_path, bool suppress_warn = false, bool suppress_print = false);
+	void report_unsupported_resource(const String &type, const String &format_name, const String &import_path);
 	Error remove_remap_and_autoconverted(const String &src, const String &dst, const String &output_dir);
 	void rewrite_metadata(ExportToken &token);
 
