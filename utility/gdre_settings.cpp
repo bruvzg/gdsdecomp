@@ -549,8 +549,8 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 	}
 
 	err = detect_bytecode_revision();
-	if (err == ERR_PRINTER_ON_FIRE) {
-		WARN_PRINT("Could not determine bytecode revision, continuing without it...");
+	if (err) {
+		WARN_PRINT("Could not determine bytecode revision, not able to decompile scripts...");
 	}
 
 	if (!pack_has_project_config()) {
@@ -633,9 +633,13 @@ Error GDRESettings::detect_bytecode_revision() {
 		} else {
 			auto max_version = decomp->get_max_godot_ver();
 			if (max_version.is_valid() && (check_if_same_minor_major(current_project->version, max_version))) {
-				current_project->version->set_patch(max_version->get_patch());
+				if (max_version->get_patch() > current_project->version->get_patch()) {
+					current_project->version->set_patch(max_version->get_patch());
+				}
 			} else if (check_if_same_minor_major(current_project->version, version)) {
-				current_project->version->set_patch(version->get_patch());
+				if (version->get_patch() > current_project->version->get_patch()) {
+					current_project->version->set_patch(version->get_patch());
+				}
 			}
 		}
 	}
