@@ -2,6 +2,7 @@
 #include "import_exporter.h"
 
 #include "bytecode/bytecode_base.h"
+#include "bytecode/bytecode_tester.h"
 #include "compat/oggstr_loader_compat.h"
 #include "compat/resource_loader_compat.h"
 #include "core/error/error_list.h"
@@ -453,6 +454,8 @@ Error ImportExporter::decompile_scripts(const String &p_out_dir, const Vector<St
 
 	int revision = get_settings()->get_bytecode_revision();
 	if (revision == 0) {
+		// TODO: Only doing this so that it prints the test log messages to the logs in GUI mode
+		BytecodeTester::test_files(code_files, get_ver_major(), get_ver_minor(), true);
 		add_to_failed(0);
 		ERR_FAIL_V_MSG(ERR_FILE_UNRECOGNIZED, "Unknown version, failed to decompile");
 	}
