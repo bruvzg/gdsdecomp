@@ -17,13 +17,6 @@ void ExportReport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_loss_type", "loss_type"), &ExportReport::set_loss_type);
 	ClassDB::bind_method(D_METHOD("get_loss_type"), &ExportReport::get_loss_type);
 
-	// properties
-	BIND_ENUM_CONSTANT(ImportInfo::UNKNOWN);
-	BIND_ENUM_CONSTANT(ImportInfo::LOSSLESS);
-	BIND_ENUM_CONSTANT(ImportInfo::STORED_LOSSY);
-	BIND_ENUM_CONSTANT(ImportInfo::IMPORTED_LOSSY);
-	BIND_ENUM_CONSTANT(ImportInfo::STORED_AND_IMPORTED_LOSSY);
-
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "message"), "set_message", "get_message");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "import_info", PROPERTY_HINT_RESOURCE_TYPE, "ImportInfo"), "set_import_info", "get_import_info");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "source_path"), "set_source_path", "get_source_path");
