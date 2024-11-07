@@ -241,6 +241,8 @@ void initialize_gdsdecomp_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<ResourceFormatLoaderCompatTexture2D>();
 	ClassDB::register_class<ResourceFormatLoaderCompatTexture3D>();
 	ClassDB::register_class<ResourceFormatLoaderCompatTextureLayered>();
+	// TODO: make ResourceCompatConverter non-abstract
+	ClassDB::register_abstract_class<ResourceCompatConverter>();
 	ClassDB::register_class<SampleConverterCompat>();
 	ClassDB::register_class<ResourceConverterTexture2D>();
 	ClassDB::register_class<ImageConverterCompat>();

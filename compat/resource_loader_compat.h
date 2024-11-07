@@ -34,6 +34,7 @@ protected:
 	static Ref<Resource> _gltf_load(const String &p_path, const String &p_type_hint = "");
 	static Ref<Resource> _real_load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE);
 	static Dictionary _get_resource_info(const String &p_path, const String &p_type_hint = "");
+	static Vector<String> _get_dependencies(const String &p_path, bool p_add_types);
 
 	static void _bind_methods();
 

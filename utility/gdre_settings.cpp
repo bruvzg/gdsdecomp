@@ -1670,7 +1670,6 @@ void GDRESettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_encryption_key_string", "key"), &GDRESettings::set_encryption_key_string);
 	ClassDB::bind_method(D_METHOD("set_encryption_key", "key"), &GDRESettings::set_encryption_key);
 	ClassDB::bind_method(D_METHOD("reset_encryption_key"), &GDRESettings::reset_encryption_key);
-	ClassDB::bind_method(D_METHOD("add_pack_info", "packinfo"), &GDRESettings::add_pack_info);
 	ClassDB::bind_method(D_METHOD("get_file_list", "filters"), &GDRESettings::get_file_list, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_file_info_array", "filters"), &GDRESettings::get_file_info_array, DEFVAL(Vector<String>()));
 	ClassDB::bind_method(D_METHOD("get_pack_type"), &GDRESettings::get_pack_type);

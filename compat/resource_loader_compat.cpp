@@ -360,6 +360,18 @@ void ResourceCompatLoader::get_dependencies(const String &p_path, List<String> *
 	loader->get_dependencies(p_path, p_dependencies, p_add_types);
 }
 
+Vector<String> ResourceCompatLoader::_get_dependencies(const String &p_path, bool p_add_types) {
+	auto loader = get_loader_for_path(p_path, "");
+	ERR_FAIL_COND_V_MSG(loader.is_null(), Vector<String>(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+	List<String> dependencies;
+	loader->get_dependencies(p_path, &dependencies, p_add_types);
+	Vector<String> deps;
+	for (List<String>::Element *E = dependencies.front(); E; E = E->next()) {
+		deps.push_back(E->get());
+	}
+	return deps;
+}
+
 bool ResourceCompatLoader::is_default_gltf_load() {
 	return doing_gltf_load;
 }
@@ -440,7 +452,7 @@ void ResourceCompatLoader::_bind_methods() {
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("add_resource_object_converter", "converter", "at_front"), &ResourceCompatLoader::add_resource_object_converter, DEFVAL(false));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("remove_resource_object_converter", "converter"), &ResourceCompatLoader::remove_resource_object_converter);
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("get_resource_info", "path", "type_hint"), &ResourceCompatLoader::_get_resource_info, DEFVAL(""));
-	// ClassDB::bind_static_method(get_class_static(), D_METHOD("get_dependencies", "path", "add_types"), &ResourceCompatLoader::get_dependencies, DEFVAL(false));
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("get_dependencies", "path", "add_types"), &ResourceCompatLoader::_get_dependencies, DEFVAL(false));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("to_text", "path", "dst", "flags"), &ResourceCompatLoader::to_text, DEFVAL(0));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("to_binary", "path", "dst", "flags"), &ResourceCompatLoader::to_binary, DEFVAL(0));
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("make_globally_available"), &ResourceCompatLoader::make_globally_available);
