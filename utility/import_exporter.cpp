@@ -684,7 +684,6 @@ Error ImportExporter::recreate_plugin_configs(const String &output_dir, const Ve
 		err = recreate_plugin_config(output_dir, dir);
 		if (err == ERR_PRINTER_ON_FIRE) {
 			// we successfully copied the dlls, but failed to find one for our platform
-			WARN_PRINT("Failed to find library for this platform for plugin " + dir);
 			report->failed_gdnative_copy.push_back(dir);
 		} else if (err) {
 			WARN_PRINT("Failed to recreate plugin.cfg for " + dir);
