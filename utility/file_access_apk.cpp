@@ -255,7 +255,7 @@ bool APKArchive::try_open_pack(const String &p_path, bool p_replace_files, uint6
 		files[fname] = f;
 
 		uint8_t md5[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-		GDREPackedData::get_singleton()->add_path(pack_path, fname, 1, 0, md5, this, p_replace_files, false);
+		GDREPackedData::get_singleton()->add_path(pack_path, fname, 1, file_info.uncompressed_size, md5, this, p_replace_files, false);
 
 		if ((i + 1) < gi.number_entry) {
 			unzGoToNextFile(zfile);
