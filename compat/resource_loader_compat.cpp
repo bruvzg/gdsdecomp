@@ -356,7 +356,10 @@ ResourceInfo ResourceCompatLoader::get_resource_info(const String &p_path, const
 
 void ResourceCompatLoader::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
 	auto loader = get_loader_for_path(p_path, "");
-	ERR_FAIL_COND_MSG(loader.is_null(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
+	if (loader.is_null()) {
+		ResourceLoader::get_dependencies(p_path, p_dependencies, p_add_types);
+		return;
+	}
 	loader->get_dependencies(p_path, p_dependencies, p_add_types);
 }
 

@@ -60,11 +60,16 @@ void get_deps_recursive(const String &p_path, HashMap<String, dep_info> &r_deps)
 			dep_info &info = r_deps[dep];
 			auto splits = dep.split("::");
 			if (splits.size() == 3) {
+				// If it has a UID, UID is first, followed by type, then fallback path
 				info.uid = splits[0].is_empty() ? ResourceUID::INVALID_ID : ResourceUID::get_singleton()->text_to_id(splits[0]);
+				info.type = splits[1];
+				info.dep = splits[2];
 				splits.remove_at(0);
+			} else {
+				// otherwise, it's path followed by type
+				info.dep = splits[0];
+				info.type = splits[1];
 			}
-			info.dep = splits[1];
-			info.type = splits[0];
 			info.remap = get_remapped_path(info.dep, p_path);
 			get_deps_recursive(info.remap, r_deps);
 		}
