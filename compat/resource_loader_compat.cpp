@@ -201,19 +201,19 @@ Ref<Resource> ResourceCompatLoader::gltf_load(const String &p_path, const String
 	String res_path = GDRESettings::get_singleton()->get_mapped_path(p_path);
 	auto loader = get_loader_for_path(res_path, p_type_hint);
 	if (loader.is_null()) {
-		return ResourceLoader::load(p_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
+		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
 	}
-	auto ret = loader->custom_load(p_path, ResourceInfo::LoadType::GLTF_LOAD, r_error);
+	auto ret = loader->custom_load(res_path, ResourceInfo::LoadType::GLTF_LOAD, r_error);
 	return ret;
 }
 
 Ref<Resource> ResourceCompatLoader::real_load(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error) {
 	String res_path = GDRESettings::get_singleton()->get_mapped_path(p_path);
-	auto loader = get_loader_for_path(p_path, p_type_hint);
+	auto loader = get_loader_for_path(res_path, p_type_hint);
 	if (loader.is_null()) {
-		return ResourceLoader::load(p_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
+		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
 	}
-	return loader->custom_load(p_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+	return loader->custom_load(res_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
 }
 
 void ResourceCompatLoader::add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front) {
