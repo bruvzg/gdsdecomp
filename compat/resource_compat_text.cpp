@@ -2854,7 +2854,7 @@ void ResourceLoaderCompatText::set_compat_meta(Ref<Resource> &r_res) {
 }
 
 bool ResourceLoaderCompatText::should_threaded_load() const {
-	return is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
+	return use_sub_threads && is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
 }
 
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const String id) {
@@ -2940,12 +2940,12 @@ Ref<Resource> ResourceFormatLoaderCompatText::custom_load(const String &p_path, 
 			loader.use_sub_threads = false;
 			break;
 		case ResourceInfo::GLTF_LOAD:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
+			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
 			loader.use_sub_threads = true;
 			break;
 		case ResourceInfo::REAL_LOAD:
 		default:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
+			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
 			loader.use_sub_threads = true;
 			break;
 	}
