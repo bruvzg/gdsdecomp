@@ -1218,6 +1218,9 @@ void ResourceLoaderCompatBinary::open(Ref<FileAccess> p_f, bool p_no_resources, 
 		using_uids = true;
 	}
 	f->real_is_double = (flags & ResourceFormatSaverCompatBinaryInstance::FORMAT_FLAG_REAL_T_IS_DOUBLE) != 0;
+	if (f->real_is_double) {
+		WARN_PRINT_ONCE("ResourceLoaderCompatBinary: Real type is double, this is not unsupported in this version of GDRE tools.");
+	}
 	using_real_t_double = f->real_is_double;
 
 	if (using_uids) {
@@ -2960,12 +2963,12 @@ Ref<Resource> ResourceFormatLoaderCompatBinary::custom_load(const String &p_path
 			loader.use_sub_threads = false;
 			break;
 		case ResourceInfo::GLTF_LOAD:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
+			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
 			loader.use_sub_threads = true;
 			break;
 		case ResourceInfo::REAL_LOAD:
 		default:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REPLACE;
+			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
 			loader.use_sub_threads = true;
 			break;
 	}
@@ -3044,7 +3047,7 @@ Error ResourceLoaderCompatBinary::load_import_metadata(bool p_return_to_pos) {
 }
 
 bool ResourceLoaderCompatBinary::should_threaded_load() const {
-	return is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
+	return use_sub_threads && is_real_load() && ResourceCompatLoader::is_globally_available() && (load_type != ResourceInfo::GLTF_LOAD || ResourceCompatLoader::is_default_gltf_load());
 }
 
 Ref<ResourceLoader::LoadToken> ResourceLoaderCompatBinary::start_ext_load(const String &p_path, const String &p_type_hint, const ResourceUID::ID uid, const int er_idx) {
