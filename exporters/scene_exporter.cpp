@@ -9,6 +9,7 @@
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
 #include "scene/resources/packed_scene.h"
+#include "utility/resource_info.h"
 
 struct dep_info {
 	ResourceUID::ID uid = ResourceUID::INVALID_ID;
@@ -21,12 +22,7 @@ String get_remapped_path(const String &dep, const String &p_src_path) {
 	String dep_path;
 	Ref<ImportInfo> tex_iinfo;
 	if (GDRESettings::get_singleton()->is_pack_loaded()) {
-		tex_iinfo = GDRESettings::get_singleton()->get_import_info_by_source(dep);
-		if (tex_iinfo.is_null()) {
-			dep_path = GDRESettings::get_singleton()->get_remap(dep);
-		} else {
-			dep_path = tex_iinfo->get_path();
-		}
+		dep_path = GDRESettings::get_singleton()->get_mapped_path(dep);
 		if (dep_path.is_empty()) {
 			dep_path = dep;
 		}
@@ -84,7 +80,9 @@ Error SceneExporter::_export_file(const String &p_dest_path, const String &p_src
 		ERR_FAIL_V_MSG(ERR_UNAVAILABLE, "Only .escn, .tscn, and .glb formats are supported for export.");
 	}
 	Vector<uint64_t> texture_uids;
-	Error err;
+	Error err = OK;
+	bool has_script = false;
+	bool has_shader = false;
 	{
 		List<String> get_deps;
 		// We need to preload any Texture resources that are used by the scene with our own loader
@@ -95,27 +93,74 @@ Error SceneExporter::_export_file(const String &p_dest_path, const String &p_src
 
 		for (auto &E : get_deps_map) {
 			dep_info &info = E.value;
-			if (info.uid != ResourceUID::INVALID_ID) {
+			if (info.type == "Script") {
+				has_script = true;
+			} else if (info.dep.get_extension().to_lower().contains("shader")) {
+				has_shader = true;
+			}
+		}
+		// Don't need this right now, we just instance shader to a missing resource
+		// If GLTF exporter somehow starts making use of them, we'll have to do this
+		// bool is_default_gltf_load = ResourceCompatLoader::is_default_gltf_load();
+		// if (has_shader) {
+		// print_line("This scene has shaders, which may not be compatible with the exporter.");
+		// if it has a shader, we have to set gltf_load to false and do a real load on the textures, otherwise shaders will not be applied to the textures
+		// ResourceCompatLoader::set_default_gltf_load(false);
+		// }
+		auto set_cache_res = [&](const dep_info &info, Ref<Resource> texture, bool force_replace) {
+			if (texture.is_null() || (!force_replace && ResourceCache::get_ref(info.dep).is_valid())) {
+				return;
+			}
+#ifdef TOOLS_ENABLED
+			texture->set_import_path(info.remap);
+#endif
+			// reset the path cache, then set the path so it loads it into cache.
+			texture->set_path_cache("");
+			texture->set_path(info.dep, true);
+			textures.push_back(texture);
+		};
+		for (auto &E : get_deps_map) {
+			dep_info &info = E.value;
+			// Never set Script or Shader, they're not used by the GLTF writer and cause errors
+			if (info.type == "Script" || info.type == "Shader") {
+				// TODO: Need to create a "MissingScript" resource derived from "Script" so that the assigns don't fail and spew errors to the log; preventing a load is ok for now.
+				auto texture = CompatFormatLoader::create_missing_external_resource(info.dep, info.type, info.uid, "");
+				set_cache_res(info, texture, false);
+				continue;
+			}
+			if (!FileAccess::exists(info.remap) && !FileAccess::exists(info.dep)) {
+				// TODO: move this logic elsewhere
+				auto mapped_path = info.uid != ResourceUID::INVALID_ID && ResourceUID::get_singleton()->has_id(info.uid) ? ResourceUID::get_singleton()->get_id_path(info.uid) : "";
+				if (mapped_path.is_empty() || !FileAccess::exists(mapped_path)) {
+					mapped_path = get_remapped_path(mapped_path, p_src_path);
+					if (mapped_path.is_empty() || !FileAccess::exists(mapped_path)) {
+						return ERR_FILE_MISSING_DEPENDENCIES;
+					}
+				}
+				info.remap = mapped_path;
+			} else if (info.uid != ResourceUID::INVALID_ID) {
 				if (!ResourceUID::get_singleton()->has_id(info.uid)) {
 					ResourceUID::get_singleton()->add_id(info.uid, info.remap);
 					texture_uids.push_back(info.uid);
 				}
-			} else {
-				String load_path = info.remap;
-				Ref<Resource> texture = ResourceCompatLoader::gltf_load(load_path, info.type, &err);
+				continue;
+			}
+
+			if (info.dep != info.remap) {
+				auto texture = ResourceCompatLoader::gltf_load(info.remap, info.type, &err);
 				if (err || texture.is_null()) {
-					// return ERR_FILE_MISSING_DEPENDENCIES;
-					WARN_PRINT("Failed to load dependent resource " + load_path + " for scene " + p_src_path);
-					continue;
+					return ERR_FILE_MISSING_DEPENDENCIES;
 				}
-#ifdef TOOLS_ENABLED
-				texture->set_import_path(info.remap);
-#endif
-				texture->set_path(info.dep, true);
-				textures.push_back(texture);
+				set_cache_res(info, texture, false);
 			}
 		}
-		err = _export_scene(p_dest_path, p_src_path);
+		if (has_script) {
+			print_line("Exporting this scene will cause a bunch of errors stating 'Cannot set object script.'.\nIt may still export correctly. Inspect the scene before reporting an issue.");
+		}
+		err = _export_scene(p_dest_path, p_src_path, true);
+		// if (has_shader) {
+		// 	ResourceCompatLoader::set_default_gltf_load(is_default_gltf_load);
+		// }
 	}
 	// remove the UIDs
 	for (uint64_t id : texture_uids) {
@@ -125,12 +170,10 @@ Error SceneExporter::_export_file(const String &p_dest_path, const String &p_src
 	return err;
 }
 
-Error SceneExporter::_export_scene(const String &p_dest_path, const String &p_src_path) {
+Error SceneExporter::_export_scene(const String &p_dest_path, const String &p_src_path, bool use_subthreads) {
 	Error err;
-	// All 3.x scenes that were imported from scenes/models SHOULD be compatible with 4.x
-	// The "escn" format basically force Godot to have compatibility with 3.x scenes
-	// This will also pull in any dependencies that were created by the importer (like textures and materials, which should also be similarly compatible)
-	Ref<PackedScene> scene = ResourceCompatLoader::gltf_load(p_src_path, "", &err);
+	auto mode_type = ResourceCompatLoader::is_default_gltf_load() ? ResourceInfo::GLTF_LOAD : ResourceInfo::REAL_LOAD;
+	Ref<PackedScene> scene = ResourceCompatLoader::custom_load(p_src_path, "", mode_type, &err, use_subthreads, ResourceFormatLoader::CACHE_MODE_REUSE);
 	ERR_FAIL_COND_V_MSG(err, err, "Failed to load scene " + p_src_path);
 	// GLTF export can result in inaccurate models
 	// save it under .assets, which won't be picked up for import by the godot editor
