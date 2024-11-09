@@ -33,13 +33,14 @@ bool is_real_or_gltf_load(ResourceInfo::LoadType p_type) {
 }
 
 void set_res_path(Ref<Resource> res, const String &path, ResourceInfo::LoadType p_type) {
-	if (res.is_valid()) {
-		if (is_real_or_gltf_load(p_type)) {
-			res->set_path(path, false);
-		} else {
-			res->set_path_cache(path);
-		}
-	}
+	// TODO: disable this for now; if we're doing a fake or non-global load, we don't want to set the path, and we manually set the path wherever we're using real/gltf load.
+	// if (res.is_valid()) {
+	// 	if (is_real_or_gltf_load(p_type)) {
+	// 		res->set_path(path, false);
+	// 	} else {
+	// 		res->set_path_cache(path);
+	// 	}
+	// }
 }
 
 ResourceInfo TextureLoaderCompat::_get_resource_info(TextureLoaderCompat::TextureVersionType t) {
@@ -741,7 +742,7 @@ void ResourceFormatLoaderCompatTexture2D::get_recognized_extensions(List<String>
 
 // handles type
 bool ResourceFormatLoaderCompatTexture2D::handles_type(const String &p_type) const {
-	return p_type == "CompressedTexture2D" || p_type == "StreamTexture";
+	return p_type == "CompressedTexture2D" || p_type == "StreamTexture" || "Texture2D";
 }
 
 // get resource type
