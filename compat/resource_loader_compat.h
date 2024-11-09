@@ -42,7 +42,8 @@ public:
 	static Ref<Resource> fake_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 	static Ref<Resource> non_global_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
 	static Ref<Resource> gltf_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr);
-	static Ref<Resource> real_load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, Error *r_error = nullptr);
+	static Ref<Resource> real_load(const String &p_path, const String &p_type_hint = "", Error *r_error = nullptr, ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE);
+	static Ref<Resource> custom_load(const String &p_path, const String &p_type_hint = "", ResourceInfo::LoadType p_type = ResourceInfo::LoadType::REAL_LOAD, Error *r_error = nullptr, bool use_threads = true, ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE);
 	static void add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front = false);
 	static void remove_resource_format_loader(Ref<CompatFormatLoader> p_format_loader);
 	static void add_resource_object_converter(Ref<ResourceCompatConverter> p_converter, bool p_at_front = false);
@@ -67,7 +68,7 @@ class CompatFormatLoader : public ResourceFormatLoader {
 	GDCLASS(CompatFormatLoader, ResourceFormatLoader);
 
 public:
-	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr);
+	virtual Ref<Resource> custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error = nullptr, bool use_threads = true, ResourceFormatLoader::CacheMode p_cache_mode = CACHE_MODE_REUSE);
 	virtual ResourceInfo get_resource_info(const String &p_path, Error *r_error) const;
 	virtual bool handles_fake_load() const;
 	static ResourceInfo::LoadType get_default_real_load() {
