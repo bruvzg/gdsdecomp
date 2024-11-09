@@ -2866,7 +2866,7 @@ Ref<ResourceLoader::LoadToken> ResourceLoaderCompatText::start_ext_load(const St
 		if (load_type == ResourceInfo::GLTF_LOAD) {
 			ext_resources[id].fallback = ResourceCompatLoader::gltf_load(p_path, p_type_hint, &err);
 		} else if (load_type == ResourceInfo::REAL_LOAD) {
-			ext_resources[id].fallback = ResourceCompatLoader::real_load(p_path, p_type_hint, cache_mode_for_external, &err);
+			ext_resources[id].fallback = ResourceCompatLoader::real_load(p_path, p_type_hint, &err, cache_mode_for_external);
 		} else {
 			ext_resources[id].fallback = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, uid, id);
 		}
@@ -2918,7 +2918,7 @@ ResourceInfo ResourceLoaderCompatText::get_resource_info() {
 	return info;
 }
 
-Ref<Resource> ResourceFormatLoaderCompatText::custom_load(const String &p_path, ResourceInfo::LoadType p_load_type, Error *r_error) {
+Ref<Resource> ResourceFormatLoaderCompatText::custom_load(const String &p_path, ResourceInfo::LoadType p_load_type, Error *r_error, bool use_threads, ResourceFormatLoader::CacheMode p_cache_mode) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
@@ -2940,13 +2940,10 @@ Ref<Resource> ResourceFormatLoaderCompatText::custom_load(const String &p_path, 
 			loader.use_sub_threads = false;
 			break;
 		case ResourceInfo::GLTF_LOAD:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
-			loader.use_sub_threads = true;
-			break;
 		case ResourceInfo::REAL_LOAD:
 		default:
-			loader.cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE;
-			loader.use_sub_threads = true;
+			loader.cache_mode = p_cache_mode;
+			loader.use_sub_threads = use_threads;
 			break;
 	}
 	loader.local_path = GDRESettings::get_singleton()->localize_path(path);

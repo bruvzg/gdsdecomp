@@ -201,19 +201,28 @@ Ref<Resource> ResourceCompatLoader::gltf_load(const String &p_path, const String
 	String res_path = GDRESettings::get_singleton()->get_mapped_path(p_path);
 	auto loader = get_loader_for_path(res_path, p_type_hint);
 	if (loader.is_null()) {
-		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
+		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REUSE, r_error);
 	}
 	auto ret = loader->custom_load(res_path, ResourceInfo::LoadType::GLTF_LOAD, r_error);
 	return ret;
 }
 
-Ref<Resource> ResourceCompatLoader::real_load(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error) {
+Ref<Resource> ResourceCompatLoader::real_load(const String &p_path, const String &p_type_hint, Error *r_error, ResourceFormatLoader::CacheMode p_cache_mode) {
 	String res_path = GDRESettings::get_singleton()->get_mapped_path(p_path);
 	auto loader = get_loader_for_path(res_path, p_type_hint);
 	if (loader.is_null()) {
-		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
+		return ResourceLoader::load(res_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REUSE, r_error);
 	}
-	return loader->custom_load(res_path, ResourceInfo::LoadType::REAL_LOAD, r_error);
+	return loader->custom_load(res_path, ResourceInfo::LoadType::REAL_LOAD, r_error, true, p_cache_mode);
+}
+
+Ref<Resource> ResourceCompatLoader::custom_load(const String &p_path, const String &p_type_hint, ResourceInfo::LoadType p_type, Error *r_error, bool use_threads, ResourceFormatLoader::CacheMode p_cache_mode) {
+	auto loader = get_loader_for_path(p_path, p_type_hint);
+	if (loader.is_null() && (p_type == ResourceInfo::LoadType::REAL_LOAD || p_type == ResourceInfo::LoadType::GLTF_LOAD)) {
+		return ResourceLoader::load(p_path, p_type_hint, ResourceFormatLoader::CACHE_MODE_REPLACE, r_error);
+	}
+	FAIL_LOADER_NOT_FOUND(loader);
+	return loader->custom_load(p_path, p_type, r_error, use_threads, p_cache_mode);
 }
 
 void ResourceCompatLoader::add_resource_format_loader(Ref<CompatFormatLoader> p_format_loader, bool p_at_front) {
@@ -438,7 +447,7 @@ Ref<Resource> ResourceCompatLoader::_gltf_load(const String &p_path, const Strin
 }
 
 Ref<Resource> ResourceCompatLoader::_real_load(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode) {
-	return real_load(p_path, p_type_hint, p_cache_mode, nullptr);
+	return real_load(p_path, p_type_hint, nullptr, p_cache_mode);
 }
 
 Dictionary ResourceCompatLoader::_get_resource_info(const String &p_path, const String &p_type_hint) {
@@ -465,7 +474,7 @@ void ResourceCompatLoader::_bind_methods() {
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("is_default_gltf_load"), &ResourceCompatLoader::is_default_gltf_load);
 }
 
-Ref<Resource> CompatFormatLoader::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error) {
+Ref<Resource> CompatFormatLoader::custom_load(const String &p_path, ResourceInfo::LoadType p_type, Error *r_error, bool use_threads, ResourceFormatLoader::CacheMode p_cache_mode) {
 	if (r_error) {
 		*r_error = ERR_UNAVAILABLE;
 	}
