@@ -722,6 +722,9 @@ Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &re
 	String type = res->get_original_class();
 	int flags = res->get("flags");
 	String load_path = res->get("load_path");
+	if (res->get("load_path").get_type() == Variant::NIL) {
+		return Ref<CompressedTexture2D>(memnew(CompressedTexture2D));
+	}
 	if (p_type == ResourceInfo::GLTF_LOAD) {
 		texture = ResourceCompatLoader::gltf_load(load_path, type, r_error);
 	} else if (p_type == ResourceInfo::REAL_LOAD) {
