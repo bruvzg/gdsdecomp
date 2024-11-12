@@ -208,7 +208,7 @@ public:
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);
 	Vector<String> get_compile_errors(const Vector<uint8_t> &p_buffer);
-	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
+	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 	// GDScript version 2.0
 	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 };
