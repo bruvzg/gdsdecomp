@@ -770,6 +770,8 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			case G_TK_CONSTANT: {
 				uint32_t constant = tokens[i] >> TOKEN_BITS;
 				GDSDECOMP_FAIL_COND_V(constant >= (uint32_t)constants.size(), ERR_INVALID_DATA);
+				// TODO: handle GDScript 2.0 multi-line strings: we have to check the number of newlines
+				// in the string and if the next token has a line number difference >= the number of newlines
 				line += get_constant_string(constants, constant);
 			} break;
 			case G_TK_SELF: {
