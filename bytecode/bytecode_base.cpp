@@ -276,17 +276,14 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 	return OK;
 }
 
-Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
-	if (bytecode_version >= GDSCRIPT_2_0_VERSION) {
-		return get_ids_consts_tokens_v2(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
-	}
+Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
 	const uint8_t *buf = p_buffer.ptr();
 	int total_len = p_buffer.size();
 	GDSDECOMP_FAIL_COND_V_MSG(p_buffer.size() < 24 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA, "Invalid GDScript token buffer.");
 
 	int version = decode_uint32(&buf[4]);
-	if (version != bytecode_version) {
-		GDSDECOMP_FAIL_COND_V(version > bytecode_version, ERR_INVALID_DATA);
+	if (version >= GDSCRIPT_2_0_VERSION) {
+		return get_ids_consts_tokens_v2(p_buffer, version, identifiers, constants, tokens, lines, columns);
 	}
 	const int contents_start = 8 + (version >= GDSCRIPT_2_0_VERSION ? 4 : 0);
 	int identifier_count = decode_uint32(&buf[contents_start]);
@@ -567,7 +564,7 @@ Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 
 	int version = decode_uint32(&buf[4]);
 	ERR_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V(err != OK, err);
 
 	//Decompile script
@@ -642,7 +639,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	int version = decode_uint32(&buf[4]);
 	GDSDECOMP_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V(err != OK, err);
 	auto get_line_func([&](int i) {
 		if (lines.has(i)) {
@@ -1213,7 +1210,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	VMap<uint32_t, uint32_t> newcolumns;
 
 	Vector<uint32_t> newtokens;
-	new_err = get_ids_consts_tokens(recompiled_bytecode, bytecode_version, newidentifiers, newconstants, newtokens, newlines, newcolumns);
+	new_err = get_ids_consts_tokens(recompiled_bytecode, newidentifiers, newconstants, newtokens, newlines, newcolumns);
 	if (new_err != OK) {
 		WARN_PRINT("Recompiled bytecode failed to decompile: " + error_message);
 		return OK;
@@ -1366,7 +1363,7 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 	if (version != bytecode_version) {
 		ERR_TEST_FAILED("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
 	}
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens");
 	auto get_line_func([&](int i) {
 		if (lines.has(i)) {
@@ -1572,14 +1569,12 @@ Error GDScriptDecomp::get_script_strings(const String &p_path, const String &eng
 }
 
 Error GDScriptDecomp::get_script_strings_from_buf(const Vector<uint8_t> &p_buffer, Vector<String> &r_strings, bool p_include_identifiers) {
-	ERR_FAIL_COND_V_MSG(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_PARSE_ERROR, "Corrupt bytecode");
-	int version = decode_uint32(&p_buffer[4]);
 	Vector<StringName> identifiers;
 	Vector<Variant> constants;
 	VMap<uint32_t, uint32_t> lines;
 	VMap<uint32_t, uint32_t> columns;
 	Vector<uint32_t> tokens;
-	Error err = get_ids_consts_tokens(p_buffer, version, identifiers, constants, tokens, lines, columns);
+	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Error parsing bytecode");
 	for (int i = 0; i < constants.size(); i++) {
 		gdre::get_strings_from_variant(constants[i], r_strings, get_engine_version());
@@ -1604,7 +1599,7 @@ Vector<String> GDScriptDecomp::get_compile_errors(const Vector<uint8_t> &p_buffe
 
 	int version = decode_uint32(&buf[4]);
 	ERR_FAIL_COND_V_MSG(version != bytecode_version, Vector<String>(), "Bytecode version mismatch");
-	Error err = get_ids_consts_tokens(p_buffer, bytecode_version, identifiers, constants, tokens, lines, columns);
+	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
 	ERR_FAIL_COND_V_MSG(err != OK, Vector<String>(), "Error parsing bytecode");
 	Vector<String> errors;
 	int prev_line = 1;
