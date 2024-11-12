@@ -1301,14 +1301,12 @@ bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_
 	// TODO: Handle TK_PR_ASSERT, TK_PR_YIELD, TK_PR_SYNC, TK_PR_MASTER, TK_PR_SLAVE, TK_PR_PUPPET, TK_PR_REMOTESYNC, TK_PR_MASTERSYNC, TK_PR_PUPPETSYNC, TK_PR_SLAVESYNC
 	switch (curr_token) {
 		case G_TK_BUILT_IN_FUNC:
+		case G_TK_PR_PRELOAD:
 		case G_TK_PR_ASSERT:
 		case G_TK_PR_YIELD:
 			break;
 		default:
 			return false;
-	}
-	if (curr_token != G_TK_BUILT_IN_FUNC && curr_token != G_TK_PR_PRELOAD) {
-		return false;
 	}
 	// If the previous token is a period, then this is a member function call, not a built-in function call
 	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1]) == G_TK_PERIOD) {
