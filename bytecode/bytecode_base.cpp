@@ -276,6 +276,13 @@ Error GDScriptDecomp::get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, 
 	return OK;
 }
 
+Error GDScriptDecomp::get_script_state(const Vector<uint8_t> &p_buffer, ScriptState &r_state) {
+	const uint8_t *buf = p_buffer.ptr();
+	GDSDECOMP_FAIL_COND_V_MSG(p_buffer.size() < 24 || !CHECK_GDSC_HEADER(p_buffer), ERR_INVALID_DATA, "Invalid GDScript tokenizer buffer.");
+	r_state.bytecode_version = decode_uint32(&buf[4]);
+	return get_ids_consts_tokens(p_buffer, r_state.identifiers, r_state.constants, r_state.tokens, r_state.lines, r_state.columns);
+}
+
 Error GDScriptDecomp::get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, Vector<StringName> &identifiers, Vector<Variant> &constants, Vector<uint32_t> &tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns) {
 	const uint8_t *buf = p_buffer.ptr();
 	int total_len = p_buffer.size();
@@ -548,25 +555,20 @@ static_assert(sizeof(g_token_str) / sizeof(g_token_str[0]) == GDScriptDecomp::Gl
 Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 	//Cleanup
 	script_text = String();
-
+	ScriptState script_state;
 	//Load bytecode
-	Vector<StringName> identifiers;
-	Vector<Variant> constants;
-	VMap<uint32_t, uint32_t> lines;
-	VMap<uint32_t, uint32_t> columns;
-	Vector<uint32_t> tokens;
+	Error err = get_script_state(p_buffer, script_state);
+	ERR_FAIL_COND_V(err != OK, err);
+	Vector<StringName> &identifiers = script_state.identifiers;
+	Vector<Variant> &constants = script_state.constants;
+	Vector<uint32_t> &tokens = script_state.tokens;
+	VMap<uint32_t, uint32_t> &lines = script_state.lines;
+	VMap<uint32_t, uint32_t> &columns = script_state.columns;
+	int version = script_state.bytecode_version;
 	int bytecode_version = get_bytecode_version();
 	int variant_ver_major = get_variant_ver_major();
 	int FUNC_MAX = get_function_count();
-
-	const uint8_t *buf = p_buffer.ptr();
-	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
-
-	int version = decode_uint32(&buf[4]);
 	ERR_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
-	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
-	ERR_FAIL_COND_V(err != OK, err);
-
 	//Decompile script
 	String line;
 	Ref<GodotVer> gv = get_godot_ver();
@@ -624,23 +626,22 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 	//Cleanup
 	script_text = String();
 
+	ScriptState script_state;
 	//Load bytecode
-	Vector<StringName> identifiers;
-	Vector<Variant> constants;
-	VMap<uint32_t, uint32_t> lines;
-	VMap<uint32_t, uint32_t> columns;
-	Vector<uint32_t> tokens;
+	Error err = get_script_state(p_buffer, script_state);
+	ERR_FAIL_COND_V(err != OK, err);
+	Vector<StringName> &identifiers = script_state.identifiers;
+	Vector<Variant> &constants = script_state.constants;
+	Vector<uint32_t> &tokens = script_state.tokens;
+	VMap<uint32_t, uint32_t> &lines = script_state.lines;
+	VMap<uint32_t, uint32_t> &columns = script_state.columns;
+	int version = script_state.bytecode_version;
+
 	int bytecode_version = get_bytecode_version();
 	int variant_ver_major = get_variant_ver_major();
 	int FUNC_MAX = get_function_count();
-
-	const uint8_t *buf = p_buffer.ptr();
-	GDSDECOMP_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', ERR_INVALID_DATA);
-
-	int version = decode_uint32(&buf[4]);
 	GDSDECOMP_FAIL_COND_V(version != get_bytecode_version(), ERR_INVALID_DATA);
-	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
-	ERR_FAIL_COND_V(err != OK, err);
+
 	auto get_line_func([&](int i) {
 		if (lines.has(i)) {
 			return lines[i];
@@ -1299,6 +1300,44 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::test_bytecode(Vector<uint8_t>
 	return _test_bytecode(p_buffer, p_token_max, p_func_max, print_verbose);
 }
 
+bool is_whitespace_or_ignorable(GDScriptDecomp::GlobalToken p_token) {
+	switch (p_token) {
+		case GDScriptDecomp::G_TK_INDENT:
+		case GDScriptDecomp::G_TK_DEDENT:
+		case GDScriptDecomp::G_TK_NEWLINE:
+		case GDScriptDecomp::G_TK_CURSOR:
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool GDScriptDecomp::check_prev_token(int p_pos, const Vector<uint32_t> &p_tokens, GlobalToken p_token) {
+	if (p_pos == 0) {
+		return false;
+	}
+	return get_global_token(p_tokens[p_pos - 1]) == p_token;
+}
+
+bool GDScriptDecomp::check_next_token(int p_pos, const Vector<uint32_t> &p_tokens, GlobalToken p_token) {
+	if (p_pos + 1 >= p_tokens.size()) {
+		return false;
+	}
+	return get_global_token(p_tokens[p_pos + 1]) == p_token;
+}
+
+bool GDScriptDecomp::is_token_func_call(int p_pos, const Vector<uint32_t> &p_tokens) {
+	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1]) == G_TK_PR_FUNCTION) {
+		return false;
+	}
+	// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
+	// the same name as a built-in function, so we have to check if the next token is a parenthesis open
+	if (p_pos + 1 >= p_tokens.size() || get_global_token(p_tokens[p_pos + 1]) != G_TK_PARENTHESIS_OPEN) {
+		return false;
+	}
+	return true;
+}
+
 bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_tokens) {
 	auto curr_token = get_global_token(p_tokens[p_pos]);
 	// TODO: Handle TK_PR_ASSERT, TK_PR_YIELD, TK_PR_SYNC, TK_PR_MASTER, TK_PR_SLAVE, TK_PR_PUPPET, TK_PR_REMOTESYNC, TK_PR_MASTERSYNC, TK_PR_PUPPETSYNC, TK_PR_SLAVESYNC
@@ -1315,12 +1354,7 @@ bool GDScriptDecomp::is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_
 	if (p_pos > 0 && get_global_token(p_tokens[p_pos - 1]) == G_TK_PERIOD) {
 		return false;
 	}
-	// Godot 3.x's parser was VERY DUMB and emitted built-in function tokens for any identifier that shared
-	// the same name as a built-in function, so we have to check if the next token is a parenthesis open
-	if (p_pos + 1 >= p_tokens.size() || get_global_token(p_tokens[p_pos + 1]) != G_TK_PARENTHESIS_OPEN) {
-		return false;
-	}
-	return true;
+	return is_token_func_call(p_pos, p_tokens);
 }
 
 GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t> p_buffer, int &r_tok_max, int &r_func_max, bool print_verbosely) {
@@ -1338,18 +1372,6 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 
 	error_message = "";
 
-	//Load bytecode
-	Vector<StringName> identifiers;
-	Vector<Variant> constants;
-	VMap<uint32_t, uint32_t> lines;
-	VMap<uint32_t, uint32_t> columns;
-	Vector<uint32_t> tokens;
-	int bytecode_version = get_bytecode_version();
-	int FUNC_MAX = get_function_count();
-
-	const uint8_t *buf = p_buffer.ptr();
-	ERR_FAIL_COND_V(p_buffer.size() < 24 || p_buffer[0] != 'G' || p_buffer[1] != 'D' || p_buffer[2] != 'S' || p_buffer[3] != 'C', BYTECODE_TEST_CORRUPT);
-
 	int line = 0;
 	auto print_failed_verbose_func = [&](const String &p_str) {
 		String prefix = vformat("Bytecode test for %s (%07x) failed on line %d: ", get_engine_version(), get_bytecode_rev(), line);
@@ -1360,11 +1382,28 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 		return p_id == -1 ? "preload" : get_function_name(p_id);
 	};
 
-	int version = decode_uint32(&buf[4]);
+	ScriptState script_state;
+	//Load bytecode
+	Error err = get_script_state(p_buffer, script_state);
+	if (err) {
+		if (print_verbosely) {
+			print_failed_verbose_func("Failed to get identifiers, constants, and tokens");
+		}
+		return BytecodeTestResult::BYTECODE_TEST_CORRUPT;
+	}
+	Vector<StringName> &identifiers = script_state.identifiers;
+	Vector<Variant> &constants = script_state.constants;
+	Vector<uint32_t> &tokens = script_state.tokens;
+	VMap<uint32_t, uint32_t> &lines = script_state.lines;
+	VMap<uint32_t, uint32_t> &columns = script_state.columns;
+	int version = script_state.bytecode_version;
+	int bytecode_version = get_bytecode_version();
+	int FUNC_MAX = get_function_count();
+
 	if (version != bytecode_version) {
 		ERR_TEST_FAILED("Bytecode version mismatch: " + itos(version) + " != " + itos(bytecode_version));
 	}
-	Error err = get_ids_consts_tokens(p_buffer, identifiers, constants, tokens, lines, columns);
+
 	ERR_FAIL_COND_V_MSG(err != OK, BYTECODE_TEST_CORRUPT, "Failed to get identifiers, constants, and tokens");
 	auto get_line_func([&](int i) {
 		if (lines.has(i)) {
@@ -1466,7 +1505,8 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 				ERR_TEST_FAILED(vformat("Built-in call '%s' error, not enough tokens following", get_builtin_name(func_id)));
 			}
 			if (curr_token == G_TK_PR_PRELOAD || bytecode_version < GDSCRIPT_2_0_VERSION) {
-				int cnt = get_func_arg_count(i, tokens);
+				Vector<Vector<uint32_t>> r_arguments;
+				int cnt = get_func_arg_count_and_params(i, tokens, r_arguments);
 				if (cnt < arg_count.first || cnt > arg_count.second) {
 					ERR_TEST_FAILED(vformat("Built-in call '%s' error, incorrect number of arguments %d (min: %d, max %d)", get_builtin_name(func_id), cnt, arg_count.first, arg_count.second));
 				}
@@ -1481,20 +1521,19 @@ GDScriptDecomp::BytecodeTestResult GDScriptDecomp::_test_bytecode(Vector<uint8_t
 }
 
 // We're at the identifier token
-int GDScriptDecomp::get_func_arg_count(int curr_pos, const Vector<uint32_t> &tokens) {
+int GDScriptDecomp::get_func_arg_count_and_params(int curr_pos, const Vector<uint32_t> &tokens, Vector<Vector<uint32_t>> &r_arguments) {
 	if (curr_pos + 2 >= tokens.size()) {
 		return -1;
 	}
-	int comma_count = 0;
 	GlobalToken t = get_global_token(tokens[curr_pos + 1]);
 	if (t != G_TK_PARENTHESIS_OPEN) {
 		return -1;
 	}
 	int bracket_open = 0;
-	bool anything = false;
 	// we should be just past the open parenthesis
 	int pos = curr_pos + 2;
 
+	Vector<uint32_t> curr_arg;
 	// count the commas
 	// at least in 3.x and below, the only time commas are allowed in function args are other expressions
 	// This test is not applicable to GDScript 2.0 versions, as there are no bytecode-specific built-in functions.
@@ -1513,26 +1552,29 @@ int GDScriptDecomp::get_func_arg_count(int curr_pos, const Vector<uint32_t> &tok
 				break;
 			case G_TK_COMMA:
 				if (bracket_open == 0) {
-					comma_count++;
+					r_arguments.push_back(curr_arg);
 				}
 				break;
 			default:
 				break;
 		}
-		if (t != G_TK_NEWLINE && t != G_TK_PARENTHESIS_CLOSE) {
-			// anything other than a newline or a close bracket
-			anything = true;
-		}
 		if (bracket_open == -1) {
+			if (curr_arg.size() > 0) {
+				r_arguments.push_back(curr_arg);
+			}
 			break;
+		}
+		if (!is_whitespace_or_ignorable(t)) {
+			curr_arg.push_back(tokens[pos]);
 		}
 	}
 	// trailing commas are not allowed after the last argument
 	if (pos == tokens.size() || t != G_TK_PARENTHESIS_CLOSE) {
+		r_arguments.clear();
 		error_message = "Did not find close parenthesis before EOF";
 		return -1;
 	}
-	return anything ? comma_count + 1 : 0;
+	return r_arguments.size();
 }
 Ref<GodotVer> GDScriptDecomp::get_godot_ver() const {
 	return GodotVer::parse(get_engine_version());
