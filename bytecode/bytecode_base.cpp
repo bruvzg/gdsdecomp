@@ -925,7 +925,10 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 			} break;
 			case G_TK_CF_ELSE: {
 				ensure_space_func(true);
-				line += "else ";
+				line += "else";
+				if (!check_next_token(i, tokens, G_TK_COLON)) {
+					line += " ";
+				}
 			} break;
 			case G_TK_CF_FOR: {
 				line += "for ";
