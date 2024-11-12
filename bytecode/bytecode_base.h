@@ -19,7 +19,7 @@ protected:
 	String script_text;
 	String error_message;
 
-	int get_func_arg_count(int curr_pos, const Vector<uint32_t> &tokens);
+	int get_func_arg_count_and_params(int curr_pos, const Vector<uint32_t> &tokens, Vector<Vector<uint32_t>> &r_arguments);
 
 public:
 	enum GlobalToken {
@@ -159,14 +159,37 @@ public:
 		TOKEN_LINE_MASK = (1 << TOKEN_LINE_BITS) - 1,
 	};
 
+	// bytecode_version, ids,  constants, tokens, lines, columns
+	struct ScriptState {
+		int bytecode_version;
+		Vector<StringName> identifiers;
+		Vector<Variant> constants;
+		Vector<uint32_t> tokens;
+		VMap<uint32_t, uint32_t> lines;
+		VMap<uint32_t, uint32_t> columns;
+		HashSet<String> dependencies;
+	};
+
 protected:
-	virtual Vector<GlobalToken> get_added_tokens() const { return {}; }
+	virtual Vector<GlobalToken>
+	get_added_tokens() const {
+		return {};
+	}
 	virtual Vector<GlobalToken> get_removed_tokens() const { return {}; }
 	virtual Vector<String> get_added_functions() const { return {}; }
 	virtual Vector<String> get_removed_functions() const { return {}; }
 	virtual Vector<String> get_function_arg_count_changed() const { return {}; }
 	bool check_compile_errors(const Vector<uint8_t> &p_buffer);
+	bool check_next_token(int p_pos, const Vector<uint32_t> &p_tokens, GlobalToken p_token);
+
+	bool check_prev_token(int p_pos, const Vector<uint32_t> &p_tokens, GlobalToken p_token);
+	bool is_token_func_call(int p_pos, const Vector<uint32_t> &p_tokens);
 	bool is_token_builtin_func(int p_pos, const Vector<uint32_t> &p_tokens);
+	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
+	// GDScript version 2.0
+	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
+
+	Error get_script_state(const Vector<uint8_t> &p_buffer, ScriptState &r_state);
 
 public:
 	static Vector<String> get_bytecode_versions();
@@ -193,6 +216,7 @@ public:
 	Ref<GodotVer> get_max_godot_ver() const;
 
 	static Error get_script_strings(const String &p_path, const String &engine_version, Vector<String> &r_strings, bool include_identifiers = false);
+	void get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types);
 
 	Error get_script_strings_from_buf(const Vector<uint8_t> &p_path, Vector<String> &r_strings, bool p_include_identifiers);
 	Error decompile_byte_code_encrypted(const String &p_path, Vector<uint8_t> p_key);
@@ -208,9 +232,6 @@ public:
 	String get_error_message();
 	String get_constant_string(Vector<Variant> &constants, uint32_t constId);
 	Vector<String> get_compile_errors(const Vector<uint8_t> &p_buffer);
-	Error get_ids_consts_tokens(const Vector<uint8_t> &p_buffer, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
-	// GDScript version 2.0
-	Error get_ids_consts_tokens_v2(const Vector<uint8_t> &p_buffer, int bytecode_version, Vector<StringName> &r_identifiers, Vector<Variant> &r_constants, Vector<uint32_t> &r_tokens, VMap<uint32_t, uint32_t> &lines, VMap<uint32_t, uint32_t> &columns);
 };
 
 VARIANT_ENUM_CAST(GDScriptDecomp::BytecodeTestResult)
