@@ -748,7 +748,7 @@ Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream,
 	return OK;
 }
 
-Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, int p_recursion_count, bool is_pcfg, bool p_compat) {
+Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, int p_recursion_count, bool is_pcfg, bool p_compat, bool is_script) {
 	switch (p_variant.get_type()) {
 		case Variant::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
@@ -891,7 +891,12 @@ Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreString
 		} break;
 		case Variant::NODE_PATH: {
 			String str = p_variant;
-			str = "NodePath(\"" + str.c_escape() + "\")";
+			// In scripts, use the shorthand syntax.
+			if (is_script) {
+				str = "^\"" + str.c_escape() + "\"";
+			} else {
+				str = "NodePath(\"" + str.c_escape() + "\")";
+			}
 			p_store_string_func(p_store_string_ud, str);
 		} break;
 		case Variant::RID: {
@@ -968,7 +973,7 @@ Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreString
 					}
 
 					p_store_string_func(p_store_string_ud, "\"" + E.name + "\":");
-					write_compat_v4(obj->get(E.name), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+					write_compat_v4(obj->get(E.name), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat, is_script);
 				}
 			}
 
@@ -1057,9 +1062,9 @@ Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreString
 					p_store_string_func(p_store_string_ud, "{\n");
 
 					for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
-						write_compat_v4(E->get(), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+						write_compat_v4(E->get(), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat, is_script);
 						p_store_string_func(p_store_string_ud, ": ");
-						write_compat_v4(dict[E->get()], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+						write_compat_v4(dict[E->get()], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat, is_script);
 						if (E->next()) {
 							p_store_string_func(p_store_string_ud, ",\n");
 						} else {
@@ -1125,7 +1130,7 @@ Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreString
 					} else {
 						p_store_string_func(p_store_string_ud, ", ");
 					}
-					write_compat_v4(var, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+					write_compat_v4(var, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat, is_script);
 				}
 
 				p_store_string_func(p_store_string_ud, "]");
@@ -1302,10 +1307,10 @@ Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreString
 	return OK;
 }
 
-Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool is_pcfg, bool p_compat) {
+Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool is_pcfg, bool p_compat, bool is_script) {
 	// use the v4 write function instead for v4
 	if (ver_major == 4) {
-		return VariantWriter::write(p_variant, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, 0, p_compat);
+		return VariantWriterCompat::write_compat_v4(p_variant, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, 0, is_pcfg, p_compat, is_script);
 	}
 
 	// for v2 and v3...
@@ -1416,8 +1421,12 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 		} break;
 		case Variant::NODE_PATH: {
 			String str = p_variant;
-
-			str = "NodePath(\"" + str.c_escape() + "\")";
+			// in code files, use the short form
+			if (is_script) {
+				str = "@\"" + str.c_escape() + "\"";
+			} else {
+				str = "NodePath(\"" + str.c_escape() + "\")";
+			}
 			p_store_string_func(p_store_string_ud, str);
 
 		} break;
@@ -1487,7 +1496,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 						}
 					}
 					p_store_string_func(p_store_string_ud, "\"" + compat_name + "\":");
-					write_compat(obj->get(E->get().name), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
+					write_compat(obj->get(E->get().name), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg, p_compat, is_script);
 				}
 			}
 
@@ -1511,9 +1520,9 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 				if (!_check_type(dict[E->get()]))
 					continue;
 				*/
-				write_compat(E->get(), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
+				write_compat(E->get(), ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg, p_compat, is_script);
 				p_store_string_func(p_store_string_ud, ": ");
-				write_compat(dict[E->get()], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
+				write_compat(dict[E->get()], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg, p_compat, is_script);
 				if (E->next())
 					p_store_string_func(p_store_string_ud, ",\n");
 			}
@@ -1528,7 +1537,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			for (int i = 0; i < len; i++) {
 				if (i > 0)
 					p_store_string_func(p_store_string_ud, ", ");
-				write_compat(array[i], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg);
+				write_compat(array[i], ver_major, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, is_pcfg, p_compat, is_script);
 			}
 			p_store_string_func(p_store_string_ud, " ]");
 
@@ -1696,12 +1705,17 @@ static Error _write_to_str(void *ud, const String &p_string) {
 	(*str) += p_string;
 	return OK;
 }
+
+Error VariantWriterCompat::write_to_string_script(const Variant &p_variant, String &r_string, const uint32_t ver_major, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool p_compat_4x_force_v3) {
+	r_string = String();
+	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, false, p_compat_4x_force_v3, true);
+}
 // project.cfg variants are written differently than resource variants in Godot 2.x
 Error VariantWriterCompat::write_to_string_pcfg(const Variant &p_variant, String &r_string, const uint32_t ver_major, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool p_compat_4x_force_v3) {
 	r_string = String();
-	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, true, p_compat_4x_force_v3);
+	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, true, p_compat_4x_force_v3, false);
 }
 Error VariantWriterCompat::write_to_string(const Variant &p_variant, String &r_string, const uint32_t ver_major, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool p_compat_4x_force_v3) {
 	r_string = String();
-	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, false, p_compat_4x_force_v3);
+	return write_compat(p_variant, ver_major, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, false, p_compat_4x_force_v3, false);
 }
