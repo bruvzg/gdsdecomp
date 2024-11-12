@@ -1,12 +1,62 @@
 #include "variant_writer_compat.h"
+#include "core/crypto/crypto_core.h"
+
 #include "compat/resource_loader_compat.h"
+#include "core/object/script_language.h"
 #include "image_parser_v2.h"
 #include "input_event_parser_v2.h"
+
+String num_scientific(double p_num) {
+	if (Math::is_nan(p_num)) {
+		return "nan";
+	}
+
+	if (Math::is_inf(p_num)) {
+		if (signbit(p_num)) {
+			return "-inf";
+		} else {
+			return "inf";
+		}
+	}
+
+	char buf[256];
+
+#if defined(__GNUC__) || defined(_MSC_VER)
+
+#if defined(__MINGW32__) && defined(_TWO_DIGIT_EXPONENT) && !defined(_UCRT)
+	// MinGW requires _set_output_format() to conform to C99 output for printf
+	unsigned int old_exponent_format = _set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
+	// TODO: remove this when the PR about precision is merged
+	snprintf(buf, 256, "%.16lg", p_num);
+
+#if defined(__MINGW32__) && defined(_TWO_DIGIT_EXPONENT) && !defined(_UCRT)
+	_set_output_format(old_exponent_format);
+#endif
+
+#else
+	sprintf(buf, "%.16lg", p_num);
+#endif
+
+	buf[255] = 0;
+
+	return buf;
+}
+
 static String rtosfix(double p_value) {
-	if (p_value == 0.0)
-		return "0"; // avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
-	else
-		return rtoss(p_value);
+	if (p_value == 0.0) {
+		return "0"; //avoid negative zero (-0) being written, which may annoy git, svn, etc. for changes when they don't exist.
+	} else if (isnan(p_value)) {
+		return "nan";
+	} else if (isinf(p_value)) {
+		if (p_value > 0) {
+			return "inf";
+		} else {
+			return "inf_neg";
+		}
+	} else {
+		return num_scientific(p_value);
+	}
 }
 
 Error VariantParserCompat::_parse_array(Array &array, Stream *p_stream, int &line, String &r_err_str, ResourceParser *p_res_parser) {
@@ -698,6 +748,560 @@ Error VariantParserCompat::parse_tag_assign_eof(VariantParser::Stream *p_stream,
 	return OK;
 }
 
+Error VariantWriterCompat::write_compat_v4(const Variant &p_variant, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, int p_recursion_count, bool is_pcfg, bool p_compat) {
+	switch (p_variant.get_type()) {
+		case Variant::NIL: {
+			p_store_string_func(p_store_string_ud, "null");
+		} break;
+		case Variant::BOOL: {
+			p_store_string_func(p_store_string_ud, p_variant.operator bool() ? "true" : "false");
+		} break;
+		case Variant::INT: {
+			p_store_string_func(p_store_string_ud, itos(p_variant.operator int64_t()));
+		} break;
+		case Variant::FLOAT: {
+			String s = rtosfix(p_variant.operator double());
+			if (s != "inf" && s != "inf_neg" && s != "nan") {
+				if (!s.contains(".") && !s.contains("e")) {
+					s += ".0";
+				}
+			}
+			p_store_string_func(p_store_string_ud, s);
+		} break;
+		case Variant::STRING: {
+			String str = p_variant;
+			str = "\"" + str.c_escape_multiline() + "\"";
+			p_store_string_func(p_store_string_ud, str);
+		} break;
+
+		// Math types.
+		case Variant::VECTOR2: {
+			Vector2 v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector2(" + rtosfix(v.x) + ", " + rtosfix(v.y) + ")");
+		} break;
+		case Variant::VECTOR2I: {
+			Vector2i v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector2i(" + itos(v.x) + ", " + itos(v.y) + ")");
+		} break;
+		case Variant::RECT2: {
+			Rect2 aabb = p_variant;
+			p_store_string_func(p_store_string_ud, "Rect2(" + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + ")");
+		} break;
+		case Variant::RECT2I: {
+			Rect2i aabb = p_variant;
+			p_store_string_func(p_store_string_ud, "Rect2i(" + itos(aabb.position.x) + ", " + itos(aabb.position.y) + ", " + itos(aabb.size.x) + ", " + itos(aabb.size.y) + ")");
+		} break;
+		case Variant::VECTOR3: {
+			Vector3 v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector3(" + rtosfix(v.x) + ", " + rtosfix(v.y) + ", " + rtosfix(v.z) + ")");
+		} break;
+		case Variant::VECTOR3I: {
+			Vector3i v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector3i(" + itos(v.x) + ", " + itos(v.y) + ", " + itos(v.z) + ")");
+		} break;
+		case Variant::VECTOR4: {
+			Vector4 v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector4(" + rtosfix(v.x) + ", " + rtosfix(v.y) + ", " + rtosfix(v.z) + ", " + rtosfix(v.w) + ")");
+		} break;
+		case Variant::VECTOR4I: {
+			Vector4i v = p_variant;
+			p_store_string_func(p_store_string_ud, "Vector4i(" + itos(v.x) + ", " + itos(v.y) + ", " + itos(v.z) + ", " + itos(v.w) + ")");
+		} break;
+		case Variant::PLANE: {
+			Plane p = p_variant;
+			p_store_string_func(p_store_string_ud, "Plane(" + rtosfix(p.normal.x) + ", " + rtosfix(p.normal.y) + ", " + rtosfix(p.normal.z) + ", " + rtosfix(p.d) + ")");
+		} break;
+		case Variant::AABB: {
+			AABB aabb = p_variant;
+			p_store_string_func(p_store_string_ud, "AABB(" + rtosfix(aabb.position.x) + ", " + rtosfix(aabb.position.y) + ", " + rtosfix(aabb.position.z) + ", " + rtosfix(aabb.size.x) + ", " + rtosfix(aabb.size.y) + ", " + rtosfix(aabb.size.z) + ")");
+		} break;
+		case Variant::QUATERNION: {
+			Quaternion quaternion = p_variant;
+			p_store_string_func(p_store_string_ud, "Quaternion(" + rtosfix(quaternion.x) + ", " + rtosfix(quaternion.y) + ", " + rtosfix(quaternion.z) + ", " + rtosfix(quaternion.w) + ")");
+		} break;
+		case Variant::TRANSFORM2D: {
+			String s = "Transform2D(";
+			Transform2D m3 = p_variant;
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 2; j++) {
+					if (i != 0 || j != 0) {
+						s += ", ";
+					}
+					s += rtosfix(m3.columns[i][j]);
+				}
+			}
+
+			p_store_string_func(p_store_string_ud, s + ")");
+		} break;
+		case Variant::BASIS: {
+			String s = "Basis(";
+			Basis m3 = p_variant;
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					if (i != 0 || j != 0) {
+						s += ", ";
+					}
+					s += rtosfix(m3.rows[i][j]);
+				}
+			}
+
+			p_store_string_func(p_store_string_ud, s + ")");
+		} break;
+		case Variant::TRANSFORM3D: {
+			String s = "Transform3D(";
+			Transform3D t = p_variant;
+			Basis &m3 = t.basis;
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					if (i != 0 || j != 0) {
+						s += ", ";
+					}
+					s += rtosfix(m3.rows[i][j]);
+				}
+			}
+
+			s = s + ", " + rtosfix(t.origin.x) + ", " + rtosfix(t.origin.y) + ", " + rtosfix(t.origin.z);
+
+			p_store_string_func(p_store_string_ud, s + ")");
+		} break;
+		case Variant::PROJECTION: {
+			String s = "Projection(";
+			Projection t = p_variant;
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					if (i != 0 || j != 0) {
+						s += ", ";
+					}
+					s += rtosfix(t.columns[i][j]);
+				}
+			}
+
+			p_store_string_func(p_store_string_ud, s + ")");
+		} break;
+
+		// Misc types.
+		case Variant::COLOR: {
+			Color c = p_variant;
+			p_store_string_func(p_store_string_ud, "Color(" + rtosfix(c.r) + ", " + rtosfix(c.g) + ", " + rtosfix(c.b) + ", " + rtosfix(c.a) + ")");
+		} break;
+		case Variant::STRING_NAME: {
+			String str = p_variant;
+			str = "&\"" + str.c_escape() + "\"";
+			p_store_string_func(p_store_string_ud, str);
+		} break;
+		case Variant::NODE_PATH: {
+			String str = p_variant;
+			str = "NodePath(\"" + str.c_escape() + "\")";
+			p_store_string_func(p_store_string_ud, str);
+		} break;
+		case Variant::RID: {
+			RID rid = p_variant;
+			if (rid == RID()) {
+				p_store_string_func(p_store_string_ud, "RID()");
+			} else {
+				p_store_string_func(p_store_string_ud, "RID(" + itos(rid.get_id()) + ")");
+			}
+		} break;
+
+		// Do not really store these, but ensure that assignments are not empty.
+		case Variant::SIGNAL: {
+			p_store_string_func(p_store_string_ud, "Signal()");
+		} break;
+		case Variant::CALLABLE: {
+			p_store_string_func(p_store_string_ud, "Callable()");
+		} break;
+
+		case Variant::OBJECT: {
+			if (unlikely(p_recursion_count > MAX_RECURSION)) {
+				ERR_PRINT("Max recursion reached");
+				p_store_string_func(p_store_string_ud, "null");
+				return OK;
+			}
+			p_recursion_count++;
+
+			Object *obj = p_variant.get_validated_object();
+
+			if (!obj) {
+				p_store_string_func(p_store_string_ud, "null");
+				break; // don't save it
+			}
+
+			Ref<Resource> res = p_variant;
+			if (res.is_valid()) {
+				//is resource
+				String res_text;
+
+				//try external function
+				if (p_encode_res_func) {
+					res_text = p_encode_res_func(p_encode_res_ud, res);
+				}
+
+				//try path because it's a file
+				if (res_text.is_empty() && res->get_path().is_resource_file()) {
+					//external resource
+					String path = res->get_path();
+					res_text = "Resource(\"" + path + "\")";
+				}
+
+				//could come up with some sort of text
+				if (!res_text.is_empty()) {
+					p_store_string_func(p_store_string_ud, res_text);
+					break;
+				}
+			}
+
+			//store as generic object
+
+			p_store_string_func(p_store_string_ud, "Object(" + obj->get_class() + ",");
+
+			List<PropertyInfo> props;
+			obj->get_property_list(&props);
+			bool first = true;
+			for (const PropertyInfo &E : props) {
+				if (E.usage & PROPERTY_USAGE_STORAGE || E.usage & PROPERTY_USAGE_SCRIPT_VARIABLE) {
+					//must be serialized
+
+					if (first) {
+						first = false;
+					} else {
+						p_store_string_func(p_store_string_ud, ",");
+					}
+
+					p_store_string_func(p_store_string_ud, "\"" + E.name + "\":");
+					write_compat_v4(obj->get(E.name), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+				}
+			}
+
+			p_store_string_func(p_store_string_ud, ")\n");
+		} break;
+
+		case Variant::DICTIONARY: {
+			Dictionary dict = p_variant;
+
+			if (dict.is_typed()) {
+				p_store_string_func(p_store_string_ud, "Dictionary[");
+
+				Variant::Type key_builtin_type = (Variant::Type)dict.get_typed_key_builtin();
+				StringName key_class_name = dict.get_typed_key_class_name();
+				Ref<Script> key_script = dict.get_typed_key_script();
+
+				if (key_script.is_valid()) {
+					String resource_text;
+					if (p_encode_res_func) {
+						resource_text = p_encode_res_func(p_encode_res_ud, key_script);
+					}
+					if (resource_text.is_empty() && key_script->get_path().is_resource_file()) {
+						resource_text = "Resource(\"" + key_script->get_path() + "\")";
+					}
+
+					if (!resource_text.is_empty()) {
+						p_store_string_func(p_store_string_ud, resource_text);
+					} else {
+						ERR_PRINT("Failed to encode a path to a custom script for a dictionary key type.");
+						p_store_string_func(p_store_string_ud, key_class_name);
+					}
+				} else if (key_class_name != StringName()) {
+					p_store_string_func(p_store_string_ud, key_class_name);
+				} else if (key_builtin_type == Variant::NIL) {
+					p_store_string_func(p_store_string_ud, "Variant");
+				} else {
+					p_store_string_func(p_store_string_ud, Variant::get_type_name(key_builtin_type));
+				}
+
+				p_store_string_func(p_store_string_ud, ", ");
+
+				Variant::Type value_builtin_type = (Variant::Type)dict.get_typed_value_builtin();
+				StringName value_class_name = dict.get_typed_value_class_name();
+				Ref<Script> value_script = dict.get_typed_value_script();
+
+				if (value_script.is_valid()) {
+					String resource_text;
+					if (p_encode_res_func) {
+						resource_text = p_encode_res_func(p_encode_res_ud, value_script);
+					}
+					if (resource_text.is_empty() && value_script->get_path().is_resource_file()) {
+						resource_text = "Resource(\"" + value_script->get_path() + "\")";
+					}
+
+					if (!resource_text.is_empty()) {
+						p_store_string_func(p_store_string_ud, resource_text);
+					} else {
+						ERR_PRINT("Failed to encode a path to a custom script for a dictionary value type.");
+						p_store_string_func(p_store_string_ud, value_class_name);
+					}
+				} else if (value_class_name != StringName()) {
+					p_store_string_func(p_store_string_ud, value_class_name);
+				} else if (value_builtin_type == Variant::NIL) {
+					p_store_string_func(p_store_string_ud, "Variant");
+				} else {
+					p_store_string_func(p_store_string_ud, Variant::get_type_name(value_builtin_type));
+				}
+
+				p_store_string_func(p_store_string_ud, "](");
+			}
+
+			if (unlikely(p_recursion_count > MAX_RECURSION)) {
+				ERR_PRINT("Max recursion reached");
+				p_store_string_func(p_store_string_ud, "{}");
+			} else {
+				List<Variant> keys;
+				dict.get_key_list(&keys);
+				keys.sort_custom<StringLikeVariantOrder>();
+
+				if (keys.is_empty()) {
+					// Avoid unnecessary line break.
+					p_store_string_func(p_store_string_ud, "{}");
+				} else {
+					p_recursion_count++;
+
+					p_store_string_func(p_store_string_ud, "{\n");
+
+					for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
+						write_compat_v4(E->get(), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+						p_store_string_func(p_store_string_ud, ": ");
+						write_compat_v4(dict[E->get()], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+						if (E->next()) {
+							p_store_string_func(p_store_string_ud, ",\n");
+						} else {
+							p_store_string_func(p_store_string_ud, "\n");
+						}
+					}
+
+					p_store_string_func(p_store_string_ud, "}");
+				}
+			}
+
+			if (dict.is_typed()) {
+				p_store_string_func(p_store_string_ud, ")");
+			}
+		} break;
+
+		case Variant::ARRAY: {
+			Array array = p_variant;
+
+			if (array.is_typed()) {
+				p_store_string_func(p_store_string_ud, "Array[");
+
+				Variant::Type builtin_type = (Variant::Type)array.get_typed_builtin();
+				StringName class_name = array.get_typed_class_name();
+				Ref<Script> script = array.get_typed_script();
+
+				if (script.is_valid()) {
+					String resource_text = String();
+					if (p_encode_res_func) {
+						resource_text = p_encode_res_func(p_encode_res_ud, script);
+					}
+					if (resource_text.is_empty() && script->get_path().is_resource_file()) {
+						resource_text = "Resource(\"" + script->get_path() + "\")";
+					}
+
+					if (!resource_text.is_empty()) {
+						p_store_string_func(p_store_string_ud, resource_text);
+					} else {
+						ERR_PRINT("Failed to encode a path to a custom script for an array type.");
+						p_store_string_func(p_store_string_ud, class_name);
+					}
+				} else if (class_name != StringName()) {
+					p_store_string_func(p_store_string_ud, class_name);
+				} else {
+					p_store_string_func(p_store_string_ud, Variant::get_type_name(builtin_type));
+				}
+
+				p_store_string_func(p_store_string_ud, "](");
+			}
+
+			if (unlikely(p_recursion_count > MAX_RECURSION)) {
+				ERR_PRINT("Max recursion reached");
+				p_store_string_func(p_store_string_ud, "[]");
+			} else {
+				p_recursion_count++;
+
+				p_store_string_func(p_store_string_ud, "[");
+
+				bool first = true;
+				for (const Variant &var : array) {
+					if (first) {
+						first = false;
+					} else {
+						p_store_string_func(p_store_string_ud, ", ");
+					}
+					write_compat_v4(var, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, is_pcfg, p_compat);
+				}
+
+				p_store_string_func(p_store_string_ud, "]");
+			}
+
+			if (array.is_typed()) {
+				p_store_string_func(p_store_string_ud, ")");
+			}
+		} break;
+
+		case Variant::PACKED_BYTE_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedByteArray(");
+			Vector<uint8_t> data = p_variant;
+			if (p_compat) {
+				int len = data.size();
+				const uint8_t *ptr = data.ptr();
+				for (int i = 0; i < len; i++) {
+					if (i > 0) {
+						p_store_string_func(p_store_string_ud, ", ");
+					}
+					p_store_string_func(p_store_string_ud, itos(ptr[i]));
+				}
+			} else if (data.size() > 0) {
+				p_store_string_func(p_store_string_ud, "\"");
+				p_store_string_func(p_store_string_ud, CryptoCore::b64_encode_str(data.ptr(), data.size()));
+				p_store_string_func(p_store_string_ud, "\"");
+			}
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_INT32_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedInt32Array(");
+			Vector<int32_t> data = p_variant;
+			int32_t len = data.size();
+			const int32_t *ptr = data.ptr();
+
+			for (int32_t i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+
+				p_store_string_func(p_store_string_ud, itos(ptr[i]));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_INT64_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedInt64Array(");
+			Vector<int64_t> data = p_variant;
+			int64_t len = data.size();
+			const int64_t *ptr = data.ptr();
+
+			for (int64_t i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+
+				p_store_string_func(p_store_string_ud, itos(ptr[i]));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_FLOAT32_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedFloat32Array(");
+			Vector<float> data = p_variant;
+			int len = data.size();
+			const float *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i]));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_FLOAT64_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedFloat64Array(");
+			Vector<double> data = p_variant;
+			int len = data.size();
+			const double *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i]));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_STRING_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedStringArray(");
+			Vector<String> data = p_variant;
+			int len = data.size();
+			const String *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, "\"" + ptr[i].c_escape() + "\"");
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_VECTOR2_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedVector2Array(");
+			Vector<Vector2> data = p_variant;
+			int len = data.size();
+			const Vector2 *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].x) + ", " + rtosfix(ptr[i].y));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_VECTOR3_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedVector3Array(");
+			Vector<Vector3> data = p_variant;
+			int len = data.size();
+			const Vector3 *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].x) + ", " + rtosfix(ptr[i].y) + ", " + rtosfix(ptr[i].z));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_COLOR_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedColorArray(");
+			Vector<Color> data = p_variant;
+			int len = data.size();
+			const Color *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].r) + ", " + rtosfix(ptr[i].g) + ", " + rtosfix(ptr[i].b) + ", " + rtosfix(ptr[i].a));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+		case Variant::PACKED_VECTOR4_ARRAY: {
+			p_store_string_func(p_store_string_ud, "PackedVector4Array(");
+			Vector<Vector4> data = p_variant;
+			int len = data.size();
+			const Vector4 *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
+				}
+				p_store_string_func(p_store_string_ud, rtosfix(ptr[i].x) + ", " + rtosfix(ptr[i].y) + ", " + rtosfix(ptr[i].z) + ", " + rtosfix(ptr[i].w));
+			}
+
+			p_store_string_func(p_store_string_ud, ")");
+		} break;
+
+		default: {
+			ERR_PRINT("Unknown variant type");
+			return ERR_BUG;
+		}
+	}
+
+	return OK;
+}
+
 Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t ver_major, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool is_pcfg, bool p_compat) {
 	// use the v4 write function instead for v4
 	if (ver_major == 4) {
@@ -716,7 +1320,7 @@ Error VariantWriterCompat::write_compat(const Variant &p_variant, const uint32_t
 			p_store_string_func(p_store_string_ud, itos(p_variant.operator int()));
 		} break;
 		case Variant::FLOAT: { // "REAL" in v2 and v3
-			String s = rtosfix(p_variant.operator real_t());
+			String s = rtosfix(p_variant.operator double());
 			if (s.find(".") == -1 && s.find("e") == -1)
 				s += ".0";
 			p_store_string_func(p_store_string_ud, s);
