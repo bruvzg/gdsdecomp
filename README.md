@@ -105,7 +105,8 @@ For ease of bootstrapping development, we have included launch, build, and setti
 
 ### Requirements
 
-Godot 4.0 (master branch) @ ef8d981267702de38ffc24136f9d823d31781c60
+Godot 4.0 (master branch) @ ec6a1c0e792ac8be44990749800a4654a293b9ee
+
 
 
 - Support for building on 3.x has been dropped and no new features are being pushed
