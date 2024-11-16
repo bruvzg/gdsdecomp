@@ -111,7 +111,7 @@ func should_show_disclaimer():
 	var last_semver = SemVer.parse_semver(last_showed)
 	if curr_semver == null or last_semver == null:
 		return true
-	return curr_semver.major == last_semver.major and curr_semver.minor == last_semver.minor
+	return not (curr_semver.major == last_semver.major and curr_semver.minor == last_semver.minor)
 
 func set_showed_disclaimer(setting: bool):
 	var version = "<NONE>"
