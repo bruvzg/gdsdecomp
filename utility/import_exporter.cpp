@@ -586,7 +586,11 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 			// if we're on MacOS, try one path up
 			if (parent_dir.get_file() == "Resources") {
 				parent_dir = parent_dir.get_base_dir();
-				lib_paths = gdre::get_recursive_dir_list(parent_dir, libs_to_find, true);
+				Vector<String> globs;
+				for (String lib : libs_to_find) {
+					globs.push_back(parent_dir.path_join("**").path_join(lib));
+				}
+				lib_paths = Glob::rglob_list(globs, true);
 			}
 			if (lib_paths.size() == 0) {
 				WARN_PRINT("Failed to find gdextension libraries for plugin " + plugin_dir);
@@ -603,7 +607,13 @@ Error ImportExporter::recreate_plugin_config(const String &output_dir, const Str
 				ERR_FAIL_COND_V_MSG(da->make_dir_recursive(lib_dir_path), ERR_FILE_CANT_WRITE, "Failed to make plugin directory " + lib_dir_path);
 			}
 			String dest_path = lib_dir_path.path_join(lib_name);
-			ERR_FAIL_COND_V_MSG(da->copy(path, dest_path), ERR_FILE_CANT_WRITE, "Failed to copy library " + path + " to " + dest_path);
+			// check if it's a file first
+			if (da->file_exists(path)) {
+				ERR_FAIL_COND_V_MSG(da->copy(path, dest_path), ERR_FILE_CANT_WRITE, "Failed to copy library " + path + " to " + dest_path);
+			} else {
+				// it's a directory
+				ERR_FAIL_COND_V_MSG(da->copy_dir(path, dest_path), ERR_FILE_CANT_WRITE, "Failed to copy library " + path + " to " + dest_path);
+			}
 			if (lib_to_platform[lib_name] == our_platform) {
 				found_our_platform = true;
 			}
