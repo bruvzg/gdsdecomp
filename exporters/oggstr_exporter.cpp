@@ -47,6 +47,7 @@ Error OggStrExporter::get_data_from_ogg_stream(const Ref<AudioStreamOggVorbis> &
 
 	int page_cursor = 0;
 	bool reached_eos = false;
+	bool warned = false;
 	r_data.resize_zeroed(total_estimated_size);
 	while (playback->next_ogg_packet(&pkt) && !reached_eos) {
 		page_cursor = playback->get_page_number();
@@ -59,12 +60,16 @@ Error OggStrExporter::get_data_from_ogg_stream(const Ref<AudioStreamOggVorbis> &
 		if (os_en.body_fill >= page_size || reached_eos) {
 			if (os_en.body_fill < page_size) {
 				WARN_PRINT("Reached EOS: Recorded page size is " + itos(page_size) + " but body fill is " + itos(os_en.body_fill) + ".");
+				warned = true;
 			}
 			ogg_page og;
 			ERR_FAIL_COND_V_MSG(ogg_stream_flush_fill(&os_en, &og, page_size) == 0, ERR_FILE_CORRUPT, "Could not add page.");
 			int cur_pos = total_acc_size;
 			total_acc_size += og.header_len + og.body_len;
 			total_actual_body_size += og.body_len;
+			if (og.body_len != os_en.body_fill) {
+				print_verbose("Body fill is " + itos(os_en.body_fill) + " but body len is " + itos(og.body_len) + ".");
+			}
 			if (total_acc_size > r_data.size()) {
 				WARN_PRINT("Resizing data to " + itos(total_acc_size));
 				r_data.resize(total_acc_size);
@@ -86,13 +91,17 @@ Error OggStrExporter::get_data_from_ogg_stream(const Ref<AudioStreamOggVorbis> &
 	ERR_FAIL_COND_V_MSG(r_data.size() < 4, ERR_FILE_CORRUPT, "Data is too small to be an Ogg stream.");
 	ERR_FAIL_COND_V_MSG(r_data[0] != 'O' || r_data[1] != 'g' || r_data[2] != 'g' || r_data[3] != 'S', ERR_FILE_CORRUPT, "Header is missing in ogg data.");
 
-	return OK;
+	return warned ? ERR_PRINTER_ON_FIRE : OK;
 }
 
 Vector<uint8_t> OggStrExporter::get_ogg_stream_data(const Ref<AudioStreamOggVorbis> &sample) {
 	Error _err = OK;
 	Vector<uint8_t> data;
 	_err = get_data_from_ogg_stream(sample, data);
+	if (_err == ERR_PRINTER_ON_FIRE) {
+		WARN_PRINT("Ogg stream had warnings: " + sample->get_path());
+		_err = OK;
+	}
 	ERR_FAIL_COND_V_MSG(_err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
 	return data;
 }
@@ -110,6 +119,11 @@ Vector<uint8_t> OggStrExporter::load_ogg_stream_data(const String &p_path, int v
 		Ref<AudioStreamOggVorbis> sample = ResourceCompatLoader::non_global_load(p_path, "", r_err);
 		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot open resource '" + p_path + "'.");
 		*r_err = get_data_from_ogg_stream(sample, data);
+		if (*r_err == ERR_PRINTER_ON_FIRE) {
+			WARN_PRINT("Ogg stream had warnings: " + p_path);
+			*r_err = OK;
+			ERR_FAIL_COND_V_MSG(_err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
+		}
 		ERR_FAIL_COND_V_MSG(*r_err != OK, Vector<uint8_t>(), "Cannot convert packet sequence to raw data.");
 	} else {
 		auto res = ResourceCompatLoader::fake_load(p_path, "", r_err);
