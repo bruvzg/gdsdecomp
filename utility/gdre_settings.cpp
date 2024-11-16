@@ -1646,7 +1646,7 @@ void GDRESettings::load_all_resource_strings() {
 	print_line("Resource strings loaded!");
 	for (int i = 0; i < tokens.size(); i++) {
 		if (tokens[i].err != OK) {
-			WARN_PRINT("Failed to load resource strings for " + tokens[i].path);
+			print_verbose("Failed to load resource strings for " + tokens[i].path);
 			continue;
 		}
 		for (auto &str : tokens[i].strings) {
