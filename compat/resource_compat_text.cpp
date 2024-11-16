@@ -1240,6 +1240,13 @@ void ResourceLoaderCompatText::open(Ref<FileAccess> p_f, bool p_skip_first_tag) 
 
 	if (err) {
 		error = err;
+		if (err == ERR_FILE_EOF && f.is_valid()) {
+			f->seek(0);
+			String fstring = f->get_as_utf8_string();
+			if (fstring.strip_edges().is_empty()) {
+				error_text = "Empty file!";
+			}
+		}
 		_printerr();
 		return;
 	}
