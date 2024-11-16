@@ -47,6 +47,7 @@ gdre_tools --headless <main_command> [options]
 - `--recover=<GAME_PCK/EXE/APK/DIR>` : Perform full project recovery on the specified PCK, APK, EXE, or extracted project directory.
 - `--extract=<GAME_PCK/EXE/APK>` : Extract the specified PCK, APK, or EXE.
 - `--compile=<GD_FILE>` : Compile GDScript files to bytecode (can be repeated and use globs, requires --bytecode)
+- `--decompile=<GDC_FILE>` : Decompile GDScript files to text scripts (can be repeated and use globs, requires --bytecode)
 - `--list-bytecode-versions` : List all available bytecode versions
 
 #### Recover/Extract Options:
@@ -90,10 +91,6 @@ Support has yet to be implemented for converting the following resources:
 - Bitmap and image fonts (recovering 4.x TTF/OTF fontfiles is supported)
 - GDNative or GDExtension scripts (e.g. GDMono and CSharp)
 
-Support for converting certain resources is limited:
-
-- Recovered .csv translation files will likely have missing keys; this is due to `.translation` files only storing the hashes of the keys. It is recommended to just politely ask the developer if you want to add additional translations.
-
 There is no support for decompiling any GDNative/GDExtension or GDMono scripts. For Mono/CSharp, you can use [Ilspy](https://github.com/icsharpcode/ILSpy) or dotPeek.
 
 ## Compiling from source
@@ -106,8 +103,6 @@ For ease of bootstrapping development, we have included launch, build, and setti
 ### Requirements
 
 Godot 4.0 (master branch) @ ec6a1c0e792ac8be44990749800a4654a293b9ee
-
-
 
 - Support for building on 3.x has been dropped and no new features are being pushed
   - Godot RE Tools still retains the ability to decompile 3.x and 2.x projects, however.
