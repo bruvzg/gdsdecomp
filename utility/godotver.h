@@ -170,6 +170,10 @@ public:
 
 	bool is_valid_semver() const { return valid; }
 
+	bool patch_compatible(const Ref<SemVer> &p_b) const {
+		return major == p_b->major && minor == p_b->minor;
+	}
+
 	static bool parse_valid(const String &p_ver_text, Ref<SemVer> &r_semver);
 	static Ref<SemVer> parse(const String &p_ver_text);
 	static Ref<SemVer> create(int p_major, int p_minor, int p_patch,
