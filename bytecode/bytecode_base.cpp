@@ -1176,7 +1176,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 
 	if (!line.is_empty()) {
 		for (int j = 0; j < indent; j++) {
-			script_text += "\t";
+			script_text += use_spaces ? " " : "\t";
 		}
 		script_text += line + "\n";
 	}
