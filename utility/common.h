@@ -12,6 +12,10 @@ Error save_image_as_webp(const String &p_path, const Ref<Image> &p_img, bool los
 Error save_image_as_jpeg(const String &p_path, const Ref<Image> &p_img);
 void get_strings_from_variant(const Variant &p_var, Vector<String> &r_strings, const String &engine_version = "");
 Error decompress_image(const Ref<Image> &img);
+String get_md5_for_dir(const String &dir, bool ignore_code_signature = false);
+Error unzip_file_to_dir(const String &zip_path, const String &output_dir);
+Error download_file_sync(const String &url, const String &output_path);
+
 template <class T>
 Vector<T> hashset_to_vector(const HashSet<T> &hs) {
 	Vector<T> ret;
