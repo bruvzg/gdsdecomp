@@ -98,6 +98,12 @@ String find_common_prefix(const HashMap<StringName, StringName> &key_to_msg) {
 	return prefix;
 }
 
+namespace {
+StringName get_msg(Ref<Translation> default_translation, const String &key) {
+	return default_translation->get_message(key);
+};
+} //namespace
+
 Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir, Ref<ImportInfo> iinfo) {
 	// Implementation for exporting resources related to translations
 	Error err = OK;
@@ -108,6 +114,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	if (iinfo->get_dest_files().size() == 1) {
 		default_locale = iinfo->get_dest_files()[0].get_basename().get_extension();
 	}
+	print_verbose("Exporting translation file " + iinfo->get_export_dest());
 	Vector<Ref<Translation>> translations;
 	Vector<Vector<StringName>> translation_messages;
 	Ref<Translation> default_translation;
@@ -165,6 +172,7 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 		report->set_error(ERR_FILE_MISSING_DEPENDENCIES);
 		ERR_FAIL_V_MSG(report, "No default translation found for " + iinfo->get_path());
 	}
+	HashSet<String> resource_strings;
 	HashMap<StringName, StringName> key_to_message;
 	String prefix;
 	bool keys_have_spaces = false;
@@ -182,7 +190,6 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 		}
 		// We need to load all the resource strings in all resources to find the keys
 		if (missing_keys) {
-			HashSet<String> resource_strings;
 			if (!GDRESettings::get_singleton()->loaded_resource_strings()) {
 				GDRESettings::get_singleton()->load_all_resource_strings();
 			}
@@ -192,6 +199,9 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 				if (!msg.is_empty()) {
 					if (!keys_have_spaces && key.contains(" ")) {
 						keys_have_spaces = true;
+					}
+					if (key_to_message.has(key) && msg != key_to_message[key]) {
+						WARN_PRINT(vformat("Found matching key '%s' for message '%s' but key is used for message '%s'", key, msg, key_to_message[key]));
 					}
 					key_to_message[key] = msg;
 				}
@@ -225,14 +235,31 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 		for (int i = 0; i < default_messages.size(); i++) {
 			auto &msg = default_messages[i];
 			bool found = false;
+			bool has_match = false;
+			StringName matching_key;
 			for (auto &E : key_to_message) {
-				if (E.value == msg && !keys.has(E.key)) {
-					keys.push_back(E.key);
-					found = true;
-					break;
+				if (E.value == msg) {
+					has_match = true;
+					matching_key = E.key;
+					if (!keys.has(E.key)) {
+						keys.push_back(E.key);
+						found = true;
+						break;
+					}
 				}
 			}
 			if (!found) {
+				if (has_match) {
+					if (msg != key_to_message[matching_key]) {
+						WARN_PRINT(vformat("Found matching key '%s' for message '%s' but key is used for message '%s'", matching_key, msg, key_to_message[matching_key]));
+					} else {
+						print_verbose(vformat("WARNING: Found duplicate key '%s' for message '%s'", matching_key, msg));
+						// keys.push_back(matching_key);
+						// continue;
+					}
+				} else {
+					print_verbose(vformat("Could not find key for message '%s'", msg));
+				}
 				missing_keys++;
 				keys.push_back("<MISSING KEY " + String(msg).split("\n")[0] + ">");
 			}
