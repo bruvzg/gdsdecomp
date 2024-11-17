@@ -11,6 +11,7 @@
 #include "core/object/worker_thread_pool.h"
 #include "core/string/print_string.h"
 #include "editor/gdre_version.gen.h"
+#include "modules/zip/zip_reader.h"
 #include "utility/common.h"
 #include "utility/file_access_gdre.h"
 #include "utility/gdre_logger.h"
@@ -452,6 +453,24 @@ Error GDRESettings::load_pck(const String &p_path) {
 	return OK;
 }
 
+bool is_zip_file_pack(const String &p_path) {
+	Ref<ZIPReader> zip = memnew(ZIPReader);
+	Error err = zip->open(p_path);
+	if (err) {
+		return false;
+	}
+	auto files = zip->get_files();
+	for (int i = 0; i < files.size(); i++) {
+		if (files[i] == "engine.cfg" || files[i] == "engine.cfb" || files[i] == "project.godot" || files[i] == "project.binary") {
+			return true;
+		}
+		if (files[i].begins_with(".godot/")) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_extract) {
 	if (is_pack_loaded()) {
 		return ERR_ALREADY_IN_USE;
@@ -481,6 +500,7 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 		print_line("Opening file: " + p_path);
 		err = load_dir(p_path);
 		ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't load project directory!");
+		load_pack_uid_cache();
 	} else {
 		for (auto path : p_paths) {
 			print_line("Opening file: " + path);
@@ -523,7 +543,29 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 			err = load_pck(path);
 			if (err) {
 				unload_project();
-				ERR_FAIL_COND_V_MSG(err, err, "FATAL ERROR: Can't open pack file: " + path);
+				ERR_FAIL_COND_V_MSG(err, err, "Can't load project!");
+			}
+			load_pack_uid_cache();
+		}
+	}
+
+	// Load embedded zips within the pck
+	auto zip_files = get_file_list({ "*.zip" });
+	if (zip_files.size() > 0) {
+		Vector<String> pck_zip_files;
+		for (auto path : p_paths) {
+			if (path.get_extension().to_lower() == "zip") {
+				pck_zip_files.push_back(path.get_file().to_lower());
+			}
+		}
+		for (auto zip_file : zip_files) {
+			if (is_zip_file_pack(zip_file) && !pck_zip_files.has(zip_file.get_file().to_lower())) {
+				err = load_pck(zip_file);
+				if (err) {
+					unload_project();
+					ERR_FAIL_COND_V_MSG(err, err, "Can't load project!");
+				}
+				load_pack_uid_cache();
 			}
 		}
 	}
@@ -558,7 +600,6 @@ Error GDRESettings::load_project(const Vector<String> &p_paths, bool _cmd_line_e
 	err = load_import_files();
 	ERR_FAIL_COND_V_MSG(err, ERR_FILE_CANT_READ, "FATAL ERROR: Could not load imported binary files!");
 
-	load_pack_uid_cache();
 	return OK;
 }
 
@@ -1332,6 +1373,14 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 	if (is_project_config_loaded()) {
 		// if this is set, we want to load the cache from the hidden directory
 		cache_file = current_project->pcfg->get_setting("application/config/use_hidden_project_data_directory", true) ? cache_file : "res://godot/uid_cache.bin";
+	} else {
+		// check if res://.godot/uid_cache.bin exists
+		if (!FileAccess::exists(cache_file)) {
+			cache_file = "res://godot/uid_cache.bin";
+		}
+	}
+	if (!FileAccess::exists(cache_file)) {
+		return ERR_FILE_NOT_FOUND;
 	}
 	Ref<FileAccess> f = FileAccess::open(cache_file, FileAccess::READ);
 
@@ -1340,6 +1389,7 @@ Error GDRESettings::load_pack_uid_cache(bool p_reset) {
 	}
 
 	if (p_reset) {
+		ResourceUID::get_singleton()->clear();
 		unique_ids.clear();
 	}
 
