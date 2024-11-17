@@ -611,7 +611,7 @@ Error GDScriptDecomp::debug_print(Vector<uint8_t> p_buffer) {
 		String tok_str = g_token_str[curr_token];
 		if (curr_token == G_TK_IDENTIFIER) {
 			tok_str += " (" + String(identifiers[tokens[i] >> TOKEN_BITS]) + ")";
-		} else if (curr_token == G_TK_CONSTANT) {
+		} else if (curr_token == G_TK_CONSTANT || curr_token == G_TK_LITERAL) {
 			tok_str += " (" + get_constant_string(constants, tokens[i] >> TOKEN_BITS) + ")";
 		}
 		print_line(itos(i) + ": " + tok_str + " line: " + itos(curr_line) + " column: " + itos(curr_column));
@@ -818,7 +818,7 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "/ ";
 			} break;
 			case G_TK_OP_MOD: {
-				ensure_space_func();
+				ensure_space_func(true);
 				line += "% ";
 			} break;
 			case G_TK_OP_SHIFT_LEFT: {
@@ -874,19 +874,19 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 				line += "^= ";
 			} break;
 			case G_TK_OP_BIT_AND: {
-				ensure_space_func();
+				ensure_space_func(true);
 				line += "& ";
 			} break;
 			case G_TK_OP_BIT_OR: {
-				ensure_space_func();
+				ensure_space_func(true);
 				line += "| ";
 			} break;
 			case G_TK_OP_BIT_XOR: {
-				ensure_space_func();
+				ensure_space_func(true);
 				line += "^ ";
 			} break;
 			case G_TK_OP_BIT_INVERT: {
-				ensure_space_func();
+				ensure_space_func(true);
 				line += "~ ";
 			} break;
 			//case G_TK_OP_PLUS_PLUS: {
