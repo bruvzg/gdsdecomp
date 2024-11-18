@@ -48,6 +48,7 @@ private:
 
 	static GDREPackedData *singleton;
 	bool disabled = false;
+	bool packed_data_was_enabled = false;
 
 	void _free_packed_dirs(PackedDir *p_dir);
 	void set_default_file_access();

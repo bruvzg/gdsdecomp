@@ -103,13 +103,14 @@ void GDREPackedData::set_disabled(bool p_disabled) {
 	if (p_disabled) {
 		// we need to re-enable the default create funcs
 		reset_default_file_access();
-		if (real_packed_data_has_pack_loaded()) {
+		if (packed_data_was_enabled) {
 			PackedData::get_singleton()->set_disabled(false);
 		}
 	} else {
 		// we need to disable the default create funcs and put our own in
 		set_default_file_access();
-		if (real_packed_data_has_pack_loaded()) {
+		if (!PackedData::get_singleton()->is_disabled()) {
+			packed_data_was_enabled = true;
 			PackedData::get_singleton()->set_disabled(true);
 		}
 	}
