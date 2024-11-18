@@ -66,7 +66,7 @@ jobs:
             os: "macos-latest"
             platform: macos
             sconsflags: debug_symbols=no use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
-            sconsflags-template: debug_symbols=yes optimize=size use_lto=yes use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
+            sconsflags-template: debug_symbols=no optimize=size use_lto=yes use_volk=no vulkan_sdk_path=$VULKAN_SDK_PATH
             command-export: ${env:GITHUB_WORKSPACE}/bin/godot.macos.editor.arm64
             export-preset: "macOS"
             export-name: .export/gdre_tools.universal.zip
@@ -160,8 +160,6 @@ jobs:
         continue-on-error: true
 
       - name: Prepare template artifact
-        # TODO: remove this
-        if: matrix.platform != 'macos'
         uses: ./.github/actions/godot-prepare-artifact
 
       - name: Make macOS template
