@@ -14,10 +14,20 @@ func test_text_to_bin(txt_to_bin: String, output_dir: String):
 	importer.convert_res_txt_2_bin(output_dir, txt_to_bin, dst_file)
 	importer.convert_res_bin_2_txt(output_dir, output_dir.path_join(dst_file), dst_file.replace(".scn", ".tscn").replace(".res", ".tres"))
 
+func dequote(arg):
+	if arg.begins_with("\"") and arg.ends_with("\""):
+		return arg.substr(1, arg.length() - 2)
+	if arg.begins_with("'") and arg.ends_with("'"):
+		return arg.substr(1, arg.length() - 2)
+	return arg
+
 func _on_re_editor_standalone_dropped_files(files: PackedStringArray):
 	if files.size() == 0:
 		return
-	$re_editor_standalone.pck_select_request(files)
+	var new_files = []
+	for file in files:
+		new_files.append(dequote(file))
+	$re_editor_standalone.pck_select_request(new_files)
 
 func _on_re_editor_standalone_write_log_message(message):
 	$log_window.text += message
@@ -182,12 +192,7 @@ func get_arg_value(arg):
 	if split_args.size() < 2:
 		last_error = "Error: args have to be in the format of --key=value (with equals sign)"
 		return ""
-	arg = split_args[1]
-	if arg.begins_with("\"") and arg.ends_with("\""):
-		return arg.substr(1, arg.length() - 2)
-	if arg.begins_with("'") and arg.ends_with("'"):
-		return arg.substr(1, arg.length() - 2)
-	return split_args[1]
+	return dequote(split_args[1])
 
 func normalize_path(path: String):
 	return path.replace("\\","/")
