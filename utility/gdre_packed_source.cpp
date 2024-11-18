@@ -152,6 +152,7 @@ uint64_t get_offset_windows(const String &p_path) {
 
 bool is_executable(const String &p_path) {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V(f.is_null(), false);
 	String extension = p_path.get_extension().to_lower();
 	if (extension.ends_with("exe") || extension.ends_with("dll")) {
 		return seek_after_magic_windows(f);
