@@ -159,6 +159,8 @@ jobs:
         continue-on-error: true
 
       - name: Prepare template artifact
+        # TODO: remove this
+        if: matrix.platform != 'macos'
         uses: ./.github/actions/godot-prepare-artifact
 
       - name: Make macOS template
