@@ -2,7 +2,7 @@ echo "Exporting standalone project"
 # check if the args are less than 1
 if ($args.Length -lt 1) {
     $script_name = $MyInvocation.MyCommand.Name
-    echo "Usage: $script_name <export_preset> [-cmd <export_command>] [-path <export_path>]"
+    echo "Usage: $script_name <export_preset> [-cmd <export_command>] [-path <export_path>] [--debug]"
     exit 1
 }
 
@@ -10,6 +10,8 @@ $export_preset = $args[0]
 
 $export_command = ""
 $export_path = ""
+
+$debug = $false
 
 # check if the args are more than 1
 if ($args.Length -gt 1) {
@@ -23,6 +25,9 @@ if ($args.Length -gt 1) {
             "-path" {
                 $i++
                 $export_path = $args[$i]
+            }
+            "--debug" {
+                $debug = $true
             }
             default {
                 echo "Unknown argument: $arg"
@@ -106,7 +111,13 @@ Set-PSDebug -Trace 1
 $proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList '--headless -e --quit'
 Wait-Process -Id $proc.id -Timeout 300
 Set-PSDebug -Trace 0
-$export_args = "--headless --export-release `"$export_preset`" `"$export_path`""
+
+$export_flag = "--export-release"
+if ($debug) {
+    $export_flag = "--export-debug"
+}
+
+$export_args = "--headless $export_flag `"$export_preset`" `"$export_path`""
 echo "running: $export_command $export_args"
 Set-PSDebug -Trace 1
 $proc = Start-Process -NoNewWindow -PassThru -FilePath "$export_command" -ArgumentList "$export_args"
