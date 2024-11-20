@@ -55,7 +55,7 @@ body:
     
 - type: textarea
   attributes:
-    label: Minimal reproduction project
+    label: Link to game downloaf
     description: |
       If the issue is not trivially reproducable, it is recommended that you provide a link to the game that you encountered this issue with here.
       If for whatever reason you would prefer to not post it publicly, you may send it to us privately; in this case, post an alternate means of contacting yourself here (e.g. Discord tag).
