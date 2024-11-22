@@ -93,10 +93,16 @@
         "typeinfo": "cpp",
         "xstddef": "cpp"
     },
-    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "modificationsIfAvailable",
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true,
+        "editor.formatOnSave": true
+    },
+    "black-formatter.args": [
+        "-l 120"
+    ],
+    "[cpp]": {
+        "editor.formatOnSave": true
     },
     "git.scanRepositories": [
         "${workspaceFolder}",
@@ -106,10 +112,24 @@
     "gitlens.detectNestedRepositories": true,
     "gitlens.advanced.repositorySearchDepth": 4,
     "C_Cpp.errorSquiggles": "enabled",
-    "search.useIgnoreFiles": false,
-    "search.useGlobalIgnoreFiles": true,
-    "search.useParentIgnoreFiles": true,
-    "black-formatter.args": [
-        "-l 120"
+    // "search.useIgnoreFiles": false,
+    // "search.useGlobalIgnoreFiles": true,
+    // "search.useParentIgnoreFiles": true,
+    "files.exclude": {
+        "**/*.x86_64.o": true,
+        "**/*.x86_64.a": true,
+        "**/*.x86_64.o.d": true,
+        "**/*.x86_64.san.o": true,
+        "**/*.x86_64.san.a": true,
+        "**/*.arm64.o": true,
+        "**/*.arm64.a": true,
+        "**/*.arm64.o.d": true,
+        "**/*.arm64.san.o": true,
+        "**/*.arm64.san.a": true
+    },
+    "dotnet.defaultSolution": "disable",
+    "clangd.fallbackFlags": [
+        "-I${workspaceFolder}",
+        "-I${workspaceFolder}/modules/gdsdecomp"
     ]
 }

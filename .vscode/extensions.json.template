@@ -2,6 +2,8 @@
   // Recommended extensions for developing gdsdecomp
   "recommendations": [
     "ms-python.black-formatter",
-    "ms-vscode.cpptools"
+    "ms-vscode.cpptools",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "llvm-vs-code-extensions.lldb-dap"
   ]
 }

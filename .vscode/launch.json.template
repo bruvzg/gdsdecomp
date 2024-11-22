@@ -22,7 +22,8 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "externalTerminal"
+            "console": "integratedTerminal",
+            "preLaunchTask": "Build: editor dev_build"
         },
         // Use this to launch the GDRE standalone GUI, this uses the debug editor binary
         {
@@ -38,7 +39,8 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole"
+            "console": "integratedTerminal",
+            "preLaunchTask": "Build: editor dev_build"
         },
         // Use this to launch the standalone editor with the template_release binary
         {
@@ -54,7 +56,8 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole"
+            "console": "integratedTerminal",
+            "preLaunchTask": "Build: editor template_release"
         },
         // This launches the editor to edit the standalone Godot project
         {
@@ -71,7 +74,8 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "externalTerminal"
+            "console": "externalTerminal",
+            "preLaunchTask": "Build: editor dev_build"
         },
         {
             "name": "(Windows) Launch Editor (test project) (editor Optimized)",
@@ -88,7 +92,44 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole"
+            "console": "integratedTerminal",
+            "preLaunchTask": "Build: editor optimized"
+        },
+        {
+            "name": "(macOS) Launch CLI recovery (editor dev)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/godot.macos.editor.dev.arm64",
+            "args": [
+                "--headless",
+                "--path",
+                "${workspaceFolder}/modules/gdsdecomp/standalone",
+                // Put the pck you want to test here
+                "--recover=${workspaceFolder}/../wherever_the_pck_you_want_to_test_is",
+                "--output-dir=${workspaceFolder}/../wherever_you_want_the_output_to_be"
+            ],
+            "cwd": "${workspaceFolder}",
+            "visualizerFile": "${workspaceFolder}/platform/windows/godot.natvis",
+            "MIMode": "lldb",
+            "preLaunchTask": "Build: editor dev_build"
+        },
+        {
+            "name": "(Linux) Launch CLI recovery (editor dev)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/godot.linux.editor.dev.x86_64",
+            "args": [
+                "--headless",
+                "--path",
+                "${workspaceFolder}/modules/gdsdecomp/standalone",
+                // Put the pck you want to test here
+                "--recover=${workspaceFolder}/../wherever_the_pck_you_want_to_test_is",
+                "--output-dir=${workspaceFolder}/../wherever_you_want_the_output_to_be"
+            ],
+            "cwd": "${workspaceFolder}",
+            "visualizerFile": "${workspaceFolder}/platform/windows/godot.natvis",
+            "MIMode": "gdb",
+            "preLaunchTask": "Build: editor dev_build"
         },
     ]
 }
