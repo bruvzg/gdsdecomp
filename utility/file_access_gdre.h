@@ -114,8 +114,8 @@ public:
 	virtual String fix_path(const String &p_path) const override; ///< fix a path, i.e. make it absolute and in the OS format
 	virtual Error resize(int64_t p_length) override;
 	virtual void flush() override;
-	virtual void store_8(uint8_t p_dest) override; ///< store a byte
-	virtual void store_buffer(const uint8_t *p_src, uint64_t p_length) override; ///< store an array of bytes
+	virtual bool store_8(uint8_t p_dest) override; ///< store a byte
+	virtual bool store_buffer(const uint8_t *p_src, uint64_t p_length) override; ///< store an array of bytes
 
 	virtual bool file_exists(const String &p_name) override; ///< return true if a file exists
 

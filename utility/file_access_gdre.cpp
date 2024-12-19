@@ -301,13 +301,13 @@ void FileAccessGDRE::flush() {
 	return proxy->flush();
 }
 
-void FileAccessGDRE::store_8(uint8_t p_dest) {
-	ERR_FAIL_COND_MSG(proxy.is_null(), "File must be opened before use.");
+bool FileAccessGDRE::store_8(uint8_t p_dest) {
+	ERR_FAIL_COND_V_MSG(proxy.is_null(), false, "File must be opened before use.");
 	return proxy->store_8(p_dest);
 }
 
-void FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
-	ERR_FAIL_COND_MSG(proxy.is_null(), "File must be opened before use.");
+bool FileAccessGDRE::store_buffer(const uint8_t *p_src, uint64_t p_length) {
+	ERR_FAIL_COND_V_MSG(proxy.is_null(), false, "File must be opened before use.");
 	return proxy->store_buffer(p_src, p_length);
 }
 
