@@ -254,8 +254,8 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 						WARN_PRINT(vformat("Found matching key '%s' for message '%s' but key is used for message '%s'", matching_key, msg, key_to_message[matching_key]));
 					} else {
 						print_verbose(vformat("WARNING: Found duplicate key '%s' for message '%s'", matching_key, msg));
-						// keys.push_back(matching_key);
-						// continue;
+						keys.push_back(matching_key);
+						continue;
 					}
 				} else {
 					print_verbose(vformat("Could not find key for message '%s'", msg));
