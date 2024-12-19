@@ -391,11 +391,11 @@ void FileAccessAPK::flush() {
 	ERR_FAIL();
 }
 
-void FileAccessAPK::store_8(uint8_t p_dest) {
-	ERR_FAIL();
+bool FileAccessAPK::store_8(uint8_t p_dest) {
+	ERR_FAIL_V(false);
 }
-void FileAccessAPK::store_buffer(const uint8_t *p_src, uint64_t p_length) {
-	ERR_FAIL();
+bool FileAccessAPK::store_buffer(const uint8_t *p_src, uint64_t p_length) {
+	ERR_FAIL_V(false);
 } ///< store an array of bytes, needs to be overwritten by children.
 
 bool FileAccessAPK::file_exists(const String &p_name) {

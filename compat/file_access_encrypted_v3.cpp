@@ -228,9 +228,9 @@ Error FileAccessEncryptedv3::get_error() const {
 	return eofed ? ERR_FILE_EOF : OK;
 }
 
-void FileAccessEncryptedv3::store_buffer(const uint8_t *p_src, uint64_t p_length) {
-	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
-	ERR_FAIL_COND(!p_src && p_length > 0);
+bool FileAccessEncryptedv3::store_buffer(const uint8_t *p_src, uint64_t p_length) {
+	ERR_FAIL_COND_V_MSG(!writing, false, "File has not been opened in write mode.");
+	ERR_FAIL_COND_V(!p_src && p_length > 0, false);
 
 	if (pos < get_length()) {
 		for (uint64_t i = 0; i < p_length; i++) {
@@ -243,6 +243,7 @@ void FileAccessEncryptedv3::store_buffer(const uint8_t *p_src, uint64_t p_length
 		}
 		pos += p_length;
 	}
+	return true;
 }
 
 void FileAccessEncryptedv3::flush() {
@@ -251,8 +252,8 @@ void FileAccessEncryptedv3::flush() {
 	// encrypted files keep data in memory till close()
 }
 
-void FileAccessEncryptedv3::store_8(uint8_t p_dest) {
-	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
+bool FileAccessEncryptedv3::store_8(uint8_t p_dest) {
+	ERR_FAIL_COND_V_MSG(!writing, false, "File has not been opened in write mode.");
 
 	if (pos < get_length()) {
 		data.write[pos] = p_dest;
@@ -261,6 +262,7 @@ void FileAccessEncryptedv3::store_8(uint8_t p_dest) {
 		data.push_back(p_dest);
 		pos++;
 	}
+	return true;
 }
 
 bool FileAccessEncryptedv3::file_exists(const String &p_name) {
